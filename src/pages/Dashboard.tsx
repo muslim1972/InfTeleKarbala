@@ -29,11 +29,25 @@ export const Dashboard = () => {
     const [showIban, setShowIban] = useState(false);
 
     // UI State for Collapsible Sections
-    const [expandedSections, setExpandedSections] = useState({
-        basic: false,
-        allowances: false,
-        deductions: false
-    });
+    const [openSection, setOpenSection] = useState<string | null>(null);
+
+    const toggleSection = (section: string) => {
+        setOpenSection(prev => {
+            const newState = prev === section ? null : section;
+
+            // Auto-scroll when opening
+            if (newState) {
+                setTimeout(() => {
+                    const element = document.getElementById(`financial-group-${section}`);
+                    if (element) {
+                        const y = element.getBoundingClientRect().top + window.scrollY - 250; // Offset for header
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                }, 100);
+            }
+            return newState;
+        });
+    };
 
     // Admin State
     const [showYearView, setShowYearView] = useState(false);
@@ -145,9 +159,7 @@ export const Dashboard = () => {
         setDetailItems([]);
     }, [selectedYear]);
 
-    const toggleSection = (section: keyof typeof expandedSections) => {
-        setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-    };
+
 
     // Grouped Configuration
     const financialGroups = [
@@ -231,10 +243,10 @@ export const Dashboard = () => {
                             <div className="space-y-4 pb-20">
 
                                 {financialGroups.map((group) => (
-                                    <div key={group.id} className="rounded-2xl overflow-hidden shadow-lg border border-white/5">
+                                    <div id={`financial-group-${group.id}`} key={group.id} className="rounded-2xl overflow-hidden shadow-lg border border-white/5">
                                         {/* Header Button */}
                                         <button
-                                            onClick={() => toggleSection(group.id as any)}
+                                            onClick={() => toggleSection(group.id)}
                                             className={cn(
                                                 "w-full p-4 flex items-center justify-between text-white transition-all",
                                                 "bg-gradient-to-r hover:brightness-110",
@@ -249,51 +261,43 @@ export const Dashboard = () => {
                                             </div>
                                             <ChevronDown className={cn(
                                                 "w-5 h-5 transition-transform duration-300",
-                                                expandedSections[group.id as keyof typeof expandedSections] ? "rotate-180" : ""
+                                                openSection === group.id ? "rotate-180" : ""
                                             )} />
                                         </button>
 
                                         {/* Content */}
-                                        <AnimatePresence>
-                                            {expandedSections[group.id as keyof typeof expandedSections] && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                                                    className="bg-black/20"
-                                                >
-                                                    <div className="p-3 space-y-2">
-                                                        {group.fields.map((field) => {
-                                                            const val = financialData[field.key];
-                                                            const displayVal = field.isMoney
-                                                                ? Number(val || 0).toLocaleString()
-                                                                : field.suffix ? `${val || 0}${field.suffix}` : (val || '-');
+                                        {openSection === group.id && (
+                                            <div className="bg-black/20">
+                                                <div className="p-3 space-y-2">
+                                                    {group.fields.map((field) => {
+                                                        const val = financialData[field.key];
+                                                        const displayVal = field.isMoney
+                                                            ? Number(val || 0).toLocaleString()
+                                                            : field.suffix ? `${val || 0}${field.suffix}` : (val || '-');
 
-                                                            return (
-                                                                <div
-                                                                    key={field.key}
-                                                                    className={cn(
-                                                                        "flex justify-between items-center p-4 rounded-xl border transition-colors",
-                                                                        field.superHighlight ? "bg-brand-green/20 border-brand-green text-white" :
-                                                                            field.highlight ? "bg-red-500/10 border-red-500/20 text-white" :
-                                                                                "bg-white/5 border-white/5 text-white/80 hover:bg-white/10"
-                                                                    )}
-                                                                >
-                                                                    <span className="font-medium text-sm md:text-base">{field.label}</span>
-                                                                    <span className={cn(
-                                                                        "font-bold font-mono tracking-wide",
-                                                                        field.superHighlight ? "text-xl" : "text-base"
-                                                                    )}>
-                                                                        {displayVal}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                        return (
+                                                            <div
+                                                                key={field.key}
+                                                                className={cn(
+                                                                    "flex justify-between items-center p-4 rounded-xl border transition-colors",
+                                                                    field.superHighlight ? "bg-brand-green/20 border-brand-green text-white" :
+                                                                        field.highlight ? "bg-red-500/10 border-red-500/20 text-white" :
+                                                                            "bg-white/5 border-white/5 text-white/80 hover:bg-white/10"
+                                                                )}
+                                                            >
+                                                                <span className="font-medium text-sm md:text-base">{field.label}</span>
+                                                                <span className={cn(
+                                                                    "font-bold font-mono tracking-wide",
+                                                                    field.superHighlight ? "text-xl" : "text-base"
+                                                                )}>
+                                                                    {displayVal}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
 
@@ -531,6 +535,6 @@ export const Dashboard = () => {
                     </div>
                 )}
             </div>
-        </Layout>
+        </Layout >
     );
 };

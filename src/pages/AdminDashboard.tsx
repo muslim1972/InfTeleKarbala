@@ -69,7 +69,7 @@ export const AdminDashboard = () => {
                 setTimeout(() => {
                     const element = document.getElementById(`record-section-${section}`);
                     if (element) {
-                        const y = element.getBoundingClientRect().top + window.scrollY - 100; // Offset for header
+                        const y = element.getBoundingClientRect().top + window.scrollY - 250; // Offset for header
                         window.scrollTo({ top: y, behavior: 'smooth' });
                     }
                 }, 100);
