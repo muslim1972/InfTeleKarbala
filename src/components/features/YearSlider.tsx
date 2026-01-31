@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { cn } from "../../lib/utils";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 
