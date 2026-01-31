@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
-import { UserPlus, Settings, Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Calendar, Award } from "lucide-react";
+import { UserPlus, Settings, Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Calendar, Award, Pencil } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -58,6 +58,25 @@ export const AdminDashboard = () => {
         penalties: [],
         leaves: []
     });
+    const [openRecordSection, setOpenRecordSection] = useState<string | null>(null);
+
+    const handleToggleRecordSection = (section: string) => {
+        setOpenRecordSection(prev => {
+            const newState = prev === section ? null : section;
+
+            // Auto-scroll when opening
+            if (newState) {
+                setTimeout(() => {
+                    const element = document.getElementById(`record-section-${section}`);
+                    if (element) {
+                        const y = element.getBoundingClientRect().top + window.scrollY - 100; // Offset for header
+                        window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                }, 100);
+            }
+            return newState;
+        });
+    };
 
 
     const detailsRef = useRef<HTMLDivElement>(null);
@@ -582,10 +601,10 @@ export const AdminDashboard = () => {
 
             console.log(`[Audit] Saving as Admin: ${currentUser.full_name} (${currentUser.id})`);
 
-            const { error } = await supabase.from(tableName).insert([payload]);
+            const { error } = await supabase.from(tableName).upsert([payload]); // Changed to upsert for edit support
             if (error) throw error;
 
-            toast.success("تم إضافة السجل بنجاح");
+            toast.success(data.id ? "تم تحديث السجل بنجاح" : "تم إضافة السجل بنجاح");
             fetchAdminRecords(); // Refresh list
 
             // Optional: Update Count in yearly_records (Implementation left as exercise or handled by DB trigger optimally)
@@ -1088,9 +1107,9 @@ export const AdminDashboard = () => {
                                 </div>
 
                                 {/* Year Selection */}
-                                <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-                                    <h3 className="text-white/70 mb-4 font-bold flex items-center gap-2">
-                                        <Calendar className="w-5 h-5" />
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                                    <h3 className="text-white/70 mb-2 font-bold flex items-center gap-2 text-sm">
+                                        <Calendar className="w-4 h-4" />
                                         حدد السنة المالية
                                     </h3>
                                     <YearSlider selectedYear={selectedAdminYear} onYearChange={setSelectedAdminYear} />
@@ -1099,6 +1118,7 @@ export const AdminDashboard = () => {
                                 {/* Sections */}
                                 <div className="space-y-4">
                                     <RecordSection
+                                        id="thanks"
                                         title="كتب الشكر والتقدير"
                                         icon={Award}
                                         color="from-yellow-600 to-yellow-500"
@@ -1106,6 +1126,8 @@ export const AdminDashboard = () => {
                                         type="thanks"
                                         onSave={handleSaveRecord}
                                         onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'thanks'}
+                                        onToggle={() => handleToggleRecordSection('thanks')}
                                         fields={[
                                             { key: 'book_number', label: 'رقم الكتاب' },
                                             { key: 'book_date', label: 'تاريخ الكتاب', type: 'date' },
@@ -1114,6 +1136,7 @@ export const AdminDashboard = () => {
                                         ]}
                                     />
                                     <RecordSection
+                                        id="committees"
                                         title="اللجان"
                                         icon={User}
                                         color="from-blue-600 to-blue-500"
@@ -1121,6 +1144,8 @@ export const AdminDashboard = () => {
                                         type="committees"
                                         onSave={handleSaveRecord}
                                         onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'committees'}
+                                        onToggle={() => handleToggleRecordSection('committees')}
                                         fields={[
                                             { key: 'committee_name', label: 'اسم اللجنة' },
                                             { key: 'role', label: 'العضوية / الصفة' },
@@ -1128,6 +1153,7 @@ export const AdminDashboard = () => {
                                         ]}
                                     />
                                     <RecordSection
+                                        id="penalties"
                                         title="العقوبات"
                                         icon={Scissors}
                                         color="from-red-600 to-red-500"
@@ -1135,6 +1161,8 @@ export const AdminDashboard = () => {
                                         type="penalties"
                                         onSave={handleSaveRecord}
                                         onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'penalties'}
+                                        onToggle={() => handleToggleRecordSection('penalties')}
                                         fields={[
                                             { key: 'penalty_type', label: 'نوع العقوبة' },
                                             { key: 'reason', label: 'السبب' },
@@ -1143,6 +1171,7 @@ export const AdminDashboard = () => {
                                         ]}
                                     />
                                     <RecordSection
+                                        id="leaves"
                                         title="الاجازات"
                                         icon={FileText}
                                         color="from-green-600 to-green-500"
@@ -1150,6 +1179,8 @@ export const AdminDashboard = () => {
                                         type="leaves"
                                         onSave={handleSaveRecord}
                                         onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'leaves'}
+                                        onToggle={() => handleToggleRecordSection('leaves')}
                                         fields={[
                                             { key: 'leave_type', label: 'نوع الاجازة' },
                                             { key: 'start_date', label: 'تاريخ البدء', type: 'date' },
@@ -1216,14 +1247,14 @@ export const AdminDashboard = () => {
 };
 
 
-function RecordSection({ title, icon: Icon, color, data, onSave, onDelete, type, fields }: any) {
-    const [isOpen, setIsOpen] = useState(false);
+function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, type, fields, isOpen, onToggle }: any) {
     const [newItem, setNewItem] = useState<any>({});
+    const [isEditing, setIsEditing] = useState(false);
 
     return (
-        <div className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mb-4">
+        <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mb-4">
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={onToggle}
                 className={cn(
                     "w-full p-4 flex items-center justify-between text-white transition-all bg-gradient-to-r hover:brightness-110",
                     color
@@ -1240,10 +1271,11 @@ function RecordSection({ title, icon: Icon, color, data, onSave, onDelete, type,
 
             {isOpen && (
                 <div className="p-4 bg-black/20 border-t border-white/5 space-y-4">
-                    {/* Add New Form */}
-                    <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-3">
-                        <h4 className="text-white/70 text-sm font-bold flex items-center gap-2">
-                            <Plus className="w-4 h-4" /> إضافة سجل جديد
+                    {/* Add/Edit Form */}
+                    <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-white/5 border-white/5")}>
+                        <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-white/70")}>
+                            {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {fields.map((field: any) => (
@@ -1258,15 +1290,31 @@ function RecordSection({ title, icon: Icon, color, data, onSave, onDelete, type,
                                 </div>
                             ))}
                         </div>
-                        <button
-                            onClick={() => {
-                                onSave(type, newItem);
-                                setNewItem({});
-                            }}
-                            className="w-full py-2 bg-brand-green/20 hover:bg-brand-green/30 text-brand-green rounded-lg text-sm font-bold transition-colors"
-                        >
-                            حفظ السجل
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => {
+                                    onSave(type, newItem);
+                                    setNewItem({});
+                                    setIsEditing(false);
+                                }}
+                                className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
+                                    isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
+                                )}
+                            >
+                                {isEditing ? "حفظ التعديلات" : "حفظ السجل"}
+                            </button>
+                            {isEditing && (
+                                <button
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setNewItem({});
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold"
+                                >
+                                    إلغاء
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* List */}
@@ -1282,12 +1330,26 @@ function RecordSection({ title, icon: Icon, color, data, onSave, onDelete, type,
                                     </div>
                                     <p className="text-white/60 text-xs">{item[fields[1].key]}</p>
                                 </div>
-                                <button
-                                    onClick={() => onDelete(type, item.id)}
-                                    className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => {
+                                            setNewItem(item); // Populate form
+                                            setIsEditing(true); // Switch mode
+                                            // Scroll to form (optional, simplified)
+                                        }}
+                                        className="p-2 text-white/20 hover:text-brand-green hover:bg-brand-green/10 rounded-lg transition-colors"
+                                        title="تعديل"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(type, item.id)}
+                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        title="حذف"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                         {data.length === 0 && (
