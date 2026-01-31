@@ -30,14 +30,19 @@ export const Dashboard = () => {
 
     // UI State for Collapsible Sections
     const [expandedSections, setExpandedSections] = useState({
-        basic: true,
-        allowances: true,
-        deductions: true
+        basic: false,
+        allowances: false,
+        deductions: false
     });
 
     // Admin State
     const [showYearView, setShowYearView] = useState(false);
-    const [selectedYear, setSelectedYear] = useState(2024);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [adminData, setAdminData] = useState<any>(null);
+    const [yearlyData, setYearlyData] = useState<any[]>([]);
+
+    // Computed Yearly Data
+    const currentYearRecord = yearlyData.find(r => r.year === selectedYear) || {};
 
     // Fetch Financial Data
     useEffect(() => {
@@ -56,6 +61,27 @@ export const Dashboard = () => {
                 if (error) {
                     console.error("Error fetching financial data:", error);
                 }
+                if (error) {
+                    console.error("Error fetching financial data:", error);
+                }
+
+                // Fetch Administrative Summary
+                const { data: admData } = await supabase
+                    .from('administrative_summary')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (admData) setAdminData(admData);
+
+                // Fetch Yearly Records
+                const { data: yData } = await supabase
+                    .from('yearly_records')
+                    .select('*')
+                    .eq('user_id', user.id);
+
+                if (yData) setYearlyData(yData);
+
                 console.log("Financial data result:", data);
 
                 if (data) {
@@ -282,19 +308,19 @@ export const Dashboard = () => {
                                     <div className="grid grid-cols-1 gap-3 mt-4">
                                         <div className="bg-white/5 p-4 rounded-xl flex justify-between items-center">
                                             <span className="text-white/70">كتب الشكر</span>
-                                            <span className="text-white font-bold text-xl">5</span>
+                                            <span className="text-white font-bold text-xl">{currentYearRecord.thanks_books_count || 0}</span>
                                         </div>
                                         <div className="bg-white/5 p-4 rounded-xl flex justify-between items-center">
                                             <span className="text-white/70">اللجان</span>
-                                            <span className="text-white font-bold text-xl">12</span>
+                                            <span className="text-white font-bold text-xl">{currentYearRecord.committees_count || 0}</span>
                                         </div>
                                         <div className="bg-white/5 p-4 rounded-xl flex justify-between items-center">
                                             <span className="text-white/70">العقوبات</span>
-                                            <span className="text-white font-bold text-xl text-red-400">0</span>
+                                            <span className="text-white font-bold text-xl text-red-400">{currentYearRecord.penalties_count || 0}</span>
                                         </div>
                                         <div className="bg-white/5 p-4 rounded-xl flex justify-between items-center">
                                             <span className="text-white/70">الاجازات (في هذه السنة)</span>
-                                            <span className="text-white font-bold text-xl">3</span>
+                                            <span className="text-white font-bold text-xl">{currentYearRecord.leaves_taken || 0}</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -308,15 +334,15 @@ export const Dashboard = () => {
                             <GlassCard className="space-y-4 p-5">
                                 <div className="flex justify-between border-b border-white/10 pb-3">
                                     <span className="text-white/70">رصيد الاجازات المتبقي</span>
-                                    <span className="text-white font-bold">45 يوم</span>
+                                    <span className="text-white font-bold">{adminData?.remaining_leave_balance || 0} يوم</span>
                                 </div>
                                 <div className="flex justify-between border-b border-white/10 pb-3">
                                     <span className="text-white/70">الاجازات المحتسبة من الرصيد</span>
-                                    <span className="text-white font-bold">12 يوم</span>
+                                    <span className="text-white font-bold">{currentYearRecord.leaves_taken || 0} يوم</span>
                                 </div>
                                 <div className="flex justify-between border-b border-white/10 pb-3">
                                     <span className="text-white/70">الاجازات بدون راتب</span>
-                                    <span className="text-white font-bold">0</span>
+                                    <span className="text-white font-bold">{currentYearRecord.unpaid_leaves || 0}</span>
                                 </div>
 
                                 <div className="pt-2">
@@ -324,18 +350,18 @@ export const Dashboard = () => {
                                     <div className="grid grid-cols-2 gap-4 bg-white/5 p-3 rounded-lg">
                                         <div>
                                             <p className="text-white/40 text-xs mb-1">تاريخ الانفكاك</p>
-                                            <p className="text-white font-mono text-sm">--/--/----</p>
+                                            <p className="text-white font-mono text-sm">{adminData?.disengagement_date || '--/--/----'}</p>
                                         </div>
                                         <div>
                                             <p className="text-white/40 text-xs mb-1">تاريخ المباشرة</p>
-                                            <p className="text-white font-mono text-sm">--/--/----</p>
+                                            <p className="text-white font-mono text-sm">{adminData?.resumption_date || '--/--/----'}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex justify-between pt-2">
                                     <span className="text-white/70">الاجازات المرضية</span>
-                                    <span className="text-white font-bold">5 يوم</span>
+                                    <span className="text-white font-bold">{currentYearRecord.sick_leaves || 0} يوم</span>
                                 </div>
 
                             </GlassCard>
