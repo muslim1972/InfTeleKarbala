@@ -27,7 +27,6 @@ export const YearSlider = ({
             // Visual Right Button -> Scroll +ve (Right)
             // Visual Left Button -> Scroll -ve (Left)
             // Regardless of RTL, changing 'left' coordinate works physically.
-            const invalidRTL = document.dir === 'rtl';
             // If dir=rtl, scrollLeft starts at 0 (rightmost) and goes negative or positive depending on browser type. 
             // Chrome: 0 at right, negative to left. 
             // Let's rely on visual direction.
