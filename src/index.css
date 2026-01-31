@@ -1,0 +1,224 @@
+/* CSS Variables for Safe Area Insets */
+:root {
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+  --safe-area-left: env(safe-area-inset-left);
+  --safe-area-right: env(safe-area-inset-right);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  /* دعم dvh */
+  min-height: 100dvh;
+  /* Allow vertical scroll, hide horizontal */
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y pan-x pinch-zoom;
+  overscroll-behavior: contain;
+}
+
+@keyframes highlight {
+
+  0%,
+  100% {
+    background-color: transparent;
+  }
+
+  50% {
+    background-color: rgba(99, 102, 241, 0.2);
+  }
+}
+
+.highlight-message {
+  animation: highlight 1s ease-in-out 2;
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+  /* Allow vertical scroll */
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+/* ✅ تحسين تجربة اللمس للعناصر التفاعلية */
+button,
+a,
+[role="button"],
+[onclick] {
+  /* السماح بالنقر فقط، منع التمرير العرضي */
+  touch-action: manipulation;
+  /* منع التحديد النصي عند النقر */
+  -webkit-user-select: none;
+  user-select: none;
+  /* تحسين استجابة النقر */
+  cursor: pointer;
+}
+
+/* العناصر القابلة للتمرير */
+[class*="overflow-"],
+[class*="scroll"] {
+  /* السماح بالتمرير في جميع الاتجاهات */
+  touch-action: pan-y pan-x;
+  /* تحسين أداء التمرير */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* العناصر غير التفاعلية (صور، نصوص، إلخ) */
+img,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span:not([onclick]) {
+  /* منع أي تفاعل لمسي */
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ✅ تمكين تحديد النصوص في حقول الإدخال */
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+@keyframes flash-blue {
+
+  0%,
+  100% {
+    background-color: transparent;
+  }
+
+  50% {
+    background-color: rgba(56, 189, 248, 0.5);
+  }
+}
+
+.animate-flash-overlay {
+  animation: flash-blue 1s ease-in-out 4;
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+
+  .animate-spin-radar {
+    animation: spin 3s linear infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.post-header-hover:hover {
+  background-color: var(--shagram-hover);
+}
+
+@keyframes firework {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-100px) scale(0);
+    opacity: 0;
+  }
+}
+
+.animate-firework {
+  animation: firework 1s ease-out forwards;
+}
+
+.animate-pulse-fast {
+  animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Marquee Animation for Tips - Text moves from LEFT to RIGHT */
+@keyframes marquee-ltr {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-marquee-rtl {
+  display: inline-block;
+  animation: marquee-ltr linear infinite;
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee-ltr 20s linear infinite;
+}
+
+/* Fade In Animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

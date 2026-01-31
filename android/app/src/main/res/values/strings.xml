@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">InfTeleKarbala</string>
+    <string name="title_activity_main">InfTeleKarbala</string>
+    <string name="package_name">com.inftelekarbala.app</string>
+    <string name="custom_url_scheme">com.inftelekarbala.app</string>
+</resources>
