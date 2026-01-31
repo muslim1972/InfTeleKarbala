@@ -1,4 +1,4 @@
--- Fix Foreign Key Constraints for Audit Columns
+-- Fix     Foreign Key Constraints for Audit Columns
 -- The frontend uses app_users.id, so the FK must reference public.app_users, not auth.users.
 
 -- 1. Thanks Details
