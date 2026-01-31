@@ -4,11 +4,12 @@ import { cn } from "../../lib/utils";
 interface LayoutProps {
     children: React.ReactNode;
     className?: string;
+    headerContent?: React.ReactNode;
 }
 
-export const Layout = ({ children, className }: LayoutProps) => {
+export const Layout = ({ children, className, headerContent }: LayoutProps) => {
     return (
-        <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0f172a] font-tajawal selection:bg-brand-green/30">
+        <div className="min-h-screen bg-[#0f172a] text-white font-cairo relative">
             {/* Cosmic Background Effects */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 {/* Deep Space Gradient */}
@@ -24,7 +25,7 @@ export const Layout = ({ children, className }: LayoutProps) => {
             </div>
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
-                <AppHeader />
+                <AppHeader bottomContent={headerContent} />
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full", className)}>
                     {children}
                 </main>
