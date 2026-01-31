@@ -10,8 +10,8 @@ interface TabSystemProps {
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const tabs = [
-        { id: 'financial', label: 'البيانات المالية', icon: Wallet },
-        { id: 'administrative', label: 'البيانات الذاتية', icon: FileText },
+        { id: 'financial', label: 'المالية', icon: Wallet },
+        { id: 'administrative', label: 'الذاتية', icon: FileText },
     ] as const;
 
     return (

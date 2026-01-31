@@ -159,6 +159,11 @@ export const Dashboard = () => {
         setDetailItems([]);
     }, [selectedYear]);
 
+    // Scroll to top when switching tabs
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }, [activeTab]);
+
 
 
     // Grouped Configuration
