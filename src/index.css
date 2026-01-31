@@ -15,18 +15,8 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  /* دعم dvh */
   min-height: 100dvh;
-  /* Allow vertical scroll, hide horizontal */
-  overflow-y: auto;
-  overflow-x: hidden;
-
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  touch-action: pan-y pan-x pinch-zoom;
-  overscroll-behavior: contain;
+  /* Support natural scrolling for sticky */
 }
 
 @keyframes highlight {

@@ -44,11 +44,17 @@ export const Dashboard = () => {
         if (user?.id) {
             const fetchData = async () => {
                 setLoading(true);
-                const { data } = await supabase
+                console.log("Fetching financial data for user ID:", user.id);
+                const { data, error } = await supabase
                     .from('financial_records')
                     .select('*')
                     .eq('user_id', user.id)
                     .maybeSingle();
+
+                if (error) {
+                    console.error("Error fetching financial data:", error);
+                }
+                console.log("Financial data result:", data);
 
                 if (data) setFinancialData(data);
                 setLoading(false);
@@ -119,9 +125,20 @@ export const Dashboard = () => {
 
     return (
         <Layout>
-            <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
+            <div className="sticky top-0 z-40 bg-[#0f172a]/95 backdrop-blur-xl pt-4 pb-2 -mx-4 px-4 border-b border-white/10 mb-6 shadow-xl">
+                <div className="max-w-4xl mx-auto space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-xl font-bold text-white tracking-tight">واجهة بيانات الموظف</h1>
+                            <p className="text-white/40 text-xs text-brand-green">متصل برقم وظيفي: {user?.job_number}</p>
+                        </div>
+                    </div>
+                    {/* نظام التبويبات مدمج في الرأس الثابت */}
+                    <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
+                </div>
+            </div>
 
-            <div className="relative pb-20">
+            <div className="max-w-4xl mx-auto relative pb-20">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}

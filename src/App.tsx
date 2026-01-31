@@ -2,6 +2,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Toaster } from "react-hot-toast";
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ function App() {
   return (
     <div dir="rtl">
       <AuthProvider>
+        <Toaster position="top-center" reverseOrder={false} />
         <AppContent />
       </AuthProvider>
     </div>

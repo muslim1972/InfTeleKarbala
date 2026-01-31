@@ -8,7 +8,7 @@ export const AppHeader = () => {
     if (!user) return null;
 
     return (
-        <header className="p-4 z-50 sticky top-0">
+        <header className="p-4 z-50 relative">
             <GlassCard className="flex items-center justify-between p-4 !bg-black/30 !border-white/10 !rounded-full">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-yellow-DEFAULT to-brand-green-DEFAULT flex items-center justify-center shadow-lg border-2 border-white/20">
