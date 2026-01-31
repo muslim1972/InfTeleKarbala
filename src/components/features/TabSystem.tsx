@@ -15,7 +15,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     ] as const;
 
     return (
-        <div className="sticky top-[100px] z-40 flex p-1 bg-black/80 backdrop-blur-md rounded-2xl border border-white/5 mb-6 shadow-xl">
+        <div className="sticky top-[85px] md:top-[100px] z-40 flex p-1 bg-black/80 backdrop-blur-md rounded-2xl border border-white/5 mb-6 shadow-xl">
             {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;

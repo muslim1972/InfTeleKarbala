@@ -27,14 +27,14 @@ export const Login = () => {
   };
 
   return (
-    <Layout className="flex items-center justify-center min-h-[80vh]">
-      <GlassCard className="w-full max-w-md p-8 bg-black/50 border-white/10 shadow-2xl">
-        <div className="text-center mb-10">
-          <h1 className="text-2xl md:text-3xl font-bold text-white font-tajawal mb-3 leading-relaxed">
+    <Layout className="flex items-center justify-center min-h-[90dvh] px-4">
+      <GlassCard className="w-full max-w-md p-6 md:p-8 bg-black/50 border-white/10 shadow-2xl">
+        <div className="text-center mb-8 md:mb-10">
+          <h1 className="text-xl md:text-3xl font-bold text-white font-tajawal mb-2 md:mb-3 leading-relaxed">
             مديرية الاتصالات ومعلوماتية كربلاء
           </h1>
-          <div className="h-1 w-20 bg-brand-green mx-auto rounded-full mb-3" />
-          <h2 className="text-white/80 text-lg font-medium">نظام ادارة الموظفين</h2>
+          <div className="h-1 w-16 md:w-20 bg-brand-green mx-auto rounded-full mb-3" />
+          <h2 className="text-white/80 text-base md:text-lg font-medium">نظام ادارة الموظفين</h2>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
