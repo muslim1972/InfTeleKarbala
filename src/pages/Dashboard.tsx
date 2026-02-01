@@ -50,7 +50,6 @@ export const Dashboard = () => {
     };
 
     // Admin State
-    const [showYearView, setShowYearView] = useState(false);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [adminData, setAdminData] = useState<any>(null);
     const [yearlyData, setYearlyData] = useState<any[]>([]);
@@ -63,6 +62,54 @@ export const Dashboard = () => {
     // Leaves Specific State
     const [leavesList, setLeavesList] = useState<any[]>([]);
     const [selectedLeave, setSelectedLeave] = useState<any>(null);
+
+    // Lifetime Counters & Iraqi Logic
+    const [lifetimeUsage, setLifetimeUsage] = useState({ regular: 0, sick: 0 });
+
+    const calculateBalances = () => {
+        const appointmentDate = adminData?.first_appointment_date ? new Date(adminData.first_appointment_date) : null;
+        let totalSickBalance = 365;
+        let totalRegularBalance = 0;
+
+        // Sick Balance (Lifetime 365)
+        const remainingSick = totalSickBalance - (lifetimeUsage.sick || 0);
+
+        // Regular Balance
+        if (appointmentDate) {
+            const now = new Date();
+            let months = (now.getFullYear() - appointmentDate.getFullYear()) * 12;
+            months -= appointmentDate.getMonth();
+            months += now.getMonth();
+            months += 1; // Inclusive current month
+
+            totalRegularBalance = months * 3;
+        }
+
+        const remainingRegular = totalRegularBalance - (lifetimeUsage.regular || 0);
+
+        return {
+            sick: remainingSick,
+            regular: remainingRegular < 0 ? 0 : remainingRegular,
+            total_earned_regular: totalRegularBalance
+        };
+    };
+
+    const balances = calculateBalances();
+
+    // Fetch Lifetime Usage
+    useEffect(() => {
+        const fetchLifetime = async () => {
+            if (!user?.id) return;
+            const { data } = await supabase.rpc('get_lifetime_leaves_usage', { target_user_id: user.id });
+            if (data) {
+                setLifetimeUsage({
+                    regular: data.total_regular_days || 0,
+                    sick: data.total_sick_days || 0
+                });
+            }
+        };
+        fetchLifetime();
+    }, [user?.id, leavesList]); // Refresh when leaves change
 
     // Fetch Leaves for selected year
     useEffect(() => {
@@ -358,159 +405,112 @@ export const Dashboard = () => {
                         </div>
                     )
                 ) : (
-                    // Administrative Tab
-                    <div className="space-y-6">
+                    // Administrative Tab - Sticky Header & New Logic
+                    <div className="space-y-4">
 
-                        {/* Year Slider - Always Visible */}
-                        <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
+                        {/* Sticky Year Slider Container */}
+                        <div className="sticky top-0 z-10 pt-4 pb-2 bg-[#0f172a]/95 backdrop-blur-xl -mx-4 px-4 border-b border-white/5 shadow-2xl">
+                            <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
+                        </div>
 
-                        {/* Years Toggle Button */}
-                        <button
-                            onClick={() => setShowYearView(!showYearView)}
-                            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 rounded-xl font-bold shadow-lg flex items-center justify-between hover:from-blue-500 hover:to-blue-400 transition-all"
-                        >
-                            <span>السجلات السنوية (كتب شكر، لجان، عقوبات، اجازات) {showYearView ? '(إخفاء)' : '(إظهار)'}</span>
-                            <Award className="w-5 h-5" />
-                        </button>
-
-                        <AnimatePresence>
-                            {showYearView && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="overflow-hidden"
+                        {/* Sections Grid */}
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            {[
+                                { id: 'thanks', label: 'كتب الشكر', count: currentYearRecord.thanks_count || 0, icon: Award, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+                                { id: 'committees', label: 'اللجان', count: currentYearRecord.committees_count || 0, icon: User, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                                { id: 'penalties', label: 'العقوبات', count: currentYearRecord.penalties_count || 0, icon: FileText, color: 'text-red-400', bg: 'bg-red-400/10' },
+                                { id: 'leaves', label: 'الاجازات', count: currentYearRecord.leaves_taken || 0, icon: Scissors, color: 'text-green-400', bg: 'bg-green-400/10' },
+                            ].map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleDetailClick(item.id as any)}
+                                    className={cn(
+                                        "p-4 rounded-2xl border transition-all text-right space-y-2",
+                                        expandedDetail === item.id
+                                            ? "bg-white/10 border-white/20 scale-[1.02]"
+                                            : "bg-white/5 border-white/5 hover:bg-white/10",
+                                        expandedDetail === 'leaves' && item.id === 'leaves' ? "bg-brand-green/10 border-brand-green" : ""
+                                    )}
                                 >
-                                    {/* Grid was here */}
+                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", item.bg, item.color)}>
+                                        <item.icon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-white/60 text-xs">{item.label}</p>
+                                        <p className="text-white font-bold text-xl">{item.count}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                                        <button
-                                            onClick={() => handleDetailClick('thanks')}
-                                            className={cn(
-                                                "bg-white/5 p-4 rounded-xl flex justify-between items-center transition-all border border-transparent",
-                                                expandedDetail === 'thanks' ? "bg-brand-green/10 border-brand-green" : "hover:bg-white/10"
-                                            )}
-                                        >
-                                            <span className="text-white/70">كتب الشكر</span>
-                                            <span className="text-white font-bold text-xl">{currentYearRecord.thanks_books_count || 0}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDetailClick('committees')}
-                                            className={cn(
-                                                "bg-white/5 p-4 rounded-xl flex justify-between items-center transition-all border border-transparent",
-                                                expandedDetail === 'committees' ? "bg-brand-green/10 border-brand-green" : "hover:bg-white/10"
-                                            )}
-                                        >
-                                            <span className="text-white/70">اللجان</span>
-                                            <span className="text-white font-bold text-xl">{currentYearRecord.committees_count || 0}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDetailClick('penalties')}
-                                            className={cn(
-                                                "bg-white/5 p-4 rounded-xl flex justify-between items-center transition-all border border-transparent",
-                                                expandedDetail === 'penalties' ? "bg-red-500/10 border-red-500" : "hover:bg-white/10"
-                                            )}
-                                        >
-                                            <span className="text-white/70">العقوبات</span>
-                                            <span className="text-white font-bold text-xl text-red-400">{currentYearRecord.penalties_count || 0}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDetailClick('leaves')}
-                                            className={cn(
-                                                "bg-white/5 p-4 rounded-xl flex justify-between items-center transition-all border border-transparent",
-                                                expandedDetail === 'leaves' ? "bg-brand-green/10 border-brand-green" : "hover:bg-white/10"
-                                            )}
-                                        >
-                                            <span className="text-white/70">الاجازات (في هذه السنة)</span>
-                                            <span className="text-white font-bold text-xl">{currentYearRecord.leaves_taken || 0}</span>
-                                        </button>
+                        {/* Detail Viewer */}
+                        <AnimatePresence mode="wait">
+                            {expandedDetail && expandedDetail !== 'leaves' && (
+                                <motion.div
+                                    key={expandedDetail}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="mt-6 bg-black/20 rounded-2xl p-4 border border-white/5"
+                                >
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-white font-bold text-lg">
+                                            {expandedDetail === 'thanks' && 'تفاصيل كتب الشكر'}
+                                            {expandedDetail === 'committees' && 'تفاصيل اللجان'}
+                                            {expandedDetail === 'penalties' && 'تفاصيل العقوبات'}
+                                        </h3>
+                                        <button onClick={() => setExpandedDetail(null)} className="text-white/40 hover:text-white text-sm">إغلاق</button>
                                     </div>
 
-                                    {/* تفاصيل القسم المختار */}
-                                    <AnimatePresence mode="wait">
-                                        {expandedDetail && (
-                                            <motion.div
-                                                key={expandedDetail}
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -10 }}
-                                                className="mt-6 bg-black/20 rounded-2xl p-4 border border-white/5"
-                                            >
-                                                <div className="flex justify-between items-center mb-4">
-                                                    <h3 className="text-white font-bold text-lg">
-                                                        {expandedDetail === 'thanks' && 'تفاصيل كتب الشكر'}
-                                                        {expandedDetail === 'committees' && 'تفاصيل اللجان'}
-                                                        {expandedDetail === 'penalties' && 'تفاصيل العقوبات'}
-                                                        {expandedDetail === 'leaves' && 'تفاصيل الاجازات'}
-                                                    </h3>
-                                                    <button onClick={() => setExpandedDetail(null)} className="text-white/40 hover:text-white text-sm">إغلاق</button>
-                                                </div>
-
-                                                {detailLoading ? (
-                                                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
-                                                ) : detailItems.length > 0 ? (
-                                                    <div className="space-y-3">
-                                                        {detailItems.map((item: any, idx) => (
-                                                            <div key={item.id || idx} className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                                                {expandedDetail === 'thanks' && (
-                                                                    <div className="flex justify-between items-start">
-                                                                        <div>
-                                                                            <p className="text-brand-green font-bold text-sm">كتاب رقم: {item.book_number}</p>
-                                                                            <p className="text-white text-sm mt-1">{item.reason}</p>
-                                                                            <p className="text-white/40 text-xs mt-1">الجهة المانحة: {item.issuer}</p>
-                                                                        </div>
-                                                                        <span className="text-white/40 text-xs bg-white/5 px-2 py-1 rounded">{item.book_date}</span>
-                                                                    </div>
-                                                                )}
-                                                                {expandedDetail === 'committees' && (
-                                                                    <div className="flex justify-between items-center">
-                                                                        <div>
-                                                                            <p className="text-white font-bold text-sm">{item.committee_name}</p>
-                                                                            <p className="text-brand-green text-xs mt-1">الصفة: {item.role}</p>
-                                                                        </div>
-                                                                        {item.start_date && <span className="text-white/40 text-xs">{item.start_date}</span>}
-                                                                    </div>
-                                                                )}
-                                                                {expandedDetail === 'penalties' && (
-                                                                    <div className="space-y-1">
-                                                                        <div className="flex justify-between">
-                                                                            <p className="text-red-400 font-bold text-sm">{item.penalty_type}</p>
-                                                                            <span className="text-white/40 text-xs">{item.penalty_date}</span>
-                                                                        </div>
-                                                                        <p className="text-white text-sm">{item.reason}</p>
-                                                                        {item.effect && <p className="text-white/40 text-xs">الأثر: {item.effect}</p>}
-                                                                    </div>
-                                                                )}
-                                                                {expandedDetail === 'leaves' && (
-                                                                    <div className="flex justify-between items-center">
-                                                                        <div>
-                                                                            <p className="text-white font-bold text-sm">{item.leave_type}</p>
-                                                                            <p className="text-white/40 text-xs mt-1">المدة: {item.duration} يوم</p>
-                                                                        </div>
-                                                                        <div className="text-left">
-                                                                            <p className="text-brand-green text-xs">{item.start_date}</p>
-                                                                            {item.end_date && <p className="text-white/40 text-xs">إلى {item.end_date}</p>}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                    {detailLoading ? (
+                                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
+                                    ) : detailItems.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {detailItems.map((item: any, idx) => (
+                                                <div key={item.id || idx} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                                                    {expandedDetail === 'thanks' && (
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <p className="text-brand-green font-bold text-sm">كتاب رقم: {item.book_number}</p>
+                                                                <p className="text-white text-sm mt-1">{item.reason}</p>
+                                                                <p className="text-white/40 text-xs mt-1">الجهة المانحة: {item.issuer}</p>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center py-8 text-white/30 text-sm">لا توجد تفاصيل مسجلة</div>
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                                            <span className="text-white/40 text-xs bg-white/5 px-2 py-1 rounded">{item.book_date}</span>
+                                                        </div>
+                                                    )}
+                                                    {expandedDetail === 'committees' && (
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <p className="text-white font-bold text-sm">{item.committee_name}</p>
+                                                                <p className="text-brand-green text-xs mt-1">الصفة: {item.role}</p>
+                                                            </div>
+                                                            {item.start_date && <span className="text-white/40 text-xs">{item.start_date}</span>}
+                                                        </div>
+                                                    )}
+                                                    {expandedDetail === 'penalties' && (
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between">
+                                                                <p className="text-red-400 font-bold text-sm">{item.penalty_type}</p>
+                                                                <span className="text-white/40 text-xs">{item.penalty_date}</span>
+                                                            </div>
+                                                            <p className="text-white text-sm">{item.reason}</p>
+                                                            {item.effect && <p className="text-white/40 text-xs">الأثر: {item.effect}</p>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-white/30 text-sm">لا توجد تفاصيل مسجلة</div>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        {/* Leaves Balance Section - Master Detail View */}
+                        {/* Leaves Balance Section */}
                         <div className="space-y-3 pt-4">
                             <h3 className="text-white font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
 
-                            {/* Top Card: Viewer (Leaf Details or Summary) */}
                             <GlassCard className="p-5 relative overflow-hidden transition-all duration-300">
                                 <AnimatePresence mode="wait">
                                     {selectedLeave ? (
@@ -560,23 +560,35 @@ export const Dashboard = () => {
                                             className="space-y-3"
                                         >
                                             <div className="flex justify-between border-b border-white/10 pb-2">
-                                                <span className="text-white/70 text-sm">الرصيد المتبقي</span>
-                                                <span className="text-white font-bold">{adminData?.remaining_leave_balance || 0} يوم</span>
+                                                <span className="text-white/70 text-sm">الرصيد الاعتيادي المتبقي</span>
+                                                <span className="text-white font-bold text-brand-green">{balances.regular} يوم</span>
                                             </div>
                                             <div className="flex justify-between border-b border-white/10 pb-2">
-                                                <span className="text-white/70 text-sm">المحتسبة من الرصيد</span>
-                                                <span className="text-white font-bold">{currentYearRecord.leaves_taken || 0} يوم</span>
+                                                <span className="text-white/70 text-sm">الرصيد المرضي المتبقي</span>
+                                                <span className="text-white font-bold text-blue-400">{balances.sick} يوم</span>
                                             </div>
-                                            <div className="flex justify-between pt-1">
-                                                <span className="text-white/70 text-sm">بدون راتب</span>
-                                                <span className="text-white font-bold">{currentYearRecord.unpaid_leaves || 0}</span>
+
+                                            <div className="grid grid-cols-2 gap-3 pt-1">
+                                                <div className="bg-white/5 p-2 rounded text-center">
+                                                    <p className="text-white/40 text-xs">المستخدم (اعتيادية)</p>
+                                                    <p className="text-white font-bold">{lifetimeUsage.regular} يوم</p>
+                                                </div>
+                                                <div className="bg-white/5 p-2 rounded text-center">
+                                                    <p className="text-white/40 text-xs">المستخدم (مرضية)</p>
+                                                    <p className="text-white font-bold">{lifetimeUsage.sick} يوم</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-center pt-2">
+                                                <span className="text-white/30 text-[10px]">
+                                                    تاريخ المباشرة: {adminData?.first_appointment_date || 'غير محدد'}
+                                                </span>
                                             </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </GlassCard>
 
-                            {/* Bottom Card: List of Leaves (Scrollable) */}
                             <div className="bg-white/5 border border-white/5 rounded-xl overflow-hidden">
                                 <h4 className="text-xs font-bold text-white/40 px-4 py-2 bg-white/5">
                                     سجل اجازات {selectedYear}
@@ -616,18 +628,16 @@ export const Dashboard = () => {
 
                         <div className="p-8 text-center text-white/40 glass-card">
                             <FileText className="w-12 h-12 mx-auto mb-4 opacity-20 text-brand-green" />
-                            <h3 className="text-xl font-bold text-white mb-2">الذاتية</h3>
-                            <p>جارِ تطوير هذا القسم لجلب بيانات الخدمة والترفيعات...</p>
+                            <h3 className="text-xl font-bold text-white mb-2">معلومات الخدمة</h3>
+                            <div className="space-y-2">
+                                <p>تاريخ المباشرة: <span className="text-white font-mono">{adminData?.first_appointment_date || 'غير محدد'}</span></p>
+                                <p>تاريخ الانفكاك: <span className="text-white font-mono">{adminData?.disengagement_date || '--/--/----'}</span></p>
+                                <p>تاريخ المباشرة (الجديد): <span className="text-white font-mono">{adminData?.resumption_date || '--/--/----'}</span></p>
+                            </div>
                         </div>
 
-                        {/* Placeholder cards to enable scroll for testing sticky */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/5 h-32 flex items-center justify-center">
-                                    <p className="text-white/20 text-sm">قسم إداري فرعي {i}</p>
-                                </div>
-                            ))}
-                        </div>
+                        {/* Spacer for scroll */}
+                        <div className="h-20"></div>
 
                     </div>
                 )}
