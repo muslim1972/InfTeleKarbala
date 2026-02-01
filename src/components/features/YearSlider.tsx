@@ -51,7 +51,7 @@ export const YearSlider = ({
     };
 
     return (
-        <div className="relative py-2 mb-2 group flex items-center gap-1">
+        <div className="relative group flex items-center gap-1">
 
             {/* Right Arrow: Newer Years (Start of List) */}
             <button
