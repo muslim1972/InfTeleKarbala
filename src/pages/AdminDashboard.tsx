@@ -743,106 +743,109 @@ export const AdminDashboard = () => {
 
             {/* Search & Year Slider (only in manage & records tabs) */}
             {(activeTab === 'admin_manage' || activeTab === 'admin_records') && (
-                <div className="flex items-center gap-3 relative overflow-visible">
-                    {/* User Name - Right Side */}
-                    {selectedEmployee && (
-                        <div className="text-right">
+                <div className="flex items-center justify-between gap-3 relative overflow-visible">
+                    {/* Right Side (Start in RTL): Year Slider */}
+                    <div className="flex-shrink-0">
+                        {activeTab === 'admin_records' && (
+                            <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-lg">
+                                <Calendar className="w-4 h-4 text-white/60" />
+                                <div className="w-32">
+                                    <YearSlider
+                                        selectedYear={selectedAdminYear}
+                                        onYearChange={setSelectedAdminYear}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Left Side (End in RTL): Name + Search */}
+                    <div className="flex items-center gap-3">
+                        {/* User Name */}
+                        {selectedEmployee && (
                             <h3 className="text-white font-bold text-sm">
                                 {selectedEmployee.full_name}
                             </h3>
-                        </div>
-                    )}
-
-                    {/* Search - Expandable */}
-                    <div className="flex items-center gap-2 relative ml-auto overflow-visible" ref={searchRef}>
-                        {searchExpanded && (
-                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300 overflow-visible">
-                                <input
-                                    type="text"
-                                    placeholder="الرقم الوظيفي أو الاسم"
-                                    value={searchJobNumber}
-                                    onChange={e => setSearchJobNumber(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                    onFocus={() => {
-                                        if (suggestions.length > 0) setShowSuggestions(true);
-                                    }}
-                                    onBlur={(e) => {
-                                        const relatedTarget = e.relatedTarget as HTMLElement;
-                                        if (!relatedTarget?.closest('.suggestions-dropdown')) {
-                                            setTimeout(() => {
-                                                setShowSuggestions(false);
-                                            }, 150);
-                                        }
-                                    }}
-                                    autoFocus
-                                    className="w-48 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-green/50"
-                                />
-                                {/* Suggestions Dropdown using Portal */}
-                                {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
-                                    <div
-                                        className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
-                                        style={{
-                                            top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
-                                            left: `${searchRef.current.getBoundingClientRect().right - 200}px`,
-                                            width: '200px'
-                                        }}
-                                    >
-                                        {suggestions.map((user, idx) => (
-                                            <button
-                                                key={user.id || idx}
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                onMouseUp={() => {
-                                                    console.log("Button clicked for:", user.full_name);
-                                                    handleSelectSuggestion(user);
-                                                }}
-                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors cursor-pointer"
-                                            >
-                                                <div>
-                                                    <div className="font-bold text-xs text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                    <div className="text-[10px] text-white/50">{user.job_number}</div>
-                                                </div>
-                                                <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/70">
-                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>,
-                                    document.body
-                                )}
-                            </div>
                         )}
-                        <button
-                            onClick={() => {
-                                if (searchExpanded && searchJobNumber) {
-                                    handleSearch();
-                                } else {
-                                    setSearchExpanded(!searchExpanded);
-                                }
-                            }}
-                            disabled={loading || isSearching}
-                            className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
-                            title="بحث"
-                        >
-                            {loading || isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        </button>
-                    </div>
 
-                    {/* Year Slider - Compact */}
-                    {selectedEmployee && activeTab === 'admin_records' && (
-                        <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-lg">
-                            <Calendar className="w-4 h-4 text-white/60" />
-                            <div className="w-32">
-                                <YearSlider
-                                    selectedYear={selectedAdminYear}
-                                    onYearChange={setSelectedAdminYear}
-                                />
-                            </div>
+                        {/* Search Button & Input */}
+                        <div className="flex items-center gap-2 relative overflow-visible" ref={searchRef}>
+                            {searchExpanded && (
+                                <div className="relative animate-in slide-in-from-right-5 fade-in duration-300 overflow-visible">
+                                    <input
+                                        type="text"
+                                        placeholder="الرقم الوظيفي أو الاسم"
+                                        value={searchJobNumber}
+                                        onChange={e => setSearchJobNumber(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                        onFocus={() => {
+                                            if (suggestions.length > 0) setShowSuggestions(true);
+                                        }}
+                                        onBlur={(e) => {
+                                            const relatedTarget = e.relatedTarget as HTMLElement;
+                                            if (!relatedTarget?.closest('.suggestions-dropdown')) {
+                                                setTimeout(() => {
+                                                    setSearchExpanded(false);
+                                                }, 200);
+                                            }
+                                        }}
+                                        autoFocus
+                                        className="w-48 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                    />
+                                    {/* Suggestions Dropdown using Portal */}
+                                    {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
+                                        <div
+                                            className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
+                                            style={{
+                                                top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
+                                                left: `${searchRef.current.getBoundingClientRect().left}px`,
+                                                width: '200px'
+                                            }}
+                                        >
+                                            {suggestions.map((user, idx) => (
+                                                <button
+                                                    key={user.id || idx}
+                                                    type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                    }}
+                                                    onMouseUp={() => {
+                                                        console.log("Button clicked for:", user.full_name);
+                                                        handleSelectSuggestion(user);
+                                                    }}
+                                                    className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors cursor-pointer"
+                                                >
+                                                    <div>
+                                                        <div className="font-bold text-xs text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
+                                                        <div className="text-[10px] text-white/50">{user.job_number}</div>
+                                                    </div>
+                                                    <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/70">
+                                                        {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>,
+                                        document.body
+                                    )}
+                                </div>
+                            )}
+                            <button
+                                onClick={() => {
+                                    if (searchExpanded && searchJobNumber) {
+                                        handleSearch();
+                                    } else {
+                                        setSearchExpanded(!searchExpanded);
+                                    }
+                                }}
+                                disabled={loading || isSearching}
+                                className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
+                                title="بحث"
+                            >
+                                {loading || isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
         </div>
