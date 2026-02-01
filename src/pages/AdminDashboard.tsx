@@ -761,9 +761,9 @@ export const AdminDashboard = () => {
 
                     {/* Left Side (End in RTL): Name + Search */}
                     <div className="flex items-center gap-3">
-                        {/* User Name */}
-                        {selectedEmployee && (
-                            <h3 className="text-white font-bold text-sm">
+                        {/* User Name - Hidden when search is expanded */}
+                        {!searchExpanded && selectedEmployee && (
+                            <h3 className="text-white font-bold text-sm animate-in fade-in duration-200">
                                 {selectedEmployee.full_name}
                             </h3>
                         )}
@@ -798,7 +798,7 @@ export const AdminDashboard = () => {
                                             className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
                                             style={{
                                                 top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
-                                                left: `${searchRef.current.getBoundingClientRect().right - 200}px`,
+                                                left: `${searchRef.current.getBoundingClientRect().left}px`,
                                                 width: '200px'
                                             }}
                                         >
@@ -832,10 +832,13 @@ export const AdminDashboard = () => {
                             )}
                             <button
                                 onClick={() => {
-                                    if (searchExpanded && searchJobNumber) {
-                                        handleSearch();
+                                    if (searchExpanded) {
+                                        if (searchJobNumber) handleSearch();
+                                        else setSearchExpanded(false);
                                     } else {
-                                        setSearchExpanded(!searchExpanded);
+                                        setSearchJobNumber('');
+                                        setSuggestions([]);
+                                        setSearchExpanded(true);
                                     }
                                 }}
                                 disabled={loading || isSearching}

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 
@@ -17,33 +17,47 @@ export const YearSlider = ({
 }: YearSliderProps) => {
     const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i).reverse();
     const containerRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-    const scroll = (direction: 'left' | 'right') => {
-        if (containerRef.current) {
-            const scrollAmount = 80;
-            // In RTL, typically scrolling "left" means decreasing scrollLeft (moving to visual left/end of list)
-            // But browser behavior with RTL scroll can be tricky. 
-            // Usually: 
-            // Visual Right Button -> Scroll +ve (Right)
-            // Visual Left Button -> Scroll -ve (Left)
-            // Regardless of RTL, changing 'left' coordinate works physically.
-            // If dir=rtl, scrollLeft starts at 0 (rightmost) and goes negative or positive depending on browser type. 
-            // Chrome: 0 at right, negative to left. 
-            // Let's rely on visual direction.
-            if (direction === 'left') {
-                containerRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-            } else {
-                containerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            }
+    // Auto-scroll to selected year when it changes
+    useEffect(() => {
+        const selectedBtn = itemRefs.current.get(selectedYear);
+        if (selectedBtn && containerRef.current) {
+            const container = containerRef.current;
+            // Calculate center position
+            // In RTL, scrollLeft works differently in some browsers, but scrollTo with 'left' usually targets physical pixels
+            // Let's rely on standard calculation: center of container - center of item
+            const scrollLeft = selectedBtn.offsetLeft - (container.clientWidth / 2) + (selectedBtn.clientWidth / 2);
+            container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        }
+    }, [selectedYear]);
+
+    const handleYearStep = (direction: 'newer' | 'older') => {
+        const currentIndex = years.indexOf(selectedYear);
+        if (currentIndex === -1) return;
+
+        // years are descending: [2024, 2023, 2022...]
+        // newer = prev index (2024 is 0, 2023 is 1)
+        // older = next index
+        let newIndex = direction === 'newer' ? currentIndex - 1 : currentIndex + 1;
+
+        // Clamp
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= years.length) newIndex = years.length - 1;
+
+        if (newIndex !== currentIndex) {
+            onYearChange(years[newIndex]);
         }
     };
 
     return (
         <div className="relative py-2 mb-2 group flex items-center gap-1">
 
+            {/* Right Arrow: Newer Years (Start of List) */}
             <button
-                onClick={() => scroll('right')}
-                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10"
+                onClick={() => handleYearStep('newer')}
+                disabled={selectedYear >= endYear}
+                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed"
             >
                 <ChevronRight className="w-4 h-4" />
             </button>
@@ -59,6 +73,10 @@ export const YearSlider = ({
                         return (
                             <button
                                 key={year}
+                                ref={(el) => {
+                                    if (el) itemRefs.current.set(year, el);
+                                    else itemRefs.current.delete(year);
+                                }}
                                 onClick={() => onYearChange(year)}
                                 className={cn(
                                     "flex-shrink-0 relative px-3 py-1.5 rounded-xl transition-all duration-300 snap-center font-bold text-sm z-0",
@@ -77,9 +95,11 @@ export const YearSlider = ({
                 <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0f172a]/90 to-transparent pointer-events-none" />
             </div>
 
+            {/* Left Arrow: Older Years (End of List) */}
             <button
-                onClick={() => scroll('left')}
-                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10"
+                onClick={() => handleYearStep('older')}
+                disabled={selectedYear <= startYear}
+                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed"
             >
                 <ChevronLeft className="w-4 h-4" />
             </button>
