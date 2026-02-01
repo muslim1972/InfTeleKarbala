@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
 import { Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Calendar, Award, Pencil } from "lucide-react";
@@ -101,7 +102,7 @@ export const AdminDashboard = () => {
     useEffect(() => {
         const delaySearch = setTimeout(async () => {
             const query = searchJobNumber.trim();
-            if (!query) {
+            if (!query || !searchExpanded) {
                 setSuggestions([]);
                 setShowSuggestions(false);
                 return;
@@ -109,34 +110,41 @@ export const AdminDashboard = () => {
 
             setIsSearching(true);
             try {
-                // Search by job number OR full name
+                console.log("Searching for:", query); // Debug
+                // Search by job number OR full name (only at start)
                 const { data, error } = await supabase
                     .from('app_users')
                     .select('id, full_name, job_number, username, role')
                     .or(`job_number.ilike.${query}%,full_name.ilike.${query}%`)
-                    .limit(20);
+                    .limit(10);
 
                 if (error) {
                     console.error("Suggestion fetch error:", error);
+                    setSuggestions([]);
+                    setShowSuggestions(false);
                 } else {
+                    console.log("Found suggestions:", data?.length); // Debug
                     setSuggestions(data || []);
-                    setShowSuggestions(true);
+                    setShowSuggestions((data || []).length > 0);
                 }
             } catch (err) {
                 console.error("Suggestion error:", err);
+                setSuggestions([]);
+                setShowSuggestions(false);
             } finally {
                 setIsSearching(false);
             }
         }, 300); // 300ms debounce
 
         return () => clearTimeout(delaySearch);
-    }, [searchJobNumber]);
+    }, [searchJobNumber, searchExpanded]);
 
     const handleSelectSuggestion = async (user: any) => {
-        setSearchJobNumber(user.job_number); // Set ID to ensure search works
+        console.log("Selected user from suggestion:", user);
         setShowSuggestions(false);
         // Call existing search logic directly for this user
         await handleSearch(user.job_number);
+        console.log("After handleSearch completed");
     };
 
     const handleSearch = async (specificJobNumber?: string) => {
@@ -168,6 +176,8 @@ export const AdminDashboard = () => {
 
 
             setSelectedEmployee(userData);
+            console.log("Selected employee set:", userData.full_name, "ID:", userData.id);
+            setSearchExpanded(false); // Hide search after successful data fetch
 
             // جلب سجلاته المالية
             const { data: finData, error: finError } = await supabase
@@ -733,7 +743,7 @@ export const AdminDashboard = () => {
 
             {/* Search & Year Slider (only in manage & records tabs) */}
             {(activeTab === 'admin_manage' || activeTab === 'admin_records') && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 relative overflow-visible">
                     {/* User Name - Right Side */}
                     {selectedEmployee && (
                         <div className="text-right">
@@ -744,9 +754,9 @@ export const AdminDashboard = () => {
                     )}
 
                     {/* Search - Expandable */}
-                    <div className="flex items-center gap-2 relative ml-auto" ref={searchRef}>
+                    <div className="flex items-center gap-2 relative ml-auto overflow-visible" ref={searchRef}>
                         {searchExpanded && (
-                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300">
+                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300 overflow-visible">
                                 <input
                                     type="text"
                                     placeholder="الرقم الوظيفي أو الاسم"
@@ -759,19 +769,37 @@ export const AdminDashboard = () => {
                                     onBlur={(e) => {
                                         const relatedTarget = e.relatedTarget as HTMLElement;
                                         if (!relatedTarget?.closest('.suggestions-dropdown')) {
-                                            setTimeout(() => setSearchExpanded(false), 200);
+                                            setTimeout(() => {
+                                                setShowSuggestions(false);
+                                            }, 150);
                                         }
                                     }}
                                     autoFocus
                                     className="w-48 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-green/50"
                                 />
-                                {showSuggestions && (
-                                    <div className="suggestions-dropdown absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[180px] overflow-y-auto">
+                                {/* Suggestions Dropdown using Portal */}
+                                {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
+                                    <div
+                                        className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
+                                        style={{
+                                            top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
+                                            left: `${searchRef.current.getBoundingClientRect().right - 200}px`,
+                                            width: '200px'
+                                        }}
+                                    >
                                         {suggestions.map((user, idx) => (
                                             <button
                                                 key={user.id || idx}
-                                                onClick={() => handleSelectSuggestion(user)}
-                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                onMouseUp={() => {
+                                                    console.log("Button clicked for:", user.full_name);
+                                                    handleSelectSuggestion(user);
+                                                }}
+                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors cursor-pointer"
                                             >
                                                 <div>
                                                     <div className="font-bold text-xs text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
@@ -782,7 +810,8 @@ export const AdminDashboard = () => {
                                                 </span>
                                             </button>
                                         ))}
-                                    </div>
+                                    </div>,
+                                    document.body
                                 )}
                             </div>
                         )}
@@ -1199,74 +1228,8 @@ export const AdminDashboard = () => {
             {/* TAB: Admin Records Portal */}
             {activeTab === 'admin_records' && (
                 <div className="space-y-6">
-                    {/* Search Bar (Reused Logic) */}
-                    <GlassCard className="p-4 relative overflow-visible z-20">
-                        <div className="flex gap-3 relative" ref={searchRef}>
-                            <div className="flex-1 relative">
-                                <input
-                                    type="text"
-                                    placeholder="بحث عن موظف (الرقم الوظيفي أو الاسم)..."
-                                    value={searchJobNumber}
-                                    onChange={e => setSearchJobNumber(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                    onFocus={() => {
-                                        if (suggestions.length > 0) setShowSuggestions(true);
-                                    }}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50"
-                                />
-                                {/* Suggestions Dropdown */}
-                                {showSuggestions && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[220px] overflow-y-auto custom-scrollbar">
-                                        {suggestions.map((user, idx) => (
-                                            <button
-                                                key={user.id || idx}
-                                                onClick={() => handleSelectSuggestion(user)}
-                                                className="w-full text-right px-4 py-3 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
-                                            >
-                                                <div>
-                                                    <div className="font-bold text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                    <div className="text-xs text-white/50">{user.job_number}</div>
-                                                </div>
-                                                <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/70">
-                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => handleSearch()}
-                                disabled={loading}
-                                className="bg-brand-green text-white px-5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"
-                            >
-                                {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </GlassCard>
-
                     {selectedEmployee ? (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Employee Header */}
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-white">{selectedEmployee.full_name}</h2>
-                                    <p className="text-white/40">{selectedEmployee.job_title}</p>
-                                </div>
-                                <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                                    <span className="text-brand-green font-mono font-bold text-lg">{selectedEmployee.job_number}</span>
-                                </div>
-                            </div>
-
-                            {/* Year Selection */}
-                            <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                <h3 className="text-white/70 mb-2 font-bold flex items-center gap-2 text-sm">
-                                    <Calendar className="w-4 h-4" />
-                                    حدد السنة المالية
-                                </h3>
-                                <YearSlider selectedYear={selectedAdminYear} onYearChange={setSelectedAdminYear} />
-                            </div>
-
                             {/* Sections */}
                             <div className="space-y-4">
                                 <RecordSection

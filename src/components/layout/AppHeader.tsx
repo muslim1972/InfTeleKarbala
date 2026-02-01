@@ -27,6 +27,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                 <h2 className="text-white font-bold text-sm md:text-base font-tajawal">
                                     {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
                                 </h2>
+                                <p className="text-xs text-white/50 font-cairo">Admin</p>
                             </div>
                         )}
                     </div>
@@ -49,7 +50,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                 </div>
 
                 {bottomContent && (
-                    <div className="mt-3 pt-3 border-t border-white/10 w-full animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="mt-3 pt-3 border-t border-white/10 w-full animate-in fade-in slide-in-from-top-1 duration-200 overflow-visible relative">
                         {bottomContent}
                     </div>
                 )}
