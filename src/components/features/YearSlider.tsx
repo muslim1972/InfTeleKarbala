@@ -20,7 +20,7 @@ export const YearSlider = ({
 
     const scroll = (direction: 'left' | 'right') => {
         if (containerRef.current) {
-            const scrollAmount = 200;
+            const scrollAmount = 80;
             // In RTL, typically scrolling "left" means decreasing scrollLeft (moving to visual left/end of list)
             // But browser behavior with RTL scroll can be tricky. 
             // Usually: 

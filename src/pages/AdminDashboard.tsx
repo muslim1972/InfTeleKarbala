@@ -798,7 +798,7 @@ export const AdminDashboard = () => {
                                             className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
                                             style={{
                                                 top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
-                                                left: `${searchRef.current.getBoundingClientRect().left}px`,
+                                                left: `${searchRef.current.getBoundingClientRect().right - 200}px`,
                                                 width: '200px'
                                             }}
                                         >
