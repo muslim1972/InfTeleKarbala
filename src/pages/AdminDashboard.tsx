@@ -365,8 +365,14 @@ export const AdminDashboard = () => {
                 setTimeout(() => {
                     const element = document.getElementById(`section-${sectionId}`);
                     if (element) {
-                        const y = element.getBoundingClientRect().top + window.scrollY - 250; // Increased offset for header/tabs
-                        window.scrollTo({ top: y, behavior: 'smooth' });
+                        const headerOffset = 125; // Adjusted offset to align below main header
+                        const elementPosition = element.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
                     }
                 }, 100);
             }
@@ -961,9 +967,10 @@ export const AdminDashboard = () => {
                 <div className="space-y-6">
 
                     {selectedEmployee ? (
-                        <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 mx-2">
+                        <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 mx-6">
 
                             <AccordionSection
+                                sectionId="main_info"
                                 title="البيانات الأساسية والحساب"
                                 icon={User}
                                 isOpen={expandedSections.main_info}
@@ -1020,6 +1027,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
+                                sectionId="basic"
                                 title="المعلومات الاساسية والرواتب"
                                 icon={User}
                                 isOpen={expandedSections.basic}
@@ -1039,6 +1047,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
+                                sectionId="allowances"
                                 title="المخصصات"
                                 icon={Wallet}
                                 isOpen={expandedSections.allowances}
@@ -1058,6 +1067,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
+                                sectionId="deductions"
                                 title="الاستقطاعات"
                                 icon={Scissors}
                                 isOpen={expandedSections.deductions}
@@ -1077,6 +1087,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
+                                sectionId="admin_summary"
                                 title="الخلاصة الإدارية"
                                 icon={User}
                                 isOpen={expandedSections.admin_summary}
@@ -1347,15 +1358,15 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
             <button
                 onClick={onToggle}
                 className={cn(
-                    "w-full p-4 flex items-center justify-between text-white transition-all bg-gradient-to-r hover:brightness-110",
+                    "w-full p-3 flex items-center justify-between text-white transition-all bg-gradient-to-r hover:brightness-110",
                     color
                 )}
             >
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                        <Icon className="w-5 h-5" />
+                <div className="flex items-center gap-2">
+                    <div className="bg-white/20 p-1.5 rounded-lg">
+                        <Icon className="w-4 h-4" />
                     </div>
-                    <span className="font-bold">{title} ({data.length})</span>
+                    <span className="font-bold text-sm">{title} ({data.length})</span>
                 </div>
                 <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isOpen ? "rotate-180" : "")} />
             </button>
@@ -1514,9 +1525,9 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
     );
 }
 
-function AccordionSection({ title, icon: Icon, isOpen, onToggle, children, color }: any) {
+function AccordionSection({ sectionId, title, icon: Icon, isOpen, onToggle, children, color }: any) {
     return (
-        <div id={`section-${title.replace(/\s/g, '_')}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5">
+        <div id={`section-${sectionId || title.replace(/\s/g, '_')}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mx-auto max-w-full">
             <button
                 onClick={onToggle}
                 className={cn(
