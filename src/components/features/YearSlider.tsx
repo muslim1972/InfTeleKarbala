@@ -63,7 +63,7 @@ export const YearSlider = ({
                                 className={cn(
                                     "flex-shrink-0 relative px-3 py-1.5 rounded-xl transition-all duration-300 snap-center font-bold text-sm z-0",
                                     isSelected
-                                        ? "text-white shadow-lg bg-brand-green ring-1 ring-brand-green/50"
+                                        ? "text-white shadow-[0_0_15px_rgba(34,197,94,0.5)] bg-brand-green-DEFAULT ring-1 ring-white/50 scale-105 font-extrabold"
                                         : "text-white/40 hover:text-white/80 hover:bg-white/5"
                                 )}
                             >
@@ -84,6 +84,6 @@ export const YearSlider = ({
                 <ChevronLeft className="w-4 h-4" />
             </button>
 
-        </div>
+        </div >
     );
 };

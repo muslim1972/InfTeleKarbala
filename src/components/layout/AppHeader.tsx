@@ -1,4 +1,4 @@
-import { LogOut, User } from "lucide-react";
+import { User, Power } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 
@@ -17,7 +17,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
         <header className="sticky top-0 z-[60] py-2 px-4 w-full">
             <GlassCard className="flex flex-col p-3 !bg-[#0f172a]/80 !border-white/10 !rounded-3xl backdrop-blur-xl transition-none">
                 <div className="flex items-center justify-between w-full">
-                    {/* Left: Avatar + User Name */}
+                    {/* Right: Avatar + User Name */}
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-yellow-DEFAULT to-brand-green-DEFAULT flex items-center justify-center shadow-lg border-2 border-white/20">
                             <User className="w-5 h-5 text-white" />
@@ -32,21 +32,20 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                         )}
                     </div>
 
-                    {/* Center: Title */}
-                    {title && (
-                        <div className="absolute left-1/2 -translate-x-1/2">
+                    {/* Left: Title + Logout Button */}
+                    <div className="flex items-center gap-4">
+                        {title && (
                             <h1 className="text-white font-bold text-lg md:text-xl font-tajawal">{title}</h1>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Right: Logout Button */}
-                    <button
-                        onClick={logout}
-                        className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-red-400 transition-colors"
-                        title="تسجيل الخروج"
-                    >
-                        <LogOut className="w-5 h-5" />
-                    </button>
+                        <button
+                            onClick={logout}
+                            className="p-2 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 transition-colors border border-red-500/20"
+                            title="تسجيل الخروج"
+                        >
+                            <Power className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
                 {bottomContent && (
@@ -55,6 +54,6 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                     </div>
                 )}
             </GlassCard>
-        </header>
+        </header >
     );
 };
