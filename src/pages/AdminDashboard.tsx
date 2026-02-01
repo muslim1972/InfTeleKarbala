@@ -697,582 +697,669 @@ export const AdminDashboard = () => {
         setFinancialData({ ...financialData, [key]: value });
     };
 
-    return (
-        <Layout headerTitle="إدارة النظام">
-            {/* Tabs - Sticky at top */}
-            <div className="sticky top-[60px] z-40 bg-gradient-to-b from-black/95 to-black/80 backdrop-blur-md pb-3 -mx-4 px-4">
-                <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/5 shadow-inner w-full">
-                    <button
-                        onClick={() => setActiveTab('admin_add')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                            activeTab === 'admin_add' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
-                        )}
-                    >
-                        <span>إضافة موظف</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('admin_manage')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                            activeTab === 'admin_manage' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
-                        )}
-                    >
-                        <span>إدارة الموظفين</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('admin_records')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                            activeTab === 'admin_records' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
-                        )}
-                    >
-                        <span>إدارة السجلات</span>
-                    </button>
-                </div>
+    // Header Content with Tabs and Search
+    const headerContent = (
+        <div className="space-y-3">
+            {/* Tabs */}
+            <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/5 shadow-inner w-full">
+                <button
+                    onClick={() => setActiveTab('admin_add')}
+                    className={cn(
+                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
+                        activeTab === 'admin_add' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                    )}
+                >
+                    <span>إضافة موظف</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('admin_manage')}
+                    className={cn(
+                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
+                        activeTab === 'admin_manage' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                    )}
+                >
+                    <span>إدارة الموظفين</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('admin_records')}
+                    className={cn(
+                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
+                        activeTab === 'admin_records' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                    )}
+                >
+                    <span>إدارة السجلات</span>
+                </button>
             </div>
 
-            <div className="mb-24">
+            {/* Search & Year Slider (only in manage & records tabs) */}
+            {(activeTab === 'admin_manage' || activeTab === 'admin_records') && (
+                <div className="flex items-center gap-3">
+                    {/* User Name - Right Side */}
+                    {selectedEmployee && (
+                        <div className="text-right">
+                            <h3 className="text-white font-bold text-sm">
+                                {selectedEmployee.full_name}
+                            </h3>
+                        </div>
+                    )}
 
-                {/* TAB: Add Employee */}
-                {activeTab === 'admin_add' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <GlassCard className="p-6 md:p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-white/70">الاسم الكامل</label>
-                                    <div className="relative">
-                                        <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                                        <input
-                                            type="text"
-                                            value={formData.full_name}
-                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
-                                            placeholder="الاسم الرباعي واللقب"
-                                        />
+                    {/* Search - Expandable */}
+                    <div className="flex items-center gap-2 relative ml-auto" ref={searchRef}>
+                        {searchExpanded && (
+                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300">
+                                <input
+                                    type="text"
+                                    placeholder="الرقم الوظيفي أو الاسم"
+                                    value={searchJobNumber}
+                                    onChange={e => setSearchJobNumber(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                    onFocus={() => {
+                                        if (suggestions.length > 0) setShowSuggestions(true);
+                                    }}
+                                    onBlur={(e) => {
+                                        const relatedTarget = e.relatedTarget as HTMLElement;
+                                        if (!relatedTarget?.closest('.suggestions-dropdown')) {
+                                            setTimeout(() => setSearchExpanded(false), 200);
+                                        }
+                                    }}
+                                    autoFocus
+                                    className="w-48 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                />
+                                {showSuggestions && (
+                                    <div className="suggestions-dropdown absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[180px] overflow-y-auto">
+                                        {suggestions.map((user, idx) => (
+                                            <button
+                                                key={user.id || idx}
+                                                onClick={() => handleSelectSuggestion(user)}
+                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
+                                            >
+                                                <div>
+                                                    <div className="font-bold text-xs text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
+                                                    <div className="text-[10px] text-white/50">{user.job_number}</div>
+                                                </div>
+                                                <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/70">
+                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
-                                </div>
+                                )}
+                            </div>
+                        )}
+                        <button
+                            onClick={() => {
+                                if (searchExpanded && searchJobNumber) {
+                                    handleSearch();
+                                } else {
+                                    setSearchExpanded(!searchExpanded);
+                                }
+                            }}
+                            disabled={loading || isSearching}
+                            className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
+                            title="بحث"
+                        >
+                            {loading || isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </button>
+                    </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-white/70">الرقم الوظيفي</label>
-                                    <div className="relative">
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-white/10 rounded text-center min-w-[24px]">
-                                            <span className="text-xs font-mono text-white/50">#</span>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={formData.job_number}
-                                            onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
-                                            placeholder="123456"
-                                        />
+                    {/* Year Slider - Compact */}
+                    {selectedEmployee && activeTab === 'admin_records' && (
+                        <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-lg">
+                            <Calendar className="w-4 h-4 text-white/60" />
+                            <div className="w-32">
+                                <YearSlider
+                                    selectedYear={selectedAdminYear}
+                                    onYearChange={setSelectedAdminYear}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent}>
+
+            {/* TAB: Add Employee */}
+            {activeTab === 'admin_add' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-white/70">الاسم الكامل</label>
+                                <div className="relative">
+                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                                    <input
+                                        type="text"
+                                        value={formData.full_name}
+                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        placeholder="الاسم الرباعي واللقب"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-white/70">الرقم الوظيفي</label>
+                                <div className="relative">
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-white/10 rounded text-center min-w-[24px]">
+                                        <span className="text-xs font-mono text-white/50">#</span>
                                     </div>
+                                    <input
+                                        type="text"
+                                        value={formData.job_number}
+                                        onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        placeholder="123456"
+                                    />
                                 </div>
+                            </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-white/70">اسم المستخدم (للدخول)</label>
-                                    <div className="relative">
-                                        <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                                        <input
-                                            type="text"
-                                            value={formData.username}
-                                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
-                                            placeholder="username"
-                                            dir="ltr"
-                                        />
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-white/70">اسم المستخدم (للدخول)</label>
+                                <div className="relative">
+                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                                    <input
+                                        type="text"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        placeholder="username"
+                                        dir="ltr"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-white/70">كلمة المرور</label>
+                                <div className="relative">
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 flex items-center justify-center">
+                                        <span className="text-lg">●</span>
                                     </div>
+                                    <input
+                                        type="text"
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        placeholder="password"
+                                        dir="ltr"
+                                    />
                                 </div>
+                            </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-white/70">كلمة المرور</label>
-                                    <div className="relative">
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 flex items-center justify-center">
-                                            <span className="text-lg">●</span>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
-                                            placeholder="password"
-                                            dir="ltr"
-                                        />
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-white/70">نوع الحساب</label>
+                                <div className="grid grid-cols-2 gap-3 p-1 bg-white/5 rounded-xl border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, role: 'user' })}
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
+                                            formData.role === 'user' ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20" : "text-white/40 hover:text-white/60"
+                                        )}
+                                    >
+                                        <User className="w-4 h-4" />
+                                        <span>موظف</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, role: 'admin' })}
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
+                                            formData.role === 'admin' ? "bg-brand-green/20 text-brand-green shadow-sm ring-1 ring-brand-green/20" : "text-white/40 hover:text-white/60"
+                                        )}
+                                    >
+                                        <User className="w-4 h-4" />
+                                        <span>مدير</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
+
+            {/* TAB: Manage Employees */}
+            {activeTab === 'admin_manage' && (
+                <div className="space-y-6">
+                    {/* Search Bar & User Display - Sticky */}
+                    <div className="sticky top-[110px] z-30 bg-gradient-to-b from-black/95 to-black/80 backdrop-blur-md pb-3 -mx-4 px-4 mb-3">
+                        <GlassCard className="p-3 relative overflow-visible">
+                            <div className="flex items-center justify-between gap-3" ref={searchRef}>
+                                {/* User Name - Right Side */}
+                                {selectedEmployee && (
+                                    <div className="text-right">
+                                        <h3 className="text-white font-bold text-base">
+                                            {selectedEmployee.full_name}
+                                        </h3>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-white/70">نوع الحساب</label>
-                                    <div className="grid grid-cols-2 gap-3 p-1 bg-white/5 rounded-xl border border-white/10">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, role: 'user' })}
-                                            className={cn(
-                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
-                                                formData.role === 'user' ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20" : "text-white/40 hover:text-white/60"
+                                {/* Expandable Search - Left Side */}
+                                <div className="flex items-center gap-2 relative ml-auto">
+                                    {searchExpanded && (
+                                        <div className="relative animate-in slide-in-from-left-5 fade-in duration-300">
+                                            <input
+                                                type="text"
+                                                placeholder="الرقم الوظيفي أو الاسم"
+                                                value={searchJobNumber}
+                                                onChange={e => setSearchJobNumber(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                                onFocus={() => {
+                                                    if (suggestions.length > 0) setShowSuggestions(true);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const relatedTarget = e.relatedTarget as HTMLElement;
+                                                    if (!relatedTarget?.closest('.suggestions-dropdown')) {
+                                                        setTimeout(() => setSearchExpanded(false), 200);
+                                                    }
+                                                }}
+                                                autoFocus
+                                                className="w-64 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                            />
+                                            {/* Suggestions Dropdown */}
+                                            {showSuggestions && (
+                                                <div className="suggestions-dropdown absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[200px] overflow-y-auto">
+                                                    {suggestions.map((user, idx) => (
+                                                        <button
+                                                            key={user.id || idx}
+                                                            onClick={() => handleSelectSuggestion(user)}
+                                                            className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
+                                                        >
+                                                            <div>
+                                                                <div className="font-bold text-sm text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
+                                                                <div className="text-xs text-white/50">{user.job_number}</div>
+                                                            </div>
+                                                            <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-white/70">
+                                                                {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             )}
-                                        >
-                                            <User className="w-4 h-4" />
-                                            <span>موظف</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, role: 'admin' })}
-                                            className={cn(
-                                                "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
-                                                formData.role === 'admin' ? "bg-brand-green/20 text-brand-green shadow-sm ring-1 ring-brand-green/20" : "text-white/40 hover:text-white/60"
-                                            )}
-                                        >
-                                            <User className="w-4 h-4" />
-                                            <span>مدير</span>
-                                        </button>
-                                    </div>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (searchExpanded && searchJobNumber) {
+                                                handleSearch();
+                                            } else {
+                                                setSearchExpanded(!searchExpanded);
+                                            }
+                                        }}
+                                        disabled={loading || isSearching}
+                                        className="bg-brand-green/20 text-brand-green p-2 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
+                                        title="بحث"
+                                    >
+                                        {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                                    </button>
                                 </div>
                             </div>
                         </GlassCard>
                     </div>
-                )}
 
-                {/* TAB: Manage Employees */}
-                {activeTab === 'admin_manage' && (
-                    <div className="space-y-6">
-                        {/* Search Bar & User Display - Sticky */}
-                        <div className="sticky top-[110px] z-30 bg-gradient-to-b from-black/95 to-black/80 backdrop-blur-md pb-3 -mx-4 px-4 mb-3">
-                            <GlassCard className="p-3 relative overflow-visible">
-                                <div className="flex items-center justify-between gap-3" ref={searchRef}>
-                                    {/* User Name - Right Side */}
-                                    {selectedEmployee && (
-                                        <div className="text-right">
-                                            <h3 className="text-white font-bold text-base">
-                                                {selectedEmployee.full_name}
-                                            </h3>
+                    {selectedEmployee ? (
+                        <div ref={detailsRef} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-10 scroll-mt-20">
+                            {/* Employee Card Header */}
+                            <GlassCard className="p-6 border-brand-green/20 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-brand-green/10 transition-colors" />
+
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-green to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-brand-green/20">
+                                            <User className="w-8 h-8" />
                                         </div>
-                                    )}
-
-                                    {/* Expandable Search - Left Side */}
-                                    <div className="flex items-center gap-2 relative ml-auto">
-                                        {searchExpanded && (
-                                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300">
-                                                <input
-                                                    type="text"
-                                                    placeholder="الرقم الوظيفي أو الاسم"
-                                                    value={searchJobNumber}
-                                                    onChange={e => setSearchJobNumber(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                                    onFocus={() => {
-                                                        if (suggestions.length > 0) setShowSuggestions(true);
-                                                    }}
-                                                    onBlur={(e) => {
-                                                        const relatedTarget = e.relatedTarget as HTMLElement;
-                                                        if (!relatedTarget?.closest('.suggestions-dropdown')) {
-                                                            setTimeout(() => setSearchExpanded(false), 200);
-                                                        }
-                                                    }}
-                                                    autoFocus
-                                                    className="w-64 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50"
-                                                />
-                                                {/* Suggestions Dropdown */}
-                                                {showSuggestions && (
-                                                    <div className="suggestions-dropdown absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[200px] overflow-y-auto">
-                                                        {suggestions.map((user, idx) => (
-                                                            <button
-                                                                key={user.id || idx}
-                                                                onClick={() => handleSelectSuggestion(user)}
-                                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
-                                                            >
-                                                                <div>
-                                                                    <div className="font-bold text-sm text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                                    <div className="text-xs text-white/50">{user.job_number}</div>
-                                                                </div>
-                                                                <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-white/70">
-                                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                                </span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-white mb-1">{selectedEmployee.full_name}</h2>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white/60 text-sm font-mono bg-white/5 px-2 py-0.5 rounded">{selectedEmployee.job_number}</span>
+                                                <span className="text-brand-green text-xs font-bold px-2 py-0.5 rounded bg-brand-green/10 border border-brand-green/10">
+                                                    {selectedEmployee.role === 'admin' ? 'مدير نظام' : 'موظف'}
+                                                </span>
                                             </div>
-                                        )}
-                                        <button
-                                            onClick={() => {
-                                                if (searchExpanded && searchJobNumber) {
-                                                    handleSearch();
-                                                } else {
-                                                    setSearchExpanded(!searchExpanded);
-                                                }
-                                            }}
-                                            disabled={loading || isSearching}
-                                            className="bg-brand-green/20 text-brand-green p-2 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
-                                            title="بحث"
-                                        >
-                                            {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                                        </button>
+                                        </div>
                                     </div>
                                 </div>
                             </GlassCard>
+
+                            <AccordionSection
+                                title="البيانات الأساسية والحساب"
+                                icon={User}
+                                isOpen={expandedSections.main_info}
+                                onToggle={() => toggleSection('main_info')}
+                            >
+                                {/* Main Info Fields */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <EditableField
+                                        label="الاسم الكامل"
+                                        value={selectedEmployee.full_name}
+                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
+                                    />
+                                    <EditableField
+                                        label="الرقم الوظيفي"
+                                        value={selectedEmployee.job_number}
+                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
+                                    />
+                                    <EditableField
+                                        label="اسم المستخدم"
+                                        value={selectedEmployee.username}
+                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
+                                    />
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
+                                        <select
+                                            value={selectedEmployee.role}
+                                            onChange={(e) => setSelectedEmployee({ ...selectedEmployee, role: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                        >
+                                            <option value="user" className="bg-slate-900">موظف</option>
+                                            <option value="admin" className="bg-slate-900">مدير</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 pt-4 border-t border-white/5">
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-white/40 font-bold block mb-2">تغيير كلمة المرور (اختياري)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="أدخل كلمة مرور جديدة للتغيير فقط"
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setSelectedEmployee({ ...selectedEmployee, new_password: e.target.value });
+                                                } else {
+                                                    const { new_password, ...rest } = selectedEmployee;
+                                                    setSelectedEmployee(rest);
+                                                }
+                                            }}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </AccordionSection>
+
+                            <AccordionSection
+                                title="المعلومات الاساسية والرواتب"
+                                icon={User}
+                                isOpen={expandedSections.basic}
+                                color="from-blue-600 to-blue-500"
+                                onToggle={() => toggleSection('basic')}
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {financialFields.basic.map(field => (
+                                        <FinancialInput
+                                            key={field.key}
+                                            field={field}
+                                            value={financialData?.[field.key]}
+                                            onChange={handleFinancialChange}
+                                        />
+                                    ))}
+                                </div>
+                            </AccordionSection>
+
+                            <AccordionSection
+                                title="المخصصات"
+                                icon={Wallet}
+                                isOpen={expandedSections.allowances}
+                                color="from-green-600 to-green-500"
+                                onToggle={() => toggleSection('allowances')}
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {financialFields.allowances.map(field => (
+                                        <FinancialInput
+                                            key={field.key}
+                                            field={field}
+                                            value={financialData?.[field.key]}
+                                            onChange={handleFinancialChange}
+                                        />
+                                    ))}
+                                </div>
+                            </AccordionSection>
+
+                            <AccordionSection
+                                title="الاستقطاعات"
+                                icon={Scissors}
+                                isOpen={expandedSections.deductions}
+                                color="from-red-600 to-red-500"
+                                onToggle={() => toggleSection('deductions')}
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {financialFields.deductions.map(field => (
+                                        <FinancialInput
+                                            key={field.key}
+                                            field={field}
+                                            value={financialData?.[field.key]}
+                                            onChange={handleFinancialChange}
+                                        />
+                                    ))}
+                                </div>
+                            </AccordionSection>
+
+                            <AccordionSection
+                                title="الخلاصة الإدارية"
+                                icon={User}
+                                isOpen={expandedSections.admin_summary}
+                                color="from-purple-600 to-purple-500"
+                                onToggle={() => toggleSection('admin_summary')}
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (أول تعيين)</label>
+                                        <input
+                                            type="date"
+                                            value={adminData?.first_appointment_date || ''}
+                                            onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-white/70 text-xs font-bold">تاريخ الانفكاك (إجازة 5 سنوات)</label>
+                                        <input
+                                            type="date"
+                                            value={adminData?.disengagement_date || ''}
+                                            onChange={e => setAdminData({ ...adminData, disengagement_date: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (بعد الإجازة)</label>
+                                        <input
+                                            type="date"
+                                            value={adminData?.resumption_date || ''}
+                                            onChange={e => setAdminData({ ...adminData, resumption_date: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-white/70 text-xs font-bold">رصيد الإجازات المتبقي (يدوي/سابق)</label>
+                                        <input
+                                            type="number"
+                                            value={adminData?.remaining_leave_balance || ''}
+                                            onChange={e => setAdminData({ ...adminData, remaining_leave_balance: parseInt(e.target.value) || 0 })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                        />
+                                    </div>
+                                </div>
+                            </AccordionSection>
                         </div>
+                    ) : (
+                        <div className="text-center py-20">
+                            <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
+                                <User className="w-10 h-10 text-white/20" />
+                            </div>
+                            <h3 className="text-white font-bold text-xl mb-2">إدارة الموظفين</h3>
+                            <p className="text-white/40">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
-                        {selectedEmployee ? (
-                            <div ref={detailsRef} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-10 scroll-mt-20">
-                                {/* Employee Card Header */}
-                                <GlassCard className="p-6 border-brand-green/20 relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-brand-green/10 transition-colors" />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-green to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-brand-green/20">
-                                                <User className="w-8 h-8" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-2xl font-bold text-white mb-1">{selectedEmployee.full_name}</h2>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-white/60 text-sm font-mono bg-white/5 px-2 py-0.5 rounded">{selectedEmployee.job_number}</span>
-                                                    <span className="text-brand-green text-xs font-bold px-2 py-0.5 rounded bg-brand-green/10 border border-brand-green/10">
-                                                        {selectedEmployee.role === 'admin' ? 'مدير نظام' : 'موظف'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </GlassCard>
-
-                                <AccordionSection
-                                    title="البيانات الأساسية والحساب"
-                                    icon={User}
-                                    isOpen={expandedSections.main_info}
-                                    onToggle={() => toggleSection('main_info')}
-                                >
-                                    {/* Main Info Fields */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <EditableField
-                                            label="الاسم الكامل"
-                                            value={selectedEmployee.full_name}
-                                            onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
-                                        />
-                                        <EditableField
-                                            label="الرقم الوظيفي"
-                                            value={selectedEmployee.job_number}
-                                            onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
-                                        />
-                                        <EditableField
-                                            label="اسم المستخدم"
-                                            value={selectedEmployee.username}
-                                            onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
-                                        />
-                                        <div className="space-y-2">
-                                            <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
-                                            <select
-                                                value={selectedEmployee.role}
-                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, role: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+            {/* TAB: Admin Records Portal */}
+            {activeTab === 'admin_records' && (
+                <div className="space-y-6">
+                    {/* Search Bar (Reused Logic) */}
+                    <GlassCard className="p-4 relative overflow-visible z-20">
+                        <div className="flex gap-3 relative" ref={searchRef}>
+                            <div className="flex-1 relative">
+                                <input
+                                    type="text"
+                                    placeholder="بحث عن موظف (الرقم الوظيفي أو الاسم)..."
+                                    value={searchJobNumber}
+                                    onChange={e => setSearchJobNumber(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                    onFocus={() => {
+                                        if (suggestions.length > 0) setShowSuggestions(true);
+                                    }}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50"
+                                />
+                                {/* Suggestions Dropdown */}
+                                {showSuggestions && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[220px] overflow-y-auto custom-scrollbar">
+                                        {suggestions.map((user, idx) => (
+                                            <button
+                                                key={user.id || idx}
+                                                onClick={() => handleSelectSuggestion(user)}
+                                                className="w-full text-right px-4 py-3 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
                                             >
-                                                <option value="user" className="bg-slate-900">موظف</option>
-                                                <option value="admin" className="bg-slate-900">مدير</option>
-                                            </select>
-                                        </div>
+                                                <div>
+                                                    <div className="font-bold text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
+                                                    <div className="text-xs text-white/50">{user.job_number}</div>
+                                                </div>
+                                                <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/70">
+                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => handleSearch()}
+                                disabled={loading}
+                                className="bg-brand-green text-white px-5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"
+                            >
+                                {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                            </button>
+                        </div>
+                    </GlassCard>
 
-                                    <div className="mt-4 pt-4 border-t border-white/5">
-                                        <div className="space-y-2">
-                                            <label className="text-xs text-white/40 font-bold block mb-2">تغيير كلمة المرور (اختياري)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="أدخل كلمة مرور جديدة للتغيير فقط"
-                                                onChange={(e) => {
-                                                    if (e.target.value) {
-                                                        setSelectedEmployee({ ...selectedEmployee, new_password: e.target.value });
-                                                    } else {
-                                                        const { new_password, ...rest } = selectedEmployee;
-                                                        setSelectedEmployee(rest);
-                                                    }
-                                                }}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 font-mono"
-                                            />
-                                        </div>
-                                    </div>
-                                </AccordionSection>
+                    {selectedEmployee ? (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Employee Header */}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">{selectedEmployee.full_name}</h2>
+                                    <p className="text-white/40">{selectedEmployee.job_title}</p>
+                                </div>
+                                <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                                    <span className="text-brand-green font-mono font-bold text-lg">{selectedEmployee.job_number}</span>
+                                </div>
+                            </div>
 
-                                <AccordionSection
-                                    title="المعلومات الاساسية والرواتب"
+                            {/* Year Selection */}
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                                <h3 className="text-white/70 mb-2 font-bold flex items-center gap-2 text-sm">
+                                    <Calendar className="w-4 h-4" />
+                                    حدد السنة المالية
+                                </h3>
+                                <YearSlider selectedYear={selectedAdminYear} onYearChange={setSelectedAdminYear} />
+                            </div>
+
+                            {/* Sections */}
+                            <div className="space-y-4">
+                                <RecordSection
+                                    id="thanks"
+                                    title="كتب الشكر والتقدير"
+                                    icon={Award}
+                                    color="from-yellow-600 to-yellow-500"
+                                    data={adminRecords.thanks}
+                                    type="thanks"
+                                    onSave={handleSaveRecord}
+                                    onDelete={handleDeleteRecord}
+                                    isOpen={openRecordSection === 'thanks'}
+                                    onToggle={() => handleToggleRecordSection('thanks')}
+                                    fields={[
+                                        { key: 'book_number', label: 'رقم الكتاب' },
+                                        { key: 'book_date', label: 'تاريخ الكتاب', type: 'date' },
+                                        { key: 'reason', label: 'سبب الشكر' },
+                                        { key: 'issuer', label: 'الجهة المانحة' }
+                                    ]}
+                                />
+                                <RecordSection
+                                    id="committees"
+                                    title="اللجان"
                                     icon={User}
-                                    isOpen={expandedSections.basic}
                                     color="from-blue-600 to-blue-500"
-                                    onToggle={() => toggleSection('basic')}
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {financialFields.basic.map(field => (
-                                            <FinancialInput
-                                                key={field.key}
-                                                field={field}
-                                                value={financialData?.[field.key]}
-                                                onChange={handleFinancialChange}
-                                            />
-                                        ))}
-                                    </div>
-                                </AccordionSection>
-
-                                <AccordionSection
-                                    title="المخصصات"
-                                    icon={Wallet}
-                                    isOpen={expandedSections.allowances}
-                                    color="from-green-600 to-green-500"
-                                    onToggle={() => toggleSection('allowances')}
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {financialFields.allowances.map(field => (
-                                            <FinancialInput
-                                                key={field.key}
-                                                field={field}
-                                                value={financialData?.[field.key]}
-                                                onChange={handleFinancialChange}
-                                            />
-                                        ))}
-                                    </div>
-                                </AccordionSection>
-
-                                <AccordionSection
-                                    title="الاستقطاعات"
+                                    data={adminRecords.committees}
+                                    type="committees"
+                                    onSave={handleSaveRecord}
+                                    onDelete={handleDeleteRecord}
+                                    isOpen={openRecordSection === 'committees'}
+                                    onToggle={() => handleToggleRecordSection('committees')}
+                                    fields={[
+                                        { key: 'committee_name', label: 'اسم اللجنة' },
+                                        { key: 'role', label: 'العضوية / الصفة' },
+                                        { key: 'start_date', label: 'تاريخ اللجنة', type: 'date' }
+                                    ]}
+                                />
+                                <RecordSection
+                                    id="penalties"
+                                    title="العقوبات"
                                     icon={Scissors}
-                                    isOpen={expandedSections.deductions}
                                     color="from-red-600 to-red-500"
-                                    onToggle={() => toggleSection('deductions')}
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {financialFields.deductions.map(field => (
-                                            <FinancialInput
-                                                key={field.key}
-                                                field={field}
-                                                value={financialData?.[field.key]}
-                                                onChange={handleFinancialChange}
-                                            />
-                                        ))}
-                                    </div>
-                                </AccordionSection>
-
-                                <AccordionSection
-                                    title="الخلاصة الإدارية"
-                                    icon={User}
-                                    isOpen={expandedSections.admin_summary}
-                                    color="from-purple-600 to-purple-500"
-                                    onToggle={() => toggleSection('admin_summary')}
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (أول تعيين)</label>
-                                            <input
-                                                type="date"
-                                                value={adminData?.first_appointment_date || ''}
-                                                onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-white/70 text-xs font-bold">تاريخ الانفكاك (إجازة 5 سنوات)</label>
-                                            <input
-                                                type="date"
-                                                value={adminData?.disengagement_date || ''}
-                                                onChange={e => setAdminData({ ...adminData, disengagement_date: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (بعد الإجازة)</label>
-                                            <input
-                                                type="date"
-                                                value={adminData?.resumption_date || ''}
-                                                onChange={e => setAdminData({ ...adminData, resumption_date: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-white/70 text-xs font-bold">رصيد الإجازات المتبقي (يدوي/سابق)</label>
-                                            <input
-                                                type="number"
-                                                value={adminData?.remaining_leave_balance || ''}
-                                                onChange={e => setAdminData({ ...adminData, remaining_leave_balance: parseInt(e.target.value) || 0 })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                            />
-                                        </div>
-                                    </div>
-                                </AccordionSection>
+                                    data={adminRecords.penalties}
+                                    type="penalties"
+                                    onSave={handleSaveRecord}
+                                    onDelete={handleDeleteRecord}
+                                    isOpen={openRecordSection === 'penalties'}
+                                    onToggle={() => handleToggleRecordSection('penalties')}
+                                    fields={[
+                                        { key: 'penalty_type', label: 'نوع العقوبة' },
+                                        { key: 'reason', label: 'السبب' },
+                                        { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date' },
+                                        { key: 'effect', label: 'الأثر المترتب (اختياري)' }
+                                    ]}
+                                />
+                                <RecordSection
+                                    id="leaves"
+                                    title="الاجازات"
+                                    icon={FileText}
+                                    color="from-green-600 to-green-500"
+                                    data={adminRecords.leaves}
+                                    type="leaves"
+                                    onSave={handleSaveRecord}
+                                    onDelete={handleDeleteRecord}
+                                    isOpen={openRecordSection === 'leaves'}
+                                    onToggle={() => handleToggleRecordSection('leaves')}
+                                    selectedYear={selectedAdminYear} // Pass selected year
+                                    fields={[
+                                        {
+                                            key: 'leave_type',
+                                            label: 'نوع الاجازة',
+                                            type: 'select',
+                                            options: ['اعتيادية', 'مرضية', 'سنوات', 'لجان طبية', 'ايقاف عن العمل']
+                                        },
+                                        { key: 'duration', label: 'المدة (محسوبة)', readOnly: true },
+                                        { key: 'start_date', label: 'تاريخ الانفكاك', type: 'date-fixed-year' },
+                                        { key: 'end_date', label: 'تاريخ المباشرة (اختياري)', type: 'date-fixed-year' },
+                                    ]}
+                                />
                             </div>
-                        ) : (
-                            <div className="text-center py-20">
-                                <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
-                                    <User className="w-10 h-10 text-white/20" />
-                                </div>
-                                <h3 className="text-white font-bold text-xl mb-2">إدارة الموظفين</h3>
-                                <p className="text-white/40">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
+                            <div className="pb-32"></div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-20">
+                            <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
+                                <FileText className="w-10 h-10 text-white/20" />
                             </div>
-                        )}
-                    </div>
-                )}
-
-                {/* TAB: Admin Records Portal */}
-                {activeTab === 'admin_records' && (
-                    <div className="space-y-6">
-                        {/* Search Bar (Reused Logic) */}
-                        <GlassCard className="p-4 relative overflow-visible z-20">
-                            <div className="flex gap-3 relative" ref={searchRef}>
-                                <div className="flex-1 relative">
-                                    <input
-                                        type="text"
-                                        placeholder="بحث عن موظف (الرقم الوظيفي أو الاسم)..."
-                                        value={searchJobNumber}
-                                        onChange={e => setSearchJobNumber(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                        onFocus={() => {
-                                            if (suggestions.length > 0) setShowSuggestions(true);
-                                        }}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50"
-                                    />
-                                    {/* Suggestions Dropdown */}
-                                    {showSuggestions && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[220px] overflow-y-auto custom-scrollbar">
-                                            {suggestions.map((user, idx) => (
-                                                <button
-                                                    key={user.id || idx}
-                                                    onClick={() => handleSelectSuggestion(user)}
-                                                    className="w-full text-right px-4 py-3 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
-                                                >
-                                                    <div>
-                                                        <div className="font-bold text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                        <div className="text-xs text-white/50">{user.job_number}</div>
-                                                    </div>
-                                                    <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/70">
-                                                        {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={() => handleSearch()}
-                                    disabled={loading}
-                                    className="bg-brand-green text-white px-5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"
-                                >
-                                    {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </GlassCard>
-
-                        {selectedEmployee ? (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* Employee Header */}
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-white">{selectedEmployee.full_name}</h2>
-                                        <p className="text-white/40">{selectedEmployee.job_title}</p>
-                                    </div>
-                                    <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                                        <span className="text-brand-green font-mono font-bold text-lg">{selectedEmployee.job_number}</span>
-                                    </div>
-                                </div>
-
-                                {/* Year Selection */}
-                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                    <h3 className="text-white/70 mb-2 font-bold flex items-center gap-2 text-sm">
-                                        <Calendar className="w-4 h-4" />
-                                        حدد السنة المالية
-                                    </h3>
-                                    <YearSlider selectedYear={selectedAdminYear} onYearChange={setSelectedAdminYear} />
-                                </div>
-
-                                {/* Sections */}
-                                <div className="space-y-4">
-                                    <RecordSection
-                                        id="thanks"
-                                        title="كتب الشكر والتقدير"
-                                        icon={Award}
-                                        color="from-yellow-600 to-yellow-500"
-                                        data={adminRecords.thanks}
-                                        type="thanks"
-                                        onSave={handleSaveRecord}
-                                        onDelete={handleDeleteRecord}
-                                        isOpen={openRecordSection === 'thanks'}
-                                        onToggle={() => handleToggleRecordSection('thanks')}
-                                        fields={[
-                                            { key: 'book_number', label: 'رقم الكتاب' },
-                                            { key: 'book_date', label: 'تاريخ الكتاب', type: 'date' },
-                                            { key: 'reason', label: 'سبب الشكر' },
-                                            { key: 'issuer', label: 'الجهة المانحة' }
-                                        ]}
-                                    />
-                                    <RecordSection
-                                        id="committees"
-                                        title="اللجان"
-                                        icon={User}
-                                        color="from-blue-600 to-blue-500"
-                                        data={adminRecords.committees}
-                                        type="committees"
-                                        onSave={handleSaveRecord}
-                                        onDelete={handleDeleteRecord}
-                                        isOpen={openRecordSection === 'committees'}
-                                        onToggle={() => handleToggleRecordSection('committees')}
-                                        fields={[
-                                            { key: 'committee_name', label: 'اسم اللجنة' },
-                                            { key: 'role', label: 'العضوية / الصفة' },
-                                            { key: 'start_date', label: 'تاريخ اللجنة', type: 'date' }
-                                        ]}
-                                    />
-                                    <RecordSection
-                                        id="penalties"
-                                        title="العقوبات"
-                                        icon={Scissors}
-                                        color="from-red-600 to-red-500"
-                                        data={adminRecords.penalties}
-                                        type="penalties"
-                                        onSave={handleSaveRecord}
-                                        onDelete={handleDeleteRecord}
-                                        isOpen={openRecordSection === 'penalties'}
-                                        onToggle={() => handleToggleRecordSection('penalties')}
-                                        fields={[
-                                            { key: 'penalty_type', label: 'نوع العقوبة' },
-                                            { key: 'reason', label: 'السبب' },
-                                            { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date' },
-                                            { key: 'effect', label: 'الأثر المترتب (اختياري)' }
-                                        ]}
-                                    />
-                                    <RecordSection
-                                        id="leaves"
-                                        title="الاجازات"
-                                        icon={FileText}
-                                        color="from-green-600 to-green-500"
-                                        data={adminRecords.leaves}
-                                        type="leaves"
-                                        onSave={handleSaveRecord}
-                                        onDelete={handleDeleteRecord}
-                                        isOpen={openRecordSection === 'leaves'}
-                                        onToggle={() => handleToggleRecordSection('leaves')}
-                                        selectedYear={selectedAdminYear} // Pass selected year
-                                        fields={[
-                                            {
-                                                key: 'leave_type',
-                                                label: 'نوع الاجازة',
-                                                type: 'select',
-                                                options: ['اعتيادية', 'مرضية', 'سنوات', 'لجان طبية', 'ايقاف عن العمل']
-                                            },
-                                            { key: 'duration', label: 'المدة (محسوبة)', readOnly: true },
-                                            { key: 'start_date', label: 'تاريخ الانفكاك', type: 'date-fixed-year' },
-                                            { key: 'end_date', label: 'تاريخ المباشرة (اختياري)', type: 'date-fixed-year' },
-                                        ]}
-                                    />
-                                </div>
-                                <div className="pb-32"></div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-20">
-                                <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
-                                    <FileText className="w-10 h-10 text-white/20" />
-                                </div>
-                                <h3 className="text-white font-bold text-xl mb-2">سجلات الموظفين</h3>
-                                <p className="text-white/40">ابدأ بالبحث عن موظف لإدارة سجلاته الإدارية</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                            <h3 className="text-white font-bold text-xl mb-2">سجلات الموظفين</h3>
+                            <p className="text-white/40">ابدأ بالبحث عن موظف لإدارة سجلاته الإدارية</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Sticky Action Footer */}
             <div className="fixed bottom-0 left-0 right-0 p-4 z-50 bg-gradient-to-t from-[#0f172a] via-[#0f172a] to-transparent pointer-events-none flex justify-center pb-6">

@@ -5,9 +5,10 @@ import { useAuth } from "../../context/AuthContext";
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
     title?: string;
+    showUserName?: boolean; // Show user name next to avatar
 }
 
-export const AppHeader = ({ bottomContent, title }: AppHeaderProps) => {
+export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHeaderProps) => {
     const { user, logout } = useAuth();
 
     if (!user) return null;
@@ -16,21 +17,28 @@ export const AppHeader = ({ bottomContent, title }: AppHeaderProps) => {
         <header className="sticky top-0 z-[60] py-2 px-4 w-full">
             <GlassCard className="flex flex-col p-3 !bg-[#0f172a]/80 !border-white/10 !rounded-3xl backdrop-blur-xl transition-none">
                 <div className="flex items-center justify-between w-full">
+                    {/* Left: Avatar + User Name */}
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-yellow-DEFAULT to-brand-green-DEFAULT flex items-center justify-center shadow-lg border-2 border-white/20">
                             <User className="w-5 h-5 text-white" />
                         </div>
-                        <div>
-                            {title ? (
-                                <h1 className="text-white font-bold text-base md:text-lg font-tajawal">{title}</h1>
-                            ) : (
-                                <h1 className="text-white font-bold text-sm md:text-base font-tajawal">
+                        {showUserName && (
+                            <div>
+                                <h2 className="text-white font-bold text-sm md:text-base font-tajawal">
                                     {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
-                                </h1>
-                            )}
-                        </div>
+                                </h2>
+                            </div>
+                        )}
                     </div>
 
+                    {/* Center: Title */}
+                    {title && (
+                        <div className="absolute left-1/2 -translate-x-1/2">
+                            <h1 className="text-white font-bold text-lg md:text-xl font-tajawal">{title}</h1>
+                        </div>
+                    )}
+
+                    {/* Right: Logout Button */}
                     <button
                         onClick={logout}
                         className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-red-400 transition-colors"
