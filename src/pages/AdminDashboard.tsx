@@ -1181,11 +1181,17 @@ export const AdminDashboard = () => {
                                         onDelete={handleDeleteRecord}
                                         isOpen={openRecordSection === 'leaves'}
                                         onToggle={() => handleToggleRecordSection('leaves')}
+                                        selectedYear={selectedAdminYear} // Pass selected year
                                         fields={[
-                                            { key: 'leave_type', label: 'نوع الاجازة' },
-                                            { key: 'start_date', label: 'تاريخ البدء', type: 'date' },
-                                            { key: 'duration', label: 'المدة (يوم)', type: 'number' },
-                                            { key: 'end_date', label: 'تاريخ الانتهاء', type: 'date' }
+                                            {
+                                                key: 'leave_type',
+                                                label: 'نوع الاجازة',
+                                                type: 'select',
+                                                options: ['اعتيادية', 'مرضية', 'سنوات', 'لجان طبية', 'ايقاف عن العمل']
+                                            },
+                                            { key: 'duration', label: 'المدة (محسوبة)', readOnly: true },
+                                            { key: 'start_date', label: 'تاريخ الانفكاك', type: 'date-fixed-year' },
+                                            { key: 'end_date', label: 'تاريخ المباشرة (اختياري)', type: 'date-fixed-year' },
                                         ]}
                                     />
                                 </div>
@@ -1247,9 +1253,70 @@ export const AdminDashboard = () => {
 };
 
 
-function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, type, fields, isOpen, onToggle }: any) {
+function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, type, fields, isOpen, onToggle, selectedYear }: any) {
     const [newItem, setNewItem] = useState<any>({});
     const [isEditing, setIsEditing] = useState(false);
+
+    // Auto-calculate duration helper
+    const calculateDuration = () => {
+        if (newItem.start_date && newItem.end_date) {
+            const start = new Date(newItem.start_date);
+            const end = new Date(newItem.end_date);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                const diffTime = Math.abs(end.getTime() - start.getTime());
+                // Iraq Rule: Duration is inclusive of start and end date
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            }
+        }
+        return 0;
+    };
+
+    // Custom Save Handler to calculate duration and validate
+    const handleSave = () => {
+        let finalItem = { ...newItem };
+
+        if (type === 'leaves') {
+            const now = new Date();
+            const startStr = finalItem.start_date;
+            const endStr = finalItem.end_date;
+
+            // Basic Date Presence Check
+            if (!startStr) {
+                alert("يرجى تحديد تاريخ الانفكاك");
+                return;
+            }
+
+            const start = new Date(startStr);
+            const end = endStr ? new Date(endStr) : null;
+
+            // 1. Future Checks (Relative to current time)
+            if (start > now) {
+                alert("خطأ: لا يمكن اختيار تاريخ انفكاك في المستقبل!");
+                return;
+            }
+            if (end && end > now) {
+                alert("خطأ: لا يمكن اختيار تاريخ مباشرة في المستقبل!");
+                return;
+            }
+
+            // 2. Logic Checks
+            if (end && start > end) {
+                alert("خطأ: تاريخ الانفكاك يجب أن يكون قبل تاريخ المباشرة!");
+                return;
+            }
+
+            // Auto calculate duration
+            if (startStr && endStr) {
+                finalItem.duration = calculateDuration();
+            } else {
+                finalItem.duration = 0;
+            }
+        }
+
+        onSave(type, finalItem);
+        setNewItem({});
+        setIsEditing(false);
+    };
 
     return (
         <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mb-4">
@@ -1280,23 +1347,83 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {fields.map((field: any) => (
                                 <div key={field.key} className="space-y-1">
-                                    <input
-                                        type={field.type || "text"}
-                                        placeholder={field.label}
-                                        value={newItem[field.key] || ""}
-                                        onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30"
-                                    />
+                                    <label className="text-xs text-white/40 font-bold block px-1">{field.label}</label>
+
+                                    {field.type === 'select' ? (
+                                        <select
+                                            value={newItem[field.key] || ""}
+                                            onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a]"
+                                        >
+                                            <option value="">اختر...</option>
+                                            {field.options?.map((opt: string) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    ) : field.type === 'date-fixed-year' ? (
+                                        <div className="flex gap-2">
+                                            {/* Day - Number Input */}
+                                            <input
+                                                type="number"
+                                                placeholder="يوم"
+                                                min="1" max="31"
+                                                value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
+                                                onChange={e => {
+                                                    let day = e.target.value;
+                                                    if (parseInt(day) > 31) day = "31";
+                                                    // Zero pad logic
+                                                    const dayStr = day.length === 1 ? `0${day}` : day;
+
+                                                    const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                    const parts = current.split('-');
+                                                    // Use dayStr for state to match date format, but input displays value prop
+                                                    setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
+                                                }}
+                                                className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30"
+                                            />
+                                            {/* Month */}
+                                            <select
+                                                value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
+                                                onChange={e => {
+                                                    const month = e.target.value;
+                                                    const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                    const parts = current.split('-');
+                                                    setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
+                                                }}
+                                                className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a]"
+                                            >
+                                                <option value="">شهر</option>
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                    <option key={m} value={m.toString().padStart(2, '0')}>{m}</option>
+                                                ))}
+                                            </select>
+                                            {/* Year (Fixed) */}
+                                            <div className="flex-1 bg-white/5 border border-white/5 rounded-lg px-2 py-2 text-white/50 text-sm text-center font-mono select-none">
+                                                {selectedYear}
+                                            </div>
+                                        </div>
+                                    ) : field.readOnly ? (
+                                        <input
+                                            type="text"
+                                            value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
+                                            readOnly
+                                            className="w-full bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-white/50 text-sm cursor-not-allowed text-brand-green font-bold"
+                                        />
+                                    ) : (
+                                        <input
+                                            type={field.type || "text"}
+                                            placeholder={field.label}
+                                            value={newItem[field.key] || ""}
+                                            onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30"
+                                        />
+                                    )}
                                 </div>
                             ))}
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => {
-                                    onSave(type, newItem);
-                                    setNewItem({});
-                                    setIsEditing(false);
-                                }}
+                                onClick={handleSave}
                                 className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
                                     isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
                                 )}
@@ -1328,7 +1455,8 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                                         {item.start_date && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">{item.start_date}</span>}
                                         {item.penalty_date && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">{item.penalty_date}</span>}
                                     </div>
-                                    <p className="text-white/60 text-xs">{item[fields[1].key]}</p>
+                                    {fields[1] && <p className="text-white/60 text-xs">{item[fields[1].key]}</p>}
+                                    {item.duration && <p className="text-brand-green text-xs font-bold">المدة: {item.duration} يوم</p>}
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button

@@ -60,6 +60,27 @@ export const Dashboard = () => {
     const [detailItems, setDetailItems] = useState<any[]>([]);
     const [detailLoading, setDetailLoading] = useState(false);
 
+    // Leaves Specific State
+    const [leavesList, setLeavesList] = useState<any[]>([]);
+    const [selectedLeave, setSelectedLeave] = useState<any>(null);
+
+    // Fetch Leaves for selected year
+    useEffect(() => {
+        const fetchLeaves = async () => {
+            if (!user?.id) return;
+            const { data } = await supabase
+                .from('leaves_details')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('year', selectedYear)
+                .order('start_date', { ascending: false });
+
+            if (data) setLeavesList(data);
+        };
+        fetchLeaves();
+        setSelectedLeave(null); // Reset selection on year change
+    }, [selectedYear, user?.id]);
+
     const handleDetailClick = async (type: 'thanks' | 'committees' | 'penalties' | 'leaves') => {
         if (expandedDetail === type) {
             setExpandedDetail(null);
@@ -340,12 +361,15 @@ export const Dashboard = () => {
                     // Administrative Tab
                     <div className="space-y-6">
 
+                        {/* Year Slider - Always Visible */}
+                        <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
+
                         {/* Years Toggle Button */}
                         <button
                             onClick={() => setShowYearView(!showYearView)}
                             className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 rounded-xl font-bold shadow-lg flex items-center justify-between hover:from-blue-500 hover:to-blue-400 transition-all"
                         >
-                            <span>كتب الشكر والتقدير {showYearView ? '(إخفاء)' : ''}</span>
+                            <span>السجلات السنوية (كتب شكر، لجان، عقوبات، اجازات) {showYearView ? '(إخفاء)' : '(إظهار)'}</span>
                             <Award className="w-5 h-5" />
                         </button>
 
@@ -357,7 +381,7 @@ export const Dashboard = () => {
                                     exit={{ opacity: 0, height: 0 }}
                                     className="overflow-hidden"
                                 >
-                                    <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
+                                    {/* Grid was here */}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                                         <button
@@ -482,44 +506,112 @@ export const Dashboard = () => {
                             )}
                         </AnimatePresence>
 
-                        {/* Leaves Balance Section */}
+                        {/* Leaves Balance Section - Master Detail View */}
                         <div className="space-y-3 pt-4">
                             <h3 className="text-white font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
 
-                            <GlassCard className="space-y-4 p-5">
-                                <div className="flex justify-between border-b border-white/10 pb-3">
-                                    <span className="text-white/70">رصيد الاجازات المتبقي</span>
-                                    <span className="text-white font-bold">{adminData?.remaining_leave_balance || 0} يوم</span>
-                                </div>
-                                <div className="flex justify-between border-b border-white/10 pb-3">
-                                    <span className="text-white/70">الاجازات المحتسبة من الرصيد</span>
-                                    <span className="text-white font-bold">{currentYearRecord.leaves_taken || 0} يوم</span>
-                                </div>
-                                <div className="flex justify-between border-b border-white/10 pb-3">
-                                    <span className="text-white/70">الاجازات بدون راتب</span>
-                                    <span className="text-white font-bold">{currentYearRecord.unpaid_leaves || 0}</span>
-                                </div>
+                            {/* Top Card: Viewer (Leaf Details or Summary) */}
+                            <GlassCard className="p-5 relative overflow-hidden transition-all duration-300">
+                                <AnimatePresence mode="wait">
+                                    {selectedLeave ? (
+                                        <motion.div
+                                            key="detail"
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            className="space-y-4"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="text-brand-green font-bold text-lg mb-1">{selectedLeave.leave_type}</h4>
+                                                    <p className="text-white/60 text-sm">تفاصيل الاجازة المسجلة</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedLeave(null)}
+                                                    className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                                                >
+                                                    عودة للملخص
+                                                </button>
+                                            </div>
 
-                                <div className="pt-2">
-                                    <p className="text-white/90 font-bold mb-2 text-sm">الاجازات حسب قانون الخمس سنوات</p>
-                                    <div className="grid grid-cols-2 gap-4 bg-white/5 p-3 rounded-lg">
-                                        <div>
-                                            <p className="text-white/40 text-xs mb-1">تاريخ الانفكاك</p>
-                                            <p className="text-white font-mono text-sm">{adminData?.disengagement_date || '--/--/----'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-white/40 text-xs mb-1">تاريخ المباشرة</p>
-                                            <p className="text-white font-mono text-sm">{adminData?.resumption_date || '--/--/----'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between pt-2">
-                                    <span className="text-white/70">الاجازات المرضية</span>
-                                    <span className="text-white font-bold">{currentYearRecord.sick_leaves || 0} يوم</span>
-                                </div>
-
+                                            <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-xl border border-white/5">
+                                                <div>
+                                                    <p className="text-white/40 text-xs mb-1">تاريخ الانفكاك</p>
+                                                    <p className="text-white font-mono font-bold">{selectedLeave.start_date}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-white/40 text-xs mb-1">المدة</p>
+                                                    <p className="text-brand-green font-bold">{selectedLeave.duration} يوم</p>
+                                                </div>
+                                                {selectedLeave.end_date && (
+                                                    <div className="col-span-2 border-t border-white/5 pt-2 mt-2">
+                                                        <p className="text-white/40 text-xs mb-1">تاريخ المباشرة</p>
+                                                        <p className="text-white font-mono">{selectedLeave.end_date}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key="summary"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20 }}
+                                            className="space-y-3"
+                                        >
+                                            <div className="flex justify-between border-b border-white/10 pb-2">
+                                                <span className="text-white/70 text-sm">الرصيد المتبقي</span>
+                                                <span className="text-white font-bold">{adminData?.remaining_leave_balance || 0} يوم</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-white/10 pb-2">
+                                                <span className="text-white/70 text-sm">المحتسبة من الرصيد</span>
+                                                <span className="text-white font-bold">{currentYearRecord.leaves_taken || 0} يوم</span>
+                                            </div>
+                                            <div className="flex justify-between pt-1">
+                                                <span className="text-white/70 text-sm">بدون راتب</span>
+                                                <span className="text-white font-bold">{currentYearRecord.unpaid_leaves || 0}</span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </GlassCard>
+
+                            {/* Bottom Card: List of Leaves (Scrollable) */}
+                            <div className="bg-white/5 border border-white/5 rounded-xl overflow-hidden">
+                                <h4 className="text-xs font-bold text-white/40 px-4 py-2 bg-white/5">
+                                    سجل اجازات {selectedYear}
+                                </h4>
+                                <div className="max-h-48 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                                    {leavesList.length > 0 ? (
+                                        leavesList.map((leave, idx) => (
+                                            <button
+                                                key={leave.id || idx}
+                                                onClick={() => setSelectedLeave(leave)}
+                                                className={cn(
+                                                    "w-full flex justify-between items-center p-3 rounded-lg border transition-all text-right",
+                                                    selectedLeave?.id === leave.id
+                                                        ? "bg-brand-green/10 border-brand-green/50 ring-1 ring-brand-green/20"
+                                                        : "bg-black/20 border-transparent hover:bg-white/5"
+                                                )}
+                                            >
+                                                <div>
+                                                    <p className={cn("font-bold text-sm", selectedLeave?.id === leave.id ? "text-brand-green" : "text-white")}>
+                                                        {leave.leave_type}
+                                                    </p>
+                                                    <p className="text-white/40 text-xs mt-0.5">{leave.start_date}</p>
+                                                </div>
+                                                <div className="bg-white/5 px-2 py-1 rounded text-xs text-white/70 font-mono">
+                                                    {leave.duration} يوم
+                                                </div>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-8 text-white/20 text-sm">
+                                            لا توجد اجازات مسجلة في {selectedYear}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="p-8 text-center text-white/40 glass-card">

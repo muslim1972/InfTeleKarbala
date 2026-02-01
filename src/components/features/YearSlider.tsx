@@ -11,7 +11,7 @@ interface YearSliderProps {
 
 export const YearSlider = ({
     startYear = 2003,
-    endYear = 2030,
+    endYear = new Date().getFullYear(),
     selectedYear,
     onYearChange
 }: YearSliderProps) => {
