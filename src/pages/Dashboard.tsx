@@ -290,12 +290,11 @@ export const Dashboard = () => {
     ];
 
     const headerContent = (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 className="text-xl font-bold text-white">بيانات الموظف</h1>
-                <p className="text-brand-green text-xs">رقم وظيفي: {user?.job_number}</p>
-            </div>
+        <div className="flex flex-col gap-2 w-full">
             <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
+            {activeTab === 'administrative' && (
+                <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
+            )}
         </div>
     );
 
@@ -405,16 +404,10 @@ export const Dashboard = () => {
                         </div>
                     )
                 ) : (
-                    // Administrative Tab - Sticky Header & New Logic
+                    // Administrative Tab - Content only (YearSlider is now in header)
                     <div className="space-y-4">
-
-                        {/* Sticky Year Slider Container */}
-                        <div className="sticky top-0 z-10 pt-4 pb-2 bg-[#0f172a]/95 backdrop-blur-xl -mx-4 px-4 border-b border-white/5 shadow-2xl">
-                            <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
-                        </div>
-
                         {/* Sections Grid */}
-                        <div className="grid grid-cols-2 gap-3 mt-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {[
                                 { id: 'thanks', label: 'كتب الشكر', count: currentYearRecord.thanks_count || 0, icon: Award, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
                                 { id: 'committees', label: 'اللجان', count: currentYearRecord.committees_count || 0, icon: User, color: 'text-blue-400', bg: 'bg-blue-400/10' },
