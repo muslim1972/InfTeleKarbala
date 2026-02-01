@@ -1030,7 +1030,52 @@ export const AdminDashboard = () => {
                                     </div>
                                 </AccordionSection>
 
-                                <div className="pb-32"></div>
+                                <AccordionSection
+                                    title="الخلاصة الإدارية"
+                                    icon={Settings}
+                                    isOpen={expandedSections.admin_summary}
+                                    color="from-purple-600 to-purple-500"
+                                    onToggle={() => toggleSection('admin_summary')}
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (أول تعيين)</label>
+                                            <input
+                                                type="date"
+                                                value={adminData?.first_appointment_date || ''}
+                                                onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-white/70 text-xs font-bold">تاريخ الانفكاك (إجازة 5 سنوات)</label>
+                                            <input
+                                                type="date"
+                                                value={adminData?.disengagement_date || ''}
+                                                onChange={e => setAdminData({ ...adminData, disengagement_date: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (بعد الإجازة)</label>
+                                            <input
+                                                type="date"
+                                                value={adminData?.resumption_date || ''}
+                                                onChange={e => setAdminData({ ...adminData, resumption_date: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-white/70 text-xs font-bold">رصيد الإجازات المتبقي (يدوي/سابق)</label>
+                                            <input
+                                                type="number"
+                                                value={adminData?.remaining_leave_balance || ''}
+                                                onChange={e => setAdminData({ ...adminData, remaining_leave_balance: parseInt(e.target.value) || 0 })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                            />
+                                        </div>
+                                    </div>
+                                </AccordionSection>
                             </div>
                         ) : (
                             <div className="text-center py-20">
