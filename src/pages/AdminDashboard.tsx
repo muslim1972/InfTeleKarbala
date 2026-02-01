@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
-import { UserPlus, Settings, Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Calendar, Award, Pencil } from "lucide-react";
+import { Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Calendar, Award, Pencil } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -29,6 +29,7 @@ export const AdminDashboard = () => {
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+    const [searchExpanded, setSearchExpanded] = useState(false); // For expandable search bar
 
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [financialData, setFinancialData] = useState<any>(null);
@@ -697,45 +698,35 @@ export const AdminDashboard = () => {
     };
 
     return (
-        <Layout>
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/20">
-                        <Settings className="w-6 h-6" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">إدارة النظام</h1>
-                </div>
-
-                <div className="flex bg-black/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/5 shadow-inner w-full md:w-auto">
+        <Layout headerTitle="إدارة النظام">
+            {/* Tabs - Sticky at top */}
+            <div className="sticky top-[60px] z-40 bg-gradient-to-b from-black/95 to-black/80 backdrop-blur-md pb-3 -mx-4 px-4">
+                <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/5 shadow-inner w-full">
                     <button
                         onClick={() => setActiveTab('admin_add')}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl transition-all font-bold text-sm",
+                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
                             activeTab === 'admin_add' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
                         )}
                     >
-                        <UserPlus className="w-4 h-4" />
                         <span>إضافة موظف</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('admin_manage')}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl transition-all font-bold text-sm",
+                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
                             activeTab === 'admin_manage' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
                         )}
                     >
-                        <Search className="w-4 h-4" />
                         <span>إدارة الموظفين</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('admin_records')}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl transition-all font-bold text-sm",
+                            "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
                             activeTab === 'admin_records' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
                         )}
                     >
-                        <FileText className="w-4 h-4" />
                         <span>إدارة السجلات</span>
                     </button>
                 </div>
@@ -832,7 +823,7 @@ export const AdminDashboard = () => {
                                                 formData.role === 'admin' ? "bg-brand-green/20 text-brand-green shadow-sm ring-1 ring-brand-green/20" : "text-white/40 hover:text-white/60"
                                             )}
                                         >
-                                            <Settings className="w-4 h-4" />
+                                            <User className="w-4 h-4" />
                                             <span>مدير</span>
                                         </button>
                                     </div>
@@ -845,50 +836,78 @@ export const AdminDashboard = () => {
                 {/* TAB: Manage Employees */}
                 {activeTab === 'admin_manage' && (
                     <div className="space-y-6">
-                        {/* Sticky Search Bar */}
-                        <div className="sticky top-20 z-40 animate-in fade-in slide-in-from-top-4 duration-500">
-                            <GlassCard className="p-4 relative overflow-visible z-20">
-                                <div className="flex gap-3 relative" ref={searchRef}>
-                                    <div className="flex-1 relative">
-                                        <input
-                                            type="text"
-                                            placeholder="بحث عن موظف (الرقم الوظيفي أو الاسم)..."
-                                            value={searchJobNumber}
-                                            onChange={e => setSearchJobNumber(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                            onFocus={() => {
-                                                if (suggestions.length > 0) setShowSuggestions(true);
-                                            }}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50"
-                                        />
-                                        {/* Suggestions Dropdown */}
-                                        {showSuggestions && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[220px] overflow-y-auto custom-scrollbar">
-                                                {suggestions.map((user, idx) => (
-                                                    <button
-                                                        key={user.id || idx}
-                                                        onClick={() => handleSelectSuggestion(user)}
-                                                        className="w-full text-right px-4 py-3 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
-                                                    >
-                                                        <div>
-                                                            <div className="font-bold text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                            <div className="text-xs text-white/50">{user.job_number}</div>
-                                                        </div>
-                                                        <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/70">
-                                                            {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                        </span>
-                                                    </button>
-                                                ))}
+                        {/* Search Bar & User Display - Sticky */}
+                        <div className="sticky top-[110px] z-30 bg-gradient-to-b from-black/95 to-black/80 backdrop-blur-md pb-3 -mx-4 px-4 mb-3">
+                            <GlassCard className="p-3 relative overflow-visible">
+                                <div className="flex items-center justify-between gap-3" ref={searchRef}>
+                                    {/* User Name - Right Side */}
+                                    {selectedEmployee && (
+                                        <div className="text-right">
+                                            <h3 className="text-white font-bold text-base">
+                                                {selectedEmployee.full_name}
+                                            </h3>
+                                        </div>
+                                    )}
+
+                                    {/* Expandable Search - Left Side */}
+                                    <div className="flex items-center gap-2 relative ml-auto">
+                                        {searchExpanded && (
+                                            <div className="relative animate-in slide-in-from-left-5 fade-in duration-300">
+                                                <input
+                                                    type="text"
+                                                    placeholder="الرقم الوظيفي أو الاسم"
+                                                    value={searchJobNumber}
+                                                    onChange={e => setSearchJobNumber(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                                    onFocus={() => {
+                                                        if (suggestions.length > 0) setShowSuggestions(true);
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        const relatedTarget = e.relatedTarget as HTMLElement;
+                                                        if (!relatedTarget?.closest('.suggestions-dropdown')) {
+                                                            setTimeout(() => setSearchExpanded(false), 200);
+                                                        }
+                                                    }}
+                                                    autoFocus
+                                                    className="w-64 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                                />
+                                                {/* Suggestions Dropdown */}
+                                                {showSuggestions && (
+                                                    <div className="suggestions-dropdown absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[200px] overflow-y-auto">
+                                                        {suggestions.map((user, idx) => (
+                                                            <button
+                                                                key={user.id || idx}
+                                                                onClick={() => handleSelectSuggestion(user)}
+                                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors"
+                                                            >
+                                                                <div>
+                                                                    <div className="font-bold text-sm text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
+                                                                    <div className="text-xs text-white/50">{user.job_number}</div>
+                                                                </div>
+                                                                <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-white/70">
+                                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
+                                        <button
+                                            onClick={() => {
+                                                if (searchExpanded && searchJobNumber) {
+                                                    handleSearch();
+                                                } else {
+                                                    setSearchExpanded(!searchExpanded);
+                                                }
+                                            }}
+                                            disabled={loading || isSearching}
+                                            className="bg-brand-green/20 text-brand-green p-2 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
+                                            title="بحث"
+                                        >
+                                            {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleSearch()}
-                                        disabled={loading}
-                                        className="bg-brand-green text-white px-5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"
-                                    >
-                                        {loading || isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                                    </button>
                                 </div>
                             </GlassCard>
                         </div>
@@ -1032,7 +1051,7 @@ export const AdminDashboard = () => {
 
                                 <AccordionSection
                                     title="الخلاصة الإدارية"
-                                    icon={Settings}
+                                    icon={User}
                                     isOpen={expandedSections.admin_summary}
                                     color="from-purple-600 to-purple-500"
                                     onToggle={() => toggleSection('admin_summary')}

@@ -5,9 +5,10 @@ interface LayoutProps {
     children: React.ReactNode;
     className?: string;
     headerContent?: React.ReactNode;
+    headerTitle?: string;
 }
 
-export const Layout = ({ children, className, headerContent }: LayoutProps) => {
+export const Layout = ({ children, className, headerContent, headerTitle }: LayoutProps) => {
     return (
         <div className="min-h-screen bg-[#0f172a] text-white font-cairo relative">
             {/* Cosmic Background Effects */}
@@ -25,7 +26,7 @@ export const Layout = ({ children, className, headerContent }: LayoutProps) => {
             </div>
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
-                <AppHeader bottomContent={headerContent} />
+                <AppHeader bottomContent={headerContent} title={headerTitle} />
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full", className)}>
                     {children}
                 </main>

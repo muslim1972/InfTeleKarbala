@@ -14,6 +14,7 @@ interface FinancialField {
     key: string;
     label: string;
     isMoney?: boolean;
+    isDate?: boolean;
     suffix?: string;
     highlight?: boolean;
     superHighlight?: boolean;
@@ -67,22 +68,28 @@ export const Dashboard = () => {
     const [lifetimeUsage, setLifetimeUsage] = useState({ regular: 0, sick: 0 });
 
     const calculateBalances = () => {
-        const appointmentDate = adminData?.first_appointment_date ? new Date(adminData.first_appointment_date) : null;
+        // استخدام resumption_date (تاريخ المباشرة الجديد) إن وجد، وإلا first_appointment_date
+        const appointmentDateStr = adminData?.resumption_date || adminData?.first_appointment_date;
+        const appointmentDate = appointmentDateStr ? new Date(appointmentDateStr) : null;
+
         let totalSickBalance = 365;
         let totalRegularBalance = 0;
 
         // Sick Balance (Lifetime 365)
         const remainingSick = totalSickBalance - (lifetimeUsage.sick || 0);
 
-        // Regular Balance
+        // Regular Balance - المعادلة الصحيحة
         if (appointmentDate) {
             const now = new Date();
-            let months = (now.getFullYear() - appointmentDate.getFullYear()) * 12;
-            months -= appointmentDate.getMonth();
-            months += now.getMonth();
-            months += 1; // Inclusive current month
 
-            totalRegularBalance = months * 3;
+            // حساب السنوات الميلادية الكاملة (من سنة التعيين+1 إلى السنة الحالية-1)
+            const completeYears = now.getFullYear() - appointmentDate.getFullYear() - 1;
+
+            // حساب أشهر السنة الحالية
+            const currentYearMonths = now.getMonth() + 1; // +1 لأن getMonth() يبدأ من 0
+
+            // المعادلة: (السنوات الكاملة × 12 × 3) + (أشهر السنة الحالية × 3)
+            totalRegularBalance = (completeYears * 12 * 3) + (currentYearMonths * 3);
         }
 
         const remainingRegular = totalRegularBalance - (lifetimeUsage.regular || 0);
@@ -242,6 +249,7 @@ export const Dashboard = () => {
             icon: User,
             color: 'from-blue-600 to-blue-500',
             fields: [
+                { key: 'first_appointment_date', label: 'تاريخ أول مباشرة', isDate: true },
                 { key: 'job_title', label: 'العنوان الوظيفي' },
                 { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
                 { key: 'salary_stage', label: 'المرحلة في الدرجة الوظيفية' },
@@ -342,10 +350,11 @@ export const Dashboard = () => {
                                             <div className="bg-black/20">
                                                 <div className="p-3 space-y-2">
                                                     {group.fields.map((field) => {
-                                                        const val = financialData[field.key];
+                                                        // Get value from adminData for date fields, otherwise from financialData
+                                                        const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
                                                         const displayVal = field.isMoney
                                                             ? Number(val || 0).toLocaleString()
-                                                            : field.suffix ? `${val || 0}${field.suffix}` : (val || '-');
+                                                            : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
 
                                                         return (
                                                             <div
@@ -409,7 +418,7 @@ export const Dashboard = () => {
                         {/* Sections Grid */}
                         <div className="grid grid-cols-2 gap-3">
                             {[
-                                { id: 'thanks', label: 'كتب الشكر', count: currentYearRecord.thanks_count || 0, icon: Award, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+                                { id: 'thanks', label: 'كتب الشكر', count: currentYearRecord.thanks_books_count || 0, icon: Award, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
                                 { id: 'committees', label: 'اللجان', count: currentYearRecord.committees_count || 0, icon: User, color: 'text-blue-400', bg: 'bg-blue-400/10' },
                                 { id: 'penalties', label: 'العقوبات', count: currentYearRecord.penalties_count || 0, icon: FileText, color: 'text-red-400', bg: 'bg-red-400/10' },
                                 { id: 'leaves', label: 'الاجازات', count: currentYearRecord.leaves_taken || 0, icon: Scissors, color: 'text-green-400', bg: 'bg-green-400/10' },
@@ -418,19 +427,19 @@ export const Dashboard = () => {
                                     key={item.id}
                                     onClick={() => handleDetailClick(item.id as any)}
                                     className={cn(
-                                        "p-4 rounded-2xl border transition-all text-right space-y-2",
+                                        "p-2 rounded-lg border transition-all text-center space-y-1 flex flex-col items-center",
                                         expandedDetail === item.id
                                             ? "bg-white/10 border-white/20 scale-[1.02]"
                                             : "bg-white/5 border-white/5 hover:bg-white/10",
                                         expandedDetail === 'leaves' && item.id === 'leaves' ? "bg-brand-green/10 border-brand-green" : ""
                                     )}
                                 >
-                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", item.bg, item.color)}>
-                                        <item.icon className="w-5 h-5" />
+                                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", item.bg, item.color)}>
+                                        <item.icon className="w-3.5 h-3.5" />
                                     </div>
                                     <div>
-                                        <p className="text-white/60 text-xs">{item.label}</p>
-                                        <p className="text-white font-bold text-xl">{item.count}</p>
+                                        <p className="text-white/60 text-[10px]">{item.label}</p>
+                                        <p className="text-white font-bold text-lg">{item.count}</p>
                                     </div>
                                 </button>
                             ))}
@@ -552,6 +561,10 @@ export const Dashboard = () => {
                                             exit={{ opacity: 0, x: -20 }}
                                             className="space-y-3"
                                         >
+                                            <div className="flex justify-between border-b border-white/10 pb-2 mb-3 bg-brand-green/10 p-3 rounded-lg">
+                                                <span className="text-white font-bold text-sm">إجمالي الرصيد المستحق</span>
+                                                <span className="text-white font-bold text-lg text-brand-yellow">{balances.total_earned_regular} يوم</span>
+                                            </div>
                                             <div className="flex justify-between border-b border-white/10 pb-2">
                                                 <span className="text-white/70 text-sm">الرصيد الاعتيادي المتبقي</span>
                                                 <span className="text-white font-bold text-brand-green">{balances.regular} يوم</span>
@@ -619,15 +632,6 @@ export const Dashboard = () => {
                             </div>
                         </div>
 
-                        <div className="p-8 text-center text-white/40 glass-card">
-                            <FileText className="w-12 h-12 mx-auto mb-4 opacity-20 text-brand-green" />
-                            <h3 className="text-xl font-bold text-white mb-2">معلومات الخدمة</h3>
-                            <div className="space-y-2">
-                                <p>تاريخ المباشرة: <span className="text-white font-mono">{adminData?.first_appointment_date || 'غير محدد'}</span></p>
-                                <p>تاريخ الانفكاك: <span className="text-white font-mono">{adminData?.disengagement_date || '--/--/----'}</span></p>
-                                <p>تاريخ المباشرة (الجديد): <span className="text-white font-mono">{adminData?.resumption_date || '--/--/----'}</span></p>
-                            </div>
-                        </div>
 
                         {/* Spacer for scroll */}
                         <div className="h-20"></div>

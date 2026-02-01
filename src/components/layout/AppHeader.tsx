@@ -4,9 +4,10 @@ import { useAuth } from "../../context/AuthContext";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
+    title?: string;
 }
 
-export const AppHeader = ({ bottomContent }: AppHeaderProps) => {
+export const AppHeader = ({ bottomContent, title }: AppHeaderProps) => {
     const { user, logout } = useAuth();
 
     if (!user) return null;
@@ -20,8 +21,13 @@ export const AppHeader = ({ bottomContent }: AppHeaderProps) => {
                             <User className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-white font-bold text-sm md:text-base font-tajawal">{user?.full_name || 'زائر'}</h1>
-                            <p className="text-white/60 text-xs font-tajawal">الرقم الوظيفي: {user?.job_number || 'غير متوفر'}</p>
+                            {title ? (
+                                <h1 className="text-white font-bold text-base md:text-lg font-tajawal">{title}</h1>
+                            ) : (
+                                <h1 className="text-white font-bold text-sm md:text-base font-tajawal">
+                                    {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
+                                </h1>
+                            )}
                         </div>
                     </div>
 
