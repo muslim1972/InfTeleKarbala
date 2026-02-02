@@ -24,6 +24,7 @@ export const AdminDashboard = () => {
         password: "",
         full_name: "",
         job_number: "",
+        iban: "",
         role: "user"
     });
 
@@ -416,7 +417,8 @@ export const AdminDashboard = () => {
                     job_number: selectedEmployee.job_number,
                     username: selectedEmployee.username,
                     password: selectedEmployee.password,
-                    role: selectedEmployee.role
+                    role: selectedEmployee.role,
+                    iban: selectedEmployee.iban
                 })
                 .eq('id', selectedEmployee.id);
 
@@ -455,13 +457,9 @@ export const AdminDashboard = () => {
 
             toast.success("تم حفظ كافة التعديلات بنجاح في قاعدة البيانات");
 
-            // Reset to search view
-            setSelectedEmployee(null);
-            setFinancialData(null);
-            setAdminData(null);
-            setYearlyData([]);
-            setSearchJobNumber("");
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Option: Re-fetch explicitly to ensure UI mimics DB, or just trust local state. 
+            // We will trust local state for now to keep it responsive.
+            // No reset here.
         } catch (error: any) {
             console.error("Update error:", error);
             toast.error(error.message || "فشل في حفظ التعديلات");
@@ -542,7 +540,7 @@ export const AdminDashboard = () => {
             }, 100);
 
             // تصفير نموذج الإضافة للعملية القادمة
-            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user" });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user" });
         } catch (error: any) {
             // Handle unique constraint violations
             if (error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -676,7 +674,7 @@ export const AdminDashboard = () => {
             },
             {
                 key: 'certificate_text',
-                label: 'الشهادة',
+                label: 'التحصيل الدراسي',
                 options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب']
             },
             {
@@ -880,8 +878,9 @@ export const AdminDashboard = () => {
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
-                    <GlassCard className="p-5 md:p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <GlassCard className="p-6 max-w-2xl mx-auto">
+                        <div className="space-y-4">
+                            {/* Row 1: Full Name */}
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-white/70">الاسم الكامل</label>
                                 <div className="relative">
@@ -896,8 +895,43 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
+                            {/* Row 2: Account Type (2 Tik Design) */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/70">الرقم الوظيفي</label>
+                                <label className="text-xs font-bold text-white/70">نوع الحساب</label>
+                                <div className="flex gap-4 p-2 bg-white/5 rounded-xl border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, role: 'user' })}
+                                        className={cn(
+                                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
+                                            formData.role === 'user' ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]" : "text-white/40 hover:bg-white/5"
+                                        )}
+                                    >
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}>
+                                            {formData.role === 'user' && <User className="w-2.5 h-2.5 text-white" />}
+                                        </div>
+                                        <span className="text-xs font-bold">موظف</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, role: 'admin' })}
+                                        className={cn(
+                                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
+                                            formData.role === 'admin' ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "text-white/40 hover:bg-white/5"
+                                        )}
+                                    >
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}>
+                                            {formData.role === 'admin' && <User className="w-2.5 h-2.5 text-white" />}
+                                        </div>
+                                        <span className="text-xs font-bold">مشرف</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Row 3: Job Number */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">الرقم الوظيفي الموحد</label>
                                 <div className="relative">
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 bg-white/10 rounded text-center min-w-[20px]">
                                         <span className="text-[10px] font-mono text-white/50">#</span>
@@ -912,8 +946,25 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
+                            {/* Row 4: IBAN */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/70">اسم المستخدم (للدخول)</label>
+                                <label className="text-xs font-bold text-white/70">رمز ( IBAN )</label>
+                                <div className="relative">
+                                    <Wallet className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                                    <input
+                                        type="text"
+                                        value={formData.iban}
+                                        onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        placeholder="IQ..."
+                                        dir="ltr"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Row 5: Username */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">اسم المستخدم المؤقت</label>
                                 <div className="relative">
                                     <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
@@ -927,8 +978,9 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
+                            {/* Row 6: Password */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/70">كلمة المرور</label>
+                                <label className="text-xs font-bold text-white/70">كلمة المرور المؤقتة</label>
                                 <div className="relative">
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 flex items-center justify-center">
                                         <span className="text-base">●</span>
@@ -944,33 +996,6 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/70">نوع الحساب</label>
-                                <div className="grid grid-cols-2 gap-2 p-1 bg-white/5 rounded-xl border border-white/10">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, role: 'user' })}
-                                        className={cn(
-                                            "flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all",
-                                            formData.role === 'user' ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20" : "text-white/40 hover:text-white/60"
-                                        )}
-                                    >
-                                        <User className="w-3.5 h-3.5" />
-                                        <span>موظف</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, role: 'admin' })}
-                                        className={cn(
-                                            "flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all",
-                                            formData.role === 'admin' ? "bg-brand-green/20 text-brand-green shadow-sm ring-1 ring-brand-green/20" : "text-white/40 hover:text-white/60"
-                                        )}
-                                    >
-                                        <User className="w-3.5 h-3.5" />
-                                        <span>مدير</span>
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </GlassCard>
                 </div>
@@ -985,7 +1010,7 @@ export const AdminDashboard = () => {
 
                             <AccordionSection
                                 id="main_info"
-                                title="البيانات الأساسية والحساب"
+                                title="معلومات اساسية"
                                 icon={User}
                                 isOpen={expandedSections.main_info}
                                 onToggle={() => toggleSection('main_info')}
@@ -997,62 +1022,156 @@ export const AdminDashboard = () => {
                                         value={selectedEmployee.full_name}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
                                     />
+
+                                    {/* Role Selection (UI matching Add Employee) */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
+                                        <div className="flex gap-2 p-1 bg-black/20 rounded-xl border border-white/10">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all",
+                                                    selectedEmployee.role === 'user' ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "text-white/40 hover:bg-white/5"
+                                                )}
+                                            >
+                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}></div>
+                                                <span className="text-xs font-bold">موظف</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all",
+                                                    selectedEmployee.role === 'admin' ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50" : "text-white/40 hover:bg-white/5"
+                                                )}
+                                            >
+                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}></div>
+                                                <span className="text-xs font-bold">مشرف</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <EditableField
-                                        label="الرقم الوظيفي"
+                                        label="الرقم الوظيفي الموحد"
                                         value={selectedEmployee.job_number}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
                                     />
+
+                                    {/* IBAN Field */}
                                     <EditableField
-                                        label="اسم المستخدم"
+                                        label="رمز ( IBAN )"
+                                        value={selectedEmployee.iban || ""}
+                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, iban: val })}
+                                    />
+
+                                    <EditableField
+                                        label="اسم المستخدم المؤقت"
                                         value={selectedEmployee.username}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
                                     />
+
+                                    {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
                                     <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
+                                        <label className="text-xs text-white/40 font-bold block">كلمة المرور المؤقتة</label>
                                         <div className="relative">
-                                            <select
-                                                value={selectedEmployee.role}
-                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, role: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 appearance-none"
-                                            >
-                                                <option value="user" className="bg-slate-900">موظف</option>
-                                                <option value="admin" className="bg-slate-900">مدير</option>
-                                            </select>
-                                            <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={selectedEmployee.password || ""}
+                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                                dir="ltr"
+                                            />
                                         </div>
                                     </div>
                                 </div>
-
-
                             </AccordionSection>
 
                             <AccordionSection
                                 id="basic"
-                                title="المعلومات الاساسية والرواتب"
+                                title="معلومات الدرجة الوظيفية"
                                 icon={User}
                                 isOpen={expandedSections.basic}
                                 color="from-blue-600 to-blue-500"
                                 onToggle={() => toggleSection('basic')}
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {/* First Appointment Date (Display Only) */}
+                                <div className="space-y-4">
+                                    {/* Date of First Direct Commencement - Editable */}
                                     <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">تأريخ المباشرة (اول التعيين)</label>
+                                        <label className="text-xs text-white/40 font-bold block">تأريخ اول مباشر</label>
                                         <input
                                             type="date"
+                                            // Prioritize adminData date, fall back to what might be in financialData or empty
                                             value={adminData?.first_appointment_date || ''}
-                                            readOnly
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 opacity-60 cursor-not-allowed"
+                                            onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
                                         />
                                     </div>
-                                    {financialFields.basic.map(field => (
-                                        <FinancialInput
-                                            key={field.key}
-                                            field={field}
-                                            value={financialData?.[field.key]}
-                                            onChange={handleFinancialChange}
-                                        />
-                                    ))}
+
+                                    {/* Job Title */}
+                                    <FinancialInput
+                                        key="job_title"
+                                        field={financialFields.basic.find(f => f.key === 'job_title')}
+                                        value={financialData?.job_title}
+                                        onChange={handleFinancialChange}
+                                    />
+
+                                    {/* Grade and Education - Same Row */}
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <FinancialInput
+                                                key="salary_grade"
+                                                field={financialFields.basic.find(f => f.key === 'salary_grade')}
+                                                value={financialData?.salary_grade}
+                                                onChange={handleFinancialChange}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <FinancialInput
+                                                key="certificate_text"
+                                                field={financialFields.basic.find(f => f.key === 'certificate_text')}
+                                                value={financialData?.certificate_text}
+                                                onChange={handleFinancialChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Salary Stage (المرحلة) */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-white/40 font-bold block">المرحلة ضمن الدرجة</label>
+                                        <div className="relative">
+                                            <select
+                                                value={financialData['salary_stage'] || ""}
+                                                onChange={(e) => setFinancialData({ ...financialData, 'salary_stage': e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none"
+                                            >
+                                                <option value="" className="bg-slate-800">اختر المرحلة</option>
+                                                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                                    <option key={num} value={num} className="bg-slate-800">{num}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                <div className="border-t-[4px] border-t-white/30 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Certificate Percentage */}
+                                    <FinancialInput
+                                        key="certificate_percentage"
+                                        field={financialFields.basic.find(f => f.key === 'certificate_percentage')}
+                                        value={financialData?.certificate_percentage}
+                                        onChange={handleFinancialChange}
+                                    />
+
+                                    {/* Nominal Salary */}
+                                    <FinancialInput
+                                        key="nominal_salary"
+                                        field={financialFields.basic.find(f => f.key === 'nominal_salary')}
+                                        value={financialData?.nominal_salary}
+                                        onChange={handleFinancialChange}
+                                    />
                                 </div>
                             </AccordionSection>
 

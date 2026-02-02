@@ -8,6 +8,7 @@ export interface AppUser {
   job_number?: string;
   role: string;
   avatar_url?: string | null;
+  iban?: string;
 }
 
 interface AuthContextType {
@@ -55,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .select('*')
         .eq('username', username)
         .eq('password', password)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
@@ -67,7 +68,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         full_name: data.full_name,
         job_number: data.job_number,
         role: data.role,
-        avatar_url: data.avatar_url
+        avatar_url: data.avatar_url,
+        iban: data.iban
       };
 
       setUser(appUser);

@@ -383,7 +383,7 @@ export const Dashboard = () => {
                                                 exit={{ height: 0, opacity: 0, marginTop: 0 }}
                                                 className="bg-[#0f172a] border border-white/20 p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-white shadow-2xl overflow-hidden"
                                             >
-                                                {financialData.iban || 'لا يوجد رقم IBAN مسجل'}
+                                                {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
