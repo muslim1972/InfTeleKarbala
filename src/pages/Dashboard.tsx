@@ -309,7 +309,7 @@ export const Dashboard = () => {
     );
 
     return (
-        <Layout headerContent={headerContent}>
+        <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true}>
             {/* Standard content flow without sticky header here */}
 
             <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh]">

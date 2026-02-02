@@ -27,7 +27,9 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                 <h2 className="text-white font-bold text-sm md:text-base font-tajawal">
                                     {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
                                 </h2>
-                                <p className="text-xs text-white/50 font-cairo">Admin</p>
+                                <p className="text-xs text-white/50 font-cairo">
+                                    {user?.role === 'admin' ? 'مدير النظام' : 'الحساب الشخصي'}
+                                </p>
                             </div>
                         )}
                     </div>
