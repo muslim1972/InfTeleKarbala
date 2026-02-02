@@ -25,6 +25,7 @@ body {
   color: white;
   direction: rtl;
   font-family: 'Tajawal', sans-serif;
+  overflow-x: hidden;
 }
 
 @keyframes highlight {

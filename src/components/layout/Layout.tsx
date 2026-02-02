@@ -12,7 +12,7 @@ interface LayoutProps {
 
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
     return (
-        <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0f172a] text-white font-tajawal">
+        <div className="min-h-screen w-full relative bg-[#0f172a] text-white font-tajawal">
             {/* Cosmic Background Effects */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[100px]" />
