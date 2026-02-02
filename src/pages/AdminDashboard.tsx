@@ -1009,35 +1009,21 @@ export const AdminDashboard = () => {
                                     />
                                     <div className="space-y-2">
                                         <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
-                                        <select
-                                            value={selectedEmployee.role}
-                                            onChange={(e) => setSelectedEmployee({ ...selectedEmployee, role: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        >
-                                            <option value="user" className="bg-slate-900">موظف</option>
-                                            <option value="admin" className="bg-slate-900">مدير</option>
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                value={selectedEmployee.role}
+                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, role: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 appearance-none"
+                                            >
+                                                <option value="user" className="bg-slate-900">موظف</option>
+                                                <option value="admin" className="bg-slate-900">مدير</option>
+                                            </select>
+                                            <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-4 pt-4 border-t border-white/5">
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block mb-2">تغيير كلمة المرور (اختياري)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="أدخل كلمة مرور جديدة للتغيير فقط"
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    setSelectedEmployee({ ...selectedEmployee, new_password: e.target.value });
-                                                } else {
-                                                    const { new_password, ...rest } = selectedEmployee;
-                                                    setSelectedEmployee(rest);
-                                                }
-                                            }}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 font-mono"
-                                        />
-                                    </div>
-                                </div>
+
                             </AccordionSection>
 
                             <AccordionSection
@@ -1188,9 +1174,10 @@ export const AdminDashboard = () => {
                                     onDelete={handleDeleteRecord}
                                     isOpen={openRecordSection === 'thanks'}
                                     onToggle={() => handleToggleRecordSection('thanks')}
+                                    selectedYear={selectedAdminYear}
                                     fields={[
                                         { key: 'book_number', label: 'رقم الكتاب' },
-                                        { key: 'book_date', label: 'تاريخ الكتاب', type: 'date' },
+                                        { key: 'book_date', label: 'تاريخ الكتاب', type: 'date-fixed-year' },
                                         { key: 'reason', label: 'سبب الشكر' },
                                         { key: 'issuer', label: 'الجهة المانحة' }
                                     ]}
@@ -1206,10 +1193,11 @@ export const AdminDashboard = () => {
                                     onDelete={handleDeleteRecord}
                                     isOpen={openRecordSection === 'committees'}
                                     onToggle={() => handleToggleRecordSection('committees')}
+                                    selectedYear={selectedAdminYear}
                                     fields={[
                                         { key: 'committee_name', label: 'اسم اللجنة' },
                                         { key: 'role', label: 'العضوية / الصفة' },
-                                        { key: 'start_date', label: 'تاريخ اللجنة', type: 'date' }
+                                        { key: 'start_date', label: 'تاريخ اللجنة', type: 'date-fixed-year' }
                                     ]}
                                 />
                                 <RecordSection
@@ -1223,10 +1211,11 @@ export const AdminDashboard = () => {
                                     onDelete={handleDeleteRecord}
                                     isOpen={openRecordSection === 'penalties'}
                                     onToggle={() => handleToggleRecordSection('penalties')}
+                                    selectedYear={selectedAdminYear}
                                     fields={[
                                         { key: 'penalty_type', label: 'نوع العقوبة' },
                                         { key: 'reason', label: 'السبب' },
-                                        { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date' },
+                                        { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date-fixed-year' },
                                         { key: 'effect', label: 'الأثر المترتب (اختياري)' }
                                     ]}
                                 />
@@ -1373,16 +1362,19 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                                     <label className="text-xs text-white/40 font-bold block px-1">{field.label}</label>
 
                                     {field.type === 'select' ? (
-                                        <select
-                                            value={newItem[field.key] || ""}
-                                            onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a]"
-                                        >
-                                            <option value="">اختر...</option>
-                                            {field.options?.map((opt: string) => (
-                                                <option key={opt} value={opt}>{opt}</option>
-                                            ))}
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                value={newItem[field.key] || ""}
+                                                onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 pl-9 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none"
+                                            >
+                                                <option value="">اختر...</option>
+                                                {field.options?.map((opt: string) => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                                        </div>
                                     ) : field.type === 'date-fixed-year' ? (
                                         <div className="flex gap-2">
                                             {/* Day - Number Input */}
@@ -1405,21 +1397,24 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                                                 className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30"
                                             />
                                             {/* Month */}
-                                            <select
-                                                value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
-                                                onChange={e => {
-                                                    const month = e.target.value;
-                                                    const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                    const parts = current.split('-');
-                                                    setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
-                                                }}
-                                                className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a]"
-                                            >
-                                                <option value="">شهر</option>
-                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                    <option key={m} value={m.toString().padStart(2, '0')}>{m}</option>
-                                                ))}
-                                            </select>
+                                            <div className="flex-1 relative">
+                                                <select
+                                                    value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
+                                                    onChange={e => {
+                                                        const month = e.target.value;
+                                                        const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                        const parts = current.split('-');
+                                                        setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
+                                                    }}
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-2 pl-7 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none"
+                                                >
+                                                    <option value="">شهر</option>
+                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                        <option key={m} value={m.toString().padStart(2, '0')}>{m}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute left-1 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
+                                            </div>
                                             {/* Year (Fixed) */}
                                             <div className="flex-1 bg-white/5 border border-white/5 rounded-lg px-2 py-2 text-white/50 text-sm text-center font-mono select-none">
                                                 {selectedYear}
@@ -1504,17 +1499,20 @@ function FinancialInput({ field, value, onChange }: any) {
         <div className="space-y-2">
             <label className="text-xs text-white/40 font-bold block">{field.label}</label>
             {field.options ? (
-                <select
-                    value={value || ""}
-                    onChange={(e) => onChange(field.key, e.target.value)}
-                    disabled={field.disabled}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50"
-                >
-                    <option value="">اختر...</option>
-                    {field.options.map((opt: string) => (
-                        <option key={opt} value={opt} className="bg-slate-900">{opt}</option>
-                    ))}
-                </select>
+                <div className="relative">
+                    <select
+                        value={value || ""}
+                        onChange={(e) => onChange(field.key, e.target.value)}
+                        disabled={field.disabled}
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none"
+                    >
+                        <option value="">اختر...</option>
+                        {field.options.map((opt: string) => (
+                            <option key={opt} value={opt} className="bg-slate-900">{opt}</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                </div>
             ) : (
                 <div className="relative">
                     <input
