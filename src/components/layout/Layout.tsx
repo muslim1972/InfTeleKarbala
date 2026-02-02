@@ -1,4 +1,5 @@
 import { AppHeader } from "./AppHeader";
+import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
 
 interface LayoutProps {
@@ -28,9 +29,10 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
                 <AppHeader bottomContent={headerContent} title={headerTitle} showUserName={showUserName} />
-                <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full", className)}>
+                <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-24 md:pb-28", className)}>
                     {children}
                 </main>
+                <AppFooter />
             </div>
         </div>
     );
