@@ -3,7 +3,9 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Award, Pencil } from "lucide-react";
+import { AccordionSection } from "../components/ui/AccordionSection";
+import { RecordList } from "../components/features/RecordList";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -982,7 +984,7 @@ export const AdminDashboard = () => {
                         <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 mx-6">
 
                             <AccordionSection
-                                sectionId="main_info"
+                                id="main_info"
                                 title="البيانات الأساسية والحساب"
                                 icon={User}
                                 isOpen={expandedSections.main_info}
@@ -1039,7 +1041,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                sectionId="basic"
+                                id="basic"
                                 title="المعلومات الاساسية والرواتب"
                                 icon={User}
                                 isOpen={expandedSections.basic}
@@ -1069,7 +1071,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                sectionId="allowances"
+                                id="allowances"
                                 title="المخصصات"
                                 icon={Wallet}
                                 isOpen={expandedSections.allowances}
@@ -1089,7 +1091,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                sectionId="deductions"
+                                id="deductions"
                                 title="الاستقطاعات"
                                 icon={Scissors}
                                 isOpen={expandedSections.deductions}
@@ -1109,7 +1111,7 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                sectionId="admin_summary"
+                                id="admin_summary"
                                 title="الخلاصة الإدارية"
                                 icon={User}
                                 isOpen={expandedSections.admin_summary}
@@ -1338,6 +1340,7 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
         setIsEditing(false);
     };
 
+    // Inside RecordSection function
     return (
         <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mb-4">
             <button
@@ -1464,73 +1467,18 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                         </div>
                     </div>
 
-                    {/* List */}
-                    <div className="space-y-2">
-                        {data.map((item: any, idx: number) => (
-                            <div key={item.id || idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-white text-sm">{item[fields[0].key]}</span>
-                                        {item.book_date && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">{item.book_date}</span>}
-                                        {item.start_date && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">{item.start_date}</span>}
-                                        {item.penalty_date && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">{item.penalty_date}</span>}
-                                    </div>
-                                    {fields[1] && <p className="text-white/60 text-xs">{item[fields[1].key]}</p>}
-                                    {item.duration && <p className="text-brand-green text-xs font-bold">المدة: {item.duration} يوم</p>}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => {
-                                            setNewItem(item); // Populate form
-                                            setIsEditing(true); // Switch mode
-                                            // Scroll to form (optional, simplified)
-                                        }}
-                                        className="p-2 text-white/20 hover:text-brand-green hover:bg-brand-green/10 rounded-lg transition-colors"
-                                        title="تعديل"
-                                    >
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(type, item.id)}
-                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                        title="حذف"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                        {data.length === 0 && (
-                            <p className="text-center text-white/20 text-sm py-4">لا توجد سجلات</p>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function AccordionSection({ sectionId, title, icon: Icon, isOpen, onToggle, children, color }: any) {
-    return (
-        <div id={`section-${sectionId || title.replace(/\s/g, '_')}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mx-auto max-w-full">
-            <button
-                onClick={onToggle}
-                className={cn(
-                    "w-full p-3 flex items-center justify-between text-white transition-all bg-gradient-to-r hover:brightness-110",
-                    color ? color : "from-emerald-600 to-emerald-500"
-                )}
-            >
-                <div className="flex items-center gap-2">
-                    <div className="bg-white/20 p-1.5 rounded-lg">
-                        <Icon className="w-4 h-4" />
-                    </div>
-                    <span className="font-bold text-sm">{title}</span>
-                </div>
-                <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isOpen ? "rotate-180" : "")} />
-            </button>
-            {isOpen && (
-                <div className="p-4 bg-black/20 border-t border-white/5 space-y-4">
-                    {children}
+                    {/* List using Shared Component */}
+                    <RecordList
+                        data={data}
+                        fields={fields}
+                        type={type}
+                        onEdit={(item) => {
+                            setNewItem(item);
+                            setIsEditing(true);
+                            // Optional: scroll to form
+                        }}
+                        onDelete={onDelete}
+                    />
                 </div>
             )}
         </div>
