@@ -722,7 +722,7 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_add')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_add' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_add' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إضافة موظف</span>
@@ -731,7 +731,7 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_manage')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_manage' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_manage' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إدارة الموظفين</span>
@@ -740,7 +740,7 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_records')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_records' ? "bg-brand-green text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_records' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إدارة السجلات</span>
@@ -766,10 +766,10 @@ export const AdminDashboard = () => {
                         <button
                             onClick={(e) => activeTab === 'admin_add' ? handleSaveEmployee(e) : handleUpdateEmployee()}
                             disabled={loading}
-                            className="w-full py-1.5 px-3 bg-brand-green hover:bg-brand-green/90 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap"
+                            className="w-full py-2 px-2 bg-brand-green hover:bg-brand-green/90 text-white rounded-lg font-bold text-xs flex items-center justify-center shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap"
                         >
-                            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                            <span>حفظ التعديلات</span>
+                            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin ml-2" /> : null}
+                            <span>حفظ التعديل والاضافة</span>
                         </button>
                     ) : (
                         <div className="w-full h-full" />
