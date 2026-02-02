@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
-import { Save, Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Award, Pencil } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Trash2, Award, Pencil } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -877,94 +877,94 @@ export const AdminDashboard = () => {
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <GlassCard className="p-6 md:p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-white/70">الاسم الكامل</label>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
+                    <GlassCard className="p-5 md:p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">الاسم الكامل</label>
                                 <div className="relative">
-                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
                                         type="text"
                                         value={formData.full_name}
                                         onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
                                         placeholder="الاسم الرباعي واللقب"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-white/70">الرقم الوظيفي</label>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">الرقم الوظيفي</label>
                                 <div className="relative">
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-white/10 rounded text-center min-w-[24px]">
-                                        <span className="text-xs font-mono text-white/50">#</span>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 bg-white/10 rounded text-center min-w-[20px]">
+                                        <span className="text-[10px] font-mono text-white/50">#</span>
                                     </div>
                                     <input
                                         type="text"
                                         value={formData.job_number}
                                         onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="123456"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-white/70">اسم المستخدم (للدخول)</label>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">اسم المستخدم (للدخول)</label>
                                 <div className="relative">
-                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
                                         type="text"
                                         value={formData.username}
                                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
                                         placeholder="username"
                                         dir="ltr"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-white/70">كلمة المرور</label>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">كلمة المرور</label>
                                 <div className="relative">
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 flex items-center justify-center">
-                                        <span className="text-lg">●</span>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 flex items-center justify-center">
+                                        <span className="text-base">●</span>
                                     </div>
                                     <input
                                         type="text"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="password"
                                         dir="ltr"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-white/70">نوع الحساب</label>
-                                <div className="grid grid-cols-2 gap-3 p-1 bg-white/5 rounded-xl border border-white/10">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-white/70">نوع الحساب</label>
+                                <div className="grid grid-cols-2 gap-2 p-1 bg-white/5 rounded-xl border border-white/10">
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, role: 'user' })}
                                         className={cn(
-                                            "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
+                                            "flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all",
                                             formData.role === 'user' ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20" : "text-white/40 hover:text-white/60"
                                         )}
                                     >
-                                        <User className="w-4 h-4" />
+                                        <User className="w-3.5 h-3.5" />
                                         <span>موظف</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, role: 'admin' })}
                                         className={cn(
-                                            "flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
+                                            "flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all",
                                             formData.role === 'admin' ? "bg-brand-green/20 text-brand-green shadow-sm ring-1 ring-brand-green/20" : "text-white/40 hover:text-white/60"
                                         )}
                                     >
-                                        <User className="w-4 h-4" />
+                                        <User className="w-3.5 h-3.5" />
                                         <span>مدير</span>
                                     </button>
                                 </div>
@@ -1162,7 +1162,7 @@ export const AdminDashboard = () => {
             {activeTab === 'admin_records' && (
                 <div className="space-y-6">
                     {selectedEmployee ? (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
                             {/* Sections */}
                             <div className="space-y-4">
                                 <RecordSection
