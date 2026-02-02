@@ -10,13 +10,21 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  margin: 0;
+html {
   padding: 0;
   width: 100%;
-  min-height: 100dvh;
-  /* Support natural scrolling for sticky */
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #0f172a;
+  color: white;
+  direction: rtl;
+  font-family: 'Tajawal', sans-serif;
 }
 
 @keyframes highlight {

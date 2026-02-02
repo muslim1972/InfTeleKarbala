@@ -7,6 +7,7 @@ export interface AppUser {
   full_name: string;
   job_number?: string;
   role: string;
+  avatar_url?: string | null;
 }
 
 interface AuthContextType {
@@ -14,6 +15,9 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  updateProfile: (updates: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -21,6 +25,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => ({ success: false }),
   logout: () => { },
+  updateProfile: async () => ({ success: false }),
+  changePassword: async () => ({ success: false }),
+  uploadAvatar: async () => ({ success: false }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -59,7 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         username: data.username,
         full_name: data.full_name,
         job_number: data.job_number,
-        role: data.role
+        role: data.role,
+        avatar_url: data.avatar_url
       };
 
       setUser(appUser);
@@ -76,8 +84,78 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem("app_user");
   };
 
+  const updateProfile = async (updates: Partial<AppUser>) => {
+    if (!user) return { success: false, error: "No user logged in" };
+
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      const newUser = { ...user, ...updates };
+      setUser(newUser);
+      localStorage.setItem("app_user", JSON.stringify(newUser));
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to update profile' };
+    }
+  };
+
+  const changePassword = async (newPassword: string) => {
+    if (!user) return { success: false, error: "No user logged in" };
+
+    // Note: In a real app with Supabase Auth, you'd use supabase.auth.updateUser().
+    // Since we use a custom table, we update the column directly.
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .update({ password: newPassword })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to update password' };
+    }
+  };
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) return { success: false, error: "No user logged in" };
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatar-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('avatar-images')
+        .getPublicUrl(filePath);
+
+      if (!data) throw new Error("Failed to get public URL");
+
+      // Update user profile with new URL
+      const updateResult = await updateProfile({ avatar_url: data.publicUrl });
+      if (!updateResult.success) throw new Error(updateResult.error);
+
+      return { success: true, url: data.publicUrl };
+    } catch (err: any) {
+      console.error("Avatar upload error:", err);
+      return { success: false, error: err.message || 'Failed to upload avatar' };
+    }
+  };
+
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateProfile, changePassword, uploadAvatar }}>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -12,19 +12,12 @@ interface LayoutProps {
 
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
     return (
-        <div className="min-h-screen bg-[#0f172a] text-white font-cairo relative">
+        <div className="min-h-screen w-full relative overflow-x-hidden bg-[#0f172a] text-white font-tajawal">
             {/* Cosmic Background Effects */}
             <div className="fixed inset-0 z-0 pointer-events-none">
-                {/* Deep Space Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e1b4b]" />
-
-                {/* Nebulas / Orbs */}
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-purple-500/20 blur-[120px] mix-blend-screen animate-float" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-500/20 blur-[120px] mix-blend-screen animate-float" style={{ animationDelay: '-2s' }} />
-                <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[300px] h-[300px] rounded-full bg-brand-green/10 blur-[80px] mix-blend-screen animate-pulse-slow" />
-
-                {/* Stars Overlay (Optional noise texture) */}
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150 mix-blend-overlay"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[100px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[100px]" />
+                <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-teal-500/5 blur-[80px]" />
             </div>
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
