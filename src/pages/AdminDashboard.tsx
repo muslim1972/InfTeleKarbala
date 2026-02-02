@@ -1047,6 +1047,16 @@ export const AdminDashboard = () => {
                                 onToggle={() => toggleSection('basic')}
                             >
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {/* First Appointment Date (Display Only) */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-white/40 font-bold block">تأريخ المباشرة (اول التعيين)</label>
+                                        <input
+                                            type="date"
+                                            value={adminData?.first_appointment_date || ''}
+                                            readOnly
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 opacity-60 cursor-not-allowed"
+                                        />
+                                    </div>
                                     {financialFields.basic.map(field => (
                                         <FinancialInput
                                             key={field.key}
@@ -1108,7 +1118,7 @@ export const AdminDashboard = () => {
                             >
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (أول تعيين)</label>
+                                        <label className="text-white/70 text-xs font-bold">تأريخ المباشرة (اول التعيين)</label>
                                         <input
                                             type="date"
                                             value={adminData?.first_appointment_date || ''}
