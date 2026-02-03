@@ -5,7 +5,7 @@ import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -48,7 +48,9 @@ export const AdminDashboard = () => {
         basic: false,
         allowances: false,
         deductions: false,
-        yearly_records: false
+        yearly_records: false,
+        news_bar: false,
+        polls: false
     });
 
     // New Data States
@@ -365,7 +367,9 @@ export const AdminDashboard = () => {
                 allowances: false,
                 deductions: false,
                 admin_summary: false,
-                yearly_records: false
+                yearly_records: false,
+                news_bar: false,
+                polls: false
             };
 
             if (!isCurrentlyOpen) {
@@ -539,7 +543,9 @@ export const AdminDashboard = () => {
                 basic: false,
                 allowances: false,
                 deductions: false,
-                yearly_records: false
+                yearly_records: false,
+                news_bar: false,
+                polls: false
             });
 
             // تمرير الشاشة ليعرض بداية التفاصيل
@@ -783,7 +789,7 @@ export const AdminDashboard = () => {
                         activeTab === 'admin_news' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
                     )}
                 >
-                    <span>شريط الاخبار</span>
+                    <span>الاعلام</span>
                 </button>
             </div>
 
@@ -1194,8 +1200,8 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Row 4: Certificate Percentage & Nominal Salary */}
-                                    {/* Row 4: Nominal Salary & Certificate Percentage */}
-                                    <div className="grid grid-cols-[1fr_160px] gap-2 md:gap-6">
+                                    {/* Row 4: Nominal Salary & Certificate Percentage - Adjusted for mobile: 130px fixed width for Cert to give Salary more space */}
+                                    <div className="grid grid-cols-[1fr_130px] gap-2 md:gap-6">
                                         <FinancialInput
                                             key="nominal_salary"
                                             field={financialFields.basic.find(f => f.key === 'nominal_salary')}
@@ -1370,18 +1376,39 @@ export const AdminDashboard = () => {
 
             {/* News Ticker Tab */}
             {activeTab === 'admin_news' && (
-                <div className="space-y-6">
-                    <GlassCard className="p-6">
-                        <h2 className="text-2xl font-bold text-teal-400 mb-6 flex items-center gap-3">
-                            <FileText className="w-8 h-8" />
-                            إدارة شريط الاخبار
-                        </h2>
-                        <p className="text-white/60 mb-8 leading-relaxed">
-                            يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
-                        </p>
+                <div className="space-y-6 mx-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                        <TipsEditor appName="InfTeleKarbala" />
-                    </GlassCard>
+                    {/* News Bar Section */}
+                    <AccordionSection
+                        id="news_bar"
+                        title="إدارة شريط الاخبار"
+                        icon={FileText}
+                        isOpen={expandedSections.news_bar}
+                        color="from-teal-600 to-teal-500"
+                        onToggle={() => toggleSection('news_bar')}
+                    >
+                        <div className="p-2">
+                            <p className="text-white/60 mb-6 leading-relaxed text-sm">
+                                يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
+                            </p>
+                            <TipsEditor appName="InfTeleKarbala" />
+                        </div>
+                    </AccordionSection>
+
+                    {/* Polls Section */}
+                    <AccordionSection
+                        id="polls"
+                        title="الاستطلاعات"
+                        icon={PieChart} // You might need to import PieChart or BarChart from lucide-react
+                        isOpen={expandedSections.polls}
+                        color="from-purple-600 to-purple-500"
+                        onToggle={() => toggleSection('polls')}
+                    >
+                        <div className="text-center py-10">
+                            <p className="text-white/40">قريباً.. سيتم بناء نظام الاستطلاعات هنا</p>
+                        </div>
+                    </AccordionSection>
+
                 </div>
             )}
 
@@ -1645,7 +1672,7 @@ function FinancialInput({ field, value, onChange }: any) {
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 no-spin"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-2 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 no-spin"
                     />
                     {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">د.ع</span>}
                     {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">{field.suffix}</span>}
