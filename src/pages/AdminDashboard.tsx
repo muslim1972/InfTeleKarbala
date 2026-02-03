@@ -892,26 +892,25 @@ export const AdminDashboard = () => {
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
-                    <GlassCard className="p-6 max-w-2xl mx-auto">
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto">
+                    <GlassCard className="p-4 md:p-6 w-full">
                         <div className="space-y-4">
                             {/* Row 1: Full Name */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">الاسم الكامل</label>
                                 <div className="relative">
-                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
                                         type="text"
                                         value={formData.full_name}
                                         onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
                                         placeholder="الاسم الرباعي واللقب"
                                     />
                                 </div>
                             </div>
 
                             {/* Row 2: Account Type (2 Tik Design) */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">نوع الحساب</label>
                                 <div className="flex gap-4 p-2 bg-white/5 rounded-xl border border-white/10">
                                     <button
@@ -923,7 +922,7 @@ export const AdminDashboard = () => {
                                         )}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}>
-                                            {formData.role === 'user' && <User className="w-2.5 h-2.5 text-white" />}
+                                            {formData.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                         </div>
                                         <span className="text-xs font-bold">موظف</span>
                                     </button>
@@ -937,7 +936,7 @@ export const AdminDashboard = () => {
                                         )}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}>
-                                            {formData.role === 'admin' && <User className="w-2.5 h-2.5 text-white" />}
+                                            {formData.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                         </div>
                                         <span className="text-xs font-bold">مشرف</span>
                                     </button>
@@ -945,32 +944,28 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 3: Job Number */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">الرقم الوظيفي الموحد</label>
                                 <div className="relative">
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 bg-white/10 rounded text-center min-w-[20px]">
-                                        <span className="text-[10px] font-mono text-white/50">#</span>
-                                    </div>
                                     <input
                                         type="text"
                                         value={formData.job_number}
                                         onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="123456"
                                     />
                                 </div>
                             </div>
 
                             {/* Row 4: IBAN */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">رمز ( IBAN )</label>
                                 <div className="relative">
-                                    <Wallet className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
                                         type="text"
                                         value={formData.iban}
                                         onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="IQ..."
                                         dir="ltr"
                                     />
@@ -978,15 +973,14 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 5: Username */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">اسم المستخدم المؤقت</label>
                                 <div className="relative">
-                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                     <input
                                         type="text"
                                         value={formData.username}
                                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
                                         placeholder="username"
                                         dir="ltr"
                                     />
@@ -994,17 +988,14 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 6: Password */}
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                                 <label className="text-xs font-bold text-white/70">كلمة المرور المؤقتة</label>
                                 <div className="relative">
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 flex items-center justify-center">
-                                        <span className="text-base">●</span>
-                                    </div>
                                     <input
                                         type="text"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-9 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="password"
                                         dir="ltr"
                                     />
