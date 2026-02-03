@@ -13,11 +13,17 @@ import { YearSlider } from "../components/features/YearSlider";
 
 
 
+
+// 1. Remove one of the imports (cleaning up lines 16-20)
+// This will be handled by replacing the import block
+
+import TipsEditor from "../components/admin/TipsEditor";
+
 import { useAuth } from "../context/AuthContext";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records'>('admin_add');
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news'>('admin_add');
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -745,6 +751,15 @@ export const AdminDashboard = () => {
                 >
                     <span>إدارة السجلات</span>
                 </button>
+                <button
+                    onClick={() => setActiveTab('admin_news')}
+                    className={cn(
+                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
+                        activeTab === 'admin_news' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                    )}
+                >
+                    <span>شريط الاخبار</span>
+                </button>
             </div>
 
             {/* Search & Year Slider (only in manage & records tabs) */}
@@ -1374,6 +1389,23 @@ export const AdminDashboard = () => {
                             <p className="text-white/40">ابدأ بالبحث عن موظف لإدارة سجلاته الإدارية</p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* News Ticker Tab */}
+            {activeTab === 'admin_news' && (
+                <div className="space-y-6">
+                    <GlassCard className="p-6">
+                        <h2 className="text-2xl font-bold text-teal-400 mb-6 flex items-center gap-3">
+                            <FileText className="w-8 h-8" />
+                            إدارة شريط الاخبار
+                        </h2>
+                        <p className="text-white/60 mb-8 leading-relaxed">
+                            يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
+                        </p>
+
+                        <TipsEditor appName="InfTeleKarbala" />
+                    </GlassCard>
                 </div>
             )}
 
