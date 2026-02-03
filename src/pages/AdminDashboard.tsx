@@ -48,7 +48,6 @@ export const AdminDashboard = () => {
         basic: false,
         allowances: false,
         deductions: false,
-        admin_summary: false,
         yearly_records: false
     });
 
@@ -229,7 +228,17 @@ export const AdminDashboard = () => {
                 setFinancialData(emptyFinancial);
                 toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
             } else {
-                setFinancialData({ ...emptyFinancial, ...finData });
+                const combined = { ...emptyFinancial, ...finData };
+
+                // Calculate risk_percentage back from amount and nominal salary
+                if (combined.nominal_salary > 0 && combined.risk_allowance > 0) {
+                    const rawPerc = (combined.risk_allowance / combined.nominal_salary) * 100;
+                    // Round to nearest 5 to match dropdown options
+                    const roundedPerc = Math.round(rawPerc / 5) * 5;
+                    combined.risk_percentage = roundedPerc.toString();
+                }
+
+                setFinancialData(combined);
             }
 
             // 3. Fetch Administrative Summary
@@ -431,10 +440,13 @@ export const AdminDashboard = () => {
             if (userError) throw userError;
 
             // 2. تحديث البيانات المالية
+            // نخرج risk_percentage لأنه غير موجود في قاعدة البيانات ونقوم بحساباته برمجياً فقط
+            const { risk_percentage, ...financialPayload } = financialData;
+
             const { error: finError } = await supabase
                 .from('financial_records')
                 .upsert({
-                    ...financialData,
+                    ...financialPayload,
                     user_id: selectedEmployee.id,
                     updated_at: new Date().toISOString()
                 });
@@ -534,7 +546,6 @@ export const AdminDashboard = () => {
                 basic: false,
                 allowances: false,
                 deductions: false,
-                admin_summary: false,
                 yearly_records: false
             });
 
@@ -690,17 +701,24 @@ export const AdminDashboard = () => {
                 options: ['0', '15', '25', '35', '45', '55', '75', '85']
             },
             { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
+            {
+                key: 'risk_percentage',
+                label: 'الخطورة %',
+                suffix: '%',
+                options: Array.from({ length: 20 }, (_, i) => ((i + 1) * 5).toString())
+            },
+
         ],
         allowances: [
-            { key: 'certificate_allowance', label: 'مخصصات الشهادة', isMoney: true, disabled: true },
-            { key: 'engineering_allowance', label: 'مخصصات هندسية', isMoney: true, disabled: true },
-            { key: 'legal_allowance', label: 'مخصصات القانونية', isMoney: true, disabled: true },
-            { key: 'transport_allowance', label: 'مخصصات النقل', isMoney: true, options: ['20000', '30000'] },
-            { key: 'marital_allowance', label: 'مخصصات الزوجية', isMoney: true },
-            { key: 'children_allowance', label: 'مخصصات الاطفال', isMoney: true },
-            { key: 'position_allowance', label: 'مخصصات المنصب', isMoney: true },
-            { key: 'risk_allowance', label: 'مخصصات الخطورة', isMoney: true },
-            { key: 'additional_50_percent_allowance', label: 'مخصصات اضافية 50%', isMoney: true },
+            { key: 'certificate_allowance', label: 'م. الشهادة', isMoney: true, disabled: true },
+            { key: 'engineering_allowance', label: 'م. هندسية', isMoney: true, disabled: true },
+            { key: 'legal_allowance', label: 'م. القانونية', isMoney: true, disabled: true },
+            { key: 'transport_allowance', label: 'م. النقل', isMoney: true, options: ['20000', '30000'] },
+            { key: 'marital_allowance', label: 'م. الزوجية', isMoney: true },
+            { key: 'children_allowance', label: 'م. الاطفال', isMoney: true },
+            { key: 'position_allowance', label: 'م. المنصب', isMoney: true },
+            { key: 'risk_allowance', label: 'م. الخطورة', isMoney: true, disabled: true },
+            { key: 'additional_50_percent_allowance', label: 'م. اضافية 50%', isMoney: true },
         ],
         deductions: [
             { key: 'tax_deduction_status', label: 'حالة الاستقطاع الضريبي' },
@@ -716,7 +734,21 @@ export const AdminDashboard = () => {
 
     const handleFinancialChange = (key: string, value: any) => {
         if (!financialData) return;
-        setFinancialData({ ...financialData, [key]: value });
+
+        const newData = { ...financialData, [key]: value };
+
+        // Auto-calculate Risk Allowance: (Risk % / 100) * Nominal Salary
+        if (key === 'risk_percentage' || key === 'nominal_salary') {
+            const nominal = parseFloat(key === 'nominal_salary' ? value : (financialData.nominal_salary || 0));
+            const riskP = parseFloat(key === 'risk_percentage' ? value : (financialData.risk_percentage || 0));
+
+            if (!isNaN(nominal) && !isNaN(riskP)) {
+                // Calculation: (Percentage / 100) * Nominal Salary
+                newData.risk_allowance = Math.round((riskP / 100) * nominal);
+            }
+        }
+
+        setFinancialData(newData);
     };
 
     // Header Content with Tabs and Search
@@ -1117,13 +1149,21 @@ export const AdminDashboard = () => {
                                         />
                                     </div>
 
-                                    {/* Job Title */}
-                                    <FinancialInput
-                                        key="job_title"
-                                        field={financialFields.basic.find(f => f.key === 'job_title')}
-                                        value={financialData?.job_title}
-                                        onChange={handleFinancialChange}
-                                    />
+                                    {/* Job Title and Risk % */}
+                                    <div className="grid grid-cols-[1fr_120px] gap-2 md:gap-6">
+                                        <FinancialInput
+                                            key="job_title"
+                                            field={financialFields.basic.find(f => f.key === 'job_title')}
+                                            value={financialData?.job_title}
+                                            onChange={handleFinancialChange}
+                                        />
+                                        <FinancialInput
+                                            key="risk_percentage"
+                                            field={financialFields.basic.find(f => f.key === 'risk_percentage')}
+                                            value={financialData?.risk_percentage}
+                                            onChange={handleFinancialChange}
+                                        />
+                                    </div>
 
                                     {/* Row 2: Grade and Stage - Same Row */}
                                     <div className="grid grid-cols-2 gap-2 md:gap-6">
@@ -1141,16 +1181,13 @@ export const AdminDashboard = () => {
                                                 <select
                                                     value={financialData?.['salary_stage'] || ""}
                                                     onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none bg-none"
                                                 >
                                                     <option value="" className="bg-slate-800">اختر...</option>
                                                     {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
                                                         <option key={num} value={num} className="bg-slate-800">{num}</option>
                                                     ))}
                                                 </select>
-                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                    <div className="border-t-[4px] border-t-white/30 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent"></div>
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1188,7 +1225,7 @@ export const AdminDashboard = () => {
                                 color="from-green-600 to-green-500"
                                 onToggle={() => toggleSection('allowances')}
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-2 md:gap-x-6">
                                     {financialFields.allowances.map(field => (
                                         <FinancialInput
                                             key={field.key}
@@ -1220,53 +1257,7 @@ export const AdminDashboard = () => {
                                 </div>
                             </AccordionSection>
 
-                            <AccordionSection
-                                id="admin_summary"
-                                title="الخلاصة الإدارية"
-                                icon={User}
-                                isOpen={expandedSections.admin_summary}
-                                color="from-purple-600 to-purple-500"
-                                onToggle={() => toggleSection('admin_summary')}
-                            >
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-white/70 text-xs font-bold">تأريخ المباشرة (اول التعيين)</label>
-                                        <input
-                                            type="date"
-                                            value={adminData?.first_appointment_date || ''}
-                                            onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-white/70 text-xs font-bold">تاريخ الانفكاك (إجازة 5 سنوات)</label>
-                                        <input
-                                            type="date"
-                                            value={adminData?.disengagement_date || ''}
-                                            onChange={e => setAdminData({ ...adminData, disengagement_date: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-white/70 text-xs font-bold">تاريخ المباشرة (بعد الإجازة)</label>
-                                        <input
-                                            type="date"
-                                            value={adminData?.resumption_date || ''}
-                                            onChange={e => setAdminData({ ...adminData, resumption_date: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-white/70 text-xs font-bold">رصيد الإجازات المتبقي (يدوي/سابق)</label>
-                                        <input
-                                            type="number"
-                                            value={adminData?.remaining_leave_balance || ''}
-                                            onChange={e => setAdminData({ ...adminData, remaining_leave_balance: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        />
-                                    </div>
-                                </div>
-                            </AccordionSection>
+
                         </div>
                     ) : (
                         <div className="text-center py-20">
@@ -1507,14 +1498,13 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                                             <select
                                                 value={newItem[field.key] || ""}
                                                 onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 pl-9 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none"
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none bg-none"
                                             >
                                                 <option value="">اختر...</option>
                                                 {field.options?.map((opt: string) => (
                                                     <option key={opt} value={opt}>{opt}</option>
                                                 ))}
                                             </select>
-                                            <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                                         </div>
                                     ) : field.type === 'date-fixed-year' ? (
                                         <div className="flex gap-2">
@@ -1547,14 +1537,13 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
                                                         const parts = current.split('-');
                                                         setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
                                                     }}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-2 pl-7 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none"
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none bg-none"
                                                 >
                                                     <option value="">شهر</option>
                                                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                                                         <option key={m} value={m.toString().padStart(2, '0')}>{m}</option>
                                                     ))}
                                                 </select>
-                                                <ChevronDown className="absolute left-1 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
                                             </div>
                                             {/* Year (Fixed) */}
                                             <div className="flex-1 bg-white/5 border border-white/5 rounded-lg px-2 py-2 text-white/50 text-sm text-center font-mono select-none">
@@ -1638,22 +1627,21 @@ function EditableField({ label, value, onChange }: any) {
 function FinancialInput({ field, value, onChange }: any) {
     if (!field) return null;
     return (
-        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">{field.label}</label>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+            <label className="text-[10px] md:text-xs text-white/70 font-bold block whitespace-nowrap min-w-[60px] md:min-w-[80px]">{field.label}</label>
             {field.options ? (
                 <div className="relative">
                     <select
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none bg-none"
                     >
                         <option value="">اختر...</option>
                         {field.options.map((opt: string) => (
                             <option key={opt} value={opt} className="bg-slate-900">{opt}</option>
                         ))}
                     </select>
-                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                 </div>
             ) : (
                 <div className="relative">
@@ -1662,7 +1650,7 @@ function FinancialInput({ field, value, onChange }: any) {
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 no-spin"
                     />
                     {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">د.ع</span>}
                     {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">{field.suffix}</span>}
