@@ -1157,8 +1157,8 @@ export const AdminDashboard = () => {
                                         <label className="text-xs text-white/40 font-bold block">المرحلة ضمن الدرجة</label>
                                         <div className="relative">
                                             <select
-                                                value={financialData['salary_stage'] || ""}
-                                                onChange={(e) => setFinancialData({ ...financialData, 'salary_stage': e.target.value })}
+                                                value={financialData?.['salary_stage'] || ""}
+                                                onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
                                                 className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none"
                                             >
                                                 <option value="" className="bg-slate-800">اختر المرحلة</option>
