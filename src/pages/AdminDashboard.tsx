@@ -1140,7 +1140,7 @@ export const AdminDashboard = () => {
                                 <div className="space-y-4">
                                     {/* Start Date */}
                                     <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                        <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">تأريخ اول مباشر</label>
+                                        <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">تأريخ اول مباشرة</label>
                                         <input
                                             type="date"
                                             value={adminData?.first_appointment_date || ''}
@@ -1201,19 +1201,21 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Row 4: Certificate Percentage & Nominal Salary */}
-                                    <FinancialInput
-                                        key="certificate_percentage"
-                                        field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage'), label: "مخصصات الشهادة %" }}
-                                        value={financialData?.certificate_percentage}
-                                        onChange={handleFinancialChange}
-                                    />
-
-                                    <FinancialInput
-                                        key="nominal_salary"
-                                        field={financialFields.basic.find(f => f.key === 'nominal_salary')}
-                                        value={financialData?.nominal_salary}
-                                        onChange={handleFinancialChange}
-                                    />
+                                    {/* Row 4: Nominal Salary & Certificate Percentage */}
+                                    <div className="grid grid-cols-[1fr_160px] gap-2 md:gap-6">
+                                        <FinancialInput
+                                            key="nominal_salary"
+                                            field={financialFields.basic.find(f => f.key === 'nominal_salary')}
+                                            value={financialData?.nominal_salary}
+                                            onChange={handleFinancialChange}
+                                        />
+                                        <FinancialInput
+                                            key="certificate_percentage"
+                                            field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage'), label: "م.الشهادة %" }}
+                                            value={financialData?.certificate_percentage}
+                                            onChange={handleFinancialChange}
+                                        />
+                                    </div>
                                 </div>
                             </AccordionSection>
 
