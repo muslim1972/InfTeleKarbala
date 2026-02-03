@@ -896,8 +896,8 @@ export const AdminDashboard = () => {
                     <GlassCard className="p-4 md:p-6 w-full">
                         <div className="space-y-4">
                             {/* Row 1: Full Name */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">الاسم الكامل</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">الاسم الكامل</label>
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -910,8 +910,8 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 2: Account Type (2 Tik Design) */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">نوع الحساب</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">نوع الحساب</label>
                                 <div className="flex gap-4 p-2 bg-white/5 rounded-xl border border-white/10">
                                     <button
                                         type="button"
@@ -944,22 +944,25 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 3: Job Number */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">الرقم الوظيفي الموحد</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">الرقم الوظيفي الموحد</label>
                                 <div className="relative">
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 bg-white/10 rounded text-center min-w-[20px]">
+                                        <span className="text-[10px] font-mono text-white/50">#</span>
+                                    </div>
                                     <input
                                         type="text"
                                         value={formData.job_number}
                                         onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
                                         placeholder="123456"
                                     />
                                 </div>
                             </div>
 
                             {/* Row 4: IBAN */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">رمز ( IBAN )</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">رمز ( IBAN )</label>
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -973,8 +976,8 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 5: Username */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">اسم المستخدم المؤقت</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">اسم المستخدم المؤقت</label>
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -988,8 +991,8 @@ export const AdminDashboard = () => {
                             </div>
 
                             {/* Row 6: Password */}
-                            <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70">كلمة المرور المؤقتة</label>
+                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">كلمة المرور المؤقتة</label>
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -1012,7 +1015,7 @@ export const AdminDashboard = () => {
                 <div className="space-y-6">
 
                     {selectedEmployee ? (
-                        <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 mx-6">
+                        <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto">
 
                             <AccordionSection
                                 id="main_info"
@@ -1022,7 +1025,7 @@ export const AdminDashboard = () => {
                                 onToggle={() => toggleSection('main_info')}
                             >
                                 {/* Main Info Fields */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <EditableField
                                         label="الاسم الكامل"
                                         value={selectedEmployee.full_name}
@@ -1030,8 +1033,8 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Role Selection (UI matching Add Employee) */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">نوع الحساب</label>
+                                    <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                        <label className="text-xs text-white/70 font-bold block">نوع الحساب</label>
                                         <div className="flex gap-2 p-1 bg-black/20 rounded-xl border border-white/10">
                                             <button
                                                 type="button"
@@ -1079,14 +1082,14 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">كلمة المرور المؤقتة</label>
+                                    <div className="grid grid-cols-[120px_1fr] items-center gap-4">
+                                        <label className="text-xs text-white/70 font-bold block">كلمة المرور المؤقتة</label>
                                         <div className="relative">
                                             <input
                                                 type="text"
                                                 value={selectedEmployee.password || ""}
                                                 onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
                                                 dir="ltr"
                                             />
                                         </div>
@@ -1103,15 +1106,14 @@ export const AdminDashboard = () => {
                                 onToggle={() => toggleSection('basic')}
                             >
                                 <div className="space-y-4">
-                                    {/* Date of First Direct Commencement - Editable */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">تأريخ اول مباشر</label>
+                                    {/* Start Date */}
+                                    <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                        <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">تأريخ اول مباشر</label>
                                         <input
                                             type="date"
-                                            // Prioritize adminData date, fall back to what might be in financialData or empty
                                             value={adminData?.first_appointment_date || ''}
                                             onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
                                         />
                                     </div>
 
@@ -1123,55 +1125,52 @@ export const AdminDashboard = () => {
                                         onChange={handleFinancialChange}
                                     />
 
-                                    {/* Grade and Education - Same Row */}
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
-                                            <FinancialInput
-                                                key="salary_grade"
-                                                field={financialFields.basic.find(f => f.key === 'salary_grade')}
-                                                value={financialData?.salary_grade}
-                                                onChange={handleFinancialChange}
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <FinancialInput
-                                                key="certificate_text"
-                                                field={financialFields.basic.find(f => f.key === 'certificate_text')}
-                                                value={financialData?.certificate_text}
-                                                onChange={handleFinancialChange}
-                                            />
-                                        </div>
-                                    </div>
+                                    {/* Row 2: Grade and Stage - Same Row */}
+                                    <div className="grid grid-cols-2 gap-2 md:gap-6">
+                                        <FinancialInput
+                                            key="salary_grade"
+                                            field={{ ...financialFields.basic.find(f => f.key === 'salary_grade'), label: "الدرجة الوظيفية" }}
+                                            value={financialData?.salary_grade}
+                                            onChange={handleFinancialChange}
+                                        />
 
-                                    {/* Salary Stage (المرحلة) */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-white/40 font-bold block">المرحلة ضمن الدرجة</label>
-                                        <div className="relative">
-                                            <select
-                                                value={financialData?.['salary_stage'] || ""}
-                                                onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none"
-                                            >
-                                                <option value="" className="bg-slate-800">اختر المرحلة</option>
-                                                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                                                    <option key={num} value={num} className="bg-slate-800">{num}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                <div className="border-t-[4px] border-t-white/30 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent"></div>
+                                        {/* Salary Stage (المرحلة) */}
+                                        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+                                            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">المرحلة</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={financialData?.['salary_stage'] || ""}
+                                                    onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
+                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none"
+                                                >
+                                                    <option value="" className="bg-slate-800">اختر...</option>
+                                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                                        <option key={num} value={num} className="bg-slate-800">{num}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                    <div className="border-t-[4px] border-t-white/30 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent"></div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Certificate Percentage */}
+                                    {/* Row 3: Certificate Text */}
+                                    <FinancialInput
+                                        key="certificate_text"
+                                        field={financialFields.basic.find(f => f.key === 'certificate_text')}
+                                        value={financialData?.certificate_text}
+                                        onChange={handleFinancialChange}
+                                    />
+
+                                    {/* Row 4: Certificate Percentage & Nominal Salary */}
                                     <FinancialInput
                                         key="certificate_percentage"
-                                        field={financialFields.basic.find(f => f.key === 'certificate_percentage')}
+                                        field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage'), label: "مخصصات الشهادة %" }}
                                         value={financialData?.certificate_percentage}
                                         onChange={handleFinancialChange}
                                     />
 
-                                    {/* Nominal Salary */}
                                     <FinancialInput
                                         key="nominal_salary"
                                         field={financialFields.basic.find(f => f.key === 'nominal_salary')}
@@ -1624,29 +1623,30 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
 
 function EditableField({ label, value, onChange }: any) {
     return (
-        <div className="space-y-2">
-            <label className="text-xs text-white/40 font-bold block">{label}</label>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">{label}</label>
             <input
                 type="text"
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50"
+                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
             />
         </div>
     );
 }
 
 function FinancialInput({ field, value, onChange }: any) {
+    if (!field) return null;
     return (
-        <div className="space-y-2">
-            <label className="text-xs text-white/40 font-bold block">{field.label}</label>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">{field.label}</label>
             {field.options ? (
                 <div className="relative">
                     <select
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 pl-10 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none"
                     >
                         <option value="">اختر...</option>
                         {field.options.map((opt: string) => (
@@ -1662,7 +1662,7 @@ function FinancialInput({ field, value, onChange }: any) {
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50"
                     />
                     {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">د.ع</span>}
                     {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">{field.suffix}</span>}
