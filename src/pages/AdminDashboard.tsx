@@ -288,7 +288,7 @@ export const AdminDashboard = () => {
         // 1. Calculate Certificate Allowance
         const nominalSalary = Number(financialData.nominal_salary || 0);
         const certPercentage = Number(financialData.certificate_percentage || 0);
-        const calcCertAllowance = (certPercentage / 100) * nominalSalary;
+        const calcCertAllowance = Math.round((certPercentage / 100) * nominalSalary);
 
         if (Number(financialData.certificate_allowance) !== calcCertAllowance) {
             newFinancialData.certificate_allowance = calcCertAllowance;
@@ -296,10 +296,10 @@ export const AdminDashboard = () => {
         }
 
         // 2. Calculate Engineering Allowance
-        const engineeringTitles = ['مهندس', 'ر. مهندسين', 'ر. مهندسين اقدم', 'ر. مهندسين اقدم اول'];
+        const engineeringTitles = ['م. مهندس', 'مهندس', 'ر. مهندسين', 'ر. مهندسين اقدم', 'ر. مهندسين اقدم اول'];
         let calcEngAllowance = 0;
         if (engineeringTitles.includes(financialData.job_title)) {
-            calcEngAllowance = nominalSalary * 0.35; // 35% fixed
+            calcEngAllowance = Math.round(nominalSalary * 0.35); // 35% fixed
         }
 
         if (Number(financialData.engineering_allowance) !== calcEngAllowance) {
@@ -309,16 +309,9 @@ export const AdminDashboard = () => {
 
         // 3. Calculate Deductions
         // Tax Deduction: 3.5% of Nominal Salary, formatted to max 3 decimal places
-        let calcTaxDeduction = nominalSalary * 0.035;
-        // Check if it has decimals
-        if (!Number.isInteger(calcTaxDeduction)) {
-            // Check if it has more than 3 decimal places
-            const str = calcTaxDeduction.toString();
-            if (str.includes('.') && str.split('.')[1].length > 3) {
-                // Truncate to 3 decimal places without rounding up
-                calcTaxDeduction = Math.floor(calcTaxDeduction * 1000) / 1000;
-            }
-        }
+        let calcTaxDeduction = Math.round(nominalSalary * 0.035);
+        // Remove complex truncation logic in favor of standard rounding as requested
+        // if (!Number.isInteger(calcTaxDeduction)) { ... }
 
         if (Number(financialData.tax_deduction_amount) !== calcTaxDeduction) {
             newFinancialData.tax_deduction_amount = calcTaxDeduction;
@@ -326,7 +319,7 @@ export const AdminDashboard = () => {
         }
 
         // Retirement Deduction: 10% of Nominal Salary
-        const calcRetirement = nominalSalary * 0.10;
+        const calcRetirement = Math.round(nominalSalary * 0.10);
         if (Number(financialData.retirement_deduction) !== calcRetirement) {
             newFinancialData.retirement_deduction = calcRetirement;
             shouldUpdate = true;
@@ -340,7 +333,7 @@ export const AdminDashboard = () => {
         }
 
         // Social Security Deduction: 0.25% of Nominal Salary
-        const calcSocialSecurity = nominalSalary * 0.0025;
+        const calcSocialSecurity = Math.round(nominalSalary * 0.0025);
         if (Number(financialData.social_security_deduction) !== calcSocialSecurity) {
             newFinancialData.social_security_deduction = calcSocialSecurity;
             shouldUpdate = true;
