@@ -95,9 +95,9 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                 <div
                     className="whitespace-nowrap animate-marquee-rtl inline-block"
                     style={{
-                        animationDuration: `${Math.max(duplicatedText.length * 0.15, 20)}s`,
+                        animationDuration: `${Math.max(duplicatedText.length * 0.3, 40)}s`,
                         animationPlayState: isPaused ? 'paused' : 'running',
-                        animationDelay: `-${Math.max(duplicatedText.length * 0.15, 20) / 2}s`, // Start halfway to show text immediately
+                        animationDelay: `-${Math.max(duplicatedText.length * 0.3, 40) / 2}s`, // Start halfway to show text immediately
                     }}
                     onPointerDown={() => setIsPaused(true)}
                     onPointerUp={() => setIsPaused(false)}
