@@ -1,0 +1,229 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { User, Clock, ArrowRight, MessageSquare, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '../../lib/utils';
+import { GlassCard } from '../ui/GlassCard';
+
+interface PollStatsProps {
+    pollId: string;
+    onBack: () => void;
+}
+
+export function PollStats({ pollId, onBack }: PollStatsProps) {
+    const [loading, setLoading] = useState(true);
+    const [poll, setPoll] = useState<any>(null);
+    const [stats, setStats] = useState<any[]>([]);
+    const [comments, setComments] = useState<any[]>([]);
+    const [totalVotes, setTotalVotes] = useState(0);
+
+    useEffect(() => {
+        fetchStats();
+    }, [pollId]);
+
+    const fetchStats = async () => {
+        try {
+            setLoading(true);
+
+            // 1. Fetch Poll Info
+            const { data: pollData, error: pError } = await supabase
+                .from('polls')
+                .select('title, created_at')
+                .eq('id', pollId)
+                .single();
+            if (pError) throw pError;
+            setPoll(pollData);
+
+            // 2. Fetch Questions & Options
+            const { data: qData, error: qError } = await supabase
+                .from('poll_questions')
+                .select(`
+                    id, question_text, order_index,
+                    poll_options (id, option_text, order_index)
+                `)
+                .eq('poll_id', pollId)
+                .order('order_index');
+            if (qError) throw qError;
+
+            // 3. Fetch ALL Responses (Client-side aggregation for now)
+            const { data: rData, error: rError } = await supabase
+                .from('poll_responses')
+                .select('question_id, option_id, user_id')
+                .eq('poll_id', pollId);
+            if (rError) throw rError;
+
+            // 4. Fetch Comments
+            const { data: cData, error: cError } = await supabase
+                .from('poll_comments')
+                .select(`
+                    comment_text, created_at,
+                    app_users (full_name, job_number)
+                `)
+                .eq('poll_id', pollId)
+                .order('created_at', { ascending: false });
+            if (cError) throw cError;
+
+            // --- Process Data ---
+
+            // Count Unique Voters
+            const uniqueVoters = new Set(rData?.map(r => r.user_id)).size;
+            setTotalVotes(uniqueVoters);
+
+            // Aggregate Counts
+            const counts: Record<string, number> = {}; // option_id -> count
+            const questionTotals: Record<string, number> = {}; // question_id -> total responses
+
+            rData?.forEach(r => {
+                counts[r.option_id] = (counts[r.option_id] || 0) + 1;
+                questionTotals[r.question_id] = (questionTotals[r.question_id] || 0) + 1;
+            });
+
+            // Build Stats Object
+            const processedStats = qData?.map(q => {
+                const qTotal = questionTotals[q.id] || 0;
+                return {
+                    id: q.id,
+                    text: q.question_text,
+                    total: qTotal,
+                    options: q.poll_options
+                        .sort((a: any, b: any) => a.order_index - b.order_index)
+                        .map((opt: any) => {
+                            const count = counts[opt.id] || 0;
+                            const percentage = qTotal > 0 ? Math.round((count / qTotal) * 100) : 0;
+                            return {
+                                ...opt,
+                                count,
+                                percentage
+                            };
+                        })
+                };
+            });
+
+            setStats(processedStats || []);
+            setComments(cData || []);
+
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-brand-green" /></div>;
+
+    return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Header */}
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={onBack}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white"
+                >
+                    <ArrowRight className="w-5 h-5 rtl:rotate-180" />
+                </button>
+                <div>
+                    <h2 className="text-2xl font-bold text-white">{poll?.title}</h2>
+                    <div className="flex items-center gap-4 text-sm text-white/50 mt-1">
+                        <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {new Date(poll?.created_at).toLocaleDateString('ar-IQ')}
+                        </span>
+                        <span className="flex items-center gap-1 text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full">
+                            <User className="w-4 h-4" />
+                            {totalVotes} مشارك
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Questions Stats */}
+            <div className="grid gap-6">
+                {stats.map((q, idx) => (
+                    <GlassCard key={q.id} className="p-6">
+                        <h3 className="text-lg font-bold text-white mb-6 flex items-start gap-3">
+                            <span className="bg-white/10 w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0">
+                                {idx + 1}
+                            </span>
+                            {q.text}
+                        </h3>
+
+                        <div className="space-y-4">
+                            {q.options.map((opt: any) => (
+                                <div key={opt.id} className="group relative">
+                                    {/* Text & Count */}
+                                    <div className="flex justify-between items-end mb-1 relative z-10 px-1">
+                                        <span className="font-medium text-white/90 group-hover:text-white transition-colors">
+                                            {opt.option_text}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-white/40">{opt.count} صوت</span>
+                                            <span className="font-mono font-bold text-brand-green text-lg">
+                                                {opt.percentage}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Bar Container */}
+                                    <div className="h-3 bg-black/40 rounded-full overflow-hidden relative border border-white/5">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${opt.percentage}%` }}
+                                            transition={{ duration: 1, ease: "easeOut" }}
+                                            className={cn(
+                                                "h-full rounded-full relative overflow-hidden",
+                                                opt.percentage > 50 ? "bg-gradient-to-r from-brand-green to-emerald-600" :
+                                                    opt.percentage > 20 ? "bg-gradient-to-r from-blue-500 to-indigo-600" :
+                                                        "bg-white/20"
+                                            )}
+                                        >
+                                            <div className="absolute inset-0 bg-white/20 animate-pulse-slow" />
+                                        </motion.div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </GlassCard>
+                ))}
+            </div>
+
+            {/* Comments Section */}
+            {comments.length > 0 && (
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <MessageSquare className="w-6 h-6 text-brand-yellow" />
+                        صوت الناس
+                        <span className="text-sm font-normal text-white/40">({comments.length} تعليق)</span>
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {comments.map((comment, i) => (
+                            <div key={i} className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-4 rounded-xl transition-all duration-300 group">
+                                <p className="text-white/80 leading-relaxed text-sm min-h-[60px] mb-3">
+                                    "{comment.comment_text}"
+                                </p>
+                                <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-brand-green to-blue-500 flex items-center justify-center text-[10px] font-bold text-white">
+                                            {comment.app_users?.full_name?.charAt(0) || '?'}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">
+                                                {comment.app_users?.full_name || 'مستخدم غير معروف'}
+                                            </span>
+                                            <span className="text-[10px] text-white/30 font-mono">
+                                                {comment.app_users?.job_number}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] text-white/30">
+                                        {new Date(comment.created_at).toLocaleDateString('ar-IQ')}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

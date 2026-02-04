@@ -1,17 +1,18 @@
 
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText } from "lucide-react";
+import { Wallet, FileText, PieChart } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative';
-    onTabChange: (tab: 'financial' | 'administrative') => void;
+    activeTab: 'financial' | 'administrative' | 'polls';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const tabs = [
         { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'administrative', label: 'الذاتية', icon: FileText },
+        { id: 'polls', label: 'الاستطلاعات', icon: PieChart },
     ] as const;
 
     return (

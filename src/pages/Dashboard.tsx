@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { RecordList } from "../components/features/RecordList";
+import { UserPolls } from "../components/features/UserPolls";
 
 // Interface for Financial Fields
 interface FinancialField {
@@ -24,7 +25,7 @@ interface FinancialField {
 
 export const Dashboard = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative'>('financial');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls'>('financial');
 
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
@@ -302,7 +303,7 @@ export const Dashboard = () => {
     const headerContent = (
         <div className="flex flex-col gap-2 w-full">
             <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
-            {activeTab === 'administrative' && (
+            {activeTab !== 'polls' && (
                 <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
             )}
         </div>
@@ -310,84 +311,83 @@ export const Dashboard = () => {
 
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true}>
-            {/* Standard content flow without sticky header here */}
+            <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh] mt-6">
 
-            <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh]">
-                {/* No Animation Wrapper to prevent layout shift */}
-                {activeTab === 'financial' ? (
+                {/* Polls Tab */}
+                {activeTab === 'polls' ? (
+                    <UserPolls />
+                ) : activeTab === 'financial' ? (
+                    /* Financial Tab */
                     loading ? (
                         <div className="flex justify-center py-20">
                             <Loader2 className="w-10 h-10 text-brand-green animate-spin" />
                         </div>
                     ) : financialData ? (
-                        <div className="space-y-4">
-                            {/* Financial Sections using Shared Accordion Wrapper */}
-                            <div className="space-y-4 pb-20">
-                                {financialGroups.map((group) => (
-                                    <AccordionSection
-                                        key={group.id}
-                                        id={group.id}
-                                        title={group.title}
-                                        icon={group.icon}
-                                        color={group.color}
-                                        isOpen={openSection === group.id}
-                                        onToggle={() => toggleSection(group.id)}
-                                    >
-                                        <div className="space-y-2">
-                                            {group.fields.map((field) => {
-                                                // Get value from adminData for date fields, otherwise from financialData
-                                                const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
-                                                const displayVal = field.isMoney
-                                                    ? Number(val || 0).toLocaleString()
-                                                    : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
+                        <div className="space-y-4 pb-20">
+                            {/* Financial Sections */}
+                            {financialGroups.map((group) => (
+                                <AccordionSection
+                                    key={group.id}
+                                    id={group.id}
+                                    title={group.title}
+                                    icon={group.icon}
+                                    color={group.color}
+                                    isOpen={openSection === group.id}
+                                    onToggle={() => toggleSection(group.id)}
+                                >
+                                    <div className="space-y-2">
+                                        {group.fields.map((field) => {
+                                            const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
+                                            const displayVal = field.isMoney
+                                                ? Math.round(Number(val || 0)).toLocaleString()
+                                                : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
 
-                                                return (
-                                                    <div
-                                                        key={field.key}
-                                                        className={cn(
-                                                            "flex justify-between items-center p-4 rounded-xl border transition-colors",
-                                                            field.superHighlight ? "bg-brand-green/20 border-brand-green text-white" :
-                                                                field.highlight ? "bg-red-500/10 border-red-500/20 text-white" :
-                                                                    "bg-white/5 border-white/5 text-white/80 hover:bg-white/10"
-                                                        )}
-                                                    >
-                                                        <span className="font-medium text-sm md:text-base">{field.label}</span>
-                                                        <span className={cn(
-                                                            "font-bold font-mono tracking-wide",
-                                                            field.superHighlight ? "text-xl" : "text-base"
-                                                        )}>
-                                                            {displayVal}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </AccordionSection>
-                                ))}
+                                            return (
+                                                <div
+                                                    key={field.key}
+                                                    className={cn(
+                                                        "flex justify-between items-center p-4 rounded-xl border transition-colors",
+                                                        field.superHighlight ? "bg-brand-green/20 border-brand-green text-white" :
+                                                            field.highlight ? "bg-red-500/10 border-red-500/20 text-white" :
+                                                                "bg-white/5 border-white/5 text-white/80 hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    <span className="font-medium text-sm md:text-base">{field.label}</span>
+                                                    <span className={cn(
+                                                        "font-bold font-mono tracking-wide",
+                                                        field.superHighlight ? "text-xl" : "text-base"
+                                                    )}>
+                                                        {displayVal}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </AccordionSection>
+                            ))}
 
-                                {/* IBAN Section */}
-                                <div className="mt-6 px-1">
-                                    <button
-                                        onClick={() => setShowIban(!showIban)}
-                                        className="w-full flex items-center justify-center gap-2 bg-brand-yellow-DEFAULT/10 hover:bg-brand-yellow-DEFAULT/20 text-brand-yellow-DEFAULT p-4 rounded-xl transition-all font-bold border border-brand-yellow-DEFAULT/20"
-                                    >
-                                        {showIban ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                        {showIban ? 'اخفاء رمز IBAN المصرفي' : 'اظهار رمز IBAN المصرفي'}
-                                    </button>
+                            {/* IBAN Section */}
+                            <div className="mt-6 px-1">
+                                <button
+                                    onClick={() => setShowIban(!showIban)}
+                                    className="w-full flex items-center justify-center gap-2 bg-brand-yellow-DEFAULT/10 hover:bg-brand-yellow-DEFAULT/20 text-brand-yellow-DEFAULT p-4 rounded-xl transition-all font-bold border border-brand-yellow-DEFAULT/20"
+                                >
+                                    {showIban ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    {showIban ? 'اخفاء رمز IBAN المصرفي' : 'اظهار رمز IBAN المصرفي'}
+                                </button>
 
-                                    <AnimatePresence>
-                                        {showIban && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                                animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
-                                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                                className="bg-[#0f172a] border border-white/20 p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-white shadow-2xl overflow-hidden"
-                                            >
-                                                {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
+                                <AnimatePresence>
+                                    {showIban && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
+                                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            className="bg-[#0f172a] border border-white/20 p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-white shadow-2xl overflow-hidden"
+                                        >
+                                            {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     ) : (
@@ -396,10 +396,8 @@ export const Dashboard = () => {
                         </div>
                     )
                 ) : (
-                    // Administrative Tab - Content only (YearSlider is now in header)
-                    // Administrative Tab - Content only (YearSlider is now in header)
+                    /* Administrative Tab */
                     <div className="space-y-4">
-
                         {/* Thanks Books */}
                         <AccordionSection
                             id="thanks"
@@ -467,7 +465,7 @@ export const Dashboard = () => {
                                         { key: 'penalty_type', label: 'نوع العقوبة' },
                                         { key: 'reason', label: 'السبب' }
                                     ]}
-                                    type="penalties" // To trigger specific Penalty rendering logic in RecordList if any
+                                    type="penalties"
                                     readOnly={true}
                                 />
                             )}
@@ -483,7 +481,7 @@ export const Dashboard = () => {
                             isOpen={expandedDetail === 'leaves'}
                             onToggle={() => handleDetailClick('leaves')}
                         >
-                            {/* Leaves Custom Content Preserved but wrapped */}
+                            {/* Leaves Custom Content */}
                             <div className="space-y-3">
                                 <h3 className="text-white font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
 
@@ -574,11 +572,6 @@ export const Dashboard = () => {
                                         سجل اجازات {selectedYear}
                                     </h4>
                                     <div className="max-h-48 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                                        {/* Use RecordList for consistency even in Leaves? Leaves has custom click behavior. 
-                                            For now, keep the custom list button but style it similar or keep as is since it works well with the detail view above.
-                                            Actually, RecordList doesn't support the 'select to view details locally' pattern easily without modification. 
-                                            Let's keep the existing mapped buttons for leaves to ensure functionality remains. 
-                                        */}
                                         {leavesList.length > 0 ? (
                                             leavesList.map((leave, idx) => (
                                                 <button
@@ -614,10 +607,9 @@ export const Dashboard = () => {
 
                         {/* Spacer for scroll */}
                         <div className="h-20"></div>
-
                     </div>
                 )}
             </div>
-        </Layout >
+        </Layout>
     );
 };

@@ -18,6 +18,7 @@ import { YearSlider } from "../components/features/YearSlider";
 // This will be handled by replacing the import block
 
 import TipsEditor from "../components/admin/TipsEditor";
+import { PollCreator } from "../components/admin/PollCreator";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -1404,8 +1405,8 @@ export const AdminDashboard = () => {
                         color="from-purple-600 to-purple-500"
                         onToggle={() => toggleSection('polls')}
                     >
-                        <div className="text-center py-10">
-                            <p className="text-white/40">قريباً.. سيتم بناء نظام الاستطلاعات هنا</p>
+                        <div className="p-2">
+                            <PollCreator />
                         </div>
                     </AccordionSection>
 
