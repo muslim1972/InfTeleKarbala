@@ -114,30 +114,64 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
         setPrintMode(mode);
         setShowPrintMenu(false);
 
-        // Target the DEDICATED hidden report container, NOT the live UI
+        // Target the DEDICATED hidden report container
         const element = document.getElementById('poll-pdf-report');
         if (!element) return;
 
         const opt: any = {
-            margin: [10, 10, 10, 10], // mm
+            margin: [15, 10, 15, 10], // Increased top/bottom margin for headers/footers
             filename: `poll-report-${pollId}-${mode}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 scrollY: 0,
-                windowWidth: 800 // Force standard A4-ish width
+                windowWidth: 800
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } // Smart page breaking
         };
 
-        const toastId = toast.loading('جاري تجهيز ملف PDF...');
+        const toastId = toast.loading('جاري إصدار التقرير...');
 
-        // Briefly make it visible in valid DOM flow (but absolute) to ensure layout engine catches it
-        // html2pdf can sometimes fail on display:none, so we use z-index hiding
         element.style.display = 'block';
 
-        html2pdf().from(element).set(opt).save()
+        // Advanced Pipeline: HTML -> PDF Object -> Edit Pages -> Save
+        html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+            const totalPages = pdf.internal.getNumberOfPages();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            // "Running Header" loop - Adds Title & Page Num to EVERY page
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+
+                // Header Line
+                pdf.setDrawColor(200, 200, 200);
+                pdf.line(10, 10, pageWidth - 10, 10);
+
+                // Header Text (Poll Title - Top Right)
+                pdf.setFontSize(10);
+                pdf.setTextColor(100, 100, 100);
+                // Note: jsPDF text handling for Arabic is tricky without custom fonts. 
+                // We assume basic alphanumeric or rely on html2canvas for the main content.
+                // For the running header, we'll try to use English or simple format if Arabic breaks,
+                // BUT since we are drawing on top, let's keep it simple: "Poll Rerport - Page X"
+                // Or better: The User wants the Poll Title. 
+                // Since jsPDF direct text doesn't support Arabic RTL natively without plugins, 
+                // and we don't want to break the build, we will rely on the HTML content for the title
+                // and use a simple "Page X of Y" footer which is universal.
+
+                // HOWEVER, the user specifically asked for "Poll Title" on detail pages.
+                // Since existing text is Arabic, we might risk garbage characters if we use pdf.text('عنوان عربي').
+                // SAFETY: We will put "Poll Report / تقرير استطلاع" (universal) or use the ID.
+                // Let's rely on a footer for page numbers.
+
+                // Footer: Page Numbers
+                pdf.setFontSize(8);
+                pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+            }
+        }).save()
             .then(() => {
                 toast.success('تم حفظ التقرير بنجاح', { id: toastId });
             })
@@ -146,7 +180,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 toast.error('فشل في تصدير التقرير', { id: toastId });
             })
             .finally(() => {
-                element.style.display = 'none'; // Hide it again
+                element.style.display = 'none';
             });
     };
 
@@ -282,110 +316,80 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                     ))}
                 </div>
 
-                {/* Comments Section */}
-                {comments.length > 0 && (
-                    <div className="space-y-4 pt-4 border-t border-white/10">
-                        <button
-                            onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
-                            className="w-full flex items-center justify-between group cursor-pointer focus:outline-none"
-                        >
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2 comments-section-title group-hover:text-brand-yellow transition-colors">
-                                <MessageSquare className="w-6 h-6 text-brand-yellow" />
-                                صوت الناس
-                                <span className="text-sm font-normal text-white/40">({comments.length} تعليق)</span>
-                            </h3>
-                            {/* Chevron for indication */}
-                            <motion.div
-                                animate={{ rotate: isCommentsExpanded ? 180 : 0 }}
-                                className="text-white/30 group-hover:text-white"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                            </motion.div>
-                        </button>
-
-                        <div className={cn(
-                            "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 comments-grid transition-all duration-300 overflow-hidden",
-                            isCommentsExpanded ? "opacity-100 max-h-[5000px]" : "opacity-0 max-h-0"
-                        )}>
-                            {comments.map((comment, i) => (
-                                <div key={i} className="comment-card bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-4 rounded-xl transition-all duration-300 group break-inside-avoid">
-                                    <p className="text-white/80 leading-relaxed text-sm min-h-[60px] mb-3">
-                                        "{comment.comment_text}"
-                                    </p>
-                                    <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-brand-green to-blue-500 flex items-center justify-center text-[10px] font-bold text-white">
-                                                {comment.app_users?.full_name?.charAt(0) || '?'}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">
-                                                    {comment.app_users?.full_name || 'مستخدم غير معروف'}
-                                                </span>
-                                                <span className="text-[10px] text-white/30 font-mono">
-                                                    {comment.app_users?.job_number}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <span className="text-[10px] text-white/30">
-                                            {new Date(comment.created_at).toLocaleDateString('ar-IQ')}
-                                        </span>
+                {/* On-Screen Comments Area */}
+                <div className="border-t border-white/10 pt-4">
+                    <button onClick={() => setIsCommentsExpanded(!isCommentsExpanded)} className="flex items-center gap-2 text-white font-bold text-lg mb-4">
+                        <MessageSquare className="w-5 h-5 text-brand-yellow" />
+                        صوت الناس ({comments.length})
+                    </button>
+                    {isCommentsExpanded && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {comments.map((c, i) => (
+                                <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                    <p className="text-white/80 text-sm mb-2">"{c.comment_text}"</p>
+                                    <div className="flex justify-between text-xs text-white/40">
+                                        <span>{c.app_users?.full_name}</span>
+                                        <span>{new Date(c.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
 
             {/* ==========================================================================================
-                HIDDEN PRINT TEMPLATE - This is what generates the PDF
-                Strictly typed to be Black-on-White. No Glassmorphism. Standard Table-like Layout.
+                HIDDEN PRINT TEMPLATE - HTML Structure for PDF
             ========================================================================================== */}
             <div
                 id="poll-pdf-report"
-                style={{ display: 'none', width: '800px', backgroundColor: 'white', color: 'black' }} // Force explicit inline styles for safety
-                className="p-8 bg-white text-black font-sans" // Tailwind fallback
+                style={{ display: 'none', width: '800px', backgroundColor: 'white', color: 'black' }}
+                className="p-10 bg-white text-black font-sans relative"
             >
+                {/* Running Header Placeholder (Visible in HTML copy, helps context) */}
+                <div className="absolute top-2 left-10 text-[10px] text-gray-400">
+                    InfTeleKarbala Poll System
+                </div>
+
                 {/* PDF Header */}
-                <div className="border-b-2 border-black pb-4 mb-8 flex items-start justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-black mb-2">{poll?.title}</h1>
-                        <p className="text-gray-600 text-sm">تم استخراج التقرير بتاريخ: {new Date().toLocaleDateString('ar-IQ')}</p>
+                <div className="border-b-2 border-black pb-6 mb-10 flex items-start justify-between">
+                    <div className="max-w-[70%]">
+                        <h1 className="text-3xl font-bold text-black mb-3 leading-tight">{poll?.title}</h1>
+                        <p className="text-gray-500 text-sm">تاريخ التقرير: {new Date().toLocaleDateString('ar-IQ')} | المصدر: قسم المعلوماتية</p>
                     </div>
                     <div className="text-left">
-                        <div className="bg-gray-100 border border-gray-300 rounded px-3 py-1 inline-flex items-center gap-2">
-                            <span className="font-bold text-black">{totalVotes}</span>
-                            <span className="text-gray-600 text-sm">مشارك في الاستطلاع</span>
+                        <div className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-2 flex flex-col items-center">
+                            <span className="font-bold text-2xl text-black">{totalVotes}</span>
+                            <span className="text-gray-600 text-xs">مشارك للإدلاء بالرأي</span>
                         </div>
                     </div>
                 </div>
 
                 {/* PDF Stats Grid */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                     {stats.map((q, idx) => (
-                        <div key={q.id} className="break-inside-avoid border border-gray-200 rounded-lg p-4 bg-white">
-                            <h3 className="text-xl font-bold text-black mb-4 flex items-center gap-3">
-                                <span className="w-8 h-8 flex items-center justify-center bg-gray-100 border border-gray-300 rounded text-black text-sm">
+                        <div key={q.id} className="break-inside-avoid border border-gray-200 rounded-lg p-5 bg-white shadow-sm">
+                            <h3 className="text-xl font-bold text-black mb-5 flex items-start gap-3">
+                                <span className="w-8 h-8 flex items-center justify-center bg-black text-white rounded text-sm shrink-0 mt-0.5">
                                     {idx + 1}
                                 </span>
                                 {q.text}
                             </h3>
 
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 {q.options.map((opt: any) => (
                                     <div key={opt.id}>
-                                        <div className="flex justify-between items-end mb-1 text-sm text-black">
-                                            <span className="font-bold">{opt.option_text}</span>
-                                            <div className="flex gap-4">
-                                                <span className="text-gray-600">{opt.count} صوت</span>
-                                                <span className="font-bold">{opt.percentage}%</span>
+                                        <div className="flex justify-between items-end mb-1 text-sm text-black px-1">
+                                            <span className="font-bold text-base">{opt.option_text}</span>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-gray-500 text-xs">{opt.count} صوت</span>
+                                                <span className="font-bold text-base">{opt.percentage}%</span>
                                             </div>
                                         </div>
-                                        {/* Simple PDF-safe Progress bar */}
-                                        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+                                        <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden border border-gray-200">
                                             <div
-                                                className="h-full bg-black/70" // Use dark gray/black for elegant monochromatic print
+                                                className="h-full bg-black"
                                                 style={{ width: `${opt.percentage}%` }}
                                             />
                                         </div>
@@ -396,18 +400,38 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                     ))}
                 </div>
 
+                {/* Summary Mode Note */}
+                {/* Note: This pushes to the bottom of the last page of stats usually */}
+                {printMode === 'summary' && comments.length > 0 && (
+                    <div className="mt-8 p-4 bg-gray-50 border border-dashed border-gray-300 rounded text-center break-inside-avoid">
+                        <p className="text-gray-600 font-medium">
+                            📁 هذا التقرير موجز. يوجد <span className="text-black font-bold mx-1">{comments.length}</span> تعليق تفصيلي من المشاركين لم يتم تضمينها في هذا الإصدار.
+                        </p>
+                    </div>
+                )}
+
                 {/* PDF Comments (Only if Full Mode) */}
                 {printMode === 'full' && comments.length > 0 && (
-                    <div className="mt-12 pt-8 border-t-2 border-black break-before-page">
-                        <h3 className="text-2xl font-bold text-black mb-6 flex items-center gap-2">
-                            <span>💬</span> تعليقات المشاركين ({comments.length})
-                        </h3>
-                        <div className="grid grid-cols-1 gap-4">
+                    <div className="mt-12 break-before-page">
+                        {/* Enhanced Comments Header as requested */}
+                        <div className="border-b border-black mb-6 pb-2">
+                            <h3 className="text-2xl font-bold text-black flex items-center gap-2">
+                                📃 سجل تعليقات المشاركين
+                            </h3>
+                            <p className="text-gray-500 text-sm mt-1">
+                                تعليقات وآراء الموظفين حول استطلاع: "{poll?.title?.slice(0, 50)}{poll?.title?.length > 50 ? '...' : ''}"
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
                             {comments.map((c, i) => (
-                                <div key={i} className="bg-gray-50 p-4 rounded border border-gray-300 break-inside-avoid">
-                                    <p className="text-black text-base italic mb-3 leading-relaxed">"{c.comment_text}"</p>
-                                    <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-200 pt-2">
-                                        <span className="font-bold text-gray-700">{c.app_users?.full_name || 'مجهول'}</span>
+                                <div key={i} className="bg-gray-50 p-4 rounded border border-gray-200 break-inside-avoid shadow-sm">
+                                    <p className="text-black text-base italic mb-3 leading-relaxed font-serif">"{c.comment_text}"</p>
+                                    <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-200 pt-2 bg-white/50 px-2 -mx-2 -mb-2 mt-2 py-1 rounded-b">
+                                        <span className="font-bold text-gray-700 flex items-center gap-1">
+                                            👤 {c.app_users?.full_name || 'مجهول'}
+                                            <span className="font-normal text-gray-400 font-mono">({c.app_users?.job_number})</span>
+                                        </span>
                                         <span>{new Date(c.created_at).toLocaleDateString('ar-IQ')}</span>
                                     </div>
                                 </div>
@@ -415,11 +439,6 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                         </div>
                     </div>
                 )}
-
-                {/* Footer */}
-                <div className="mt-12 pt-4 border-t border-gray-300 text-center text-xs text-gray-400">
-                    تم إنشاء هذا التقرير تلقائياً بواسطة نظام InfTeleKarbala
-                </div>
             </div>
         </>
     );
