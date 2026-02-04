@@ -54,26 +54,27 @@ export function PollItem({ poll }: PollItemProps) {
     const fetchUserResponses = async () => {
         if (!user?.id) return;
 
-        const { data: responses, error: rError } = await supabase
-            .from('poll_responses')
-            .select('question_id, option_id')
-            .eq('poll_id', poll.id)
-            .eq('user_id', user.id);
+        // جلب الردود والتعليقات بالتوازي (محسّن!)
+        const [responsesResult, commentResult] = await Promise.all([
+            supabase
+                .from('poll_responses')
+                .select('question_id, option_id')
+                .eq('poll_id', poll.id)
+                .eq('user_id', user.id),
 
-        if (rError) {
-            console.error('Error fetching responses:', rError);
-            return;
-        }
+            supabase
+                .from('poll_comments')
+                .select('comment_text, is_anonymous')
+                .eq('poll_id', poll.id)
+                .eq('user_id', user.id)
+                .maybeSingle()
+        ]);
 
-        const { data: commentData, error: cError } = await supabase
-            .from('poll_comments')
-            .select('comment_text, is_anonymous')
-            .eq('poll_id', poll.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+        const responses = responsesResult.data;
+        const commentData = commentResult.data;
 
-        if (cError) {
-            console.error('Error fetching comment:', cError);
+        if (responsesResult.error) {
+            console.error('Error fetching responses:', responsesResult.error);
             return;
         }
 
