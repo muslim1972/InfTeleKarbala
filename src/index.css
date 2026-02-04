@@ -229,3 +229,82 @@ textarea,
 .no-spin {
   -moz-appearance: textfield;
 }
+
+/* Print Styling for PDF Export */
+@media print {
+
+  /* Hide all non-printable layout elements */
+  nav,
+  aside,
+  .print\:hidden,
+  button {
+    display: none !important;
+  }
+
+  /* Reset Background & Colors for Paper */
+  body {
+    background-color: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Expand Content to Full Width */
+  .max-w-4xl,
+  .max-w-2xl,
+  .container {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Glass Cards to Flat White/Gray Cards */
+  .glass-card,
+  [class*="bg-black"],
+  [class*="bg-white/5"],
+  [class*="bg-white/10"] {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    color: black !important;
+  }
+
+  /* Force Text Colors to Black */
+  .text-white,
+  .text-white\/50,
+  .text-white\/80 {
+    color: black !important;
+  }
+
+  /* Typography */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: black !important;
+  }
+
+  /* Layout Adjustments */
+  .grid {
+    display: block !important;
+  }
+
+  .grid>* {
+    margin-bottom: 20px;
+    break-inside: avoid;
+  }
+
+  /* Comments */
+  .grid-cols-1,
+  .md\:grid-cols-2 {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Page Breaks */
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+}
