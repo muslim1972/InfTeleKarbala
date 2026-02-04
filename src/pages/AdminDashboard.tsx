@@ -5,7 +5,7 @@ import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -19,6 +19,7 @@ import { YearSlider } from "../components/features/YearSlider";
 
 import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
+import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -51,7 +52,9 @@ export const AdminDashboard = () => {
         deductions: false,
         yearly_records: false,
         news_bar: false,
-        polls: false
+        polls: false,
+        directives: false,
+        conferences: false
     });
 
     // New Data States
@@ -370,7 +373,9 @@ export const AdminDashboard = () => {
                 admin_summary: false,
                 yearly_records: false,
                 news_bar: false,
-                polls: false
+                polls: false,
+                directives: false,
+                conferences: false
             };
 
             if (!isCurrentlyOpen) {
@@ -546,7 +551,9 @@ export const AdminDashboard = () => {
                 deductions: false,
                 yearly_records: false,
                 news_bar: false,
-                polls: false
+                polls: false,
+                directives: false,
+                conferences: false
             });
 
             // تمرير الشاشة ليعرض بداية التفاصيل
@@ -1409,13 +1416,49 @@ export const AdminDashboard = () => {
                     <AccordionSection
                         id="polls"
                         title="الاستطلاعات"
-                        icon={PieChart} // You might need to import PieChart or BarChart from lucide-react
+                        icon={PieChart}
                         isOpen={expandedSections.polls}
                         color="from-purple-600 to-purple-500"
                         onToggle={() => toggleSection('polls')}
                     >
                         <div className="p-2">
                             <PollCreator />
+                        </div>
+                    </AccordionSection>
+
+                    {/* Directives Section (Red) */}
+                    <AccordionSection
+                        id="directives"
+                        title="التوجيهات (الزر الأحمر)"
+                        icon={AlertCircle}
+                        isOpen={expandedSections.directives}
+                        color="from-red-600 to-red-500"
+                        onToggle={() => toggleSection('directives')}
+                    >
+                        <div className="p-2">
+                            <MediaSectionEditor
+                                type="directive"
+                                title="محتوى التوجيهات الهامة"
+                                placeholder="اكتب التوجيه هنا... سيظهر هذا النص في نافذة منبثقة حمراء تتطلب تأكيد القراءة."
+                            />
+                        </div>
+                    </AccordionSection>
+
+                    {/* Conferences Section (Green) */}
+                    <AccordionSection
+                        id="conferences"
+                        title="المؤتمرات (الزر الأخضر)"
+                        icon={User}
+                        isOpen={expandedSections.conferences}
+                        color="from-green-600 to-green-500"
+                        onToggle={() => toggleSection('conferences')}
+                    >
+                        <div className="p-2">
+                            <MediaSectionEditor
+                                type="conference"
+                                title="محتوى المؤتمرات"
+                                placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
+                            />
                         </div>
                     </AccordionSection>
 

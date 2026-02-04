@@ -183,6 +183,10 @@ textarea,
   animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* Marquee Animation for Tips - Text moves from LEFT to RIGHT */
 @keyframes marquee-ltr {
   0% {
@@ -217,6 +221,16 @@ textarea,
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
+}
+
+@keyframes shine {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shine {
+  animation: shine 1.5s;
 }
 
 /* ✅ Hide spin buttons for input type="number" */
