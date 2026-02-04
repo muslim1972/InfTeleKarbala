@@ -230,81 +230,145 @@ textarea,
   -moz-appearance: textfield;
 }
 
-/* Print Styling for PDF Export */
+/* Print Styling for PDF Export - Clean Slate Implementation */
 @media print {
+  /* -------------------------------------------------------------------------- */
+  /* 1. RESET & HIDE EVERYTHING                                                 */
+  /* -------------------------------------------------------------------------- */
 
-  /* Hide all non-printable layout elements */
-  nav,
-  aside,
-  .print\:hidden,
-  button {
-    display: none !important;
+  /* USE VISIBILITY, NOT DISPLAY:NONE. 
+     Display:none removes elements from layout, so children cannot be shown individually.
+     Visibility:hidden just hides pixels but keeps layout structure, allowing children to override with visible. */
+
+  body * {
+    visibility: hidden;
   }
 
-  /* Reset Background & Colors for Paper */
+  /* Force body to be a simple white page container */
   body {
+    visibility: hidden;
     background-color: white !important;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* Expand Content to Full Width */
-  .max-w-4xl,
-  .max-w-2xl,
-  .container {
-    max-width: none !important;
+    background: white !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
   }
 
-  /* Glass Cards to Flat White/Gray Cards */
-  .glass-card,
-  [class*="bg-black"],
-  [class*="bg-white/5"],
-  [class*="bg-white/10"] {
-    background: white !important;
-    border: 1px solid #ddd !important;
-    box-shadow: none !important;
+  /* -------------------------------------------------------------------------- */
+  /* 2. SHOW OPT-IN PRINT CONTENT                                               */
+  /* -------------------------------------------------------------------------- */
+
+  /* The specific container we want to print */
+  #poll-stats-print-root {
+    visibility: visible !important;
+    /* OVERRIDE HIDDEN PARENTS */
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0mm !important;
+    /* Let body margins handle it or specific padding */
+    background-color: white !important;
     color: black !important;
+    font-family: 'Tajawal', sans-serif;
+    z-index: 2147483647;
+    /* Max z-index to sit on top of everything */
   }
 
-  /* Force Text Colors to Black */
-  .text-white,
-  .text-white\/50,
-  .text-white\/80 {
-    color: black !important;
+  /* Ensure all children of the print root are visible */
+  #poll-stats-print-root * {
+    visibility: visible !important;
   }
 
-  /* Typography */
+  /* -------------------------------------------------------------------------- */
+  /* 3. CLEAN UP INTERNAL STYLES                                                */
+  /* -------------------------------------------------------------------------- */
+
+  /* Force all text to black */
   h1,
   h2,
   h3,
-  h4 {
+  h4,
+  p,
+  span,
+  div,
+  a {
+    color: black !important;
+    text-shadow: none !important;
+    -webkit-text-fill-color: black !important;
+  }
+
+  /* Remove any backgrounds/gradients from cards */
+  [class*="bg-"],
+  [class*="glass-card"] {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 4. STRUCTURAL FRAMING (The User's Request)                                 */
+  /* -------------------------------------------------------------------------- */
+
+  /* Question Cards: Frame them elegantly */
+  .glass-card {
+    border: 1px solid #000 !important;
+    /* Distinct black border */
+    border-radius: 4px !important;
+    padding: 1rem !important;
+    margin-bottom: 2rem !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 5. PAGE BREAKS & FLOW                                                      */
+  /* -------------------------------------------------------------------------- */
+
+  /* Prevent headings from being stranded */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Comments Section */
+  .comments-section-title {
+    margin-top: 2rem !important;
+    border-bottom: 2px solid #000 !important;
+    padding-bottom: 5px !important;
+    margin-bottom: 1rem !important;
+    break-after: avoid;
+  }
+
+  /* Comment Grid Layout */
+  .comments-grid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 15px !important;
+  }
+
+  .comments-grid>* {
+    width: calc(50% - 10px) !important;
+    /* Force 2 cols */
+  }
+
+  /* Individual Comment Cards */
+  .comment-card {
+    border: 1px solid #ccc !important;
+    padding: 10px !important;
+    break-inside: avoid !important;
     color: black !important;
   }
 
-  /* Layout Adjustments */
-  .grid {
-    display: block !important;
-  }
-
-  .grid>* {
-    margin-bottom: 20px;
-    break-inside: avoid;
-  }
-
-  /* Comments */
-  .grid-cols-1,
-  .md\:grid-cols-2 {
-    display: flex !important;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  /* Page Breaks */
-  .break-inside-avoid {
-    break-inside: avoid;
+  /* Hide print-specific UI buttons */
+  .print\:hidden {
+    display: none !important;
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { User, Clock, ArrowRight, MessageSquare, Loader2, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -112,48 +113,51 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-brand-green" /></div>;
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div id="poll-stats-print-root" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="flex items-center justify-between gap-4">
+                {/* Print Button - Rendered in Admin Dashboard Header via Portal */}
+                {createPortal(
+                    <button
+                        onClick={() => window.print()}
+                        className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all print:hidden"
+                    >
+                        <Printer className="w-5 h-5" />
+                        <span className="hidden md:inline">طباعة التقرير</span>
+                        <span className="md:hidden">طباعة</span>
+                    </button>,
+                    document.getElementById('admin-header-portal') || document.body
+                )}
+
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
-                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white"
+                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white print:hidden"
                     >
                         <ArrowRight className="w-5 h-5 rtl:rotate-180" />
                     </button>
                     <div>
-                        <h2 className="text-2xl font-bold text-white">{poll?.title}</h2>
-                        <div className="flex items-center gap-4 text-sm text-white/50 mt-1">
+                        <h2 className="text-2xl font-bold text-white mb-2">{poll?.title}</h2>
+                        <div className="flex items-center gap-4 text-sm text-white/50 print:text-black mt-1">
                             <span className="flex items-center gap-1">
                                 <Clock className="w-4 h-4" />
                                 {new Date(poll?.created_at).toLocaleDateString('ar-IQ')}
                             </span>
-                            <span className="flex items-center gap-1 text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full">
+                            <span className="flex items-center gap-1 text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full print:bg-transparent print:text-black print:border print:border-black">
                                 <User className="w-4 h-4" />
                                 {totalVotes} مشارك
                             </span>
                         </div>
                     </div>
                 </div>
-
-                {/* Print Button */}
-                <button
-                    onClick={() => window.print()}
-                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all print:hidden"
-                >
-                    <Printer className="w-5 h-5" />
-                    <span className="hidden md:inline">تصدير PDF / طباعة</span>
-                    <span className="md:hidden">طباعة</span>
-                </button>
             </div>
 
             {/* Questions Stats */}
             <div className="grid gap-6">
                 {stats.map((q, idx) => (
-                    <GlassCard key={q.id} className="p-6">
+                    <GlassCard key={q.id} className="p-6 break-inside-avoid">
                         <h3 className="text-lg font-bold text-white mb-6 flex items-start gap-3">
-                            <span className="bg-white/10 w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0">
+                            <span className="bg-white/10 w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0 print:border print:border-black print:text-black">
                                 {idx + 1}
                             </span>
                             {q.text}
@@ -176,19 +180,19 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                     </div>
 
                                     {/* Bar Container */}
-                                    <div className="h-3 bg-black/40 rounded-full overflow-hidden relative border border-white/5">
+                                    <div className="h-3 bg-black/40 rounded-full overflow-hidden relative border border-white/5 progress-bg">
                                         <motion.div
                                             initial={{ width: 0 }}
                                             animate={{ width: `${opt.percentage}%` }}
                                             transition={{ duration: 1, ease: "easeOut" }}
                                             className={cn(
-                                                "h-full rounded-full relative overflow-hidden",
+                                                "h-full rounded-full relative overflow-hidden progress-fill",
                                                 opt.percentage > 50 ? "bg-gradient-to-r from-brand-green to-emerald-600" :
                                                     opt.percentage > 20 ? "bg-gradient-to-r from-blue-500 to-indigo-600" :
                                                         "bg-white/20"
                                             )}
                                         >
-                                            <div className="absolute inset-0 bg-white/20 animate-pulse-slow" />
+                                            <div className="absolute inset-0 bg-white/20 animate-pulse-slow print:hidden" />
                                         </motion.div>
                                     </div>
                                 </div>
@@ -200,34 +204,34 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
 
             {/* Comments Section */}
             {comments.length > 0 && (
-                <div className="space-y-4 pt-4 border-t border-white/10">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <MessageSquare className="w-6 h-6 text-brand-yellow" />
+                <div className="space-y-4 pt-4 border-t border-white/10 print:border-none">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2 comments-section-title">
+                        <MessageSquare className="w-6 h-6 text-brand-yellow print:text-black" />
                         صوت الناس
-                        <span className="text-sm font-normal text-white/40">({comments.length} تعليق)</span>
+                        <span className="text-sm font-normal text-white/40 print:text-black">({comments.length} تعليق)</span>
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 comments-grid">
                         {comments.map((comment, i) => (
-                            <div key={i} className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-4 rounded-xl transition-all duration-300 group">
+                            <div key={i} className="comment-card bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-4 rounded-xl transition-all duration-300 group break-inside-avoid">
                                 <p className="text-white/80 leading-relaxed text-sm min-h-[60px] mb-3">
                                     "{comment.comment_text}"
                                 </p>
-                                <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                                <div className="flex items-center justify-between border-t border-white/5 pt-3 print:border-black/20">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-brand-green to-blue-500 flex items-center justify-center text-[10px] font-bold text-white">
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-brand-green to-blue-500 flex items-center justify-center text-[10px] font-bold text-white print:bg-none print:border print:border-black print:text-black">
                                             {comment.app_users?.full_name?.charAt(0) || '?'}
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">
+                                            <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors print:text-black">
                                                 {comment.app_users?.full_name || 'مستخدم غير معروف'}
                                             </span>
-                                            <span className="text-[10px] text-white/30 font-mono">
+                                            <span className="text-[10px] text-white/30 font-mono print:text-black/70">
                                                 {comment.app_users?.job_number}
                                             </span>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-white/30">
+                                    <span className="text-[10px] text-white/30 print:text-black/70">
                                         {new Date(comment.created_at).toLocaleDateString('ar-IQ')}
                                     </span>
                                 </div>

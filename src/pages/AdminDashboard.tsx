@@ -819,7 +819,7 @@ export const AdminDashboard = () => {
                             <span>حفظ التعديل والاضافة</span>
                         </button>
                     ) : (
-                        <div className="w-full h-full" />
+                        <div id="admin-header-portal" className="w-full h-full flex items-center" />
                     )}
                 </div>
 
