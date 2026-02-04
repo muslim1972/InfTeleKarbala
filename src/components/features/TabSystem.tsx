@@ -12,7 +12,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const tabs = [
         { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'administrative', label: 'الذاتية', icon: FileText },
-        { id: 'polls', label: 'الاستطلاعات', icon: PieChart },
+        { id: 'polls', label: 'الاعلام', icon: PieChart },
     ] as const;
 
     return (

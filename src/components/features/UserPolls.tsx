@@ -44,6 +44,7 @@ export function UserPolls() {
     const [comment, setComment] = useState('');
     const [wordCount, setWordCount] = useState(0);
     const [isAnonymous, setIsAnonymous] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false); // Default to collapsed as per request
 
     const MAX_WORDS = 100;
 
@@ -266,39 +267,51 @@ export function UserPolls() {
         );
     }
 
+    // ... (existing code)
+
+    // ... (existing code)
+
     return (
         <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
             {/* Header Card */}
-            <GlassCard className="p-6 relative overflow-hidden border-brand-green/20">
+            <GlassCard
+                className="p-6 relative overflow-hidden border-brand-green/20 cursor-pointer hover:bg-white/5 transition-colors group"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-green to-transparent opacity-50" />
 
                 <div className="flex justify-between items-start mb-4">
                     <h2 className="text-2xl font-bold text-white max-w-[70%]">{activePoll?.title}</h2>
-
-                    {/* Anonymous Toggle - Only in Edit Mode */}
-                    {mode !== 'view' && (
-                        <button
-                            onClick={() => setIsAnonymous(!isAnonymous)}
-                            className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
-                                isAnonymous
-                                    ? "bg-zinc-800 text-white border-white/20"
-                                    : "bg-brand-green/10 text-brand-green border-brand-green/20"
-                            )}
-                        >
-                            {isAnonymous ? (
-                                <>
-                                    <span className="w-2 h-2 rounded-full bg-gray-400" />
-                                    هوية مخفية
-                                </>
-                            ) : (
-                                <>
-                                    <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-                                    هوية ظاهرة
-                                </>
-                            )}
-                        </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {/* Anonymous Toggle - Only in Edit Mode */}
+                        {mode !== 'view' && isExpanded && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsAnonymous(!isAnonymous)
+                                }}
+                                className={cn(
+                                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
+                                    isAnonymous
+                                        ? "bg-zinc-800 text-white border-white/20"
+                                        : "bg-brand-green/10 text-brand-green border-brand-green/20"
+                                )}
+                            >
+                                {isAnonymous ? (
+                                    <>
+                                        <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                        هوية مخفية
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
+                                        هوية ظاهرة
+                                    </>
+                                )}
+                            </button>
+                        )}
+                        <PieChart className={cn("w-6 h-6 text-white/50 transition-transform duration-300", isExpanded && "rotate-180")} />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-brand-green text-sm font-bold bg-brand-green/10 w-fit px-3 py-1 rounded-full">
@@ -307,139 +320,145 @@ export function UserPolls() {
                 </div>
             </GlassCard>
 
-            {/* Active Status Banner / Overlay logic */}
-            {!activePoll?.is_active && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 animate-pulse">
-                    <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_red]" />
-                    <p className="text-red-400 font-bold text-sm">
-                        هذا الاستطلاع متوقف مؤقتاً ولا يمكن التصويت عليه حالياً
-                    </p>
-                </div>
-            )}
-
-            {/* Questions List */}
-            <div className={cn("space-y-4 transition-opacity", !activePoll?.is_active && "opacity-50 pointer-events-none")}>
-                {activePoll?.questions.map((q, idx) => (
-                    <div
-                        key={q.id}
-                        className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4"
-                        onClickCapture={(e) => {
-                            if (!activePoll?.is_active) {
-                                e.stopPropagation();
-                                toast.error("عذراً، هذا الاستطلاع متوقف حالياً");
-                            }
-                        }}
-                    >
-                        <h3 className="text-lg font-bold text-white flex items-start gap-3">
-                            <span className="bg-brand-green/20 text-brand-green w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0 mt-0.5">
-                                {idx + 1}
-                            </span>
-                            {/* ... */}
-                            {q.question_text}
-                        </h3>
-
-                        <div className="grid gap-3 pr-11">
-                            {q.options.map((opt) => {
-                                const isSelected = answers[q.id]?.includes(opt.id);
-                                return (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => handleOptionSelect(q.id, opt.id, q.allow_multiple_answers)}
-                                        disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
-                                        className={cn(
-                                            "w-full text-right p-4 rounded-xl border transition-all duration-200 flex items-center justify-between group",
-                                            isSelected
-                                                ? "bg-brand-green text-white border-brand-green shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                                                : "bg-black/20 text-white/70 border-white/5 hover:bg-white/10",
-                                            (mode === 'view' || !activePoll?.is_active) && !isSelected && "opacity-50 grayscale"
-                                        )}
-                                    >
-                                        <span className="font-medium">{opt.option_text}</span>
-                                        {isSelected && <CheckCircle2 className="w-5 h-5" />}
-                                    </button>
-                                );
-                            })}
+            {/* Collapsible Content */}
+            {isExpanded && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {/* Active Status Banner / Overlay logic */}
+                    {!activePoll?.is_active && (
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+                            <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_red]" />
+                            <p className="text-red-400 font-bold text-sm">
+                                هذا الاستطلاع متوقف مؤقتاً ولا يمكن التصويت عليه حالياً
+                            </p>
                         </div>
-                        {q.allow_multiple_answers && (
-                            <p className="text-xs text-white/30 pr-11">يمكنك اختيار أكثر من إجابة</p>
-                        )}
-                    </div>
-                ))}
-            </div>
+                    )}
 
-            {/* Personal Opinion Section */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
-                <label className="text-white font-bold flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-brand-yellow" />
-                    رأيي الشخصي
-                    <span className="text-xs font-normal text-white/40 bg-white/5 px-2 py-0.5 rounded mr-auto">
-                        اختياري
-                    </span>
-                </label>
-                <div className="relative">
-                    <textarea
-                        value={comment}
-                        onChange={(e) => handleCommentChange(e.target.value)}
-                        disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
-                        placeholder="اكتب ملاحظاتك أو مقترحاتك هنا..."
-                        className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 min-h-[100px] max-h-[200px] resize-y custom-scrollbar"
-                    />
-                    <div className={cn(
-                        "absolute bottom-3 left-3 text-xs font-mono px-2 py-1 rounded bg-black/50 border border-white/10",
-                        wordCount >= MAX_WORDS ? "text-red-400" : "text-white/40"
-                    )}>
-                        {wordCount}/{MAX_WORDS}
-                    </div>
-                </div>
-            </div>
 
-            {/* View/Edit Actions */}
-            <div className={cn(
-                "sticky bottom-24 z-10 transition-all duration-300",
-                mode === 'view' ? "translate-y-0" : "translate-y-0"
-            )}>
-                {mode === 'view' ? (
-                    <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 text-brand-green">
-                            <CheckCircle2 className="w-6 h-6" />
-                            <div>
-                                <p className="font-bold">تم إرسال إجاباتك</p>
-                                <p className="text-xs text-white/50">شكراً لمشاركتك رأيك معنا</p>
+                    {/* Questions List */}
+                    <div className={cn("space-y-4 transition-opacity", !activePoll?.is_active && "opacity-50 pointer-events-none")}>
+                        {activePoll?.questions.map((q, idx) => (
+                            <div
+                                key={q.id}
+                                className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4"
+                                onClickCapture={(e) => {
+                                    if (!activePoll?.is_active) {
+                                        e.stopPropagation();
+                                        toast.error("عذراً، هذا الاستطلاع متوقف حالياً");
+                                    }
+                                }}
+                            >
+                                <h3 className="text-lg font-bold text-white flex items-start gap-3">
+                                    <span className="bg-brand-green/20 text-brand-green w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0 mt-0.5">
+                                        {idx + 1}
+                                    </span>
+                                    {/* ... */}
+                                    {q.question_text}
+                                </h3>
+
+                                <div className="grid gap-3 pr-11">
+                                    {q.options.map((opt) => {
+                                        const isSelected = answers[q.id]?.includes(opt.id);
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => handleOptionSelect(q.id, opt.id, q.allow_multiple_answers)}
+                                                disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
+                                                className={cn(
+                                                    "w-full text-right p-4 rounded-xl border transition-all duration-200 flex items-center justify-between group",
+                                                    isSelected
+                                                        ? "bg-brand-green text-white border-brand-green shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                                                        : "bg-black/20 text-white/70 border-white/5 hover:bg-white/10",
+                                                    (mode === 'view' || !activePoll?.is_active) && !isSelected && "opacity-50 grayscale"
+                                                )}
+                                            >
+                                                <span className="font-medium">{opt.option_text}</span>
+                                                {isSelected && <CheckCircle2 className="w-5 h-5" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {q.allow_multiple_answers && (
+                                    <p className="text-xs text-white/30 pr-11">يمكنك اختيار أكثر من إجابة</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Personal Opinion Section */}
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+                        <label className="text-white font-bold flex items-center gap-2">
+                            <MessageSquare className="w-5 h-5 text-brand-yellow" />
+                            رأيي الشخصي
+                            <span className="text-xs font-normal text-white/40 bg-white/5 px-2 py-0.5 rounded mr-auto">
+                                اختياري
+                            </span>
+                        </label>
+                        <div className="relative">
+                            <textarea
+                                value={comment}
+                                onChange={(e) => handleCommentChange(e.target.value)}
+                                disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
+                                placeholder="اكتب ملاحظاتك أو مقترحاتك هنا..."
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 min-h-[100px] max-h-[200px] resize-y custom-scrollbar"
+                            />
+                            <div className={cn(
+                                "absolute bottom-3 left-3 text-xs font-mono px-2 py-1 rounded bg-black/50 border border-white/10",
+                                wordCount >= MAX_WORDS ? "text-red-400" : "text-white/40"
+                            )}>
+                                {wordCount}/{MAX_WORDS}
                             </div>
                         </div>
+                    </div>
 
-                        {/* Only show Edit button if poll is active */}
-                        {activePoll?.is_active && (
+                    {/* View/Edit Actions */}
+                    <div className={cn(
+                        "sticky bottom-24 z-10 transition-all duration-300",
+                        mode === 'view' ? "translate-y-0" : "translate-y-0"
+                    )}>
+                        {mode === 'view' ? (
+                            <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 text-brand-green">
+                                    <CheckCircle2 className="w-6 h-6" />
+                                    <div>
+                                        <p className="font-bold">تم إرسال إجاباتك</p>
+                                        <p className="text-xs text-white/50">شكراً لمشاركتك رأيك معنا</p>
+                                    </div>
+                                </div>
+
+                                {/* Only show Edit button if poll is active */}
+                                {activePoll?.is_active && (
+                                    <button
+                                        onClick={() => setMode('edit')}
+                                        className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
+                                    >
+                                        <span>تعديل الإجابات</span>
+                                        <Edit className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
                             <button
-                                onClick={() => setMode('edit')}
-                                className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className="w-full bg-brand-green hover:bg-brand-green/90 text-white text-lg font-bold py-4 rounded-2xl shadow-xl shadow-brand-green/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                             >
-                                <span>تعديل الإجابات</span>
-                                <Edit className="w-4 h-4" />
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                        <span>جاري الإرسال...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>إرسال الاستطلاع</span>
+                                        <Send className="w-5 h-5 rtl:rotate-180" />
+                                    </>
+                                )}
                             </button>
                         )}
                     </div>
-                ) : (
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="w-full bg-brand-green hover:bg-brand-green/90 text-white text-lg font-bold py-4 rounded-2xl shadow-xl shadow-brand-green/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-                    >
-                        {submitting ? (
-                            <>
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                                <span>جاري الإرسال...</span>
-                            </>
-                        ) : (
-                            <>
-                                <span>إرسال الاستطلاع</span>
-                                <Send className="w-5 h-5 rtl:rotate-180" />
-                            </>
-                        )}
-                    </button>
-                )}
-            </div>
 
+                </div>
+            )}
         </div>
     );
 }
