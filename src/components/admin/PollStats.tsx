@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { User, Clock, ArrowRight, MessageSquare, Loader2, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -8,7 +9,7 @@ import { GlassCard } from '../ui/GlassCard';
 
 interface PollStatsProps {
     pollId: string;
-    onBack: () => void;
+    onBack?: () => void;
 }
 
 export function PollStats({ pollId, onBack }: PollStatsProps) {
@@ -108,11 +109,25 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
     };
 
     const handlePrint = (mode: 'full' | 'summary') => {
-        setPrintMode(mode);
-        setShowPrintMenu(false);
-        setTimeout(() => {
-            window.print();
-        }, 100);
+        try {
+            setPrintMode(mode);
+            setShowPrintMenu(false);
+
+            setTimeout(() => {
+                try {
+                    window.print();
+                } catch (printError) {
+                    console.error("Print Error:", printError);
+                    toast.error("تعذر فتح نافذة الطباعة. يرجى التحقق من إعدادات الطابعة.", {
+                        duration: 4000,
+                        position: 'bottom-center'
+                    });
+                }
+            }, 100);
+        } catch (err: any) {
+            console.error("Print Setup Error:", err);
+            toast.error("حدث خطأ غير متوقع: " + err.message);
+        }
     };
 
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-brand-green" /></div>;
