@@ -17,6 +17,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
     const [stats, setStats] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
     const [totalVotes, setTotalVotes] = useState(0);
+    const [isCommentsExpanded, setIsCommentsExpanded] = useState(false); // Default folded as requested
 
     useEffect(() => {
         fetchStats();
@@ -205,13 +206,28 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
             {/* Comments Section */}
             {comments.length > 0 && (
                 <div className="space-y-4 pt-4 border-t border-white/10 print:border-none">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2 comments-section-title">
-                        <MessageSquare className="w-6 h-6 text-brand-yellow print:text-black" />
-                        صوت الناس
-                        <span className="text-sm font-normal text-white/40 print:text-black">({comments.length} تعليق)</span>
-                    </h3>
+                    <button
+                        onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
+                        className="w-full flex items-center justify-between group cursor-pointer focus:outline-none"
+                    >
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2 comments-section-title group-hover:text-brand-yellow transition-colors">
+                            <MessageSquare className="w-6 h-6 text-brand-yellow print:text-black" />
+                            صوت الناس
+                            <span className="text-sm font-normal text-white/40 print:text-black">({comments.length} تعليق)</span>
+                        </h3>
+                        {/* Chevron for indication */}
+                        <motion.div
+                            animate={{ rotate: isCommentsExpanded ? 180 : 0 }}
+                            className="text-white/30 group-hover:text-white print:hidden"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </motion.div>
+                    </button>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 comments-grid">
+                    <div className={cn(
+                        "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 comments-grid transition-all duration-300 overflow-hidden",
+                        isCommentsExpanded ? "opacity-100 max-h-[5000px]" : "opacity-0 max-h-0 print:opacity-100 print:max-h-none print:h-auto print:block"
+                    )}>
                         {comments.map((comment, i) => (
                             <div key={i} className="comment-card bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-4 rounded-xl transition-all duration-300 group break-inside-avoid">
                                 <p className="text-white/80 leading-relaxed text-sm min-h-[60px] mb-3">
