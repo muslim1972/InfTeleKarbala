@@ -25,6 +25,7 @@ interface Poll {
     id: string;
     title: string;
     description: string;
+    is_active: boolean;
     questions: Question[];
 }
 
@@ -59,7 +60,9 @@ export function UserPolls() {
             const { data: pollData, error: pollError } = await supabase
                 .from('polls')
                 .select('*')
-                .eq('is_active', true)
+                // Show stopped polls too, so we can display "Stopped" UI
+                // .eq('is_active', true) <--- Removed
+                .eq('is_deleted', false) // Only show non-deleted
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -91,6 +94,7 @@ export function UserPolls() {
                 id: pollData.id,
                 title: pollData.title,
                 description: pollData.description,
+                is_active: pollData.is_active,
                 questions: formattedQuestions
             });
 
@@ -303,14 +307,34 @@ export function UserPolls() {
                 </div>
             </GlassCard>
 
+            {/* Active Status Banner / Overlay logic */}
+            {!activePoll?.is_active && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+                    <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_red]" />
+                    <p className="text-red-400 font-bold text-sm">
+                        هذا الاستطلاع متوقف مؤقتاً ولا يمكن التصويت عليه حالياً
+                    </p>
+                </div>
+            )}
+
             {/* Questions List */}
-            <div className="space-y-4">
+            <div className={cn("space-y-4 transition-opacity", !activePoll?.is_active && "opacity-50 pointer-events-none")}>
                 {activePoll?.questions.map((q, idx) => (
-                    <div key={q.id} className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+                    <div
+                        key={q.id}
+                        className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4"
+                        onClickCapture={(e) => {
+                            if (!activePoll?.is_active) {
+                                e.stopPropagation();
+                                toast.error("عذراً، هذا الاستطلاع متوقف حالياً");
+                            }
+                        }}
+                    >
                         <h3 className="text-lg font-bold text-white flex items-start gap-3">
                             <span className="bg-brand-green/20 text-brand-green w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0 mt-0.5">
                                 {idx + 1}
                             </span>
+                            {/* ... */}
                             {q.question_text}
                         </h3>
 
@@ -321,13 +345,13 @@ export function UserPolls() {
                                     <button
                                         key={opt.id}
                                         onClick={() => handleOptionSelect(q.id, opt.id, q.allow_multiple_answers)}
-                                        disabled={mode === 'view'}
+                                        disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
                                         className={cn(
                                             "w-full text-right p-4 rounded-xl border transition-all duration-200 flex items-center justify-between group",
                                             isSelected
                                                 ? "bg-brand-green text-white border-brand-green shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                                                 : "bg-black/20 text-white/70 border-white/5 hover:bg-white/10",
-                                            mode === 'view' && !isSelected && "opacity-50 grayscale"
+                                            (mode === 'view' || !activePoll?.is_active) && !isSelected && "opacity-50 grayscale"
                                         )}
                                     >
                                         <span className="font-medium">{opt.option_text}</span>
@@ -356,7 +380,7 @@ export function UserPolls() {
                     <textarea
                         value={comment}
                         onChange={(e) => handleCommentChange(e.target.value)}
-                        disabled={mode === 'view'}
+                        disabled={mode === 'view' || !activePoll?.is_active} // Disable if inactive
                         placeholder="اكتب ملاحظاتك أو مقترحاتك هنا..."
                         className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 min-h-[100px] max-h-[200px] resize-y custom-scrollbar"
                     />
@@ -383,13 +407,17 @@ export function UserPolls() {
                                 <p className="text-xs text-white/50">شكراً لمشاركتك رأيك معنا</p>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setMode('edit')}
-                            className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
-                        >
-                            <span>تعديل الإجابات</span>
-                            <Edit className="w-4 h-4" />
-                        </button>
+
+                        {/* Only show Edit button if poll is active */}
+                        {activePoll?.is_active && (
+                            <button
+                                onClick={() => setMode('edit')}
+                                className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
+                            >
+                                <span>تعديل الإجابات</span>
+                                <Edit className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <button

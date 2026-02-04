@@ -1389,9 +1389,18 @@ export const AdminDashboard = () => {
                         onToggle={() => toggleSection('news_bar')}
                     >
                         <div className="p-2">
-                            <p className="text-white/60 mb-6 leading-relaxed text-sm">
-                                يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
-                            </p>
+                            <div className="flex justify-between items-center mb-4">
+                                <p className="text-white/60 text-sm leading-relaxed">
+                                    يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
+                                </p>
+                                <button
+                                    onClick={() => toggleSection('news_bar')}
+                                    className="text-white/40 hover:text-white flex items-center gap-1 text-xs transition-colors"
+                                >
+                                    <ChevronDown className="w-4 h-4 rotate-180" />
+                                    إغلاق
+                                </button>
+                            </div>
                             <TipsEditor appName="InfTeleKarbala" />
                         </div>
                     </AccordionSection>

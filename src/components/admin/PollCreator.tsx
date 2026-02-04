@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     PieChart, Save, ArrowLeft, CheckCircle2,
-    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit
+    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit, Archive, RefreshCw, Search
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -21,11 +21,15 @@ interface QuestionDraft {
 
 export function PollCreator() {
     const { user } = useAuth();
-    // Phases: 'list' -> 'config' -> 'building' -> 'review' | 'stats'
-    const [phase, setPhase] = useState<'list' | 'config' | 'building' | 'review' | 'stats'>('list');
+    // Phases: 'list' -> 'config' -> 'building' -> 'review' | 'stats' | 'view'
+    const [phase, setPhase] = useState<'list' | 'config' | 'building' | 'review' | 'stats' | 'view'>('list');
     const [isLoading, setIsLoading] = useState(false);
     const [pollsList, setPollsList] = useState<any[]>([]);
     const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
+
+    // List View Filters
+    const [showDeleted, setShowDeleted] = useState(false);
+    const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
 
     // Phase 1: Config
     const [pollTitle, setPollTitle] = useState('');
@@ -46,14 +50,23 @@ export function PollCreator() {
         if (phase === 'list') {
             fetchPolls();
         }
-    }, [phase]);
+    }, [phase, showDeleted]); // Re-fetch when filter changes
 
     const fetchPolls = async () => {
         setIsLoading(true);
-        const { data, error } = await supabase
+        let query = supabase
             .from('polls')
             .select('*')
             .order('created_at', { ascending: false });
+
+        if (showDeleted) {
+            query = query.eq('is_deleted', true);
+        } else {
+            // Normal view: Show only existing (active or inactive)
+            query = query.eq('is_deleted', false);
+        }
+
+        const { data, error } = await query;
 
         if (error) console.error(error);
         else setPollsList(data || []);
@@ -62,8 +75,73 @@ export function PollCreator() {
 
     // --- Handlers ---
 
-    // Phase 1 -> 2
+    // Toggle Active Status (Stop/Start)
+    const handleToggleActive = async (id: string, currentStatus: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('polls')
+                .update({ is_active: !currentStatus })
+                .eq('id', id);
 
+            if (error) throw error;
+
+            toast.success(currentStatus ? "تم إيقاف الاستطلاع" : "تم إعادة تفعيل الاستطلاع");
+
+            // Optimistic Update
+            setPollsList(prev => prev.map(p =>
+                p.id === id ? { ...p, is_active: !currentStatus } : p
+            ));
+
+        } catch (err) {
+            toast.error("فشل في تحديث الحالة");
+            console.error(err);
+        }
+    };
+
+    // Soft Delete
+    const handleDelete = async (id: string) => {
+        if (!confirm("هل أنت متأكد من حذف هذا الاستطلاع؟ سيتم نقله إلى سلة المحذوفات.")) return;
+
+        try {
+            // Soft delete: set is_deleted = true AND is_active = false
+            const { error } = await supabase
+                .from('polls')
+                .update({ is_deleted: true, is_active: false })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success("تم نقل الاستطلاع إلى المحذوفات");
+            // Remove from current list view
+            setPollsList(prev => prev.filter(p => p.id !== id));
+
+        } catch (err) {
+            toast.error("فشل في الحذف");
+            console.error(err);
+        }
+    };
+
+    // Restore from Trash
+    const handleRestore = async (id: string) => {
+        if (!confirm("هل تريد استعادة هذا الاستطلاع؟")) return;
+
+        try {
+            const { error } = await supabase
+                .from('polls')
+                .update({ is_deleted: false })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success("تم استعادة الاستطلاع");
+            // Remove from deleted list
+            setPollsList(prev => prev.filter(p => p.id !== id));
+
+        } catch (err) {
+            toast.error("فشل في الاستعادة");
+            console.error(err);
+        }
+    };
 
     // Helper: Load specific question into inputs (for editing) OR reset
     const loadQuestionIntoState = (idx: number) => {
@@ -97,15 +175,17 @@ export function PollCreator() {
             toast.error("يجب أن يحتوي الاستطلاع على سؤال واحد على الأقل");
             return;
         }
+
+        // Sync collectedQuestions with totalQuestions if reduced
+        if (collectedQuestions.length > totalQuestions) {
+            setCollectedQuestions(prev => prev.slice(0, totalQuestions));
+        }
+
         setPhase('building');
         // Always start at 1, but load existing if we are revisiting
         setCurrentStep(1);
         loadQuestionIntoState(0);
     };
-
-    // ... handleOptionsCountChange ... same
-
-    // ... handleOptionTextChange ... same
 
     // Next Question or Finish
     const handleNextQuestion = () => {
@@ -225,78 +305,253 @@ export function PollCreator() {
         }
     };
 
+    // Review Phase Helpers
+    const handleAddQuestion = () => {
+        const newTotal = collectedQuestions.length + 1;
+        setTotalQuestions(newTotal);
+        handleJumpToStep(newTotal);
+    };
+
+    const handleDeleteQuestion = (index: number) => {
+        if (collectedQuestions.length <= 1) {
+            toast.error("لا يمكن حذف السؤال الأخير");
+            return;
+        }
+        const updated = collectedQuestions.filter((_, i) => i !== index);
+        setCollectedQuestions(updated);
+        setTotalQuestions(updated.length);
+    };
+
+    const handleJumpToStep = (step: number) => {
+        setPhase('building');
+        setTotalQuestions(Math.max(collectedQuestions.length, step)); // Ensure total covers it
+        setCurrentStep(step);
+        loadQuestionIntoState(step - 1);
+    };
+
+    // View Details Logic
+    const handleViewDetails = async (id: string, titleStr: string) => {
+        setIsLoading(true);
+        setSelectedPollId(id);
+        setPollTitle(titleStr);
+        try {
+            // Fetch questions and options
+            const { data: questions, error } = await supabase
+                .from('poll_questions')
+                .select(`
+                    id,
+                    question_text,
+                    allow_multiple_answers,
+                    order_index,
+                    poll_options (
+                        id,
+                        option_text,
+                        order_index
+                    )
+                `)
+                .eq('poll_id', id)
+                .order('order_index');
+
+            if (error) throw error;
+
+            // Map to QuestionDraft format for reuse of 'review' UI or similar
+            const mapped: QuestionDraft[] = (questions || []).map(q => ({
+                text: q.question_text,
+                type: q.allow_multiple_answers ? 'multiple' : 'single',
+                options: (q.poll_options || []).sort((a, b) => a.order_index - b.order_index).map(o => ({
+                    text: o.option_text
+                }))
+            }));
+
+            setCollectedQuestions(mapped);
+            setPhase('view');
+
+        } catch (err) {
+            console.error(err);
+            toast.error("فشل جلب تفاصيل الاستطلاع");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // --- Render ---
 
     if (phase === 'stats' && selectedPollId) {
-        return <PollStats pollId={selectedPollId} onBack={() => setPhase('list')} />;
+        return <PollStats pollId={selectedPollId} onBack={() => { setPhase('list'); setPollsList([]); fetchPolls(); }} />;
     }
+
+    const filteredList = pollsList.filter(p => {
+        if (!dateFilter.start && !dateFilter.end) return true;
+        const pDate = new Date(p.created_at).getTime();
+        const start = dateFilter.start ? new Date(dateFilter.start).getTime() : 0;
+        const end = dateFilter.end ? new Date(dateFilter.end).getTime() + 86400000 : Infinity; // End of day
+        return pDate >= start && pDate <= end;
+    });
 
     return (
         <div id="poll-creator-form" className="w-full max-w-4xl mx-auto">
 
             {phase === 'list' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center bg-black/20 p-4 rounded-2xl border border-white/5">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <ListChecks className="w-6 h-6 text-brand-green" />
-                            سجل الاستطلاعات
+                            {showDeleted ? (
+                                <>
+                                    <Archive className="w-6 h-6 text-red-500" />
+                                    أرشيف المحذوفات
+                                </>
+                            ) : (
+                                <>
+                                    <ListChecks className="w-6 h-6 text-brand-green" />
+                                    سجل الاستطلاعات
+                                </>
+                            )}
                         </h2>
-                        <button
-                            onClick={() => setPhase('config')}
-                            className="bg-brand-green hover:bg-brand-green/90 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-brand-green/20"
-                        >
-                            <Plus className="w-5 h-5" />
-                            استطلاع جديد
-                        </button>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => { setShowDeleted(!showDeleted); setPollsList([]); }}
+                                className={cn(
+                                    "p-2 rounded-xl transition-all border",
+                                    showDeleted
+                                        ? "bg-white/10 border-white/20 text-white"
+                                        : "bg-black/40 border-transparent text-white/40 hover:text-white"
+                                )}
+                                title={showDeleted ? "عودة للاستطلاعات" : "عرض المحذوفات"}
+                            >
+                                <Archive className="w-5 h-5" />
+                            </button>
+
+                            {!showDeleted && (
+                                <button
+                                    onClick={() => setPhase('config')}
+                                    className="bg-brand-green hover:bg-brand-green/90 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-brand-green/20"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    <span className="hidden md:inline">استطلاع جديد</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
+                    {/* Filters (Archive Mode) */}
+                    {showDeleted && (
+                        <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 animate-in slide-in-from-top-2">
+                            <span className="text-sm text-white/60 font-bold flex items-center gap-2">
+                                <Search className="w-4 h-4" />
+                                تصفية حسب التاريخ:
+                            </span>
+                            <input
+                                type="date"
+                                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-white text-sm"
+                                value={dateFilter.start}
+                                onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })}
+                            />
+                            <span className="text-white/40">-</span>
+                            <input
+                                type="date"
+                                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-white text-sm"
+                                value={dateFilter.end}
+                                onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })}
+                            />
+                        </div>
+                    )}
+
                     <div className="grid gap-4">
-                        {pollsList.map((p) => (
-                            <div key={p.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white/10 transition-all">
+                        {filteredList.map((p) => (
+                            <div
+                                key={p.id}
+                                className={cn(
+                                    "rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 group transition-all cursor-pointer relative",
+                                    p.is_active
+                                        ? "bg-gradient-to-r from-white/5 to-white/10 border border-brand-green/20 shadow-[0_0_15px_-5px_var(--brand-green-rgb)] hover:brightness-110"
+                                        : "bg-white/5 border border-white/10 hover:bg-white/10"
+                                )}
+                                onClick={(e) => {
+                                    // Prevent triggering if clicked on action buttons
+                                    if ((e.target as HTMLElement).closest('button')) return;
+                                    handleViewDetails(p.id, p.title);
+                                }}
+                            >
                                 <div>
-                                    <h3 className="text-white font-bold text-lg mb-1 group-hover:text-brand-green transition-colors">{p.title}</h3>
+                                    <h3 className={cn(
+                                        "font-bold text-lg mb-1 transition-colors",
+                                        !p.is_active && !p.is_deleted ? "text-red-400" : "text-white group-hover:text-brand-green"
+                                    )}>
+                                        {p.title}
+                                    </h3>
                                     <div className="flex items-center gap-3 text-sm text-white/40">
                                         <span>{new Date(p.created_at).toLocaleDateString('ar-IQ')}</span>
                                         <span className="w-1 h-1 bg-white/20 rounded-full" />
-                                        <span className={cn("px-2 py-0.5 rounded textxs", p.is_active ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400")}>
-                                            {p.is_active ? "نشط" : "مغلق"}
+                                        <span className={cn(
+                                            "px-2 py-0.5 rounded text-[10px] font-bold",
+                                            p.is_deleted ? "bg-red-500/20 text-red-500" :
+                                                p.is_active ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                                        )}>
+                                            {p.is_deleted ? "محذوف" : p.is_active ? "نشط" : "متوقف"}
                                         </span>
                                     </div>
+                                    <p className="text-xs text-brand-green mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        انقر لعرض التفاصيل
+                                    </p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 relative z-10">
+                                    {/* Actions */}
+
+                                    {/* 1. View Stats / Print (Available for all) */}
                                     <button
-                                        onClick={() => { setSelectedPollId(p.id); setPhase('stats'); }}
-                                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded-lg transition-colors tooltip"
-                                        title="عرض النتائج"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedPollId(p.id); setPhase('stats'); }}
+                                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded-lg transition-colors tooltip flex items-center gap-1.5"
+                                        title={showDeleted ? "عرض / طباعة" : "النتائج"}
                                     >
                                         <BarChart3 className="w-5 h-5" />
+                                        {showDeleted && <span className="text-xs font-bold">عرض</span>}
                                     </button>
 
-                                    {p.is_active && (
+                                    {/* 2. Stop/Start (Only for Active/Inactive list) */}
+                                    {!showDeleted && (
                                         <button
-                                            // onClick={() => handleDeactivate(p.id)} // Assuming handleDeactivate exists, if not, comment out or add logic
-                                            className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 p-2 rounded-lg transition-colors opacity-50 cursor-not-allowed"
-                                            title="إيقاف (قريباً)"
+                                            onClick={(e) => { e.stopPropagation(); handleToggleActive(p.id, p.is_active); }}
+                                            className={cn(
+                                                "p-2 rounded-lg transition-all duration-1000",
+                                                p.is_active
+                                                    ? "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500"
+                                                    : "bg-red-500/20 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse hover:shadow-[0_0_20px_rgba(239,68,68,0.8)]"
+                                            )}
+                                            title={p.is_active ? "إيقاف الاستطلاع" : "إعادة تفعيل"}
                                         >
-                                            <StopCircle className="w-5 h-5" />
+                                            {p.is_active ? <StopCircle className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
                                         </button>
                                     )}
 
-                                    <button
-                                        // onClick={() => handleDelete(p.id)} // Assuming handleDelete exists
-                                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-lg transition-colors opacity-50 cursor-not-allowed"
-                                        title="حذف (قريباً)"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
+                                    {/* 3. Delete / Restore */}
+                                    {showDeleted ? (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRestore(p.id); }}
+                                            className="bg-green-500/10 hover:bg-green-500/20 text-green-500 p-2 rounded-lg transition-colors tooltip font-bold text-xs"
+                                            title="استعادة"
+                                        >
+                                            استعادة
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-lg transition-colors tooltip"
+                                            title="حذف"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
 
-                        {pollsList.length === 0 && !isLoading && (
-                            <div className="text-center py-10 text-white/30 border border-white/5 rounded-xl border-dashed">
-                                لا توجد استطلاعات سابقة
+                        {filteredList.length === 0 && !isLoading && (
+                            <div className="text-center py-16 text-white/30 border border-white/5 rounded-xl border-dashed">
+                                {showDeleted
+                                    ? "سجل المحذوفات فارغ"
+                                    : "لا توجد استطلاعات هنا"}
                             </div>
                         )}
                     </div>
@@ -489,35 +744,70 @@ export function PollCreator() {
                     </div>
 
                     <div className="bg-black/40 rounded-xl border border-white/10 p-4 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-                        <h4 className="font-bold text-lg text-white border-b border-white/10 pb-2">{pollTitle}</h4>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2">
+                            <h4 className="font-bold text-lg text-white">{pollTitle}</h4>
+                            <span className="text-xs text-brand-green font-bold bg-brand-green/10 px-2 py-1 rounded">
+                                {collectedQuestions.length} أسئلة
+                            </span>
+                        </div>
+
                         {collectedQuestions.map((q, i) => (
-                            <div key={i} className="bg-white/5 rounded-lg p-3">
-                                <div className="flex justify-between items-start mb-2">
+                            <div key={i} className="bg-white/5 rounded-lg p-3 group relative hover:bg-white/10 transition-colors">
+                                <div className="flex justify-between items-start mb-2 pl-8">
                                     <span className="text-brand-green font-bold text-sm">سؤال {i + 1}: {q.text}</span>
                                     <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/50">
                                         {q.type === 'single' ? 'خيار واحد' : 'عدة خيارات'}
                                     </span>
                                 </div>
-                                <ul className="list-disc list-inside text-xs text-white/60 space-y-1">
+                                <ul className="list-disc list-inside text-xs text-white/60 space-y-1 mb-2">
                                     {q.options.map((opt, j) => (
                                         <li key={j}>{opt.text}</li>
                                     ))}
                                 </ul>
+
+                                {/* Action Buttons per Question */}
+                                <div className="absolute top-2 left-2 flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleJumpToStep(i + 1)}
+                                        className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30"
+                                        title="تعديل السؤال"
+                                    >
+                                        <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteQuestion(i)}
+                                        className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"
+                                        title="حذف السؤال"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
+
+                        {/* Add Question Button */}
+                        <button
+                            onClick={handleAddQuestion}
+                            className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-white/40 hover:text-white hover:border-white/30 hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-bold text-sm group"
+                        >
+                            <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            إضافة سؤال جديد
+                        </button>
                     </div>
 
                     <div className="flex gap-4 pt-4">
                         <button
                             onClick={() => {
+                                // Default Edit Behavior -> Go to config
                                 setPhase('config');
-                                setCurrentStep(1);
-                                loadQuestionIntoState(0);
+                                // We keep collectedQuestions as is, config phase totalQuestions will update via state, but input needs to be synced ??
+                                // Actually 'totalQuestions' state is master. But modifying it in config might require logic.
+                                // For now, simple return to config is fine, user sees current count.
                             }}
                             className="bg-white/5 hover:bg-white/10 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
                         >
                             <Edit className="w-4 h-4" />
-                            تعديل
+                            تعديل العنوان
                         </button>
 
                         <button
@@ -541,6 +831,59 @@ export function PollCreator() {
                             {isLoading ? 'جاري النشر...' : 'نشر الاستطلاع الآن'}
                             {!isLoading && <Save className="w-5 h-5" />}
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {phase === 'view' && (
+                <div className="bg-black/20 border border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in zoom-in duration-300">
+                    <button
+                        onClick={() => {
+                            setPhase('list');
+                            setCollectedQuestions([]);
+                            setSelectedPollId(null);
+                        }}
+                        className="text-white/40 hover:text-white flex items-center gap-2 text-sm transition-colors mb-4"
+                    >
+                        <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+                        عودة للقائمة
+                    </button>
+
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/40">
+                            <ListChecks className="w-8 h-8 text-blue-500" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white">تفاصيل الاستطلاع</h3>
+                        <p className="text-white/40 mt-1">عرض محتوى الاستطلاع (للقراءة فقط)</p>
+                    </div>
+
+                    <div className="bg-black/40 rounded-xl border border-white/10 p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+                        <h4 className="font-bold text-lg text-white border-b border-white/10 pb-2">{pollTitle}</h4>
+                        {collectedQuestions.length === 0 ? (
+                            <div className="text-center py-8 text-white/30">جارِ التحميل...</div>
+                        ) : (
+                            collectedQuestions.map((q, i) => (
+                                <div key={i} className="bg-white/5 rounded-lg p-3">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-blue-400 font-bold text-sm">سؤال {i + 1}: {q.text}</span>
+                                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/50">
+                                            {q.type === 'single' ? 'خيار واحد' : 'عدة خيارات'}
+                                        </span>
+                                    </div>
+                                    <ul className="list-disc list-inside text-xs text-white/60 space-y-1">
+                                        {q.options.map((opt, j) => (
+                                            <li key={j}>{opt.text}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="flex justify-center pt-4">
+                        <div className="text-white/30 text-xs">
+                            * هذا الاستطلاع منشور بالفعل ولا يمكن تعديل نصوص الأسئلة للحفاظ على نزاهة البيانات
+                        </div>
                     </div>
                 </div>
             )}
