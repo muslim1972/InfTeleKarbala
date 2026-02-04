@@ -175,56 +175,54 @@ export const Dashboard = () => {
     // Computed Yearly Data
     const currentYearRecord = yearlyData.find(r => r.year === selectedYear) || {};
 
-    // Fetch Financial Data
+    // Fetch All Data in Parallel (محسّن للأداء)
     useEffect(() => {
         if (user?.id) {
             const fetchData = async () => {
                 setLoading(true);
-                console.log("Fetching financial data for user ID:", user.id);
-                const { data, error } = await supabase
-                    .from('financial_records')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('updated_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+                console.log("Fetching all data in parallel for user ID:", user.id);
 
-                if (error) {
-                    console.error("Error fetching financial data:", error);
+                try {
+                    // جلب كل البيانات بالتوازي (أسرع بكثير)
+                    const [financialResult, adminResult, yearlyResult] = await Promise.all([
+                        supabase
+                            .from('financial_records')
+                            .select('*')
+                            .eq('user_id', user.id)
+                            .order('updated_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle(),
+
+                        supabase
+                            .from('administrative_summary')
+                            .select('*')
+                            .eq('user_id', user.id)
+                            .maybeSingle(),
+
+                        supabase
+                            .from('yearly_records')
+                            .select('*')
+                            .eq('user_id', user.id)
+                    ]);
+
+                    // تعيين البيانات
+                    if (financialResult.data) {
+                        setFinancialData(financialResult.data);
+                    } else {
+                        setFinancialData({
+                            user_id: user.id,
+                            nominal_salary: 0
+                        } as any);
+                    }
+
+                    if (adminResult.data) setAdminData(adminResult.data);
+                    if (yearlyResult.data) setYearlyData(yearlyResult.data);
+
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                } finally {
+                    setLoading(false);
                 }
-                if (error) {
-                    console.error("Error fetching financial data:", error);
-                }
-
-                // Fetch Administrative Summary
-                const { data: admData } = await supabase
-                    .from('administrative_summary')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .maybeSingle();
-
-                if (admData) setAdminData(admData);
-
-                // Fetch Yearly Records
-                const { data: yData } = await supabase
-                    .from('yearly_records')
-                    .select('*')
-                    .eq('user_id', user.id);
-
-                if (yData) setYearlyData(yData);
-
-                console.log("Financial data result:", data);
-
-                if (data) {
-                    setFinancialData(data);
-                } else {
-                    console.log("No financial record found, creating local empty state.");
-                    setFinancialData({
-                        user_id: user.id,
-                        nominal_salary: 0
-                    } as any);
-                }
-                setLoading(false);
             };
 
             fetchData();

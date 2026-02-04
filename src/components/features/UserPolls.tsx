@@ -1,127 +1,34 @@
-import { useState, useEffect } from 'react';
+/**
+ * UserPolls - مكون الاستطلاعات والإعلام
+ * محسّن باستخدام نظام الكاش الجديد
+ */
+
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Loader2, PieChart } from 'lucide-react';
-import { PollItem, type Poll } from './PollItem';
+import { Loader2, PieChart, AlertCircle, Users } from 'lucide-react';
+import { PollItem } from './PollItem';
 import { DirectivesModal } from './DirectivesModal';
-import { AlertCircle, Users } from 'lucide-react'; // Using Users for Conferences (green)
+import { useMediaContent } from '../../hooks/useMediaContent';
+import { usePolls } from '../../hooks/usePolls';
+
 
 export function UserPolls() {
     const { user } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [activePolls, setActivePolls] = useState<Poll[]>([]);
 
-    // Directives & Conferences State
-    const [directive, setDirective] = useState<{ id: string, content: string } | null>(null);
-    const [conference, setConference] = useState<{ id: string, content: string } | null>(null);
-    const [isDirectiveAcknowledged, setIsDirectiveAcknowledged] = useState(false);
+    // استخدام الـ hooks الجديدة للكاش
+    const { data: mediaContent, isLoading: mediaLoading, invalidateCache: invalidateMediaCache } = useMediaContent(user?.id);
+    const { data: polls, isLoading: pollsLoading } = usePolls();
 
     const [modalData, setModalData] = useState<{ type: 'directive' | 'conference', content: string } | null>(null);
 
-    useEffect(() => {
-        if (user?.id) {
-            fetchActivePolls();
-            fetchMediaContent();
-        }
-    }, [user?.id]);
-
-    const fetchMediaContent = async () => {
-        try {
-            // 1. Fetch Active Directive
-            const { data: dirData } = await supabase
-                .from('media_content')
-                .select('id, content')
-                .eq('type', 'directive')
-                .eq('is_active', true)
-                .limit(1)
-                .maybeSingle();
-
-            setDirective(dirData);
-
-            // 2. Check Acknowledgment if directive exists
-            if (dirData && user?.id) {
-                const { data: ackData } = await supabase
-                    .from('user_acknowledgments')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('content_id', dirData.id)
-                    .maybeSingle();
-
-                setIsDirectiveAcknowledged(!!ackData);
-            }
-
-            // 3. Fetch Active Conference
-            const { data: confData } = await supabase
-                .from('media_content')
-                .select('id, content')
-                .eq('type', 'conference')
-                .eq('is_active', true)
-                .limit(1)
-                .maybeSingle();
-
-            setConference(confData);
-
-        } catch (error) {
-            console.error("Error fetching media content:", error);
-        }
-    };
-
-    const fetchActivePolls = async () => {
-        setLoading(true);
-        try {
-            // 1. Get all active active polls (non-deleted)
-            const { data: pollsData, error: pollsError } = await supabase
-                .from('polls')
-                .select('*')
-                .eq('is_deleted', false)
-                .order('created_at', { ascending: false });
-
-            if (pollsError) throw pollsError;
-
-            if (!pollsData || pollsData.length === 0) {
-                setActivePolls([]);
-                // Do NOT return here, we still need to show Media buttons if they exist
-            } else {
-                // 2. Fetch Questions & Options for ALL retrieved polls
-                const pollIds = pollsData.map(p => p.id);
-                const { data: questionsData, error: qError } = await supabase
-                    .from('poll_questions')
-                    .select('id, question_text, allow_multiple_answers, order_index, poll_id, poll_options(id, option_text, order_index)')
-                    .in('poll_id', pollIds)
-                    .order('order_index');
-
-                if (qError) throw qError;
-
-                // 3. Assemble the data structure
-                const pollsWithQuestions = pollsData.map(poll => {
-                    const pollQuestions = questionsData
-                        .filter((q: any) => q.poll_id === poll.id)
-                        .map((q: any) => ({
-                            ...q,
-                            ...q, // Remove duplicate spread
-                            options: q.poll_options.sort((a: any, b: any) => a.order_index - b.order_index)
-                        }));
-
-                    return {
-                        id: poll.id,
-                        title: poll.title,
-                        description: poll.description,
-                        is_active: poll.is_active,
-                        questions: pollQuestions
-                    };
-                });
-
-                setActivePolls(pollsWithQuestions);
-            }
-
-        } catch (error) {
-            console.error("Error fetching polls:", error);
-            toast.error("حدث خطأ أثناء تحميل الاستطلاعات");
-        } finally {
-            setLoading(false);
-        }
-    };
+    // استخراج البيانات من الكاش
+    const directive = mediaContent?.directive || null;
+    const conference = mediaContent?.conference || null;
+    const isDirectiveAcknowledged = mediaContent?.isDirectiveAcknowledged || false;
+    const activePolls = polls || [];
+    const loading = mediaLoading || pollsLoading;
 
     const handleAcknowledgeDirective = async () => {
         if (!user?.id || !directive) return;
@@ -139,8 +46,10 @@ export function UserPolls() {
         }
 
         toast.success("تم تأكيد القراءة");
-        setIsDirectiveAcknowledged(true);
         setModalData(null);
+
+        // إعادة تحميل الكاش لتحديث حالة الإقرار
+        await invalidateMediaCache();
     };
 
     if (loading) {
@@ -195,7 +104,6 @@ export function UserPolls() {
                     <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
                         <PieChart className="w-8 h-8 text-white/20" />
                     </div>
-                    {/* Only show "No polls" message if NO media buttons are present either, to avoid clutter? Or always show it below buttons? User didn't specify. Keeping it simple. */}
                     <p className="text-white/40 font-bold">لا توجد استطلاعات نشطة حالياً</p>
                 </div>
             )}

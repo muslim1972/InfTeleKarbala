@@ -1,11 +1,33 @@
-import { Dashboard } from "./pages/Dashboard";
-import { Login } from "./pages/Login";
-import { AdminDashboard } from "./pages/AdminDashboard";
+/**
+ * App.tsx - محسّن باستخدام lazy loading
+ * يقلل حجم التحميل الأولي بشكل كبير
+ */
+
+import { Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
+import { Loader2 } from "lucide-react";
+
+// Lazy loading للصفحات الثقيلة
+const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
+
+// مكون التحميل
+const LoadingScreen = () => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+    <div className="text-center">
+      <Loader2 className="w-12 h-12 animate-spin text-emerald-500 mx-auto mb-4" />
+      <p className="text-white/60 text-sm">جاري التحميل...</p>
+    </div>
+  </div>
+);
 
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  // إظهار شاشة التحميل أثناء التحقق من الجلسة
+  if (loading) return <LoadingScreen />;
 
   if (!user) return <Login />;
 
@@ -22,7 +44,9 @@ function App() {
     <div dir="rtl">
       <AuthProvider>
         <Toaster position="top-center" reverseOrder={false} />
-        <AppContent />
+        <Suspense fallback={<LoadingScreen />}>
+          <AppContent />
+        </Suspense>
       </AuthProvider>
     </div>
   );
