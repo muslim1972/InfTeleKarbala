@@ -17,7 +17,11 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
     const [stats, setStats] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
     const [totalVotes, setTotalVotes] = useState(0);
-    const [isCommentsExpanded, setIsCommentsExpanded] = useState(false); // Default folded as requested
+
+    // UI States
+    const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+    const [printMode, setPrintMode] = useState<'full' | 'summary'>('full');
+    const [showPrintMenu, setShowPrintMenu] = useState(false);
 
     useEffect(() => {
         fetchStats();
@@ -47,7 +51,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 .order('order_index');
             if (qError) throw qError;
 
-            // 3. Fetch ALL Responses (Client-side aggregation for now)
+            // 3. Fetch ALL Responses
             const { data: rData, error: rError } = await supabase
                 .from('poll_responses')
                 .select('question_id, option_id, user_id')
@@ -66,21 +70,17 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
             if (cError) throw cError;
 
             // --- Process Data ---
-
-            // Count Unique Voters
             const uniqueVoters = new Set(rData?.map(r => r.user_id)).size;
             setTotalVotes(uniqueVoters);
 
-            // Aggregate Counts
-            const counts: Record<string, number> = {}; // option_id -> count
-            const questionTotals: Record<string, number> = {}; // question_id -> total responses
+            const counts: Record<string, number> = {};
+            const questionTotals: Record<string, number> = {};
 
             rData?.forEach(r => {
                 counts[r.option_id] = (counts[r.option_id] || 0) + 1;
                 questionTotals[r.question_id] = (questionTotals[r.question_id] || 0) + 1;
             });
 
-            // Build Stats Object
             const processedStats = qData?.map(q => {
                 const qTotal = questionTotals[q.id] || 0;
                 return {
@@ -92,11 +92,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                         .map((opt: any) => {
                             const count = counts[opt.id] || 0;
                             const percentage = qTotal > 0 ? Math.round((count / qTotal) * 100) : 0;
-                            return {
-                                ...opt,
-                                count,
-                                percentage
-                            };
+                            return { ...opt, count, percentage };
                         })
                 };
             });
@@ -111,22 +107,66 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
         }
     };
 
+    const handlePrint = (mode: 'full' | 'summary') => {
+        setPrintMode(mode);
+        setShowPrintMenu(false);
+        setTimeout(() => {
+            window.print();
+        }, 100);
+    };
+
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-brand-green" /></div>;
 
     return (
-        <div id="poll-stats-print-root" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div
+            id="poll-stats-print-root"
+            className={cn(
+                "space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500",
+                printMode === 'summary' ? 'print-summary-mode' : ''
+            )}
+        >
             {/* Header */}
             <div className="flex items-center justify-between gap-4">
-                {/* Print Button - Rendered in Admin Dashboard Header via Portal */}
+                {/* Print Button Options - Rendered in Admin Dashboard Header via Portal */}
                 {createPortal(
-                    <button
-                        onClick={() => window.print()}
-                        className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all print:hidden"
-                    >
-                        <Printer className="w-5 h-5" />
-                        <span className="hidden md:inline">طباعة التقرير</span>
-                        <span className="md:hidden">طباعة</span>
-                    </button>,
+                    <div className="relative print:hidden">
+                        <button
+                            onClick={() => setShowPrintMenu(!showPrintMenu)}
+                            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all"
+                        >
+                            <Printer className="w-5 h-5" />
+                            <span className="hidden md:inline">خيارات الطباعة</span>
+                            <span className="md:hidden">طباعة</span>
+                        </button>
+
+                        {/* Print Dropdown Menu */}
+                        {showPrintMenu && (
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+                                <button
+                                    onClick={() => handlePrint('full')}
+                                    className="w-full text-right px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors flex items-center gap-2"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-brand-green"></span>
+                                    تقرير كامل (مع التعليقات)
+                                </button>
+                                <button
+                                    onClick={() => handlePrint('summary')}
+                                    className="w-full text-right px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors border-t border-white/5 flex items-center gap-2"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                    ملخص (بدون تعليقات)
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Overlay to close menu */}
+                        {showPrintMenu && (
+                            <div
+                                className="fixed inset-0 z-40 bg-transparent"
+                                onClick={() => setShowPrintMenu(false)}
+                            />
+                        )}
+                    </div>,
                     document.getElementById('admin-header-portal') || document.body
                 )}
 

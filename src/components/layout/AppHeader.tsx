@@ -19,7 +19,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
     return (
         <>
             <header className="sticky top-0 z-[60] py-2 px-4 w-full">
-                <GlassCard className="flex flex-col p-3 !bg-[#0f172a]/80 !border-white/10 !rounded-3xl backdrop-blur-xl transition-none">
+                <GlassCard className="flex flex-col p-3 !bg-[#0f172a]/80 !border-white/10 !rounded-3xl backdrop-blur-xl transition-none !overflow-visible">
                     <div className="flex items-center justify-between w-full">
                         {/* Right: Avatar + User Name - Clickable for Settings */}
                         <button

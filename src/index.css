@@ -371,4 +371,18 @@ textarea,
   .print\:hidden {
     display: none !important;
   }
+
+  /* -------------------------------------------------------------------------- */
+  /* 6. PRINT MODES (Full vs Summary)                                           */
+  /* -------------------------------------------------------------------------- */
+
+  /* In Summary Mode: Hide the actual comments grid, but keep the header (count) */
+  .print-summary-mode .comments-grid {
+    display: none !important;
+  }
+
+  /* Additional cleanup if needed */
+  .print-summary-mode .comment-card {
+    display: none !important;
+  }
 }
