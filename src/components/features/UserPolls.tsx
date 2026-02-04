@@ -42,6 +42,7 @@ export function UserPolls() {
     // State for comment
     const [comment, setComment] = useState('');
     const [wordCount, setWordCount] = useState(0);
+    const [isAnonymous, setIsAnonymous] = useState(false);
 
     const MAX_WORDS = 100;
 
@@ -81,7 +82,7 @@ export function UserPolls() {
             if (qError) throw qError;
 
             // Sort options for each question
-            const formattedQuestions = questionsData.map(q => ({
+            const formattedQuestions = questionsData.map((q: any) => ({
                 ...q,
                 options: q.poll_options.sort((a: any, b: any) => a.order_index - b.order_index)
             }));
@@ -119,7 +120,7 @@ export function UserPolls() {
         // Fetch Comment
         const { data: commentData, error: cError } = await supabase
             .from('poll_comments')
-            .select('comment_text')
+            .select('comment_text, is_anonymous')
             .eq('poll_id', pollId)
             .eq('user_id', user.id)
             .maybeSingle();
@@ -129,7 +130,7 @@ export function UserPolls() {
         if ((responses && responses.length > 0) || commentData) {
             // Populate State
             const loadedAnswers: Record<string, string[]> = {};
-            responses?.forEach(r => {
+            responses?.forEach((r: any) => {
                 if (!loadedAnswers[r.question_id]) loadedAnswers[r.question_id] = [];
                 loadedAnswers[r.question_id].push(r.option_id);
             });
@@ -138,12 +139,14 @@ export function UserPolls() {
             const savedComment = commentData?.comment_text || '';
             setComment(savedComment);
             setWordCount(savedComment.trim() === '' ? 0 : savedComment.trim().split(/\s+/).length);
+            setIsAnonymous(commentData?.is_anonymous || false);
 
             setMode('view');
         } else {
             setMode('edit');
             setAnswers({});
             setComment('');
+            setIsAnonymous(false);
         }
     };
 
@@ -170,10 +173,6 @@ export function UserPolls() {
             setComment(text);
             setWordCount(words);
         } else {
-            // Allow typing but maybe warn visually, or just truncate interaction?
-            // User requested max 100 words. Let's strict limit or just stop updating if paste is too long?
-            // Better to allow typing and assume they will trim back if we enforce validation on submit.
-            // But let's just update if it's within limit or if they are deleting.
             if (words < wordCount) {
                 setComment(text);
                 setWordCount(words);
@@ -203,7 +202,7 @@ export function UserPolls() {
                 .eq('poll_id', activePoll.id).eq('user_id', user.id);
 
             // 2. Prepare new responses
-            const responsesToInsert = [];
+            const responsesToInsert: any[] = [];
             for (const [qId, optionIds] of Object.entries(answers)) {
                 for (const optId of optionIds) {
                     responsesToInsert.push({
@@ -223,14 +222,15 @@ export function UserPolls() {
                 if (insertError) throw insertError;
             }
 
-            // 4. Insert Comment
+            // 4. Insert Comment with Anonymous Flag
             if (comment.trim()) {
                 const { error: commentError } = await supabase
                     .from('poll_comments')
                     .insert({
                         poll_id: activePoll.id,
                         user_id: user.id,
-                        comment_text: comment
+                        comment_text: comment,
+                        is_anonymous: isAnonymous
                     });
                 if (commentError) throw commentError;
             }
@@ -267,7 +267,36 @@ export function UserPolls() {
             {/* Header Card */}
             <GlassCard className="p-6 relative overflow-hidden border-brand-green/20">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-green to-transparent opacity-50" />
-                <h2 className="text-2xl font-bold text-white mb-2">{activePoll?.title}</h2>
+
+                <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-2xl font-bold text-white max-w-[70%]">{activePoll?.title}</h2>
+
+                    {/* Anonymous Toggle - Only in Edit Mode */}
+                    {mode !== 'view' && (
+                        <button
+                            onClick={() => setIsAnonymous(!isAnonymous)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
+                                isAnonymous
+                                    ? "bg-zinc-800 text-white border-white/20"
+                                    : "bg-brand-green/10 text-brand-green border-brand-green/20"
+                            )}
+                        >
+                            {isAnonymous ? (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                    هوية مخفية
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
+                                    هوية ظاهرة
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
+
                 <div className="flex items-center gap-2 text-brand-green text-sm font-bold bg-brand-green/10 w-fit px-3 py-1 rounded-full">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>استطلاع رسمي</span>

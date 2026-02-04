@@ -65,7 +65,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
             const { data: cData, error: cError } = await supabase
                 .from('poll_comments')
                 .select(`
-                    comment_text, created_at,
+                    comment_text, created_at, is_anonymous,
                     app_users (full_name, job_number)
                 `)
                 .eq('poll_id', pollId)
@@ -137,7 +137,9 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
         element.style.display = 'block';
 
         // Advanced Pipeline: HTML -> PDF Object -> Edit Pages -> Save
-        html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+        const worker = html2pdf().from(element).set(opt).toPdf();
+
+        worker.get('pdf').then((pdf: any) => {
             const totalPages = pdf.internal.getNumberOfPages();
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
@@ -153,25 +155,14 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 // Header Text (Poll Title - Top Right)
                 pdf.setFontSize(10);
                 pdf.setTextColor(100, 100, 100);
-                // Note: jsPDF text handling for Arabic is tricky without custom fonts. 
-                // We assume basic alphanumeric or rely on html2canvas for the main content.
-                // For the running header, we'll try to use English or simple format if Arabic breaks,
-                // BUT since we are drawing on top, let's keep it simple: "Poll Rerport - Page X"
-                // Or better: The User wants the Poll Title. 
-                // Since jsPDF direct text doesn't support Arabic RTL natively without plugins, 
-                // and we don't want to break the build, we will rely on the HTML content for the title
-                // and use a simple "Page X of Y" footer which is universal.
-
-                // HOWEVER, the user specifically asked for "Poll Title" on detail pages.
-                // Since existing text is Arabic, we might risk garbage characters if we use pdf.text('عنوان عربي').
-                // SAFETY: We will put "Poll Report / تقرير استطلاع" (universal) or use the ID.
-                // Let's rely on a footer for page numbers.
 
                 // Footer: Page Numbers
                 pdf.setFontSize(8);
                 pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
             }
-        }).save()
+        }).then(() => {
+            worker.save();
+        })
             .then(() => {
                 toast.success('تم حفظ التقرير بنجاح', { id: toastId });
             })
@@ -328,7 +319,16 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                 <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5">
                                     <p className="text-white/80 text-sm mb-2">"{c.comment_text}"</p>
                                     <div className="flex justify-between text-xs text-white/40">
-                                        <span>{c.app_users?.full_name}</span>
+                                        <span className="flex items-center gap-1">
+                                            {c.is_anonymous ? (
+                                                <>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                    فاعل خير
+                                                </>
+                                            ) : (
+                                                c.app_users?.full_name
+                                            )}
+                                        </span>
                                         <span>{new Date(c.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
@@ -429,8 +429,17 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                     <p className="text-black text-base italic mb-3 leading-relaxed font-serif">"{c.comment_text}"</p>
                                     <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-200 pt-2 bg-white/50 px-2 -mx-2 -mb-2 mt-2 py-1 rounded-b">
                                         <span className="font-bold text-gray-700 flex items-center gap-1">
-                                            👤 {c.app_users?.full_name || 'مجهول'}
-                                            <span className="font-normal text-gray-400 font-mono">({c.app_users?.job_number})</span>
+                                            {c.is_anonymous ? (
+                                                <>
+                                                    <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                                                    فاعل خير (هوية مخفية)
+                                                </>
+                                            ) : (
+                                                <>
+                                                    👤 {c.app_users?.full_name || 'مجهول'}
+                                                    <span className="font-normal text-gray-400 font-mono">({c.app_users?.job_number})</span>
+                                                </>
+                                            )}
                                         </span>
                                         <span>{new Date(c.created_at).toLocaleDateString('ar-IQ')}</span>
                                     </div>
