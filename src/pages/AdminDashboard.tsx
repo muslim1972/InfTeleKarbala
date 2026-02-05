@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { GlassCard } from "../components/ui/GlassCard";
 import { AccordionSection } from "../components/ui/AccordionSection";
+import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
 import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -403,6 +404,10 @@ export const AdminDashboard = () => {
 
     const handleUpdateEmployee = async () => {
         if (!selectedEmployee || !financialData) return;
+        if (!currentUser) {
+            toast.error("خطأ: لم يتم التعرف على المستخدم الحالي");
+            return;
+        }
         setLoading(true);
         try {
             // التحقق من توافق الشهادة والنسبة
@@ -451,7 +456,10 @@ export const AdminDashboard = () => {
                 .upsert({
                     ...financialPayload,
                     user_id: selectedEmployee.id,
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    last_modified_by: currentUser.id,
+                    last_modified_by_name: currentUser.full_name,
+                    last_modified_at: new Date().toISOString()
                 });
 
             if (finError) throw finError;
@@ -463,7 +471,10 @@ export const AdminDashboard = () => {
                     .upsert({
                         ...adminData,
                         user_id: selectedEmployee.id,
-                        updated_at: new Date().toISOString()
+                        updated_at: new Date().toISOString(),
+                        last_modified_by: currentUser.id,
+                        last_modified_by_name: currentUser.full_name,
+                        last_modified_at: new Date().toISOString()
                     });
                 if (admError) throw admError;
             }
@@ -472,7 +483,13 @@ export const AdminDashboard = () => {
             if (yearlyData && yearlyData.length > 0) {
                 const { error: yError } = await supabase
                     .from('yearly_records')
-                    .upsert(yearlyData.map(r => ({ ...r, updated_at: new Date().toISOString() })));
+                    .upsert(yearlyData.map(r => ({
+                        ...r,
+                        updated_at: new Date().toISOString(),
+                        last_modified_by: currentUser.id,
+                        last_modified_by_name: currentUser.full_name,
+                        last_modified_at: new Date().toISOString()
+                    })));
                 if (yError) throw yError;
             }
 
@@ -1069,6 +1086,9 @@ export const AdminDashboard = () => {
                                         label="الاسم الكامل"
                                         value={selectedEmployee.full_name}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
+                                        recordId={selectedEmployee.id}
+                                        tableName="app_users"
+                                        dbField="full_name"
                                     />
 
                                     {/* Role Selection (UI matching Add Employee) */}
@@ -1105,6 +1125,9 @@ export const AdminDashboard = () => {
                                         label="الرقم الوظيفي الموحد"
                                         value={selectedEmployee.job_number}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
+                                        recordId={selectedEmployee.id}
+                                        tableName="app_users"
+                                        dbField="job_number"
                                     />
 
                                     {/* IBAN Field */}
@@ -1112,12 +1135,18 @@ export const AdminDashboard = () => {
                                         label="رمز ( IBAN )"
                                         value={selectedEmployee.iban || ""}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, iban: val })}
+                                        recordId={selectedEmployee.id}
+                                        tableName="app_users"
+                                        dbField="iban"
                                     />
 
                                     <EditableField
                                         label="اسم المستخدم المؤقت"
                                         value={selectedEmployee.username}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
+                                        recordId={selectedEmployee.id}
+                                        tableName="app_users"
+                                        dbField="username"
                                     />
 
                                     {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
@@ -1147,7 +1176,17 @@ export const AdminDashboard = () => {
                                 <div className="space-y-4">
                                     {/* Start Date */}
                                     <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                        <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">تأريخ اول مباشرة</label>
+                                        <div className="flex items-center justify-between min-w-[80px]">
+                                            <label className="text-xs text-white/70 font-bold block whitespace-nowrap">تأريخ اول مباشرة</label>
+                                            {adminData?.id && (
+                                                <HistoryViewer
+                                                    tableName="administrative_summary"
+                                                    recordId={adminData.id}
+                                                    fieldName="first_appointment_date"
+                                                    label="تأريخ اول مباشرة"
+                                                />
+                                            )}
+                                        </div>
                                         <input
                                             type="date"
                                             value={adminData?.first_appointment_date || ''}
@@ -1163,12 +1202,19 @@ export const AdminDashboard = () => {
                                             field={financialFields.basic.find(f => f.key === 'job_title')}
                                             value={financialData?.job_title}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField="job_title"
                                         />
                                         <FinancialInput
                                             key="risk_percentage"
                                             field={financialFields.basic.find(f => f.key === 'risk_percentage')}
                                             value={financialData?.risk_percentage}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            // This is technically computed often but stored as text? Let's assume we want to track it
+                                            dbField="risk_percentage"
                                         />
                                     </div>
 
@@ -1179,11 +1225,24 @@ export const AdminDashboard = () => {
                                             field={{ ...financialFields.basic.find(f => f.key === 'salary_grade'), label: "الدرجة الوظيفية" }}
                                             value={financialData?.salary_grade}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField="salary_grade"
                                         />
 
                                         {/* Salary Stage (المرحلة) */}
                                         <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">المرحلة</label>
+                                            <div className="flex items-center justify-between min-w-[80px]">
+                                                <label className="text-xs text-white/70 font-bold block whitespace-nowrap">المرحلة</label>
+                                                {financialData?.id && (
+                                                    <HistoryViewer
+                                                        tableName="financial_records"
+                                                        recordId={financialData.id}
+                                                        fieldName="salary_stage"
+                                                        label="المرحلة"
+                                                    />
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <select
                                                     value={financialData?.['salary_stage'] || ""}
@@ -1205,6 +1264,9 @@ export const AdminDashboard = () => {
                                         field={financialFields.basic.find(f => f.key === 'certificate_text')}
                                         value={financialData?.certificate_text}
                                         onChange={handleFinancialChange}
+                                        recordId={financialData?.id}
+                                        tableName="financial_records"
+                                        dbField="certificate_text"
                                     />
 
                                     {/* Row 4: Certificate Percentage & Nominal Salary */}
@@ -1215,12 +1277,18 @@ export const AdminDashboard = () => {
                                             field={financialFields.basic.find(f => f.key === 'nominal_salary')}
                                             value={financialData?.nominal_salary}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField="nominal_salary"
                                         />
                                         <FinancialInput
                                             key="certificate_percentage"
                                             field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage'), label: "م.الشهادة %" }}
                                             value={financialData?.certificate_percentage}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField="certificate_percentage"
                                         />
                                     </div>
                                 </div>
@@ -1241,6 +1309,9 @@ export const AdminDashboard = () => {
                                             field={field}
                                             value={financialData?.[field.key]}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField={field.key}
                                         />
                                     ))}
                                 </div>
@@ -1261,6 +1332,9 @@ export const AdminDashboard = () => {
                                             field={field}
                                             value={financialData?.[field.key]}
                                             onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField={field.key}
                                         />
                                     ))}
                                 </div>
@@ -1685,10 +1759,27 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
     );
 }
 
-function EditableField({ label, value, onChange }: any) {
+function EditableField({
+    label,
+    value,
+    onChange,
+    recordId,
+    tableName,
+    dbField
+}: any) {
     return (
         <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-            <label className="text-xs text-white/70 font-bold block whitespace-nowrap min-w-[80px]">{label}</label>
+            <div className="flex items-center justify-between min-w-[80px]">
+                <label className="text-xs text-white/70 font-bold block whitespace-nowrap">{label}</label>
+                {recordId && tableName && dbField && (
+                    <HistoryViewer
+                        tableName={tableName}
+                        recordId={recordId}
+                        fieldName={dbField}
+                        label={label}
+                    />
+                )}
+            </div>
             <input
                 type="text"
                 value={value || ""}
@@ -1699,11 +1790,21 @@ function EditableField({ label, value, onChange }: any) {
     );
 }
 
-function FinancialInput({ field, value, onChange }: any) {
+function FinancialInput({ field, value, onChange, recordId, tableName, dbField }: any) {
     if (!field) return null;
     return (
         <div className="grid grid-cols-[auto_1fr] items-center gap-2">
-            <label className="text-[10px] md:text-xs text-white/70 font-bold block whitespace-nowrap min-w-[60px] md:min-w-[80px]">{field.label}</label>
+            <div className="flex items-center justify-between min-w-[60px] md:min-w-[80px]">
+                <label className="text-[10px] md:text-xs text-white/70 font-bold block whitespace-nowrap">{field.label}</label>
+                {recordId && tableName && (dbField || field.key) && (
+                    <HistoryViewer
+                        tableName={tableName}
+                        recordId={recordId}
+                        fieldName={dbField || field.key}
+                        label={field.label}
+                    />
+                )}
+            </div>
             {field.options ? (
                 <div className="relative">
                     <select

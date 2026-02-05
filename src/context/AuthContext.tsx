@@ -35,12 +35,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper to log visit
+  const logVisit = async (userData: AppUser) => {
+    // Prevent duplicate logs for the same browser session (e.g. refresh)
+    if (sessionStorage.getItem('session_logged')) return;
+
+    try {
+      await supabase.from('login_logs').insert({
+        user_id: userData.id,
+        full_name: userData.full_name,
+        role: userData.role,
+        user_agent: navigator.userAgent
+      });
+      console.log("Visit logged for:", userData.username);
+      sessionStorage.setItem('session_logged', 'true');
+    } catch (e) {
+      console.error("Failed to log visit", e);
+    }
+  };
+
   useEffect(() => {
     // Check local storage for persistent session
     const storedUser = localStorage.getItem("app_user");
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        // Log visit on auto-login (page reload/new tab)
+        logVisit(parsedUser);
       } catch (e) {
         console.error("Failed to parse stored user", e);
         localStorage.removeItem("app_user");
@@ -74,6 +96,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(appUser);
       localStorage.setItem("app_user", JSON.stringify(appUser));
+
+      // Start a new session log
+      sessionStorage.removeItem('session_logged'); // Clear old flag ensures we log this new login
+      logVisit(appUser);
+
       return { success: true };
 
     } catch (err) {
@@ -84,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("app_user");
+    sessionStorage.removeItem("session_logged");
   };
 
   const updateProfile = async (updates: Partial<AppUser>) => {

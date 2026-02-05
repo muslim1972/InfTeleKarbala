@@ -322,6 +322,16 @@ export const Dashboard = () => {
                         </div>
                     ) : financialData ? (
                         <div className="space-y-4 pb-20">
+                            {/* Audit Banner for User (Time Only) */}
+                            {financialData?.last_modified_at && (
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500">
+                                    <span className="text-white/40 text-xs font-bold">آخر تحديث للبيانات المالية:</span>
+                                    <div className="text-brand-green font-bold text-sm font-mono tracking-wider dir-ltr">
+                                        {new Date(financialData.last_modified_at).toLocaleDateString('en-GB')} {new Date(financialData.last_modified_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Financial Sections */}
                             {financialGroups.map((group) => (
                                 <AccordionSection
