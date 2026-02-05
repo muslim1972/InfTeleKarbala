@@ -75,7 +75,7 @@ export function DirectivesModal({ type, content, isOpen, onClose, onAcknowledge 
                                     "font-bold text-lg",
                                     type === 'directive' ? "text-red-100" : "text-green-100"
                                 )}>
-                                    {type === 'directive' ? 'توجيهات هامة' : 'مؤتمرات'}
+                                    {type === 'directive' ? 'توجيهات هامة' : 'النشاطات'}
                                 </h3>
                             </div>
 

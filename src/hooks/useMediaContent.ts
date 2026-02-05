@@ -1,5 +1,5 @@
 /**
- * Hook لكاش محتوى الإعلام (التوجيهات والمؤتمرات)
+ * Hook لكاش محتوى الإعلام (التوجيهات والنشاطات)
  * محسّن - جميع الاستعلامات بالتوازي
  */
 
@@ -41,7 +41,7 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
             .limit(1)
             .maybeSingle(),
 
-        // المؤتمر النشط
+        // النشاط النشط
         supabase
             .from('media_content')
             .select('id, content')

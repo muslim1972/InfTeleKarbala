@@ -71,7 +71,7 @@ export function UserPolls() {
                             <div className="bg-white/20 p-1.5 rounded-full">
                                 <Users size={20} />
                             </div>
-                            <span className="font-bold text-base">المؤتمرات</span>
+                            <span className="font-bold text-base">النشاطات</span>
                         </button>
                     )}
 

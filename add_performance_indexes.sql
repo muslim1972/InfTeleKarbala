@@ -4,7 +4,7 @@
 -- ============================================
 
 -- 1. فهارس على جدول media_content
--- للبحث السريع عن التوجيهات والمؤتمرات النشطة
+-- للبحث السريع عن التوجيهات والنشاطات النشطة
 CREATE INDEX IF NOT EXISTS idx_media_content_type_active 
 ON media_content(type, is_active);
 

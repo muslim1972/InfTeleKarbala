@@ -1447,7 +1447,7 @@ export const AdminDashboard = () => {
                     {/* Conferences Section (Green) */}
                     <AccordionSection
                         id="conferences"
-                        title="المؤتمرات"
+                        title="النشاطات"
                         icon={User}
                         isOpen={expandedSections.conferences}
                         color="from-green-600 to-green-500"
@@ -1456,7 +1456,7 @@ export const AdminDashboard = () => {
                         <div className="p-2">
                             <MediaSectionEditor
                                 type="conference"
-                                title="محتوى المؤتمرات"
+                                title="محتوى النشاطات"
                                 placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
                             />
                         </div>
