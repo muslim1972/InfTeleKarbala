@@ -22,14 +22,21 @@ export const AppFooter = () => {
                     </div>
 
                     {/* Line 3: Credits & Version */}
-                    <div className="flex items-center justify-between text-[10px] md:text-xs text-white/50 font-mono">
+                    <div className="flex items-center justify-between text-[10px] md:text-xs text-white/50 font-mono relative">
                         <div className="flex items-center gap-2 transition-colors hover:text-blue-300">
                             <Code2 className="w-3 h-3" />
                             <span>اعداد المهندس مسلم عقيل</span>
                         </div>
 
-                        <div className="tracking-widest opacity-70">
-                            نسخة v0.0.1
+                        {/* Signature Image - Centered */}
+                        <img
+                            src="/MyName.png"
+                            alt="Signature"
+                            className="absolute left-1/2 -translate-x-1/2 h-10 md:h-12 w-auto opacity-90"
+                        />
+
+                        <div className="tracking-widest opacity-70 mr-6">
+                            نسخة v{__APP_VERSION__}
                         </div>
                     </div>
                 </div>

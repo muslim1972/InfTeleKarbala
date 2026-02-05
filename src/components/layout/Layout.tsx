@@ -26,13 +26,6 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                     {children}
                 </main>
                 <AppFooter />
-
-                {/* Global Sticky Signature */}
-                <img
-                    src="/MyName.png"
-                    alt="Signature"
-                    className="fixed bottom-16 right-4 z-[60] w-10 md:w-14 pointer-events-none opacity-90"
-                />
             </div>
         </div>
     );

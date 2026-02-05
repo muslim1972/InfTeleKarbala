@@ -1429,7 +1429,7 @@ export const AdminDashboard = () => {
                     {/* Directives Section (Red) */}
                     <AccordionSection
                         id="directives"
-                        title="التوجيهات (الزر الأحمر)"
+                        title="التوجيهات"
                         icon={AlertCircle}
                         isOpen={expandedSections.directives}
                         color="from-red-600 to-red-500"
@@ -1447,7 +1447,7 @@ export const AdminDashboard = () => {
                     {/* Conferences Section (Green) */}
                     <AccordionSection
                         id="conferences"
-                        title="المؤتمرات (الزر الأخضر)"
+                        title="المؤتمرات"
                         icon={User}
                         isOpen={expandedSections.conferences}
                         color="from-green-600 to-green-500"
