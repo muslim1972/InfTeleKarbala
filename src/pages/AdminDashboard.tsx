@@ -441,7 +441,11 @@ export const AdminDashboard = () => {
                     username: selectedEmployee.username,
                     password: selectedEmployee.password,
                     role: selectedEmployee.role,
-                    iban: selectedEmployee.iban
+                    iban: selectedEmployee.iban,
+                    // Audit fields
+                    last_modified_by: currentUser.id,
+                    last_modified_by_name: currentUser.full_name,
+                    last_modified_at: new Date().toISOString()
                 })
                 .eq('id', selectedEmployee.id);
 
@@ -500,7 +504,11 @@ export const AdminDashboard = () => {
             // No reset here.
         } catch (error: any) {
             console.error("Update error:", error);
-            toast.error(error.message || "فشل في حفظ التعديلات");
+            if (error.code === '23505' || error.message?.includes('duplicate key')) {
+                toast.error("خطأ: الرقم الوظيفي أو اسم المستخدم مستخدم بالفعل لموظف آخر!");
+            } else {
+                toast.error(error.message || "فشل في حفظ التعديلات");
+            }
         } finally {
             setLoading(false);
         }

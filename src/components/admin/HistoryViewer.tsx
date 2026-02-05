@@ -70,10 +70,10 @@ export const HistoryViewer = ({ tableName, recordId, fieldName, label }: History
             <button
                 type="button"
                 onClick={handleOpen}
-                className="text-white/20 hover:text-brand-yellow transition-colors p-1 rounded-full hover:bg-white/5 active:scale-95"
+                className="text-brand-yellow/70 hover:text-brand-yellow transition-all p-1.5 rounded-full hover:bg-white/10 active:scale-95"
                 title="سجل التعديلات"
             >
-                <History size={14} />
+                <History size={18} strokeWidth={2} />
             </button>
 
             <AnimatePresence>
