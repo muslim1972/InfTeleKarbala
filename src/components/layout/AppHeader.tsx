@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { User, Power, Settings } from "lucide-react";
+import { User, Power, Settings, Sun, Moon } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
+import { useTheme } from "../../context/ThemeContext";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
@@ -12,6 +13,7 @@ interface AppHeaderProps {
 
 export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHeaderProps) => {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [showSettings, setShowSettings] = useState(false);
 
     if (!user) return null;
@@ -19,7 +21,10 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
     return (
         <>
             <header className="sticky top-0 z-[60] py-2 px-4 w-full">
-                <GlassCard className="flex flex-col p-3 !bg-[#0f172a]/80 !border-white/10 !rounded-3xl backdrop-blur-xl transition-none !overflow-visible">
+                <GlassCard className={`flex flex-col p-3 !rounded-3xl backdrop-blur-xl transition-colors duration-300 !overflow-visible ${theme === 'light'
+                    ? '!bg-white/95 !border-gray-200'
+                    : '!bg-[#0f172a]/80 !border-white/10'
+                    }`}>
                     <div className="flex items-center justify-between w-full">
                         {/* Right: Avatar + User Name - Clickable for Settings */}
                         <button
@@ -30,7 +35,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                 {user.avatar_url ? (
                                     <img src={user.avatar_url} alt="User" className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className="w-5 h-5 text-white" />
+                                    <User className="w-5 h-5 text-white dark:text-white" />
                                 )}
 
                                 {/* Hover overlay hint */}
@@ -40,21 +45,51 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                             </div>
                             {showUserName && (
                                 <div className="text-right">
-                                    <h2 className="text-white font-bold text-sm md:text-base font-tajawal group-hover:text-brand-yellow transition-colors">
+                                    <h2 className={`font-bold text-sm md:text-base font-tajawal group-hover:text-brand-yellow transition-colors ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                                        }`}>
                                         {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
                                     </h2>
-                                    <p className="text-xs text-white/50 font-cairo">
+                                    <p className={`text-xs font-cairo ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                                        }`}>
                                         {user?.role === 'admin' ? 'مدير النظام' : 'الحساب الشخصي'}
                                     </p>
                                 </div>
                             )}
                         </button>
 
+                        {/* Center: Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-white/30 group"
+                            title={theme === 'dark' ? 'التبديل للوضع النهاري' : 'التبديل للوضع الليلي'}
+                        >
+                            {theme === 'dark' ? (
+                                <Sun className="w-5 h-5 text-brand-yellow-DEFAULT group-hover:rotate-90 transition-transform duration-300" />
+                            ) : (
+                                <Moon className="w-5 h-5 text-blue-400 group-hover:-rotate-12 transition-transform duration-300" />
+                            )}
+                        </button>
                         {/* Left: Title + Logout Button */}
                         <div className="flex items-center gap-4">
                             {title && (
-                                <h1 className="text-white font-bold text-lg md:text-xl font-tajawal">{title}</h1>
+                                <h1 className={`font-bold text-lg md:text-xl font-tajawal ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                                    }`}>{title}</h1>
                             )}
+                            {/* Center: Theme Toggle Button */}
+                            <button
+                                onClick={toggleTheme}
+                                className={`p-2.5 rounded-full transition-all duration-300 ${theme === 'light'
+                                        ? 'bg-gray-100 border-2 border-gray-300 hover:bg-gray-200 text-gray-700'
+                                        : 'bg-white/10 border-2 border-white/20 hover:bg-white/20 text-white'
+                                    }`}
+                                aria-label="Toggle theme"
+                            >
+                                {theme === 'light' ? (
+                                    <Moon className="w-5 h-5" />
+                                ) : (
+                                    <Sun className="w-5 h-5" />
+                                )}
+                            </button>
 
                             <button
                                 onClick={logout}

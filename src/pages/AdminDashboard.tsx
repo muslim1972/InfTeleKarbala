@@ -23,9 +23,12 @@ import { PollCreator } from "../components/admin/PollCreator";
 import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
+    const { theme } = useTheme();
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news'>('admin_add');
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -787,12 +790,19 @@ export const AdminDashboard = () => {
     const headerContent = (
         <div className="space-y-3">
             {/* Tabs */}
-            <div className="flex bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/5 shadow-inner w-full">
+            <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
+                ? 'bg-gray-100 border-gray-200'
+                : 'bg-black/40 border-white/5'
+                } backdrop-blur-md`}>
                 <button
                     onClick={() => setActiveTab('admin_add')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_add' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_add'
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : theme === 'light'
+                                ? "text-gray-600 hover:text-black"
+                                : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إضافة موظف</span>
@@ -801,7 +811,11 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_manage')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_manage' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_manage'
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : theme === 'light'
+                                ? "text-gray-600 hover:text-black"
+                                : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إدارة الموظفين</span>
@@ -810,7 +824,11 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_records')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_records' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_records'
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : theme === 'light'
+                                ? "text-gray-600 hover:text-black"
+                                : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>إدارة السجلات</span>
@@ -819,7 +837,11 @@ export const AdminDashboard = () => {
                     onClick={() => setActiveTab('admin_news')}
                     className={cn(
                         "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_news' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        activeTab === 'admin_news'
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : theme === 'light'
+                                ? "text-gray-600 hover:text-black"
+                                : "text-white/40 hover:text-white/60"
                     )}
                 >
                     <span>الاعلام</span>
@@ -860,7 +882,8 @@ export const AdminDashboard = () => {
 
                     {/* User Name - Hidden when search is expanded */}
                     {!searchExpanded && selectedEmployee && (
-                        <h3 className="text-white font-bold text-sm animate-in fade-in duration-200">
+                        <h3 className={`font-bold text-sm animate-in fade-in duration-200 ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                            }`}>
                             {selectedEmployee.full_name}
                         </h3>
                     )}
@@ -887,12 +910,18 @@ export const AdminDashboard = () => {
                                         }
                                     }}
                                     autoFocus
-                                    className="w-48 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-green/50"
+                                    className={`w-48 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-green/50 ${theme === 'light'
+                                        ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
+                                        : 'bg-white/5 border-white/10 text-white placeholder:text-white/50'
+                                        }`}
                                 />
                                 {/* Suggestions Dropdown using Portal */}
                                 {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
                                     <div
-                                        className="suggestions-dropdown fixed bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto"
+                                        className={`suggestions-dropdown fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto ${theme === 'light'
+                                            ? 'bg-white border-gray-200'
+                                            : 'bg-slate-900/95 border-white/10'
+                                            }`}
                                         style={{
                                             top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
                                             left: `${searchRef.current.getBoundingClientRect().left}px`,
@@ -911,13 +940,21 @@ export const AdminDashboard = () => {
                                                     console.log("Button clicked for:", user.full_name);
                                                     handleSelectSuggestion(user);
                                                 }}
-                                                className="w-full text-right px-3 py-2 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center justify-between group transition-colors cursor-pointer"
+                                                className={`w-full text-right px-3 py-2 border-b last:border-0 flex items-center justify-between group transition-colors cursor-pointer ${theme === 'light'
+                                                    ? 'hover:bg-gray-100 border-gray-200'
+                                                    : 'hover:bg-white/10 border-white/5'
+                                                    }`}
                                             >
                                                 <div>
-                                                    <div className="font-bold text-xs text-white group-hover:text-brand-green transition-colors">{user.full_name}</div>
-                                                    <div className="text-[10px] text-white/50">{user.job_number}</div>
+                                                    <div className={`font-bold text-xs group-hover:text-brand-green transition-colors ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                                                        }`}>{user.full_name}</div>
+                                                    <div className={`text-[10px] ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                                                        }`}>{user.job_number}</div>
                                                 </div>
-                                                <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/70">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${theme === 'light'
+                                                    ? 'bg-gray-100 text-gray-700'
+                                                    : 'bg-white/10 text-white/70'
+                                                    }`}>
                                                     {user.role === 'admin' ? 'مدير' : 'موظف'}
                                                 </span>
                                             </button>
@@ -961,13 +998,17 @@ export const AdminDashboard = () => {
                         <div className="space-y-4">
                             {/* Row 1: Full Name */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">الاسم الكامل</label>
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>الاسم الكامل</label>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={formData.full_name}
                                         onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors ${theme === 'light'
+                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
+                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
+                                            }`}
                                         placeholder="الاسم الرباعي واللقب"
                                     />
                                 </div>
@@ -975,14 +1016,20 @@ export const AdminDashboard = () => {
 
                             {/* Row 2: Account Type (2 Tik Design) */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">نوع الحساب</label>
-                                <div className="flex gap-4 p-2 bg-white/5 rounded-xl border border-white/10">
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>نوع الحساب</label>
+                                <div className={`flex gap-4 p-2 rounded-xl border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10'
+                                    }`}>
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, role: 'user' })}
                                         className={cn(
                                             "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
-                                            formData.role === 'user' ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]" : "text-white/40 hover:bg-white/5"
+                                            formData.role === 'user'
+                                                ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
+                                                : theme === 'light'
+                                                    ? "text-gray-600 hover:bg-gray-100"
+                                                    : "text-white/40 hover:bg-white/5"
                                         )}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}>
@@ -996,7 +1043,11 @@ export const AdminDashboard = () => {
                                         onClick={() => setFormData({ ...formData, role: 'admin' })}
                                         className={cn(
                                             "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
-                                            formData.role === 'admin' ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "text-white/40 hover:bg-white/5"
+                                            formData.role === 'admin'
+                                                ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
+                                                : theme === 'light'
+                                                    ? "text-gray-600 hover:bg-gray-100"
+                                                    : "text-white/40 hover:bg-white/5"
                                         )}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}>
@@ -1009,16 +1060,22 @@ export const AdminDashboard = () => {
 
                             {/* Row 3: Job Number */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">الرقم الوظيفي الموحد</label>
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>الرقم الوظيفي الموحد</label>
                                 <div className="relative">
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 bg-white/10 rounded text-center min-w-[20px]">
-                                        <span className="text-[10px] font-mono text-white/50">#</span>
+                                    <div className={`absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-center min-w-[20px] ${theme === 'light' ? 'bg-gray-200' : 'bg-white/10'
+                                        }`}>
+                                        <span className={`text-[10px] font-mono ${theme === 'light' ? 'text-gray-500' : 'text-white/50'
+                                            }`}>#</span>
                                     </div>
                                     <input
                                         type="text"
                                         value={formData.job_number}
                                         onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className={`w-full rounded-xl px-4 py-2 pr-10 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
+                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
+                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
+                                            }`}
                                         placeholder="123456"
                                     />
                                 </div>
@@ -1026,13 +1083,17 @@ export const AdminDashboard = () => {
 
                             {/* Row 4: IBAN */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">رمز ( IBAN )</label>
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>رمز ( IBAN )</label>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={formData.iban}
                                         onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
+                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
+                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
+                                            }`}
                                         placeholder="IQ..."
                                         dir="ltr"
                                     />
@@ -1041,13 +1102,17 @@ export const AdminDashboard = () => {
 
                             {/* Row 5: Username */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">اسم المستخدم المؤقت</label>
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>اسم المستخدم المؤقت</label>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={formData.username}
                                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors"
+                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors ${theme === 'light'
+                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
+                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
+                                            }`}
                                         placeholder="username"
                                         dir="ltr"
                                     />
@@ -1056,13 +1121,17 @@ export const AdminDashboard = () => {
 
                             {/* Row 6: Password */}
                             <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className="text-xs font-bold text-white/70 whitespace-nowrap min-w-[80px]">كلمة المرور المؤقتة</label>
+                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
+                                    }`}>كلمة المرور المؤقتة</label>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 transition-colors font-mono"
+                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
+                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
+                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
+                                            }`}
                                         placeholder="password"
                                         dir="ltr"
                                     />

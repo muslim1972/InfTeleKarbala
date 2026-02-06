@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -30,7 +31,16 @@ export default {
           DEFAULT: '#6b7280',
           dark: '#1f2937'
         },
-        'brand-cream': '#fffbeb'
+        'brand-cream': '#fffbeb',
+        // Light mode specific colors
+        'light': {
+          'bg-primary': '#f8fafc',
+          'bg-secondary': '#ffffff',
+          'bg-accent': '#f1f5f9',
+          'text-primary': '#0f172a',
+          'text-secondary': '#475569',
+          'border': '#e2e8f0',
+        }
       },
       keyframes: {
         writing: {
