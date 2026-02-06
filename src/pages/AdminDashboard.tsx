@@ -171,55 +171,41 @@ export const AdminDashboard = () => {
     const handleSelectSuggestion = async (user: any) => {
         console.log("Selected user from suggestion:", user);
         setShowSuggestions(false);
-        // Call existing search logic directly for this user
-        await handleSearch(user.job_number);
-        console.log("After handleSearch completed");
+        // Direct load without searching by job_number (which might be empty)
+        await loadEmployeeData(user);
     };
 
-    const handleSearch = async (specificJobNumber?: string) => {
-        const trimmedSearch = specificJobNumber || searchJobNumber.trim();
-        if (!trimmedSearch) return;
-        setLoading(true);
-        console.log("Searching for job number:", trimmedSearch);
+    const loadEmployeeData = async (partialUser: any) => {
         try {
-            // جلب الموظف أولاً
-            const { data: userData, error: userError } = await supabase
+            setLoading(true);
+
+            // 1. Fetch FULL user data to ensure we have all fields (IBAN, password, etc)
+            // Search suggestions only return partial data, so we must re-fetch.
+            const { data: fullUserData, error: userError } = await supabase
                 .from('app_users')
                 .select('*')
-                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`) // Also allow exact username match just in case, though job_number is primary
-                .maybeSingle();
+                .eq('id', partialUser.id)
+                .single();
 
-            if (userError) {
-                console.error("User search error:", userError);
-                throw userError;
-            }
+            if (userError) throw userError;
+            if (!fullUserData) throw new Error("تعذر جلب بيانات الموظف");
 
-            console.log("User data found:", userData);
-
-            if (!userData) {
-                toast.error("الموظف غير موجود برقم: " + trimmedSearch);
-                setSelectedEmployee(null);
-                setFinancialData(null);
-                return;
-            }
-
-
-            setSelectedEmployee(userData);
-            console.log("Selected employee set:", userData.full_name, "ID:", userData.id);
-            setSearchExpanded(false); // Hide search after successful data fetch
+            setSelectedEmployee(fullUserData);
+            console.log("Selected employee set:", fullUserData.full_name, "ID:", fullUserData.id);
+            setSearchExpanded(false);
 
             // جلب سجلاته المالية
             const { data: finData, error: finError } = await supabase
                 .from('financial_records')
                 .select('*')
-                .eq('user_id', userData.id)
+                .eq('user_id', fullUserData.id)
                 .maybeSingle();
 
             if (finError) throw finError;
 
             // إذا وجدنا الموظف ولم نجد بياناته المالية، ننشئ سجل افتراضي محلي ليتمكن المدير من تعبئته
             const emptyFinancial = {
-                user_id: userData.id,
+                user_id: fullUserData.id,
                 nominal_salary: 0,
                 job_title: "",
                 salary_grade: "",
@@ -266,12 +252,12 @@ export const AdminDashboard = () => {
             const { data: admData, error: admError } = await supabase
                 .from('administrative_summary')
                 .select('*')
-                .eq('user_id', userData.id)
+                .eq('user_id', fullUserData.id)
                 .maybeSingle();
 
             if (!admError) {
                 setAdminData(admData || {
-                    user_id: userData.id,
+                    user_id: fullUserData.id,
                     remaining_leave_balance: 0,
                     five_year_law_leaves: 0,
                     disengagement_date: null,
@@ -283,18 +269,55 @@ export const AdminDashboard = () => {
             const { data: yData, error: yError } = await supabase
                 .from('yearly_records')
                 .select('*')
-                .eq('user_id', userData.id)
+                .eq('user_id', fullUserData.id)
                 .order('year', { ascending: false });
 
             if (!yError) {
-                // If no records, maybe initialize current year? letting UI handle it.
                 setYearlyData(yData || []);
             }
 
             toast.success("تم جلب بيانات الموظف بنجاح");
         } catch (error: any) {
-            toast.error(error.message);
+            console.error("Error loading employee data:", error);
+            toast.error(error.message || "حدث خطأ أثناء تحميل البيانات");
         } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSearch = async (specificJobNumber?: string) => {
+        const trimmedSearch = specificJobNumber || searchJobNumber.trim();
+        if (!trimmedSearch) return;
+        setLoading(true);
+        console.log("Searching for job number:", trimmedSearch);
+        try {
+            // جلب الموظف أولاً
+            const { data: userData, error: userError } = await supabase
+                .from('app_users')
+                .select('*')
+                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`) // Also allow exact username match just in case, though job_number is primary
+                .maybeSingle();
+
+            if (userError) {
+                console.error("User search error:", userError);
+                throw userError;
+            }
+
+            console.log("User data found:", userData);
+
+            if (!userData) {
+                toast.error("الموظف غير موجود برقم: " + trimmedSearch);
+                setSelectedEmployee(null);
+                setFinancialData(null);
+                setLoading(false); // Stop loading here since we return early
+                return;
+            }
+
+            // Load related data using the separate function
+            await loadEmployeeData(userData);
+
+        } catch (error: any) {
+            toast.error(error.message);
             setLoading(false);
         }
     };
@@ -422,6 +445,17 @@ export const AdminDashboard = () => {
             toast.error("خطأ: لم يتم التعرف على المستخدم الحالي");
             return;
         }
+
+        // Validation: Essential fields must not be empty
+        const { full_name, job_number, username, password } = selectedEmployee;
+        if (!full_name?.trim() || !job_number?.trim() || !username?.trim() || !password?.trim()) {
+            toast.error("لا يمكن حفظ التعديلات! 🛑\nيرجى التأكد من ملء الحقول الأساسية:\n- الاسم الكامل\n- الرقم الوظيفي الموحد\n- اسم المستخدم\n- كلمة المرور", {
+                duration: 5000,
+                style: { border: '2px solid #ef4444' }
+            });
+            return;
+        }
+
         setLoading(true);
         try {
             // التحقق من توافق الشهادة والنسبة
@@ -1132,32 +1166,42 @@ export const AdminDashboard = () => {
 
                                     {/* Role Selection (UI matching Add Employee) */}
                                     {/* Role Selection (Refactored) */}
-                                    <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                        <label className="text-xs font-bold block text-muted-foreground">نوع الحساب</label>
-                                        <div className="flex gap-4">
-                                            <Button
-                                                type="button"
-                                                variant={selectedEmployee.role === 'user' ? 'default' : 'outline'}
-                                                onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
-                                                className="flex-1 gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-white" : "border-muted-foreground")}>
-                                                    {selectedEmployee.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                موظف
-                                            </Button>
+                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                        {/* Label */}
+                                        <div className="flex justify-start pl-2">
+                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">نوع الحساب</label>
+                                        </div>
 
-                                            <Button
-                                                type="button"
-                                                variant={selectedEmployee.role === 'admin' ? 'default' : 'outline'}
-                                                onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
-                                                className="flex-1 gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-white" : "border-muted-foreground")}>
-                                                    {selectedEmployee.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                مشرف
-                                            </Button>
+                                        {/* Input Area + Spacer */}
+                                        <div className="flex items-center gap-2 relative">
+                                            {/* Spacer for alignment with history buttons */}
+                                            <div className="w-6 shrink-0" />
+
+                                            <div className="flex gap-4 flex-1">
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.role === 'user' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
+                                                    className="flex-1 gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    موظف
+                                                </Button>
+
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.role === 'admin' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
+                                                    className="flex-1 gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    مشرف
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1190,16 +1234,26 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
-                                    <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                        <label className="text-xs font-bold block text-muted-foreground">كلمة المرور المؤقتة</label>
-                                        <Input
-                                            type="text"
-                                            value={selectedEmployee.password || ""}
-                                            onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
-                                            placeholder="كلمة المرور"
-                                            dir="ltr"
-                                            className="font-mono text-left"
-                                        />
+                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                        {/* Label */}
+                                        <div className="flex justify-start pl-2">
+                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">كلمة المرور المؤقتة</label>
+                                        </div>
+
+                                        {/* Input Area + Spacer */}
+                                        <div className="flex items-center gap-2 relative">
+                                            {/* Spacer for alignment */}
+                                            <div className="w-6 shrink-0" />
+
+                                            <Input
+                                                type="text"
+                                                value={selectedEmployee.password || ""}
+                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
+                                                placeholder="كلمة المرور"
+                                                dir="ltr"
+                                                className="font-mono text-left flex-1"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </AccordionSection>
@@ -1214,24 +1268,33 @@ export const AdminDashboard = () => {
                             >
                                 <div className="space-y-4">
                                     {/* Start Date */}
-                                    <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                        <div className="flex items-center justify-between min-w-[80px]">
-                                            <label className="text-xs text-white/70 font-bold block whitespace-nowrap">تأريخ اول مباشرة</label>
-                                            {adminData?.id && (
-                                                <HistoryViewer
-                                                    tableName="administrative_summary"
-                                                    recordId={adminData.id}
-                                                    fieldName="first_appointment_date"
-                                                    label="تأريخ اول مباشرة"
-                                                />
-                                            )}
+                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                        {/* Label */}
+                                        <div className="flex justify-start pl-2">
+                                            <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">تأريخ اول مباشرة</label>
                                         </div>
-                                        <input
-                                            type="date"
-                                            value={adminData?.first_appointment_date || ''}
-                                            onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                        />
+
+                                        {/* Input Area + History */}
+                                        <div className="flex items-center gap-2 relative">
+                                            {/* History Icon Slot (Fixed Width) */}
+                                            <div className="w-6 shrink-0 flex justify-center">
+                                                {adminData?.id && (
+                                                    <HistoryViewer
+                                                        tableName="administrative_summary"
+                                                        recordId={adminData.id}
+                                                        fieldName="first_appointment_date"
+                                                        label="تأريخ اول مباشرة"
+                                                    />
+                                                )}
+                                            </div>
+
+                                            <input
+                                                type="date"
+                                                value={adminData?.first_appointment_date || ''}
+                                                onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 flex-1"
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Job Title and Risk % */}
@@ -1270,29 +1333,38 @@ export const AdminDashboard = () => {
                                         />
 
                                         {/* Salary Stage (المرحلة) */}
-                                        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                            <div className="flex items-center justify-between min-w-[80px]">
-                                                <label className="text-xs text-white/70 font-bold block whitespace-nowrap">المرحلة</label>
-                                                {financialData?.id && (
-                                                    <HistoryViewer
-                                                        tableName="financial_records"
-                                                        recordId={financialData.id}
-                                                        fieldName="salary_stage"
-                                                        label="المرحلة"
-                                                    />
-                                                )}
+                                        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                            {/* Label */}
+                                            <div className="flex justify-start pl-2">
+                                                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">المرحلة</label>
                                             </div>
-                                            <div className="relative">
-                                                <select
-                                                    value={financialData?.['salary_stage'] || ""}
-                                                    onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none bg-none"
-                                                >
-                                                    <option value="" className="bg-slate-800">اختر...</option>
-                                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                                                        <option key={num} value={num} className="bg-slate-800">{num}</option>
-                                                    ))}
-                                                </select>
+
+                                            {/* Input Area + History */}
+                                            <div className="flex items-center gap-2 relative">
+                                                {/* History Icon Slot (Fixed Width) */}
+                                                <div className="w-6 shrink-0 flex justify-center">
+                                                    {financialData?.id && (
+                                                        <HistoryViewer
+                                                            tableName="financial_records"
+                                                            recordId={financialData.id}
+                                                            fieldName="salary_stage"
+                                                            label="المرحلة"
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                <div className="relative flex-1">
+                                                    <select
+                                                        value={financialData?.['salary_stage'] || ""}
+                                                        onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none bg-none"
+                                                    >
+                                                        <option value="" className="bg-slate-800">اختر...</option>
+                                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                                            <option key={num} value={num} className="bg-slate-800">{num}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1807,23 +1879,33 @@ function EditableField({
     dbField
 }: any) {
     return (
-        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-            <div className="flex items-center justify-between min-w-[80px]">
-                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground">{label}</label>
-                {recordId && tableName && dbField && (
-                    <HistoryViewer
-                        tableName={tableName}
-                        recordId={recordId}
-                        fieldName={dbField}
-                        label={label}
-                    />
-                )}
+        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+            {/* Label Column: Aligned to Right (RTL Start) */}
+            <div className="flex justify-start pl-2">
+                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{label}</label>
             </div>
-            <Input
-                type="text"
-                value={value || ""}
-                onChange={(e) => onChange(e.target.value)}
-            />
+
+            {/* Input Column: Flex with Icon first (Right in RTL) */}
+            <div className="flex items-center gap-2 relative">
+                {/* Fixed Width Slot for History Icon (or empty) */}
+                <div className="w-6 shrink-0 flex justify-center">
+                    {recordId && tableName && dbField && (
+                        <HistoryViewer
+                            tableName={tableName}
+                            recordId={recordId}
+                            fieldName={dbField}
+                            label={label}
+                        />
+                    )}
+                </div>
+
+                <Input
+                    type="text"
+                    value={value || ""}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="flex-1"
+                />
+            </div>
         </div>
     );
 }
@@ -1831,47 +1913,57 @@ function EditableField({
 function FinancialInput({ field, value, onChange, recordId, tableName, dbField }: any) {
     if (!field) return null;
     return (
-        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
-            <div className="flex items-center justify-between min-w-[60px] md:min-w-[80px]">
-                <label className="text-[10px] md:text-xs font-bold block whitespace-nowrap text-muted-foreground">{field.label}</label>
-                {recordId && tableName && (dbField || field.key) && (
-                    <HistoryViewer
-                        tableName={tableName}
-                        recordId={recordId}
-                        fieldName={dbField || field.key}
-                        label={field.label}
-                    />
-                )}
+        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+            {/* Label Column */}
+            <div className="flex justify-start pl-2">
+                <label className="text-[10px] md:text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{field.label}</label>
             </div>
-            {field.options ? (
-                <Select
-                    value={value || ""}
-                    onValueChange={(val) => onChange(field.key, val)}
-                    disabled={field.disabled}
-                >
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="اختر..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {field.options.map((opt: string) => (
-                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            ) : (
-                <div className="relative">
-                    <Input
-                        type={field.isMoney ? "number" : "text"}
-                        value={value || ""}
-                        onChange={(e) => onChange(field.key, e.target.value)}
-                        disabled={field.disabled}
-                        className={cn("no-spin", field.isMoney && "pl-10")}
-                    />
-                    {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
-                    {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{field.suffix}</span>}
+
+            {/* Input Column */}
+            <div className="flex items-center gap-2 relative w-full">
+                {/* Fixed Width Slot for History Icon (or empty) */}
+                <div className="w-6 shrink-0 flex justify-center">
+                    {recordId && tableName && (dbField || field.key) && (
+                        <HistoryViewer
+                            tableName={tableName}
+                            recordId={recordId}
+                            fieldName={dbField || field.key}
+                            label={field.label}
+                        />
+                    )}
                 </div>
-            )}
+
+                <div className="flex-1 relative">
+                    {field.options ? (
+                        <Select
+                            value={value || ""}
+                            onValueChange={(val) => onChange(field.key, val)}
+                            disabled={field.disabled}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="اختر..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {field.options.map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <div className="relative w-full">
+                            <Input
+                                type={field.isMoney ? "number" : "text"}
+                                value={value || ""}
+                                onChange={(e) => onChange(field.key, e.target.value)}
+                                disabled={field.disabled}
+                                className={cn("no-spin w-full", field.isMoney && "pl-10")}
+                            />
+                            {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
+                            {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{field.suffix}</span>}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
-

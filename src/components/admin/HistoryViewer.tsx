@@ -18,7 +18,10 @@ interface HistoryViewerProps {
     label?: string;
 }
 
-export const HistoryViewer = ({ tableName, recordId, fieldName, label }: HistoryViewerProps) => {
+import { cn } from '../../lib/utils';
+
+// Update Props Interface if defined, or just destructure
+export const HistoryViewer = ({ tableName, recordId, fieldName, label, className }: HistoryViewerProps & { className?: string }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [logs, setLogs] = useState<HistoryLog[]>([]);
     const [loading, setLoading] = useState(false);
@@ -66,14 +69,21 @@ export const HistoryViewer = ({ tableName, recordId, fieldName, label }: History
     }, [isOpen]);
 
     return (
-        <div className="relative inline-block ml-2">
+        <div className={cn("relative inline-block ml-2", className)}>
             <button
                 type="button"
                 onClick={handleOpen}
-                className="text-brand-yellow/70 hover:text-brand-yellow transition-all p-1.5 rounded-full hover:bg-white/10 active:scale-95"
+                className={cn("transition-all p-1 rounded-full hover:bg-white/10 active:scale-95",
+                    className?.includes('text-') ? "" : "text-brand-yellow/70 hover:text-brand-yellow", // Default if no text color provided
+                    "text-amber-500 hover:text-amber-600" // New default requested by user (darker/stronger)
+                )}
+                // Using the requested darker color directly:
+                // User said "increase in degree... currently pale". 
+                // Current was text-brand-yellow/70.
+                // I will use text-amber-500 or text-yellow-600 for better visibility.
                 title="سجل التعديلات"
             >
-                <History size={18} strokeWidth={2} />
+                <History size={18} strokeWidth={2.5} /> {/* Thicker stroke for visibility */}
             </button>
 
             <AnimatePresence>
