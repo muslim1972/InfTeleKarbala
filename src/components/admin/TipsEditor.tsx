@@ -105,8 +105,8 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
 
     return (
         <div className="space-y-4">
-            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                <h3 className="text-white/70 font-bold mb-2 text-sm">محتوى شريط الاخبار</h3>
+            <div className="bg-white/50 dark:bg-black/20 p-4 rounded-xl border border-gray-200 dark:border-white/5 shadow-sm">
+                <h3 className="text-gray-700 dark:text-white/70 font-bold mb-2 text-sm">محتوى شريط الاخبار</h3>
                 <div className="relative">
                     <textarea
                         ref={textareaRef}
@@ -117,13 +117,13 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                             }
                         }}
                         placeholder="اكتب الاخبار هنا...\nمثال: اعلان هام للموظفين\nتحديث جديد للنظام"
-                        className="w-full h-40 p-4 bg-slate-900/50 border border-white/10 rounded-xl 
-                         text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-1 
+                        className="w-full h-40 p-4 bg-white/80 dark:bg-slate-900/50 border border-gray-300 dark:border-white/10 rounded-xl 
+                         text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-1 
                          focus:ring-brand-green/50 focus:border-brand-green/50 transition-all
                          text-base leading-relaxed"
                         dir="rtl"
                     />
-                    <div className="absolute bottom-3 left-3 text-xs text-white/30">
+                    <div className="absolute bottom-3 left-3 text-xs text-gray-500 dark:text-white/30">
                         {charCount} / {maxChars}
                     </div>
                 </div>
@@ -131,7 +131,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                 <div className="flex justify-between items-center mt-3">
                     <div className="flex items-center gap-2">
                         {saveStatus === 'success' && <span className="text-brand-green text-xs flex items-center gap-1"><CheckCircle size={14} /> تم الحفظ</span>}
-                        {saveStatus === 'error' && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14} /> خطأ في الحفظ</span>}
+                        {saveStatus === 'error' && <span className="text-red-500 dark:text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14} /> خطأ في الحفظ</span>}
                     </div>
 
                     <button
@@ -141,7 +141,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                             flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-all
                             ${hasChanges
                                 ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-lg shadow-brand-green/20'
-                                : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                : 'bg-gray-200 dark:bg-white/5 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                             }
                         `}
                     >
@@ -151,12 +151,12 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                 </div>
             </div>
 
-            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                <h3 className="text-white/70 font-bold mb-2 text-sm">معاينة الشريط</h3>
-                <div className="relative h-12 rounded-lg overflow-hidden border border-white/10">
+            <div className="bg-white/50 dark:bg-black/20 p-4 rounded-xl border border-gray-200 dark:border-white/5 shadow-sm">
+                <h3 className="text-gray-700 dark:text-white/70 font-bold mb-2 text-sm">معاينة الشريط</h3>
+                <div className="relative h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-white/10">
                     <TipsMarquee
                         appName={appName}
-                        className="!bg-slate-900 border-none h-full"
+                        className="!bg-gray-100 dark:!bg-slate-900 border-none h-full"
                         manualTips={content.split('\n').filter(Boolean)}
                     />
                 </div>

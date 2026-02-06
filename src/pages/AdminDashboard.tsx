@@ -15,6 +15,13 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Label } from "../components/ui/Label";
 import { ScrollableTabs } from "../components/ui/ScrollableTabs";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "../components/ui/Select";
 
 
 
@@ -1124,32 +1131,33 @@ export const AdminDashboard = () => {
                                     />
 
                                     {/* Role Selection (UI matching Add Employee) */}
+                                    {/* Role Selection (Refactored) */}
                                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                        <label className="text-xs text-white/70 font-bold block">نوع الحساب</label>
-                                        <div className="flex gap-2 p-1 bg-black/20 rounded-xl border border-white/10">
-                                            <button
+                                        <label className="text-xs font-bold block text-muted-foreground">نوع الحساب</label>
+                                        <div className="flex gap-4">
+                                            <Button
                                                 type="button"
+                                                variant={selectedEmployee.role === 'user' ? 'default' : 'outline'}
                                                 onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all",
-                                                    selectedEmployee.role === 'user' ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "text-white/40 hover:bg-white/5"
-                                                )}
+                                                className="flex-1 gap-2"
                                             >
-                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}></div>
-                                                <span className="text-xs font-bold">موظف</span>
-                                            </button>
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-white" : "border-muted-foreground")}>
+                                                    {selectedEmployee.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                موظف
+                                            </Button>
 
-                                            <button
+                                            <Button
                                                 type="button"
+                                                variant={selectedEmployee.role === 'admin' ? 'default' : 'outline'}
                                                 onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all",
-                                                    selectedEmployee.role === 'admin' ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50" : "text-white/40 hover:bg-white/5"
-                                                )}
+                                                className="flex-1 gap-2"
                                             >
-                                                <div className={cn("w-3 h-3 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}></div>
-                                                <span className="text-xs font-bold">مشرف</span>
-                                            </button>
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-white" : "border-muted-foreground")}>
+                                                    {selectedEmployee.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                مشرف
+                                            </Button>
                                         </div>
                                     </div>
 
@@ -1183,16 +1191,15 @@ export const AdminDashboard = () => {
 
                                     {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
                                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                                        <label className="text-xs text-white/70 font-bold block">كلمة المرور المؤقتة</label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={selectedEmployee.password || ""}
-                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
-                                                dir="ltr"
-                                            />
-                                        </div>
+                                        <label className="text-xs font-bold block text-muted-foreground">كلمة المرور المؤقتة</label>
+                                        <Input
+                                            type="text"
+                                            value={selectedEmployee.password || ""}
+                                            onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
+                                            placeholder="كلمة المرور"
+                                            dir="ltr"
+                                            className="font-mono text-left"
+                                        />
                                     </div>
                                 </div>
                             </AccordionSection>
@@ -1802,7 +1809,7 @@ function EditableField({
     return (
         <div className="grid grid-cols-[auto_1fr] items-center gap-4">
             <div className="flex items-center justify-between min-w-[80px]">
-                <label className="text-xs text-white/70 font-bold block whitespace-nowrap">{label}</label>
+                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground">{label}</label>
                 {recordId && tableName && dbField && (
                     <HistoryViewer
                         tableName={tableName}
@@ -1812,11 +1819,10 @@ function EditableField({
                     />
                 )}
             </div>
-            <input
+            <Input
                 type="text"
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50"
             />
         </div>
     );
@@ -1827,7 +1833,7 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField }
     return (
         <div className="grid grid-cols-[auto_1fr] items-center gap-2">
             <div className="flex items-center justify-between min-w-[60px] md:min-w-[80px]">
-                <label className="text-[10px] md:text-xs text-white/70 font-bold block whitespace-nowrap">{field.label}</label>
+                <label className="text-[10px] md:text-xs font-bold block whitespace-nowrap text-muted-foreground">{field.label}</label>
                 {recordId && tableName && (dbField || field.key) && (
                     <HistoryViewer
                         tableName={tableName}
@@ -1838,30 +1844,31 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField }
                 )}
             </div>
             {field.options ? (
-                <div className="relative">
-                    <select
-                        value={value || ""}
-                        onChange={(e) => onChange(field.key, e.target.value)}
-                        disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 appearance-none bg-none"
-                    >
-                        <option value="">اختر...</option>
+                <Select
+                    value={value || ""}
+                    onValueChange={(val) => onChange(field.key, val)}
+                    disabled={field.disabled}
+                >
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="اختر..." />
+                    </SelectTrigger>
+                    <SelectContent>
                         {field.options.map((opt: string) => (
-                            <option key={opt} value={opt} className="bg-slate-900">{opt}</option>
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                         ))}
-                    </select>
-                </div>
+                    </SelectContent>
+                </Select>
             ) : (
                 <div className="relative">
-                    <input
+                    <Input
                         type={field.isMoney ? "number" : "text"}
                         value={value || ""}
                         onChange={(e) => onChange(field.key, e.target.value)}
                         disabled={field.disabled}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-2 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 disabled:opacity-50 no-spin"
+                        className={cn("no-spin", field.isMoney && "pl-10")}
                     />
-                    {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">د.ع</span>}
-                    {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-xs">{field.suffix}</span>}
+                    {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
+                    {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{field.suffix}</span>}
                 </div>
             )}
         </div>

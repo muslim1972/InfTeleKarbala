@@ -393,7 +393,7 @@ export function PollCreator() {
 
             {phase === 'list' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                    <div className="flex justify-between items-center bg-black/20 p-4 rounded-2xl border border-white/5">
+                    <div className="flex justify-between items-center bg-white/50 dark:bg-black/20 p-4 rounded-2xl border border-gray-200 dark:border-white/5 shadow-sm">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             {showDeleted ? (
                                 <>
@@ -414,8 +414,8 @@ export function PollCreator() {
                                 className={cn(
                                     "p-2 rounded-xl transition-all border",
                                     showDeleted
-                                        ? "bg-white/10 border-white/20 text-white"
-                                        : "bg-black/40 border-transparent text-white/40 hover:text-white"
+                                        ? "bg-gray-100 dark:bg-white/10 border-gray-200 dark:border-white/20 text-gray-900 dark:text-white"
+                                        : "bg-gray-100 dark:bg-black/40 border-transparent text-gray-400 dark:text-white/40 hover:text-gray-900 dark:hover:text-white"
                                 )}
                                 title={showDeleted ? "عودة للاستطلاعات" : "عرض المحذوفات"}
                             >
@@ -450,7 +450,7 @@ export function PollCreator() {
                             <span className="text-white/40">-</span>
                             <input
                                 type="date"
-                                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-white text-sm"
+                                className="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1 text-gray-900 dark:text-white text-sm"
                                 value={dateFilter.end}
                                 onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })}
                             />
@@ -462,10 +462,10 @@ export function PollCreator() {
                             <div
                                 key={p.id}
                                 className={cn(
-                                    "rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 group transition-all cursor-pointer relative",
+                                    "rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 group transition-all cursor-pointer relative shadow-sm",
                                     p.is_active
-                                        ? "bg-gradient-to-r from-white/5 to-white/10 border border-brand-green/20 shadow-[0_0_15px_-5px_var(--brand-green-rgb)] hover:brightness-110"
-                                        : "bg-white/5 border border-white/10 hover:bg-white/10"
+                                        ? "bg-gradient-to-r from-white/90 to-white dark:from-white/5 dark:to-white/10 border border-brand-green/20 shadow-[0_0_15px_-5px_var(--brand-green-rgb)] hover:brightness-105"
+                                        : "bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10"
                                 )}
                                 onClick={(e) => {
                                     // Prevent triggering if clicked on action buttons
@@ -560,7 +560,7 @@ export function PollCreator() {
 
 
             {phase === 'config' && (
-                <div className="bg-black/20 border border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300">
+                <div className="bg-white/50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-sm">
                     <button
                         onClick={() => {
                             setPhase('list');
@@ -576,8 +576,8 @@ export function PollCreator() {
                         <div className="w-16 h-16 bg-brand-green/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-green/20">
                             <PieChart className="w-8 h-8 text-brand-green" />
                         </div>
-                        <h3 className="text-xl font-bold text-white">إنشاء استطلاع جديد</h3>
-                        <p className="text-white/40 mt-2">قم بإعداد هيكل الاستطلاع وتحديد عدد الأسئلة</p>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">إنشاء استطلاع جديد</h3>
+                        <p className="text-gray-500 dark:text-white/40 mt-2">قم بإعداد هيكل الاستطلاع وتحديد عدد الأسئلة</p>
                     </div>
 
                     <div className="space-y-4">
@@ -588,7 +588,7 @@ export function PollCreator() {
                                 value={pollTitle}
                                 onChange={e => setPollTitle(e.target.value)}
                                 placeholder="مثلاً: استبيان حول جودة الخدمات الإدارية"
-                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50"
+                                className="w-full bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50"
                             />
                         </div>
 
@@ -600,9 +600,9 @@ export function PollCreator() {
                                     min="1" max="20"
                                     value={totalQuestions}
                                     onChange={e => setTotalQuestions(parseInt(e.target.value) || 1)}
-                                    className="w-24 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-center text-white font-mono text-xl focus:outline-none focus:border-brand-green/50"
+                                    className="w-24 bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-center text-gray-900 dark:text-white font-mono text-xl focus:outline-none focus:border-brand-green/50"
                                 />
-                                <span className="text-white/40 text-sm">سؤال</span>
+                                <span className="text-gray-500 dark:text-white/40 text-sm">سؤال</span>
                             </div>
                         </div>
 
@@ -618,7 +618,7 @@ export function PollCreator() {
             )}
 
             {phase === 'building' && (
-                <div className="bg-black/20 border border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in slide-in-from-right duration-300">
+                <div className="bg-white/50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in slide-in-from-right duration-300 shadow-sm">
                     <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
                         <span className="text-brand-green font-bold text-lg">بناء الأسئلة</span>
                         <div className="flex items-center gap-2 text-white/60">
@@ -638,7 +638,7 @@ export function PollCreator() {
                             value={currentQuestionText}
                             onChange={e => setCurrentQuestionText(e.target.value)}
                             placeholder="اكتب السؤال هنا..."
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-green/50 text-lg"
+                            className="w-full bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50 text-lg"
                         />
                     </div>
 
@@ -652,16 +652,16 @@ export function PollCreator() {
                                 <button
                                     // Using a manual handler since handleOptionsCountChange is abstract in this snippet
                                     onClick={() => setCurrentOptionsCount(Math.max(2, currentOptionsCount - 1))}
-                                    className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors"
+                                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 dark:text-white transition-colors"
                                 >
                                     -
                                 </button>
-                                <div className="flex-1 text-center font-mono text-white text-lg font-bold">
+                                <div className="flex-1 text-center font-mono text-gray-900 dark:text-white text-lg font-bold">
                                     {currentOptionsCount}
                                 </div>
                                 <button
                                     onClick={() => setCurrentOptionsCount(Math.min(10, currentOptionsCount + 1))}
-                                    className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors"
+                                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 dark:text-white transition-colors"
                                 >
                                     +
                                 </button>
@@ -714,7 +714,7 @@ export function PollCreator() {
                                         setCurrentOptions(newOpts);
                                     }}
                                     placeholder={`الخيار ${idx + 1}`}
-                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30"
+                                    className="flex-1 bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-brand-green/30"
                                 />
                             </div>
                         ))}
@@ -734,32 +734,32 @@ export function PollCreator() {
             )}
 
             {phase === 'review' && (
-                <div className="bg-black/20 border border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in zoom-in duration-300">
+                <div className="bg-white/50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in zoom-in duration-300 shadow-sm">
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-brand-green/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-green/40">
                             <CheckCircle2 className="w-8 h-8 text-brand-green" />
                         </div>
-                        <h3 className="text-xl font-bold text-white">مراجعة الاستطلاع</h3>
-                        <p className="text-white/40 mt-1">أنت على وشك نشر الاستطلاع التالي</p>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">مراجعة الاستطلاع</h3>
+                        <p className="text-gray-500 dark:text-white/40 mt-1">أنت على وشك نشر الاستطلاع التالي</p>
                     </div>
 
-                    <div className="bg-black/40 rounded-xl border border-white/10 p-4 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-                        <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2">
-                            <h4 className="font-bold text-lg text-white">{pollTitle}</h4>
+                    <div className="bg-white/50 dark:bg-black/40 rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center border-b border-gray-200 dark:border-white/10 pb-2 mb-2">
+                            <h4 className="font-bold text-lg text-gray-900 dark:text-white">{pollTitle}</h4>
                             <span className="text-xs text-brand-green font-bold bg-brand-green/10 px-2 py-1 rounded">
                                 {collectedQuestions.length} أسئلة
                             </span>
                         </div>
 
                         {collectedQuestions.map((q, i) => (
-                            <div key={i} className="bg-white/5 rounded-lg p-3 group relative hover:bg-white/10 transition-colors">
+                            <div key={i} className="bg-gray-50 dark:bg-white/5 rounded-lg p-3 group relative hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
                                 <div className="flex justify-between items-start mb-2 pl-8">
                                     <span className="text-brand-green font-bold text-sm">سؤال {i + 1}: {q.text}</span>
-                                    <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/50">
+                                    <span className="text-[10px] bg-gray-200 dark:bg-white/10 px-2 py-0.5 rounded text-gray-500 dark:text-white/50">
                                         {q.type === 'single' ? 'خيار واحد' : 'عدة خيارات'}
                                     </span>
                                 </div>
-                                <ul className="list-disc list-inside text-xs text-white/60 space-y-1 mb-2">
+                                <ul className="list-disc list-inside text-xs text-gray-500 dark:text-white/60 space-y-1 mb-2">
                                     {q.options.map((opt, j) => (
                                         <li key={j}>{opt.text}</li>
                                     ))}
@@ -769,14 +769,14 @@ export function PollCreator() {
                                 <div className="absolute top-2 left-2 flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => handleJumpToStep(i + 1)}
-                                        className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30"
+                                        className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg"
                                         title="تعديل السؤال"
                                     >
                                         <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteQuestion(i)}
-                                        className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"
+                                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg"
                                         title="حذف السؤال"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -788,7 +788,7 @@ export function PollCreator() {
                         {/* Add Question Button */}
                         <button
                             onClick={handleAddQuestion}
-                            className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-white/40 hover:text-white hover:border-white/30 hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-bold text-sm group"
+                            className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-white/10 rounded-xl text-gray-400 dark:text-white/40 hover:text-brand-green hover:border-brand-green/50 dark:hover:text-white dark:hover:border-white/30 hover:bg-gray-50 dark:hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-bold text-sm group"
                         >
                             <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                             إضافة سؤال جديد
