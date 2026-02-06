@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { GlassCard } from "../components/ui/GlassCard";
-import { Loader2, LogIn } from "lucide-react";
-import { Layout } from "../components/layout/Layout";
+import { Loader2, LogIn, User } from "lucide-react";
+import { AppFooter } from "../components/layout/AppFooter";
 
 export const Login = () => {
   const [username, setUsername] = useState("");
@@ -23,64 +22,97 @@ export const Login = () => {
       setError(result.error || "خطأ في الدخول");
       setLoading(false);
     }
-    // If success, App.tsx will automatically redirect due to user state change
   };
 
   return (
-    <Layout className="flex items-center justify-center min-h-[90dvh] px-4">
-      <GlassCard className="w-full max-w-md p-6 md:p-8 bg-black/50 border-white/10 shadow-2xl">
-        <div className="text-center mb-8 md:mb-10">
-          <h1 className="text-xl md:text-3xl font-bold text-white font-tajawal mb-2 md:mb-3 leading-relaxed">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gray-900 font-tao">
+      {/* Smart Background Layer - Ready for dynamic rotation */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105"
+        style={{ backgroundImage: `url('/sign-in.jpg')` }}
+      >
+        {/* Overlay for readability - slight dark tint & blur */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+
+        {/* Optional: Gradient overlay from bottom to ensuring footer/bottom readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30"></div>
+      </div>
+
+      {/* Main Content Content */}
+      <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center">
+
+        {/* Header / Logo Section */}
+        <div className="text-center mb-10 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <h1 className="text-3xl md:text-4xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide">
             مديرية الاتصالات ومعلوماتية كربلاء
           </h1>
-          <div className="h-1 w-16 md:w-20 bg-brand-green mx-auto rounded-full mb-3" />
-          <h2 className="text-white/80 text-base md:text-lg font-medium">نظام ادارة الموظفين</h2>
+          <div className="h-1.5 w-24 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
+          <h2 className="text-white/90 text-xl font-medium drop-shadow-md tracking-wider">
+            نظام ادارة الموظفين
+          </h2>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-white/90 text-sm font-bold mb-2 text-right px-1">اسم المستخدم</label>
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="w-full space-y-5 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl ring-1 ring-white/5">
+
+          <div className="space-y-2">
+            <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">اسم المستخدم</label>
             <input
               type="text"
               required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-brand-green/50 focus:bg-white/10 transition-all text-right"
-              placeholder=""
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right backdrop-blur-sm shadow-inner"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 
-          <div>
-            <label className="block text-white/90 text-sm font-bold mb-2 text-right px-1">كلمة المرور</label>
+          <div className="space-y-2">
+            <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">كلمة المرور</label>
             <input
               type="password"
               required
-              maxLength={6} // As requested, typically 6 digits
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-brand-green/50 focus:bg-white/10 transition-all text-right font-mono tracking-widest text-center"
-              placeholder="******"
+              maxLength={6}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner"
+              placeholder="••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/20 text-red-200 border border-red-500/30 text-sm text-center font-bold">
+            <div className="p-3 rounded-xl bg-red-500/20 text-red-100 border border-red-500/30 text-sm text-center font-bold backdrop-blur-md animate-in zoom-in duration-300">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-brand-green-dark to-brand-green hover:from-brand-green hover:to-brand-green-light text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-green/20 mt-4 active:scale-[0.98]"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
-              <span>تسجيل الدخول</span>
-              <LogIn className="w-5 h-5" />
-            </>}
-          </button>
+          <div className="pt-4 space-y-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-brand-green-dark to-brand-green hover:from-brand-green hover:to-brand-green-light text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] active:scale-[0.98] border border-white/10"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
+                <span>تسجيل الدخول</span>
+                <LogIn className="w-5 h-5" />
+              </>}
+            </button>
+
+            {/* Visitor Login Button */}
+            <button
+              type="button"
+              className="w-full bg-blue-600/80 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-[0.98] backdrop-blur-sm border border-white/10"
+            >
+              <span>الدخول كزائر</span>
+              <User className="w-5 h-5" />
+            </button>
+          </div>
         </form>
-      </GlassCard>
-    </Layout>
+      </div>
+
+      {/* Footer / Copyright */}
+      <div className="absolute bottom-0 left-0 right-0 z-20">
+        <AppFooter />
+      </div>
+    </div>
   );
 };
