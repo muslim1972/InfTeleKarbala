@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Save, Loader2, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/Button';
 
 interface MediaSectionEditorProps {
     type: 'directive' | 'conference';
@@ -110,18 +112,18 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
     }
 
     return (
-        <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-4">
+        <div className="bg-card p-4 rounded-xl border border-border space-y-4 shadow-sm">
             <div className="flex justify-between items-center">
-                <h3 className="text-white/70 font-bold text-sm">{title}</h3>
+                <h3 className="text-foreground/70 font-bold text-sm">{title}</h3>
                 <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                             type="checkbox"
                             checked={isActive}
                             onChange={e => setIsActive(e.target.checked)}
-                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-brand-green focus:ring-brand-green"
+                            className="w-4 h-4 rounded border-input bg-background text-brand-green focus:ring-brand-green"
                         />
-                        <span className="text-white/60 text-xs">تفعيل الظهور</span>
+                        <span className="text-muted-foreground text-xs">تفعيل الظهور</span>
                     </label>
                 </div>
             </div>
@@ -130,41 +132,41 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder={placeholder}
-                className="w-full h-32 p-4 bg-slate-900/50 border border-white/10 rounded-xl 
-                         text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-1 
-                         focus:ring-brand-green/50 focus:border-brand-green/50 transition-all
+                className="w-full h-32 p-4 bg-muted/50 border border-input rounded-xl 
+                         text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 
+                         focus:ring-ring focus:border-ring transition-all
                          text-base leading-relaxed"
                 dir="rtl"
             />
 
             <div className="flex justify-between items-center">
-                <button
+                <Button
+                    variant="ghost"
                     onClick={handleClear}
-                    className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 transition-colors"
+                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 text-xs flex items-center gap-1 h-8 px-2"
                     title="مسح المحتوى وإلغاء التفعيل"
                 >
                     <Trash2 size={14} />
                     <span>مسح</span>
-                </button>
+                </Button>
 
                 <div className="flex items-center gap-3">
                     {saveStatus === 'success' && <span className="text-brand-green text-xs flex items-center gap-1"><CheckCircle size={14} /> تم الحفظ</span>}
-                    {saveStatus === 'error' && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14} /> خطأ</span>}
+                    {saveStatus === 'error' && <span className="text-destructive text-xs flex items-center gap-1"><AlertCircle size={14} /> خطأ</span>}
 
-                    <button
+                    <Button
                         onClick={handleSave}
                         disabled={saving || (content === originalContent && isActive)}
-                        className={`
-                            flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-all
-                            ${(content !== originalContent || !isActive)
-                                ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-lg shadow-brand-green/20'
-                                : 'bg-white/5 text-gray-500 cursor-not-allowed'
-                            }
-                        `}
+                        className={cn(
+                            "flex items-center justify-center gap-2 px-6 h-9 rounded-lg font-bold text-sm transition-all",
+                            (content !== originalContent || !isActive)
+                                ? "bg-brand-green hover:bg-brand-green/90 text-white shadow-lg shadow-brand-green/20"
+                                : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+                        )}
                     >
                         {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                         {saving ? 'جاري الحفظ...' : 'حفظ'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

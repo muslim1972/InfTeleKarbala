@@ -1288,17 +1288,17 @@ export const AdminDashboard = () => {
                                                 )}
                                             </div>
 
-                                            <input
+                                            <Input
                                                 type="date"
                                                 value={adminData?.first_appointment_date || ''}
                                                 onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-brand-green/50 flex-1"
+                                                className="flex-1"
                                             />
                                         </div>
                                     </div>
 
                                     {/* Job Title and Risk % */}
-                                    <div className="grid grid-cols-[1fr_120px] gap-2 md:gap-6">
+                                    <div className="grid grid-cols-1 gap-4">
                                         <FinancialInput
                                             key="job_title"
                                             field={financialFields.basic.find(f => f.key === 'job_title')}
@@ -1320,8 +1320,8 @@ export const AdminDashboard = () => {
                                         />
                                     </div>
 
-                                    {/* Row 2: Grade and Stage - Same Row */}
-                                    <div className="grid grid-cols-2 gap-2 md:gap-6">
+                                    {/* Row 2: Grade and Stage - Vertical Stack */}
+                                    <div className="grid grid-cols-1 gap-4">
                                         <FinancialInput
                                             key="salary_grade"
                                             field={{ ...financialFields.basic.find(f => f.key === 'salary_grade'), label: "الدرجة الوظيفية" }}
@@ -1354,16 +1354,19 @@ export const AdminDashboard = () => {
                                                 </div>
 
                                                 <div className="relative flex-1">
-                                                    <select
-                                                        value={financialData?.['salary_stage'] || ""}
-                                                        onChange={(e) => setFinancialData({ ...(financialData || {}), 'salary_stage': e.target.value })}
-                                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-green/50 appearance-none bg-none"
+                                                    <Select
+                                                        value={financialData?.['salary_stage']?.toString() || ""}
+                                                        onValueChange={(val) => setFinancialData({ ...(financialData || {}), 'salary_stage': val })}
                                                     >
-                                                        <option value="" className="bg-slate-800">اختر...</option>
-                                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                                                            <option key={num} value={num} className="bg-slate-800">{num}</option>
-                                                        ))}
-                                                    </select>
+                                                        <SelectTrigger className="w-full">
+                                                            <SelectValue placeholder="اختر..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                                                <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </div>
                                         </div>
@@ -1382,7 +1385,8 @@ export const AdminDashboard = () => {
 
                                     {/* Row 4: Certificate Percentage & Nominal Salary */}
                                     {/* Row 4: Nominal Salary & Certificate Percentage - Adjusted for mobile: 130px fixed width for Cert to give Salary more space */}
-                                    <div className="grid grid-cols-[1fr_130px] gap-2 md:gap-6">
+                                    {/* Row 4: Certificate Percentage & Nominal Salary - Vertical Stack */}
+                                    <div className="grid grid-cols-1 gap-4">
                                         <FinancialInput
                                             key="nominal_salary"
                                             field={financialFields.basic.find(f => f.key === 'nominal_salary')}
@@ -1413,7 +1417,7 @@ export const AdminDashboard = () => {
                                 color="from-green-600 to-green-500"
                                 onToggle={() => toggleSection('allowances')}
                             >
-                                <div className="grid grid-cols-2 gap-2 md:gap-x-6">
+                                <div className="grid grid-cols-1 gap-4">
                                     {financialFields.allowances.map(field => (
                                         <FinancialInput
                                             key={field.key}
@@ -1436,7 +1440,7 @@ export const AdminDashboard = () => {
                                 color="from-red-600 to-red-500"
                                 onToggle={() => toggleSection('deductions')}
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     {financialFields.deductions.map(field => (
                                         <FinancialInput
                                             key={field.key}
@@ -1723,7 +1727,7 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
 
     // Inside RecordSection function
     return (
-        <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-white/5 mb-4">
+        <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-border mb-4 bg-card">
             <button
                 onClick={onToggle}
                 className={cn(
@@ -1741,91 +1745,106 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
             </button>
 
             {isOpen && (
-                <div className="p-4 bg-black/20 border-t border-white/5 space-y-4">
+                <div className="p-4 bg-background/50 border-t border-border space-y-4">
                     {/* Add/Edit Form */}
-                    <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-white/5 border-white/5")}>
-                        <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-white/70")}>
+                    <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-muted/50 border-border")}>
+                        <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-foreground/70")}>
                             {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                             {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {fields.map((field: any) => (
-                                <div key={field.key} className="space-y-1">
-                                    <label className="text-xs text-white/40 font-bold block px-1">{field.label}</label>
+                                <div key={field.key} className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                    {/* Label */}
+                                    <div className="flex justify-start pl-2">
+                                        <label className="text-xs text-muted-foreground font-bold block whitespace-nowrap text-right w-full">{field.label}</label>
+                                    </div>
 
-                                    {field.type === 'select' ? (
-                                        <div className="relative">
-                                            <select
-                                                value={newItem[field.key] || ""}
-                                                onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none bg-none"
-                                            >
-                                                <option value="">اختر...</option>
-                                                {field.options?.map((opt: string) => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    ) : field.type === 'date-fixed-year' ? (
-                                        <div className="flex gap-2">
-                                            {/* Day - Number Input */}
-                                            <input
-                                                type="number"
-                                                placeholder="يوم"
-                                                min="1" max="31"
-                                                value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
-                                                onChange={e => {
-                                                    let day = e.target.value;
-                                                    if (parseInt(day) > 31) day = "31";
-                                                    // Zero pad logic
-                                                    const dayStr = day.length === 1 ? `0${day}` : day;
+                                    {/* Input + Spacer */}
+                                    <div className="flex items-center gap-2 relative w-full">
+                                        {/* Spacer for alignment (No history here yet, but keeps alignment) */}
+                                        <div className="w-6 shrink-0" />
 
-                                                    const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                    const parts = current.split('-');
-                                                    // Use dayStr for state to match date format, but input displays value prop
-                                                    setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
-                                                }}
-                                                className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30"
-                                            />
-                                            {/* Month */}
-                                            <div className="flex-1 relative">
-                                                <select
-                                                    value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
-                                                    onChange={e => {
-                                                        const month = e.target.value;
-                                                        const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                        const parts = current.split('-');
-                                                        setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
-                                                    }}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-2 text-white text-sm text-center focus:outline-none focus:border-brand-green/30 [&>option]:bg-[#0f172a] appearance-none bg-none"
-                                                >
-                                                    <option value="">شهر</option>
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                        <option key={m} value={m.toString().padStart(2, '0')}>{m}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {/* Year (Fixed) */}
-                                            <div className="flex-1 bg-white/5 border border-white/5 rounded-lg px-2 py-2 text-white/50 text-sm text-center font-mono select-none">
-                                                {selectedYear}
-                                            </div>
+                                        <div className="flex-1 relative">
+                                            {field.type === 'select' ? (
+                                                <div className="relative">
+                                                    <Select
+                                                        value={newItem[field.key] || ""}
+                                                        onValueChange={(val) => setNewItem({ ...newItem, [field.key]: val })}
+                                                    >
+                                                        <SelectTrigger className="w-full">
+                                                            <SelectValue placeholder="اختر..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="default_placeholder" className="hidden">اختر...</SelectItem>
+                                                            {field.options?.map((opt: string) => (
+                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            ) : field.type === 'date-fixed-year' ? (
+                                                <div className="flex gap-2">
+                                                    {/* Day - Number Input */}
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="يوم"
+                                                        min={1} max={31}
+                                                        value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
+                                                        onChange={e => {
+                                                            let day = e.target.value;
+                                                            if (parseInt(day) > 31) day = "31";
+                                                            const dayStr = day.length === 1 ? `0${day}` : day;
+                                                            const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                            const parts = current.split('-');
+                                                            setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
+                                                        }}
+                                                        className="flex-1 text-center"
+                                                    />
+                                                    {/* Month */}
+                                                    <div className="flex-1 relative">
+                                                        <Select
+                                                            value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
+                                                            onValueChange={(val) => {
+                                                                const month = val;
+                                                                const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                                const parts = current.split('-');
+                                                                setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="w-full">
+                                                                <SelectValue placeholder="شهر" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                                    <SelectItem key={m} value={m.toString().padStart(2, '0')}>{m}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    {/* Year (Fixed) */}
+                                                    <div className="flex-1 bg-muted border border-border rounded-lg px-2 py-2 text-muted-foreground text-sm text-center font-mono select-none flex items-center justify-center">
+                                                        {selectedYear}
+                                                    </div>
+                                                </div>
+                                            ) : field.readOnly ? (
+                                                <Input
+                                                    type="text"
+                                                    value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
+                                                    readOnly
+                                                    className="w-full bg-muted border border-border text-muted-foreground cursor-not-allowed font-bold"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    type={field.type || "text"}
+                                                    placeholder={field.label}
+                                                    value={newItem[field.key] || ""}
+                                                    onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                                    className="flex-1"
+                                                />
+                                            )}
                                         </div>
-                                    ) : field.readOnly ? (
-                                        <input
-                                            type="text"
-                                            value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
-                                            readOnly
-                                            className="w-full bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-white/50 text-sm cursor-not-allowed text-brand-green font-bold"
-                                        />
-                                    ) : (
-                                        <input
-                                            type={field.type || "text"}
-                                            placeholder={field.label}
-                                            value={newItem[field.key] || ""}
-                                            onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-green/30"
-                                        />
-                                    )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
