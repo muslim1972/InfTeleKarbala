@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card"
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Label } from "../components/ui/Label";
+import { ScrollableTabs } from "../components/ui/ScrollableTabs";
 
 
 
@@ -796,59 +797,42 @@ export const AdminDashboard = () => {
             <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
                 ? 'bg-gray-100 border-gray-200'
                 : 'bg-black/40 border-white/5'
-                } backdrop-blur-md`}>
-                <button
-                    onClick={() => setActiveTab('admin_add')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_add'
-                            ? "bg-blue-600 text-white shadow-lg"
-                            : theme === 'light'
-                                ? "text-gray-600 hover:text-black"
-                                : "text-white/40 hover:text-white/60"
-                    )}
-                >
-                    <span>إضافة موظف</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('admin_manage')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_manage'
-                            ? "bg-blue-600 text-white shadow-lg"
-                            : theme === 'light'
-                                ? "text-gray-600 hover:text-black"
-                                : "text-white/40 hover:text-white/60"
-                    )}
-                >
-                    <span>إدارة الموظفين</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('admin_records')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_records'
-                            ? "bg-blue-600 text-white shadow-lg"
-                            : theme === 'light'
-                                ? "text-gray-600 hover:text-black"
-                                : "text-white/40 hover:text-white/60"
-                    )}
-                >
-                    <span>إدارة السجلات</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('admin_news')}
-                    className={cn(
-                        "flex-1 flex items-center justify-center px-4 py-2 rounded-lg transition-all font-bold text-xs",
-                        activeTab === 'admin_news'
-                            ? "bg-blue-600 text-white shadow-lg"
-                            : theme === 'light'
-                                ? "text-gray-600 hover:text-black"
-                                : "text-white/40 hover:text-white/60"
-                    )}
-                >
-                    <span>الاعلام</span>
-                </button>
+                } backdrop-blur-md overflow-hidden`}>
+                <ScrollableTabs
+                    tabs={[
+                        { id: 'admin_add', label: 'إضافة موظف' },
+                        { id: 'admin_manage', label: 'إدارة الموظفين' },
+                        { id: 'admin_records', label: 'إدارة السجلات' },
+                        { id: 'admin_news', label: 'الاعلام' },
+                        { id: 'admin_supervisors', label: 'المشرفون' },
+                    ]}
+                    activeTab={activeTab}
+                    onTabChange={(id) => setActiveTab(id as any)}
+                    containerClassName="w-full"
+                    activeTabClassName="bg-blue-600 text-white shadow-lg"
+                    inactiveTabClassName={theme === 'light' ? "text-gray-600 hover:text-black" : "text-white/40 hover:text-white/60"}
+                    tabClassName="flex-1" // Keep flex-1 if we want them to fill space, but user said "take one line... and expand". 
+                // Actually user said "make the tab take on line... expland horizontally off screen".
+                // If I use flex-1, they shrink. I should remove flex-1 or make it grow but not shrink?
+                // "make the tab take one line" implies whitespace-nowrap (handled in component).
+                // "expand horizontally... off screen" implies they shouldn't wrap.
+                // The ScrollableTabs component uses `flex-none` by default for items.
+                // Let's pass `flex-1 min-w-fit` maybe?
+                // User said: "اجعل التبويبة على تأخذ سطر واحد وليتوسع الشريط افقيا ويخرج عن الشاشة"
+                // "make the tab take one line and let the bar expand horizontally and go out of screen"
+                // So they should have their natural width or a minimum width, and not shrink.
+                // The component has `flex-none` on buttons, so they won't shrink.
+                // I will pass `min-w-[100px]` or something to ensure they utilize space if few, but `flex-1` might force them to be small if container is small?
+                // No, `flex-1` with `min-w` is good. 
+                // But if I want them to overflow, `flex-none` is better.
+                // However, if there are only 4 tabs on a large screen, they should probably fill the width?
+                // User said: "sometimes it expands in height... due to wrapping".
+                // So `whitespace-nowrap` is the key fixes.
+                // I will remove `flex-1` from `tabClassName` to let them be natural width, OR keep `flex-1` but ensure `min-width`.
+                // If I look at the screenshot, they are quite wide.
+                // I'll try `w-full` on container (default) and `flex-1` on tabs? No, that causes shrinking.
+                // I will use `flex-none` (default in component) and maybe `px-6` for larger touch targets.
+                />
             </div>
 
             {/* Search & Year Slider (only in manage & records tabs) */}

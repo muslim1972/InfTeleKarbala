@@ -28,12 +28,20 @@ export const AppFooter = () => {
                             <span>اعداد المهندس مسلم عقيل</span>
                         </div>
 
-                        {/* Signature Image - Centered */}
-                        <img
-                            src="/MyName.png"
-                            alt="Signature"
-                            className="absolute left-1/2 -translate-x-1/2 h-10 md:h-12 w-auto opacity-90"
-                        />
+                        {/* Signature Image - Centered with Solar Halo */}
+                        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-12 h-12">
+                            {/* Halo Effect - Sun Rays */}
+                            <div className="absolute w-full h-full bg-yellow-500/40 rounded-full blur-sm animate-ripple" style={{ animationDelay: '0s' }} />
+                            <div className="absolute w-full h-full bg-yellow-400/30 rounded-full blur-md animate-ripple" style={{ animationDelay: '0.6s' }} />
+                            <div className="absolute w-full h-full bg-orange-400/20 rounded-full blur-lg animate-ripple" style={{ animationDelay: '1.2s' }} />
+
+                            {/* The Image */}
+                            <img
+                                src="/MyName.png"
+                                alt="Signature"
+                                className="h-10 md:h-12 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+                            />
+                        </div>
 
                         <div className="tracking-widest opacity-70 mr-6">
                             نسخة v{__APP_VERSION__}
