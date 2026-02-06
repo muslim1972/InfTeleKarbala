@@ -15,6 +15,7 @@ export const YearSlider = ({
     selectedYear,
     onYearChange
 }: YearSliderProps) => {
+    // Theme handled via CSS variables now
     const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i).reverse();
     const containerRef = useRef<HTMLDivElement>(null);
     const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
@@ -25,8 +26,6 @@ export const YearSlider = ({
         if (selectedBtn && containerRef.current) {
             const container = containerRef.current;
             // Calculate center position
-            // In RTL, scrollLeft works differently in some browsers, but scrollTo with 'left' usually targets physical pixels
-            // Let's rely on standard calculation: center of container - center of item
             const scrollLeft = selectedBtn.offsetLeft - (container.clientWidth / 2) + (selectedBtn.clientWidth / 2);
             container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
         }
@@ -57,7 +56,10 @@ export const YearSlider = ({
             <button
                 onClick={() => handleYearStep('newer')}
                 disabled={selectedYear >= endYear}
-                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                className={cn(
+                    "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
+                    "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                )}
             >
                 <ChevronRight className="w-4 h-4" />
             </button>
@@ -81,8 +83,8 @@ export const YearSlider = ({
                                 className={cn(
                                     "flex-shrink-0 relative px-3 py-1.5 rounded-xl transition-all duration-300 snap-center font-bold text-sm z-0",
                                     isSelected
-                                        ? "text-white shadow-[0_0_15px_rgba(34,197,94,0.5)] bg-brand-green-DEFAULT ring-1 ring-white/50 scale-105 font-extrabold"
-                                        : "text-white/40 hover:text-white/80 hover:bg-white/5"
+                                        ? "bg-primary text-primary-foreground shadow-md scale-105"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                                 )}
                             >
                                 {year}
@@ -90,16 +92,19 @@ export const YearSlider = ({
                         )
                     })}
                 </div>
-                {/* Fade Gradients */}
-                <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0f172a]/90 to-transparent pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0f172a]/90 to-transparent pointer-events-none" />
+                {/* Fade Gradients - Using semantic background color */}
+                <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent pointer-events-none" />
             </div>
 
             {/* Left Arrow: Older Years (End of List) */}
             <button
                 onClick={() => handleYearStep('older')}
                 disabled={selectedYear <= startYear}
-                className="p-1.5 rounded-full bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                className={cn(
+                    "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
+                    "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                )}
             >
                 <ChevronLeft className="w-4 h-4" />
             </button>

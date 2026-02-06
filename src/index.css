@@ -5,52 +5,97 @@
   --safe-area-left: env(safe-area-inset-left);
   --safe-area-right: env(safe-area-inset-right);
 
-  /* Dark Mode Variables (Default) */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --bg-card-hover: rgba(255, 255, 255, 0.1);
-  --bg-glass: rgba(15, 23, 42, 0.8);
+  /* Light Mode Variables (Default in :root for shadcn style, but we will toggle class) */
+  /* We will use .dark class for dark mode override */
 
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-tertiary: rgba(255, 255, 255, 0.5);
-  --text-quaternary: rgba(255, 255, 255, 0.4);
+  /* BASE COLORS - LIGHT MODE */
+  --background: 210 40% 98%;
+  /* Slate 50 */
+  --foreground: 222 47% 11%;
+  /* Slate 900 */
 
-  --border-color: rgba(255, 255, 255, 0.1);
-  --border-hover: rgba(255, 255, 255, 0.2);
-  --divider: rgba(255, 255, 255, 0.1);
+  --card: 0 0% 100%;
+  /* White */
+  --card-foreground: 222 47% 11%;
+  /* Slate 900 */
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --popover: 0 0% 100%;
+  /* White */
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 142 76% 36%;
+  /* Green 600 - Brand Green */
+  --primary-foreground: 355 100% 100%;
+  /* White */
+
+  --secondary: 210 40% 96.1%;
+  /* Slate 100 */
+  --secondary-foreground: 222 47% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  /* Slate 100 */
+  --muted-foreground: 215.4 16.3% 46.9%;
+  /* Slate 500 */
+
+  --accent: 210 40% 96.1%;
+  /* Slate 100 */
+  --accent-foreground: 222 47% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  /* Red 500 */
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  /* Slate 200 */
+  --input: 214.3 31.8% 91.4%;
+  /* Slate 200 */
+  --ring: 142 76% 36%;
+  /* Green 600 */
+
+  --radius: 0.75rem;
 }
 
-/* Light Mode Variables */
-html.light {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-glass: rgba(255, 255, 255, 0.9);
+/* DARK MODE OVERRIDES */
+html.dark .dark,
+.dark {
+  --background: 222 47% 11%;
+  /* Slate 900 */
+  --foreground: 210 40% 98%;
+  /* Slate 50 */
 
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --text-quaternary: #94a3b8;
+  --card: 217 33% 17%;
+  /* Slate 800/50 (Darker than bg) or slight tint */
+  --card-foreground: 210 40% 98%;
 
-  --border-color: #e2e8f0;
-  --border-hover: #cbd5e1;
-  --divider: #e2e8f0;
+  --popover: 222 47% 11%;
+  --popover-foreground: 210 40% 98%;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --primary: 142 70% 50%;
+  /* Green 500 - Brighter for Dark Mode */
+  --primary-foreground: 144 65% 10%;
+  /* Dark Green Text */
+
+  --secondary: 217.2 32.6% 17.5%;
+  /* Slate 800 */
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  /* Slate 800 */
+  --muted-foreground: 215 20.2% 65.1%;
+  /* Slate 400 */
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  /* Slate 800 */
+  --input: 217.2 32.6% 17.5%;
+  --ring: 142 70% 50%;
 }
+
 
 @tailwind base;
 @tailwind components;
@@ -67,8 +112,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   direction: rtl;
   font-family: 'Tajawal', sans-serif;
   overflow-x: hidden;

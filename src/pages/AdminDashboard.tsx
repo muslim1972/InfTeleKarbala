@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
-import { GlassCard } from "../components/ui/GlassCard";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
@@ -11,6 +10,10 @@ import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
 import { YearSlider } from "../components/features/YearSlider";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { Label } from "../components/ui/Label";
 
 
 
@@ -855,7 +858,12 @@ export const AdminDashboard = () => {
                 {/* Right Side (Start in RTL): Year Slider (Reserved Slot) */}
                 <div className="flex-shrink-0 min-w-[140px]">
                     {activeTab === 'admin_records' ? (
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 animate-in fade-in zoom-in duration-300">
+                        <div className={cn(
+                            "flex items-center gap-1 px-2 py-0.5 rounded-lg border animate-in fade-in zoom-in duration-300",
+                            theme === 'light'
+                                ? "bg-white border-gray-200 shadow-sm"
+                                : "bg-white/5 border-white/5"
+                        )}>
                             <div className="w-28">
                                 <YearSlider
                                     selectedYear={selectedAdminYear}
@@ -993,153 +1001,116 @@ export const AdminDashboard = () => {
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto">
-                    <GlassCard className="p-4 md:p-6 w-full">
-                        <div className="space-y-4">
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto max-w-2xl">
+                    <Card className="w-full">
+                        <CardHeader>
+                            <CardTitle>إضافة موظف جديد</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
                             {/* Row 1: Full Name */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>الاسم الكامل</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={formData.full_name}
-                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors ${theme === 'light'
-                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
-                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
-                                            }`}
-                                        placeholder="الاسم الرباعي واللقب"
-                                    />
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="full_name">الاسم الكامل</Label>
+                                <Input
+                                    id="full_name"
+                                    type="text"
+                                    value={formData.full_name}
+                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                    placeholder="الاسم الرباعي واللقب"
+                                />
                             </div>
 
-                            {/* Row 2: Account Type (2 Tik Design) */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>نوع الحساب</label>
-                                <div className={`flex gap-4 p-2 rounded-xl border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10'
-                                    }`}>
-                                    <button
+                            {/* Row 2: Account Type */}
+                            <div className="grid gap-2">
+                                <Label>نوع الحساب</Label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Button
                                         type="button"
+                                        variant={formData.role === 'user' ? 'default' : 'outline'}
                                         onClick={() => setFormData({ ...formData, role: 'user' })}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
-                                            formData.role === 'user'
-                                                ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                                                : theme === 'light'
-                                                    ? "text-gray-600 hover:bg-gray-100"
-                                                    : "text-white/40 hover:bg-white/5"
-                                        )}
+                                        className="w-full gap-2"
                                     >
-                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-blue-400 bg-blue-400" : "border-white/30")}>
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-white" : "border-muted-foreground")}>
                                             {formData.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                         </div>
-                                        <span className="text-xs font-bold">موظف</span>
-                                    </button>
-
-                                    <button
+                                        موظف
+                                    </Button>
+                                    <Button
                                         type="button"
+                                        variant={formData.role === 'admin' ? 'default' : 'outline'}
                                         onClick={() => setFormData({ ...formData, role: 'admin' })}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all",
-                                            formData.role === 'admin'
-                                                ? "bg-brand-green/20 text-brand-green ring-1 ring-brand-green/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
-                                                : theme === 'light'
-                                                    ? "text-gray-600 hover:bg-gray-100"
-                                                    : "text-white/40 hover:bg-white/5"
-                                        )}
+                                        className="w-full gap-2"
                                     >
-                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-brand-green bg-brand-green" : "border-white/30")}>
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-white" : "border-muted-foreground")}>
                                             {formData.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                         </div>
-                                        <span className="text-xs font-bold">مشرف</span>
-                                    </button>
+                                        مشرف
+                                    </Button>
                                 </div>
                             </div>
 
                             {/* Row 3: Job Number */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>الرقم الوظيفي الموحد</label>
+                            <div className="grid gap-2">
+                                <Label htmlFor="job_number">الرقم الوظيفي الموحد</Label>
                                 <div className="relative">
-                                    <div className={`absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-center min-w-[20px] ${theme === 'light' ? 'bg-gray-200' : 'bg-white/10'
-                                        }`}>
-                                        <span className={`text-[10px] font-mono ${theme === 'light' ? 'text-gray-500' : 'text-white/50'
-                                            }`}>#</span>
-                                    </div>
-                                    <input
+                                    <Input
+                                        id="job_number"
                                         type="text"
                                         value={formData.job_number}
                                         onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        className={`w-full rounded-xl px-4 py-2 pr-10 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
-                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
-                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
-                                            }`}
                                         placeholder="123456"
+                                        className="font-mono text-left"
+                                        dir="ltr"
                                     />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono pointer-events-none">#</div>
                                 </div>
                             </div>
 
                             {/* Row 4: IBAN */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>رمز ( IBAN )</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={formData.iban}
-                                        onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
-                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
-                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
-                                            }`}
-                                        placeholder="IQ..."
-                                        dir="ltr"
-                                    />
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="iban">رمز ( IBAN )</Label>
+                                <Input
+                                    id="iban"
+                                    type="text"
+                                    value={formData.iban}
+                                    onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                                    placeholder="IQ..."
+                                    className="font-mono text-left"
+                                    dir="ltr"
+                                />
                             </div>
 
                             {/* Row 5: Username */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>اسم المستخدم المؤقت</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors ${theme === 'light'
-                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
-                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
-                                            }`}
-                                        placeholder="username"
-                                        dir="ltr"
-                                    />
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="username">اسم المستخدم المؤقت</Label>
+                                <Input
+                                    id="username"
+                                    type="text"
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    placeholder="username"
+                                    className="font-mono text-left"
+                                    dir="ltr"
+                                    autoComplete="off"
+                                />
                             </div>
 
                             {/* Row 6: Password */}
-                            <div className="grid grid-cols-[auto_1fr] items-center gap-4">
-                                <label className={`text-xs font-bold whitespace-nowrap min-w-[80px] ${theme === 'light' ? 'text-gray-700' : 'text-white/70'
-                                    }`}>كلمة المرور المؤقتة</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={formData.password}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className={`w-full rounded-xl px-4 py-2 text-sm focus:outline-none transition-colors font-mono ${theme === 'light'
-                                            ? 'bg-gray-50 border-2 border-gray-200 text-black placeholder:text-gray-400 focus:border-brand-green/50'
-                                            : 'bg-white/5 border border-white/10 text-white placeholder:text-white/50 focus:border-brand-green/50'
-                                            }`}
-                                        placeholder="password"
-                                        dir="ltr"
-                                    />
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="password">كلمة المرور المؤقتة</Label>
+                                <Input
+                                    id="password"
+                                    type="text"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    placeholder="password"
+                                    className="font-mono text-left"
+                                    dir="ltr"
+                                    autoComplete="off"
+                                />
                             </div>
 
-                        </div>
-                    </GlassCard>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
 

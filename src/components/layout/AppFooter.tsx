@@ -8,8 +8,8 @@ export const AppFooter = () => {
             {/* Line 1: News Ticker */}
             <TipsMarquee appName="InfTeleKarbala" />
 
-            <div className="max-w-7xl mx-auto px-6 py-3 w-full border-t border-blue-500/20">
-                <div className="flex flex-col gap-2">
+            <div className="max-w-7xl mx-auto px-6 py-1 w-full border-t border-blue-500/20">
+                <div className="flex flex-col gap-1">
                     {/* Line 2: System Title */}
                     <div className="text-center relative">
                         {/* Decorative lines */}
@@ -17,12 +17,12 @@ export const AppFooter = () => {
                         <div className="absolute top-1/2 right-0 w-1/4 h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
 
                         <span className="text-blue-400 font-bold text-sm md:text-base tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)]">
-                            نظام الادارة والمالية / اتصالات ومعلوماتية كربلاء
+                            نظام الادارة الموحد / اتصالات ومعلوماتية كربلاء
                         </span>
                     </div>
 
                     {/* Line 3: Credits & Version */}
-                    <div className="flex items-center justify-between text-[10px] md:text-xs text-white/50 font-mono relative">
+                    <div className="flex items-center justify-between text-[10px] md:text-xs text-white/50 font-mono relative pt-1">
                         <div className="flex items-center gap-2 transition-colors hover:text-blue-300">
                             <Code2 className="w-3 h-3" />
                             <span>اعداد المهندس مسلم عقيل</span>
