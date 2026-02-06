@@ -44,7 +44,7 @@ export const Dashboard = () => {
                 setTimeout(() => {
                     const element = document.getElementById(`financial-group-${section}`);
                     if (element) {
-                        const y = element.getBoundingClientRect().top + window.scrollY - 250; // Offset for header
+                        const y = element.getBoundingClientRect().top + window.scrollY - 180; // Adjusted offset
                         window.scrollTo({ top: y, behavior: 'smooth' });
                     }
                 }, 100);
@@ -324,8 +324,8 @@ export const Dashboard = () => {
                         <div className="space-y-4 pb-20">
                             {/* Audit Banner for User (Time Only) */}
                             {financialData?.last_modified_at && (
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500">
-                                    <span className="text-white/40 text-xs font-bold">آخر تحديث للبيانات المالية:</span>
+                                <div className="bg-muted/50 border border-border rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
+                                    <span className="text-muted-foreground text-xs font-bold">آخر تحديث للبيانات المالية:</span>
                                     <div className="text-brand-green font-bold text-sm font-mono tracking-wider dir-ltr">
                                         {new Date(financialData.last_modified_at).toLocaleDateString('en-GB')} {new Date(financialData.last_modified_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                     </div>
@@ -343,7 +343,7 @@ export const Dashboard = () => {
                                     isOpen={openSection === group.id}
                                     onToggle={() => toggleSection(group.id)}
                                 >
-                                    <div className="space-y-2">
+                                    <div className="space-y-3 p-1">
                                         {group.fields.map((field) => {
                                             const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
                                             const displayVal = field.isMoney
@@ -354,19 +354,31 @@ export const Dashboard = () => {
                                                 <div
                                                     key={field.key}
                                                     className={cn(
-                                                        "flex justify-between items-center p-4 rounded-xl border transition-colors",
-                                                        field.superHighlight ? "bg-brand-green/20 border-brand-green text-white" :
-                                                            field.highlight ? "bg-red-500/10 border-red-500/20 text-white" :
-                                                                "bg-white/5 border-white/5 text-white/80 hover:bg-white/10"
+                                                        "grid grid-cols-[132px_1fr] items-center gap-2", // Unified Grid Layout
+                                                        field.superHighlight && "bg-brand-green/10 rounded-lg -mx-2 px-2 py-1"
                                                     )}
                                                 >
-                                                    <span className="font-medium text-sm md:text-base">{field.label}</span>
-                                                    <span className={cn(
-                                                        "font-bold font-mono tracking-wide",
-                                                        field.superHighlight ? "text-xl" : "text-base"
+                                                    {/* Label Column */}
+                                                    <div className="flex justify-start pl-2">
+                                                        <span className={cn(
+                                                            "text-xs font-bold block whitespace-nowrap text-right w-full",
+                                                            field.superHighlight ? "text-brand-green" : "text-muted-foreground"
+                                                        )}>
+                                                            {field.label}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Value Column */}
+                                                    <div className={cn(
+                                                        "flex-1 px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all",
+                                                        field.superHighlight
+                                                            ? "bg-brand-green text-white border-brand-green shadow-lg shadow-brand-green/20 text-center text-lg"
+                                                            : field.highlight
+                                                                ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
+                                                                : "bg-muted/50 border-input text-foreground hover:bg-muted"
                                                     )}>
                                                         {displayVal}
-                                                    </span>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -390,7 +402,7 @@ export const Dashboard = () => {
                                             initial={{ height: 0, opacity: 0, marginTop: 0 }}
                                             animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
                                             exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                            className="bg-[#0f172a] border border-white/20 p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-white shadow-2xl overflow-hidden"
+                                            className="bg-card border border-border p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-foreground shadow-2xl overflow-hidden"
                                         >
                                             {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
                                         </motion.div>
@@ -399,7 +411,7 @@ export const Dashboard = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-20 text-white/50 bg-white/5 rounded-2xl border border-white/10">
+                        <div className="text-center py-20 text-muted-foreground bg-muted/30 rounded-2xl border border-border/50">
                             لا توجد بيانات مالية مسجلة لهذا الحساب حالياً
                         </div>
                     )
@@ -490,8 +502,8 @@ export const Dashboard = () => {
                             onToggle={() => handleDetailClick('leaves')}
                         >
                             {/* Leaves Custom Content */}
-                            <div className="space-y-3">
-                                <h3 className="text-white font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
+                            <div className="space-y-4">
+                                <h3 className="text-foreground font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
 
                                 <GlassCard className="p-5 relative overflow-hidden transition-all duration-300">
                                     <AnimatePresence mode="wait">
@@ -541,32 +553,32 @@ export const Dashboard = () => {
                                                 exit={{ opacity: 0, x: -20 }}
                                                 className="space-y-3"
                                             >
-                                                <div className="flex justify-between border-b border-white/10 pb-2 mb-3 bg-brand-green/10 p-3 rounded-lg">
-                                                    <span className="text-white font-bold text-sm">إجمالي الرصيد المستحق</span>
-                                                    <span className="text-white font-bold text-lg text-brand-yellow">{balances.total_earned_regular} يوم</span>
+                                                <div className="flex justify-between border-b border-border pb-2 mb-3 bg-brand-green/5 p-3 rounded-lg">
+                                                    <span className="text-foreground font-bold text-sm">إجمالي الرصيد المستحق</span>
+                                                    <span className="text-foreground font-bold text-lg text-brand-yellow">{balances.total_earned_regular} يوم</span>
                                                 </div>
-                                                <div className="flex justify-between border-b border-white/10 pb-2">
-                                                    <span className="text-white/70 text-sm">الرصيد الاعتيادي المتبقي</span>
-                                                    <span className="text-white font-bold text-brand-green">{balances.regular} يوم</span>
+                                                <div className="flex justify-between border-b border-border pb-2">
+                                                    <span className="text-muted-foreground text-sm">الرصيد الاعتيادي المتبقي</span>
+                                                    <span className="text-brand-green font-bold">{balances.regular} يوم</span>
                                                 </div>
-                                                <div className="flex justify-between border-b border-white/10 pb-2">
-                                                    <span className="text-white/70 text-sm">الرصيد المرضي المتبقي</span>
-                                                    <span className="text-white font-bold text-blue-400">{balances.sick} يوم</span>
+                                                <div className="flex justify-between border-b border-border pb-2">
+                                                    <span className="text-muted-foreground text-sm">الرصيد المرضي المتبقي</span>
+                                                    <span className="font-bold text-blue-500">{balances.sick} يوم</span>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-3 pt-1">
-                                                    <div className="bg-white/5 p-2 rounded text-center">
-                                                        <p className="text-white/40 text-xs">المستخدم (اعتيادية)</p>
-                                                        <p className="text-white font-bold">{lifetimeUsage.regular} يوم</p>
+                                                    <div className="bg-muted/50 p-2 rounded text-center border border-border">
+                                                        <p className="text-muted-foreground text-xs">المستخدم (اعتيادية)</p>
+                                                        <p className="text-foreground font-bold">{lifetimeUsage.regular} يوم</p>
                                                     </div>
-                                                    <div className="bg-white/5 p-2 rounded text-center">
-                                                        <p className="text-white/40 text-xs">المستخدم (مرضية)</p>
-                                                        <p className="text-white font-bold">{lifetimeUsage.sick} يوم</p>
+                                                    <div className="bg-muted/50 p-2 rounded text-center border border-border">
+                                                        <p className="text-muted-foreground text-xs">المستخدم (مرضية)</p>
+                                                        <p className="text-foreground font-bold">{lifetimeUsage.sick} يوم</p>
                                                     </div>
                                                 </div>
 
                                                 <div className="text-center pt-2">
-                                                    <span className="text-white/30 text-[10px]">
+                                                    <span className="text-muted-foreground text-[10px]">
                                                         تاريخ المباشرة: {adminData?.first_appointment_date || 'غير محدد'}
                                                     </span>
                                                 </div>
@@ -575,8 +587,8 @@ export const Dashboard = () => {
                                     </AnimatePresence>
                                 </GlassCard>
 
-                                <div className="bg-white/5 border border-white/5 rounded-xl overflow-hidden">
-                                    <h4 className="text-xs font-bold text-white/40 px-4 py-2 bg-white/5">
+                                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                                    <h4 className="text-xs font-bold text-muted-foreground px-4 py-3 bg-muted/50 border-b border-border">
                                         سجل اجازات {selectedYear}
                                     </h4>
                                     <div className="max-h-48 overflow-y-auto p-2 space-y-2 custom-scrollbar">
@@ -589,22 +601,22 @@ export const Dashboard = () => {
                                                         "w-full flex justify-between items-center p-3 rounded-lg border transition-all text-right",
                                                         selectedLeave?.id === leave.id
                                                             ? "bg-brand-green/10 border-brand-green/50 ring-1 ring-brand-green/20"
-                                                            : "bg-black/20 border-transparent hover:bg-white/5"
+                                                            : "bg-muted/20 border-transparent hover:bg-muted/50"
                                                     )}
                                                 >
                                                     <div>
-                                                        <p className={cn("font-bold text-sm", selectedLeave?.id === leave.id ? "text-brand-green" : "text-white")}>
+                                                        <p className={cn("font-bold text-sm", selectedLeave?.id === leave.id ? "text-brand-green" : "text-foreground")}>
                                                             {leave.leave_type}
                                                         </p>
-                                                        <p className="text-white/40 text-xs mt-0.5">{leave.start_date}</p>
+                                                        <p className="text-muted-foreground text-xs mt-0.5">{leave.start_date}</p>
                                                     </div>
-                                                    <div className="bg-white/5 px-2 py-1 rounded text-xs text-white/70 font-mono">
+                                                    <div className="bg-background px-2 py-1 rounded text-xs text-foreground/70 font-mono border border-border">
                                                         {leave.duration} يوم
                                                     </div>
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="text-center py-8 text-white/20 text-sm">
+                                            <div className="text-center py-8 text-muted-foreground text-sm">
                                                 لا توجد اجازات مسجلة في {selectedYear}
                                             </div>
                                         )}

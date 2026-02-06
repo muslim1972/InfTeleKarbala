@@ -101,10 +101,10 @@ export function UserPolls() {
                 ))
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
-                        <PieChart className="w-8 h-8 text-white/20" />
+                    <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center border border-border">
+                        <PieChart className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <p className="text-white/40 font-bold">لا توجد استطلاعات نشطة حالياً</p>
+                    <p className="text-muted-foreground font-bold">لا توجد استطلاعات نشطة حالياً</p>
                 </div>
             )}
 

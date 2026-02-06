@@ -199,7 +199,7 @@ export function PollItem({ poll }: PollItemProps) {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-green to-transparent opacity-50" />
 
                 <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-2xl font-bold text-white max-w-[70%]">{poll.title}</h2>
+                    <h2 className="text-2xl font-bold text-foreground max-w-[70%]">{poll.title}</h2>
                     <div className="flex items-center gap-3">
                         {/* Anonymous Toggle - Only in Edit Mode */}
                         {mode !== 'view' && isExpanded && (
@@ -228,7 +228,7 @@ export function PollItem({ poll }: PollItemProps) {
                                 )}
                             </button>
                         )}
-                        <PieChart className={cn("w-6 h-6 text-white/50 transition-transform duration-300", isExpanded && "rotate-180")} />
+                        <PieChart className={cn("w-6 h-6 text-muted-foreground transition-transform duration-300", isExpanded && "rotate-180")} />
                     </div>
                 </div>
 
@@ -256,7 +256,7 @@ export function PollItem({ poll }: PollItemProps) {
                         {poll.questions.map((q, idx) => (
                             <div
                                 key={q.id}
-                                className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4"
+                                className="bg-card border border-border rounded-xl p-5 space-y-4"
                                 onClickCapture={(e) => {
                                     if (!poll.is_active) {
                                         e.stopPropagation();
@@ -264,7 +264,7 @@ export function PollItem({ poll }: PollItemProps) {
                                     }
                                 }}
                             >
-                                <h3 className="text-lg font-bold text-white flex items-start gap-3">
+                                <h3 className="text-lg font-bold text-foreground flex items-start gap-3">
                                     <span className="bg-brand-green/20 text-brand-green w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0 mt-0.5">
                                         {idx + 1}
                                     </span>
@@ -283,7 +283,7 @@ export function PollItem({ poll }: PollItemProps) {
                                                     "w-full text-right p-4 rounded-xl border transition-all duration-200 flex items-center justify-between group",
                                                     isSelected
                                                         ? "bg-brand-green text-white border-brand-green shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                                                        : "bg-black/20 text-white/70 border-white/5 hover:bg-white/10",
+                                                        : "bg-muted text-foreground border-border hover:bg-muted/80",
                                                     (mode === 'view' || !poll.is_active) && !isSelected && "opacity-50 grayscale"
                                                 )}
                                             >
@@ -294,18 +294,18 @@ export function PollItem({ poll }: PollItemProps) {
                                     })}
                                 </div>
                                 {q.allow_multiple_answers && (
-                                    <p className="text-xs text-white/30 pr-11">يمكنك اختيار أكثر من إجابة</p>
+                                    <p className="text-xs text-muted-foreground pr-11">يمكنك اختيار أكثر من إجابة</p>
                                 )}
                             </div>
                         ))}
                     </div>
 
                     {/* Personal Opinion Section */}
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
-                        <label className="text-white font-bold flex items-center gap-2">
+                    <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                        <label className="text-foreground font-bold flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-brand-yellow" />
                             رأيي الشخصي
-                            <span className="text-xs font-normal text-white/40 bg-white/5 px-2 py-0.5 rounded mr-auto">
+                            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded mr-auto">
                                 اختياري
                             </span>
                         </label>
@@ -315,11 +315,11 @@ export function PollItem({ poll }: PollItemProps) {
                                 onChange={(e) => handleCommentChange(e.target.value)}
                                 disabled={mode === 'view' || !poll.is_active}
                                 placeholder="اكتب ملاحظاتك أو مقترحاتك هنا..."
-                                className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-brand-green/50 min-h-[100px] max-h-[200px] resize-y custom-scrollbar"
+                                className="w-full bg-muted/50 border border-input rounded-xl p-4 text-foreground focus:outline-none focus:border-brand-green/50 min-h-[100px] max-h-[200px] resize-y custom-scrollbar placeholder:text-muted-foreground"
                             />
                             <div className={cn(
-                                "absolute bottom-3 left-3 text-xs font-mono px-2 py-1 rounded bg-black/50 border border-white/10",
-                                wordCount >= MAX_WORDS ? "text-red-400" : "text-white/40"
+                                "absolute bottom-3 left-3 text-xs font-mono px-2 py-1 rounded bg-background/50 border border-border",
+                                wordCount >= MAX_WORDS ? "text-red-400" : "text-muted-foreground"
                             )}>
                                 {wordCount}/{MAX_WORDS}
                             </div>
@@ -337,14 +337,14 @@ export function PollItem({ poll }: PollItemProps) {
                                     <CheckCircle2 className="w-6 h-6" />
                                     <div>
                                         <p className="font-bold">تم إرسال إجاباتك</p>
-                                        <p className="text-xs text-white/50">شكراً لمشاركتك رأيك معنا</p>
+                                        <p className="text-xs text-muted-foreground">شكراً لمشاركتك رأيك معنا</p>
                                     </div>
                                 </div>
 
                                 {poll.is_active && (
                                     <button
                                         onClick={() => setMode('edit')}
-                                        className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
+                                        className="bg-muted hover:bg-muted/80 text-foreground px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors border border-border"
                                     >
                                         <span>تعديل الإجابات</span>
                                         <Edit className="w-4 h-4" />
