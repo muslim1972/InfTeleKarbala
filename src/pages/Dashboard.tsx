@@ -343,7 +343,7 @@ export const Dashboard = () => {
                                     isOpen={openSection === group.id}
                                     onToggle={() => toggleSection(group.id)}
                                 >
-                                    <div className="space-y-3 p-1">
+                                    <div className="table w-full border-separate border-spacing-y-3 p-1">
                                         {group.fields.map((field) => {
                                             const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
                                             const displayVal = field.isMoney
@@ -354,14 +354,17 @@ export const Dashboard = () => {
                                                 <div
                                                     key={field.key}
                                                     className={cn(
-                                                        "grid grid-cols-[132px_1fr] items-center gap-2", // Unified Grid Layout
-                                                        field.superHighlight && "bg-brand-green/10 rounded-lg -mx-2 px-2 py-1"
+                                                        "table-row", // Unified Table Layout
+                                                        field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
                                                     )}
                                                 >
-                                                    {/* Label Column */}
-                                                    <div className="flex justify-start pl-2">
+                                                    {/* Label Column - Smart Auto Width */}
+                                                    <div className={cn(
+                                                        "table-cell align-middle pl-4 w-px whitespace-nowrap",
+                                                        field.superHighlight && "rounded-r-lg py-2 pr-2"
+                                                    )}>
                                                         <span className={cn(
-                                                            "text-xs font-bold block whitespace-nowrap text-right w-full",
+                                                            "text-xs font-bold block",
                                                             field.superHighlight ? "text-brand-green" : "text-muted-foreground"
                                                         )}>
                                                             {field.label}
@@ -370,14 +373,19 @@ export const Dashboard = () => {
 
                                                     {/* Value Column */}
                                                     <div className={cn(
-                                                        "flex-1 px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all",
-                                                        field.superHighlight
-                                                            ? "bg-brand-green text-white border-brand-green shadow-lg shadow-brand-green/20 text-center text-lg"
-                                                            : field.highlight
-                                                                ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
-                                                                : "bg-muted/50 border-input text-foreground hover:bg-muted"
+                                                        "table-cell align-middle w-full",
+                                                        field.superHighlight && "rounded-l-lg py-2 pl-2"
                                                     )}>
-                                                        {displayVal}
+                                                        <div className={cn(
+                                                            "px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all text-center",
+                                                            field.superHighlight
+                                                                ? "bg-brand-green text-white border-brand-green shadow-md"
+                                                                : field.highlight
+                                                                    ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
+                                                                    : "bg-muted/50 border-input text-foreground hover:bg-muted"
+                                                        )}>
+                                                            {displayVal}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
