@@ -15,6 +15,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsVisitor: () => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateProfile: (updates: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   login: async () => ({ success: false }),
+  loginAsVisitor: async () => ({ success: false }),
   logout: () => { },
   updateProfile: async () => ({ success: false }),
   changePassword: async () => ({ success: false }),
@@ -55,8 +57,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Check local storage for persistent session
-    const storedUser = localStorage.getItem("app_user");
+    // Check local storage (Persistent) or Session Storage (Visitor)
+    const storedUser = localStorage.getItem("app_user") || sessionStorage.getItem("app_user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
@@ -66,6 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (e) {
         console.error("Failed to parse stored user", e);
         localStorage.removeItem("app_user");
+        sessionStorage.removeItem("app_user");
       }
     }
     setLoading(false);
@@ -108,14 +111,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+
+
+  // Handle Visibility Change for Visitor Security
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // If app goes to background and user is a visitor, kill the session
+      if (document.visibilityState === 'hidden' && user?.role === 'visitor') {
+        logout();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [user]);
+
+  const loginAsVisitor = async () => {
+    const visitorUser: AppUser = {
+      id: 'visitor-id',
+      username: 'visitor',
+      full_name: 'زائر النظام',
+      role: 'visitor',
+    };
+    setUser(visitorUser);
+    // Don't save to localStorage for persistence (Security Feature)
+    // We only keep it in state, so refresh kills it (optional: or sessionStorage)
+    sessionStorage.setItem("app_user", JSON.stringify(visitorUser));
+    sessionStorage.removeItem('session_logged');
+    return { success: true };
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("app_user");
+    sessionStorage.removeItem("app_user"); // Clear visitor session too
     sessionStorage.removeItem("session_logged");
   };
 
   const updateProfile = async (updates: Partial<AppUser>) => {
     if (!user) return { success: false, error: "No user logged in" };
+
+    // --- VISITOR MODE: Local Update Only ---
+    if (user.role === 'visitor') {
+      const newUser = { ...user, ...updates };
+      setUser(newUser);
+      // Update sessionStorage instead of localStorage for visitor
+      sessionStorage.setItem("app_user", JSON.stringify(newUser));
+      return { success: true };
+    }
 
     try {
       const { error } = await supabase
@@ -137,6 +180,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const changePassword = async (newPassword: string) => {
     if (!user) return { success: false, error: "No user logged in" };
 
+    // Visitor cannot change password (conceptually), but we can fake success or error
+    if (user.role === 'visitor') {
+      return { success: true };
+    }
+
     // Note: In a real app with Supabase Auth, you'd use supabase.auth.updateUser().
     // Since we use a custom table, we update the column directly.
     try {
@@ -154,6 +202,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return { success: false, error: "No user logged in" };
+
+    // --- VISITOR MODE: Fake Upload ---
+    if (user.role === 'visitor') {
+      const fakeUrl = URL.createObjectURL(file);
+      const updateResult = await updateProfile({ avatar_url: fakeUrl });
+      if (!updateResult.success) return { success: false, error: updateResult.error };
+      return { success: true, url: fakeUrl };
+    }
 
     try {
       const fileExt = file.name.split('.').pop();
@@ -185,7 +241,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, updateProfile, changePassword, uploadAvatar }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar }}>
       {!loading && children}
     </AuthContext.Provider>
   );

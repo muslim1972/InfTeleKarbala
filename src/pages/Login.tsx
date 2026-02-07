@@ -9,7 +9,7 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { login } = useAuth();
+  const { login, loginAsVisitor } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +100,7 @@ export const Login = () => {
             {/* Visitor Login Button */}
             <button
               type="button"
+              onClick={loginAsVisitor}
               className="w-full bg-blue-600/80 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-[0.98] backdrop-blur-sm border border-white/10"
             >
               <span>الدخول كزائر</span>

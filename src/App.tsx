@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 // Lazy loading للصفحات الثقيلة
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
 
 // مكون التحميل
@@ -34,6 +35,10 @@ const AppContent = () => {
   // توجيه المستخدم حسب الصلاحية
   if (user.role === 'admin') {
     return <AdminDashboard />;
+  }
+
+  if (user.role === 'visitor') {
+    return <VisitorDashboard />;
   }
 
   return <Dashboard />;
