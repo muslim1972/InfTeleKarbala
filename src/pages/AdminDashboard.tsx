@@ -1151,6 +1151,7 @@ export const AdminDashboard = () => {
                                 title="معلومات اساسية"
                                 icon={User}
                                 isOpen={expandedSections.main_info}
+                                color="from-teal-600 to-teal-500"
                                 onToggle={() => toggleSection('main_info')}
                             >
                                 {/* Main Info Fields */}
@@ -1263,7 +1264,7 @@ export const AdminDashboard = () => {
                                 title="معلومات الدرجة الوظيفية"
                                 icon={User}
                                 isOpen={expandedSections.basic}
-                                color="from-blue-600 to-blue-500"
+                                color="from-purple-600 to-purple-500"
                                 onToggle={() => toggleSection('basic')}
                             >
                                 <div className="space-y-4">
@@ -1410,15 +1411,15 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                id="allowances"
-                                title="المخصصات"
-                                icon={Wallet}
-                                isOpen={expandedSections.allowances}
-                                color="from-green-600 to-green-500"
-                                onToggle={() => toggleSection('allowances')}
+                                id="deductions"
+                                title="الاستقطاعات"
+                                icon={Scissors}
+                                isOpen={expandedSections.deductions}
+                                color="from-red-600 to-red-500"
+                                onToggle={() => toggleSection('deductions')}
                             >
                                 <div className="grid grid-cols-1 gap-4">
-                                    {financialFields.allowances.map(field => (
+                                    {financialFields.deductions.map(field => (
                                         <FinancialInput
                                             key={field.key}
                                             field={field}
@@ -1433,15 +1434,15 @@ export const AdminDashboard = () => {
                             </AccordionSection>
 
                             <AccordionSection
-                                id="deductions"
-                                title="الاستقطاعات"
-                                icon={Scissors}
-                                isOpen={expandedSections.deductions}
-                                color="from-red-600 to-red-500"
-                                onToggle={() => toggleSection('deductions')}
+                                id="allowances"
+                                title="المخصصات"
+                                icon={Wallet}
+                                isOpen={expandedSections.allowances}
+                                color="from-green-600 to-green-500"
+                                onToggle={() => toggleSection('allowances')}
                             >
                                 <div className="grid grid-cols-1 gap-4">
-                                    {financialFields.deductions.map(field => (
+                                    {financialFields.allowances.map(field => (
                                         <FinancialInput
                                             key={field.key}
                                             field={field}
@@ -1480,7 +1481,7 @@ export const AdminDashboard = () => {
                                     id="thanks"
                                     title="كتب الشكر والتقدير"
                                     icon={Award}
-                                    color="from-yellow-600 to-yellow-500"
+                                    color="from-teal-600 to-teal-500"
                                     data={adminRecords.thanks}
                                     type="thanks"
                                     onSave={handleSaveRecord}
@@ -1499,7 +1500,7 @@ export const AdminDashboard = () => {
                                     id="committees"
                                     title="اللجان"
                                     icon={User}
-                                    color="from-blue-600 to-blue-500"
+                                    color="from-purple-600 to-purple-500"
                                     data={adminRecords.committees}
                                     type="committees"
                                     onSave={handleSaveRecord}

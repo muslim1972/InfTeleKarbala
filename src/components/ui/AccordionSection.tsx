@@ -50,6 +50,30 @@ export function AccordionSection({ title, icon: Icon, isOpen, onToggle, children
             indicator: "bg-rose-500",
             wrapperBorder: "border-rose-500/30 dark:border-rose-500/30"
         };
+        if (color?.includes('slate')) return {
+            bg: "bg-slate-500/10 dark:bg-slate-500/10",
+            border: "border-slate-500/30 dark:border-slate-500/30 ring-slate-500/20",
+            iconBg: "bg-slate-500 text-white shadow-lg shadow-slate-500/30",
+            text: "text-slate-900 dark:text-slate-100",
+            indicator: "bg-slate-500",
+            wrapperBorder: "border-slate-500/30 dark:border-slate-500/30"
+        };
+        if (color?.includes('teal')) return {
+            bg: "bg-teal-500/10 dark:bg-teal-500/10",
+            border: "border-teal-500/30 dark:border-teal-500/30 ring-teal-500/20",
+            iconBg: "bg-teal-500 text-white shadow-lg shadow-teal-500/30",
+            text: "text-teal-900 dark:text-teal-100",
+            indicator: "bg-teal-500",
+            wrapperBorder: "border-teal-500/30 dark:border-teal-500/30"
+        };
+        if (color?.includes('purple')) return {
+            bg: "bg-purple-500/10 dark:bg-purple-500/10",
+            border: "border-purple-500/30 dark:border-purple-500/30 ring-purple-500/20",
+            iconBg: "bg-purple-500 text-white shadow-lg shadow-purple-500/30",
+            text: "text-purple-900 dark:text-purple-100",
+            indicator: "bg-purple-500",
+            wrapperBorder: "border-purple-500/30 dark:border-purple-500/30"
+        };
 
         // Default (Gray/Glass) - maintained for non-colored sections
         return {
