@@ -1728,165 +1728,154 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
 
     // Inside RecordSection function
     return (
-        <div id={`record-section-${id}`} className="rounded-2xl overflow-hidden shadow-lg border border-border mb-4 bg-card">
-            <button
-                onClick={onToggle}
-                className={cn(
-                    "w-full p-3 flex items-center justify-between text-white transition-all bg-gradient-to-r hover:brightness-110",
-                    color
-                )}
-            >
-                <div className="flex items-center gap-2">
-                    <div className="bg-white/20 p-1.5 rounded-lg">
-                        <Icon className="w-4 h-4" />
-                    </div>
-                    <span className="font-bold text-sm">{title} ({data.length})</span>
-                </div>
-                <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isOpen ? "rotate-180" : "")} />
-            </button>
+        <AccordionSection
+            id={`record-section-${id}`}
+            title={`${title} (${data.length})`}
+            icon={Icon}
+            isOpen={isOpen}
+            onToggle={onToggle}
+            color={color}
+        >
+            <div className="space-y-4">
+                {/* Add/Edit Form */}
+                <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-muted/50 border-border")}>
+                    <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-foreground/70")}>
+                        {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {fields.map((field: any) => (
+                            <div key={field.key} className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                {/* Label */}
+                                <div className="flex justify-start pl-2">
+                                    <label className="text-xs text-muted-foreground font-bold block whitespace-nowrap text-right w-full">{field.label}</label>
+                                </div>
 
-            {isOpen && (
-                <div className="p-4 bg-background/50 border-t border-border space-y-4">
-                    {/* Add/Edit Form */}
-                    <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-muted/50 border-border")}>
-                        <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-foreground/70")}>
-                            {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                            {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {fields.map((field: any) => (
-                                <div key={field.key} className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                    {/* Label */}
-                                    <div className="flex justify-start pl-2">
-                                        <label className="text-xs text-muted-foreground font-bold block whitespace-nowrap text-right w-full">{field.label}</label>
-                                    </div>
+                                {/* Input + Spacer */}
+                                <div className="flex items-center gap-2 relative w-full">
+                                    {/* Spacer for alignment (No history here yet, but keeps alignment) */}
+                                    <div className="w-6 shrink-0" />
 
-                                    {/* Input + Spacer */}
-                                    <div className="flex items-center gap-2 relative w-full">
-                                        {/* Spacer for alignment (No history here yet, but keeps alignment) */}
-                                        <div className="w-6 shrink-0" />
-
-                                        <div className="flex-1 relative">
-                                            {field.type === 'select' ? (
-                                                <div className="relative">
+                                    <div className="flex-1 relative">
+                                        {field.type === 'select' ? (
+                                            <div className="relative">
+                                                <Select
+                                                    value={newItem[field.key] || ""}
+                                                    onValueChange={(val) => setNewItem({ ...newItem, [field.key]: val })}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="اختر..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="default_placeholder" className="hidden">اختر...</SelectItem>
+                                                        {field.options?.map((opt: string) => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        ) : field.type === 'date-fixed-year' ? (
+                                            <div className="flex gap-2">
+                                                {/* Day - Number Input */}
+                                                <Input
+                                                    type="number"
+                                                    placeholder="يوم"
+                                                    min={1} max={31}
+                                                    value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
+                                                    onChange={e => {
+                                                        let day = e.target.value;
+                                                        if (parseInt(day) > 31) day = "31";
+                                                        const dayStr = day.length === 1 ? `0${day}` : day;
+                                                        const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                        const parts = current.split('-');
+                                                        setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
+                                                    }}
+                                                    className="flex-1 text-center"
+                                                />
+                                                {/* Month */}
+                                                <div className="flex-1 relative">
                                                     <Select
-                                                        value={newItem[field.key] || ""}
-                                                        onValueChange={(val) => setNewItem({ ...newItem, [field.key]: val })}
+                                                        value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
+                                                        onValueChange={(val) => {
+                                                            const month = val;
+                                                            const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                            const parts = current.split('-');
+                                                            setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
+                                                        }}
                                                     >
                                                         <SelectTrigger className="w-full">
-                                                            <SelectValue placeholder="اختر..." />
+                                                            <SelectValue placeholder="شهر" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="default_placeholder" className="hidden">اختر...</SelectItem>
-                                                            {field.options?.map((opt: string) => (
-                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                                <SelectItem key={m} value={m.toString().padStart(2, '0')}>{m}</SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                            ) : field.type === 'date-fixed-year' ? (
-                                                <div className="flex gap-2">
-                                                    {/* Day - Number Input */}
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="يوم"
-                                                        min={1} max={31}
-                                                        value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
-                                                        onChange={e => {
-                                                            let day = e.target.value;
-                                                            if (parseInt(day) > 31) day = "31";
-                                                            const dayStr = day.length === 1 ? `0${day}` : day;
-                                                            const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                            const parts = current.split('-');
-                                                            setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
-                                                        }}
-                                                        className="flex-1 text-center"
-                                                    />
-                                                    {/* Month */}
-                                                    <div className="flex-1 relative">
-                                                        <Select
-                                                            value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
-                                                            onValueChange={(val) => {
-                                                                const month = val;
-                                                                const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                                const parts = current.split('-');
-                                                                setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="شهر" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                                    <SelectItem key={m} value={m.toString().padStart(2, '0')}>{m}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    {/* Year (Fixed) */}
-                                                    <div className="flex-1 bg-muted border border-border rounded-lg px-2 py-2 text-muted-foreground text-sm text-center font-mono select-none flex items-center justify-center">
-                                                        {selectedYear}
-                                                    </div>
+                                                {/* Year (Fixed) */}
+                                                <div className="flex-1 bg-muted border border-border rounded-lg px-2 py-2 text-muted-foreground text-sm text-center font-mono select-none flex items-center justify-center">
+                                                    {selectedYear}
                                                 </div>
-                                            ) : field.readOnly ? (
-                                                <Input
-                                                    type="text"
-                                                    value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
-                                                    readOnly
-                                                    className="w-full bg-muted border border-border text-muted-foreground cursor-not-allowed font-bold"
-                                                />
-                                            ) : (
-                                                <Input
-                                                    type={field.type || "text"}
-                                                    placeholder={field.label}
-                                                    value={newItem[field.key] || ""}
-                                                    onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                                    className="flex-1"
-                                                />
-                                            )}
-                                        </div>
+                                            </div>
+                                        ) : field.readOnly ? (
+                                            <Input
+                                                type="text"
+                                                value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
+                                                readOnly
+                                                className="w-full bg-muted border border-border text-muted-foreground cursor-not-allowed font-bold"
+                                            />
+                                        ) : (
+                                            <Input
+                                                type={field.type || "text"}
+                                                placeholder={field.label}
+                                                value={newItem[field.key] || ""}
+                                                onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                                className="flex-1"
+                                            />
+                                        )}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleSave}
-                                className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
-                                    isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
-                                )}
-                            >
-                                {isEditing ? "حفظ التعديلات" : "حفظ السجل"}
-                            </button>
-                            {isEditing && (
-                                <button
-                                    onClick={() => {
-                                        setIsEditing(false);
-                                        setNewItem({});
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold"
-                                >
-                                    إلغاء
-                                </button>
-                            )}
-                        </div>
+                            </div>
+                        ))}
                     </div>
-
-                    {/* List using Shared Component */}
-                    <RecordList
-                        data={data}
-                        fields={fields}
-                        type={type}
-                        onEdit={(item) => {
-                            setNewItem(item);
-                            setIsEditing(true);
-                            // Optional: scroll to form
-                        }}
-                        onDelete={onDelete}
-                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleSave}
+                            className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
+                                isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
+                            )}
+                        >
+                            {isEditing ? "حفظ التعديلات" : "حفظ السجل"}
+                        </button>
+                        {isEditing && (
+                            <button
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setNewItem({});
+                                }}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold"
+                            >
+                                إلغاء
+                            </button>
+                        )}
+                    </div>
                 </div>
-            )}
-        </div>
+
+                {/* List using Shared Component */}
+                <RecordList
+                    data={data}
+                    fields={fields}
+                    type={type}
+                    onEdit={(item) => {
+                        setNewItem(item);
+                        setIsEditing(true);
+                        // Optional: scroll to form
+                    }}
+                    onDelete={onDelete}
+                />
+            </div>
+        </AccordionSection>
     );
 }
 
