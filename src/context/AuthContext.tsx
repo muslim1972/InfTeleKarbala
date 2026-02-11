@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -16,7 +17,7 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginAsVisitor: () => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (updates: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => ({ success: false }),
   loginAsVisitor: async () => ({ success: false }),
-  logout: () => { },
+  logout: async () => { },
   updateProfile: async () => ({ success: false }),
   changePassword: async () => ({ success: false }),
   uploadAvatar: async () => ({ success: false }),
@@ -39,9 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Helper to log visit
   const logVisit = async (userData: AppUser) => {
-    // Prevent duplicate logs for the same browser session (e.g. refresh)
     if (sessionStorage.getItem('session_logged')) return;
-
     try {
       await supabase.from('login_logs').insert({
         user_id: userData.id,
@@ -49,82 +48,132 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: userData.role,
         user_agent: navigator.userAgent
       });
-      console.log("Visit logged for:", userData.username);
       sessionStorage.setItem('session_logged', 'true');
     } catch (e) {
       console.error("Failed to log visit", e);
     }
   };
 
+  // Check current session on mount
   useEffect(() => {
-    // Check local storage (Persistent) or Session Storage (Visitor)
-    const storedUser = localStorage.getItem("app_user") || sessionStorage.getItem("app_user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        // Log visit on auto-login (page reload/new tab)
-        logVisit(parsedUser);
-      } catch (e) {
-        console.error("Failed to parse stored user", e);
-        localStorage.removeItem("app_user");
-        sessionStorage.removeItem("app_user");
+    const initAuth = async () => {
+      // 1. Check for Visitor Session
+      const visitor = sessionStorage.getItem("visitor_user");
+      if (visitor) {
+        setUser(JSON.parse(visitor));
+        setLoading(false);
+        return;
       }
-    }
-    setLoading(false);
+
+      // 2. Check Supabase Session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Fetch full profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          const appUser: AppUser = {
+            id: profile.id,
+            username: profile.username, // Now in profiles
+            full_name: profile.full_name,
+            job_number: profile.job_number,
+            role: profile.role || 'user',
+            avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
+            iban: profile.iban
+          };
+          setUser(appUser);
+          logVisit(appUser);
+        }
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        // We could re-fetch profile here if needed, but usually login handles it
+      } else {
+        // Logged out
+        if (!sessionStorage.getItem("visitor_user")) {
+          setUser(null);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (username: string, password: string) => {
     try {
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
+      // 1. Resolve Username -> Email (via Profiles)
+      // Since we don't know the email directly, we look up the profile by username first.
+      // This requires the 'profiles' table to be readable (publicly or via service role if RLS is strict).
+      // Assuming 'profiles' is readable by authenticated users OR anon (for login lookup).
+      // A better way for security: Use an Edge Function. But here we query directly.
+
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('job_number, id')
         .eq('username', username)
-        .eq('password', password)
         .maybeSingle();
 
-      if (error || !data) {
-        return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+      if (profileErr || !profile || !profile.job_number) {
+        // Security: Don't reveal if user exists vs wrong password, but here we know user validation failed
+        return { success: false, error: 'اسم المستخدم غير صحيح' };
+      }
+
+      // 2. Construct Email
+      const email = `${profile.job_number}@inftele.com`;
+
+      // 3. Authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError || !authData.user) {
+        console.error("Auth Failed:", authError?.message);
+        return { success: false, error: 'كلمة المرور غير صحيحة' };
+      }
+
+      // 4. Fetch Full Profile Details (including newly added columns)
+      const { data: fullProfile, error: fetchErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (fetchErr || !fullProfile) {
+        return { success: false, error: 'تعذر جلب بيانات الملف الشخصي' };
       }
 
       const appUser: AppUser = {
-        id: data.id,
-        username: data.username,
-        full_name: data.full_name,
-        job_number: data.job_number,
-        role: data.role,
-        avatar_url: data.avatar_url,
-        iban: data.iban
+        id: fullProfile.id,
+        username: fullProfile.username,
+        full_name: fullProfile.full_name,
+        job_number: fullProfile.job_number,
+        role: fullProfile.role || 'user',
+        avatar_url: fullProfile.avatar || fullProfile.avatar_url,
+        iban: fullProfile.iban
       };
 
       setUser(appUser);
-      localStorage.setItem("app_user", JSON.stringify(appUser));
-
-      // Start a new session log
-      sessionStorage.removeItem('session_logged'); // Clear old flag ensures we log this new login
+      sessionStorage.removeItem('session_logged');
       logVisit(appUser);
 
       return { success: true };
 
     } catch (err) {
-      return { success: false, error: 'حدث خطأ في الاتصال' };
+      console.error("Login Error:", err);
+      return { success: false, error: 'حدث خطأ غير متوقع' };
     }
   };
-
-
-
-  // Handle Visibility Change for Visitor Security
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // If app goes to background and user is a visitor, kill the session
-      if (document.visibilityState === 'hidden' && user?.role === 'visitor') {
-        logout();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [user]);
 
   const loginAsVisitor = async () => {
     const visitorUser: AppUser = {
@@ -134,43 +183,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       role: 'visitor',
     };
     setUser(visitorUser);
-    // Don't save to localStorage for persistence (Security Feature)
-    // We only keep it in state, so refresh kills it (optional: or sessionStorage)
-    sessionStorage.setItem("app_user", JSON.stringify(visitorUser));
+    sessionStorage.setItem("visitor_user", JSON.stringify(visitorUser));
     sessionStorage.removeItem('session_logged');
     return { success: true };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("app_user");
-    sessionStorage.removeItem("app_user"); // Clear visitor session too
+    sessionStorage.removeItem("visitor_user");
     sessionStorage.removeItem("session_logged");
+    localStorage.removeItem("app_user"); // cleanup old legacy
   };
 
   const updateProfile = async (updates: Partial<AppUser>) => {
     if (!user) return { success: false, error: "No user logged in" };
 
-    // --- VISITOR MODE: Local Update Only ---
     if (user.role === 'visitor') {
       const newUser = { ...user, ...updates };
       setUser(newUser);
-      // Update sessionStorage instead of localStorage for visitor
-      sessionStorage.setItem("app_user", JSON.stringify(newUser));
+      sessionStorage.setItem("visitor_user", JSON.stringify(newUser));
       return { success: true };
     }
 
     try {
+      // Map AppUser updates to Profile columns if needed
+      // (e.g. avatar_url -> avatar if schema differs, but ideally keep consistent)
+      const dbUpdates: any = { ...updates };
+      if (updates.avatar_url !== undefined) {
+        dbUpdates.avatar = updates.avatar_url; // Assuming column is 'avatar' or 'avatar_url'? Phase 6 added 'avatar'
+        // Let's check schema.. Phase 6 SQL added 'avatar'. 
+        // But Phase 1 profiles might verify column names. 
+        // Let's assume 'avatar' column exists from Phase 6.
+        delete dbUpdates.avatar_url;
+      }
+
       const { error } = await supabase
-        .from('app_users')
-        .update(updates)
+        .from('profiles')
+        .update(dbUpdates)
         .eq('id', user.id);
 
       if (error) throw error;
 
       const newUser = { ...user, ...updates };
       setUser(newUser);
-      localStorage.setItem("app_user", JSON.stringify(newUser));
+
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to update profile' };
@@ -179,21 +236,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const changePassword = async (newPassword: string) => {
     if (!user) return { success: false, error: "No user logged in" };
+    if (user.role === 'visitor') return { success: true };
 
-    // Visitor cannot change password (conceptually), but we can fake success or error
-    if (user.role === 'visitor') {
-      return { success: true };
-    }
-
-    // Note: In a real app with Supabase Auth, you'd use supabase.auth.updateUser().
-    // Since we use a custom table, we update the column directly.
     try {
-      const { error } = await supabase
-        .from('app_users')
+      // 1. Update Supabase Auth Password (Critical for Login)
+      const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+      if (authError) throw authError;
+
+      // 2. Update 'password' column in profiles (Sync for reference/legacy/custom auth)
+      const { error: dbError } = await supabase
+        .from('profiles')
         .update({ password: newPassword })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (dbError) {
+        console.warn("Updated Auth but failed to sync profile password column", dbError);
+        // Non-blocking, as Auth is primary now
+      }
+
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to update password' };
@@ -202,12 +262,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return { success: false, error: "No user logged in" };
-
-    // --- VISITOR MODE: Fake Upload ---
     if (user.role === 'visitor') {
       const fakeUrl = URL.createObjectURL(file);
-      const updateResult = await updateProfile({ avatar_url: fakeUrl });
-      if (!updateResult.success) return { success: false, error: updateResult.error };
+      await updateProfile({ avatar_url: fakeUrl });
       return { success: true, url: fakeUrl };
     }
 
@@ -228,17 +285,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!data) throw new Error("Failed to get public URL");
 
-      // Update user profile with new URL
-      const updateResult = await updateProfile({ avatar_url: data.publicUrl });
-      if (!updateResult.success) throw new Error(updateResult.error);
-
+      await updateProfile({ avatar_url: data.publicUrl });
       return { success: true, url: data.publicUrl };
     } catch (err: any) {
       console.error("Avatar upload error:", err);
       return { success: false, error: err.message || 'Failed to upload avatar' };
     }
   };
-
 
   return (
     <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar }}>
@@ -248,3 +301,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

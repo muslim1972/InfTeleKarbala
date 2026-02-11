@@ -141,8 +141,9 @@ export const AdminDashboard = () => {
             try {
                 console.log("Searching for:", query); // Debug
                 // Search by job number OR full name (only at start)
+                // Use 'profiles' instead of 'app_users'
                 const { data, error } = await supabase
-                    .from('app_users')
+                    .from('profiles')
                     .select('id, full_name, job_number, username, role')
                     .or(`job_number.ilike.${query}%,full_name.ilike.${query}%`)
                     .limit(10);
@@ -182,13 +183,18 @@ export const AdminDashboard = () => {
             // 1. Fetch FULL user data to ensure we have all fields (IBAN, password, etc)
             // Search suggestions only return partial data, so we must re-fetch.
             const { data: fullUserData, error: userError } = await supabase
-                .from('app_users')
+                .from('profiles')
                 .select('*')
                 .eq('id', partialUser.id)
                 .single();
 
             if (userError) throw userError;
             if (!fullUserData) throw new Error("تعذر جلب بيانات الموظف");
+
+            // Normalize avatar field if needed (profiles has 'avatar', app_users had 'avatar_url')
+            if (fullUserData.avatar && !fullUserData.avatar_url) {
+                fullUserData.avatar_url = fullUserData.avatar;
+            }
 
             setSelectedEmployee(fullUserData);
             console.log("Selected employee set:", fullUserData.full_name, "ID:", fullUserData.id);
@@ -293,7 +299,7 @@ export const AdminDashboard = () => {
         try {
             // جلب الموظف أولاً
             const { data: userData, error: userError } = await supabase
-                .from('app_users')
+                .from('profiles')
                 .select('*')
                 .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`) // Also allow exact username match just in case, though job_number is primary
                 .maybeSingle();
@@ -482,7 +488,7 @@ export const AdminDashboard = () => {
 
             // 1. تحديث بيانات المستخدم الأساسية
             const { error: userError } = await supabase
-                .from('app_users')
+                .from('profiles')
                 .update({
                     full_name: selectedEmployee.full_name,
                     job_number: selectedEmployee.job_number,
@@ -490,10 +496,12 @@ export const AdminDashboard = () => {
                     password: selectedEmployee.password,
                     role: selectedEmployee.role,
                     iban: selectedEmployee.iban,
-                    // Audit fields
-                    last_modified_by: currentUser.id,
-                    last_modified_by_name: currentUser.full_name,
-                    last_modified_at: new Date().toISOString()
+                    avatar: selectedEmployee.avatar_url || selectedEmployee.avatar, // Save to 'avatar' column
+                    // Audit fields (ensure profiles table has these or ignore if strict)
+                    // Assuming profiles has simplified structure, but we can try updating if columns exist.
+                    // If profiles doesn't have audit columns, remove them. 
+                    // Based on previous scripts, profiles only has updated_at.
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', selectedEmployee.id);
 
@@ -575,7 +583,7 @@ export const AdminDashboard = () => {
         try {
             // Check for existing user to avoid 409 Conflict error
             const { data: existingUsers } = await supabase
-                .from('app_users')
+                .from('profiles')
                 .select('job_number, username')
                 .or(`job_number.eq.${formData.job_number}, username.eq.${formData.username} `);
 
@@ -589,10 +597,19 @@ export const AdminDashboard = () => {
                 return; // Stop execution to prevent 409 error
             }
 
-            // 1. إضافة المستخدم في جدول app_users
+            // 1. إضافة المستخدم في جدول profiles
+            // We need to ensure we insert into profiles with correct defaults
             const { data: user, error: userError } = await supabase
-                .from('app_users')
-                .insert([formData])
+                .from('profiles')
+                .insert([{
+                    username: formData.username,
+                    password: formData.password,
+                    full_name: formData.full_name,
+                    job_number: formData.job_number,
+                    iban: formData.iban,
+                    role: formData.role || 'user',
+                    updated_at: new Date().toISOString()
+                }])
                 .select()
                 .single();
 

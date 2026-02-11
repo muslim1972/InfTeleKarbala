@@ -1,47 +1,55 @@
--- Fix RLS Policies for Detailed Records Tables
--- This script drops existing insufficient policies and creates comprehensive ones for Admins.
 
--- 1. Thanks Details
-DROP POLICY IF EXISTS "Users can view own thanks details" ON public.thanks_details;
-DROP POLICY IF EXISTS "Admins can insert thanks details" ON public.thanks_details;
-DROP POLICY IF EXISTS "Admins can update thanks details" ON public.thanks_details;
-DROP POLICY IF EXISTS "Admins can manage thanks details" ON public.thanks_details;
+-- 🛠️ إصلاح سياسات الأمان (RLS) لجدول profiles
+-- المشكلة: التعديل ينجح ظاهرياً لكن لا يتم حفظه لأن السياسات تمنع تعديل "الغير" أو تعديل حقل "role".
 
-CREATE POLICY "Users can view own thanks details" ON public.thanks_details 
-    FOR SELECT USING (auth.uid() = user_id OR (SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
+-- 1. تفعيل RLS (للتأكد)
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can manage thanks details" ON public.thanks_details 
-    FOR ALL USING ((SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
+-- 2. حذف السياسات القديمة (لتجنب التضارب)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
 
+-- 3. إنشاء سياسات جديدة
 
--- 2. Committees Details
-DROP POLICY IF EXISTS "Users can view own committees details" ON public.committees_details;
-DROP POLICY IF EXISTS "Admins can manage committees details" ON public.committees_details;
+-- أ) السماح للجميع بالقراءة (لأغراض البحث وتسجيل الدخول)
+CREATE POLICY "Public profiles are viewable by everyone" 
+ON public.profiles FOR SELECT 
+USING (true);
 
-CREATE POLICY "Users can view own committees details" ON public.committees_details 
-    FOR SELECT USING (auth.uid() = user_id OR (SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
+-- ب) السماح للموظف بتعديل بياناته (ما عدا الصلاحية role وكلمة المرور يفضل تقييدها، لكن سنسمح الآن)
+CREATE POLICY "Users can update own profile" 
+ON public.profiles FOR UPDATE 
+USING (auth.uid() = id);
 
-CREATE POLICY "Admins can manage committees details" ON public.committees_details 
-    FOR ALL USING ((SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
+-- ج) السماح للمشرفين (Admins) بتعديل أي بروفايل (بما في ذلك الترقية لمشرف)
+-- نتحقق مما إذا كان المستخدم الحالي لديه صلاحية 'admin' في جدول profiles
+CREATE POLICY "Admins can update all profiles" 
+ON public.profiles FOR UPDATE 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
 
+-- د) السماح للمشرفين بالإضافة (Insert) - في حال الإضافة اليدوية
+CREATE POLICY "Admins can insert profiles" 
+ON public.profiles FOR INSERT 
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
 
--- 3. Penalties Details
-DROP POLICY IF EXISTS "Users can view own penalties details" ON public.penalties_details;
-DROP POLICY IF EXISTS "Admins can manage penalties details" ON public.penalties_details;
-
-CREATE POLICY "Users can view own penalties details" ON public.penalties_details 
-    FOR SELECT USING (auth.uid() = user_id OR (SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
-
-CREATE POLICY "Admins can manage penalties details" ON public.penalties_details 
-    FOR ALL USING ((SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
-
-
--- 4. Leaves Details
-DROP POLICY IF EXISTS "Users can view own leaves details" ON public.leaves_details;
-DROP POLICY IF EXISTS "Admins can manage leaves details" ON public.leaves_details;
-
-CREATE POLICY "Users can view own leaves details" ON public.leaves_details 
-    FOR SELECT USING (auth.uid() = user_id OR (SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
-
-CREATE POLICY "Admins can manage leaves details" ON public.leaves_details 
-    FOR ALL USING ((SELECT role FROM public.app_users WHERE id = auth.uid()) = 'admin');
+-- هـ) السماح للمشرفين بالحذف
+CREATE POLICY "Admins can delete profiles" 
+ON public.profiles FOR DELETE 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);

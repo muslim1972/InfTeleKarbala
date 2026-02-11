@@ -205,9 +205,37 @@ export const Dashboard = () => {
                             .eq('user_id', user.id)
                     ]);
 
-                    // تعيين البيانات
+                    // تعيين البيانات مع حساب الإجماليات للعرض
                     if (financialResult.data) {
-                        setFinancialData(financialResult.data);
+                        const data = financialResult.data;
+
+                        // حساب الإجماليات من البيانات المستوردة لضمان الاتساق
+                        // Total Allowances = Sum of all individual allowances
+                        const totalAllowances = (
+                            (data.certificate_allowance || 0) +
+                            (data.position_allowance || 0) +
+                            (data.engineering_allowance || 0) +
+                            (data.risk_allowance || 0) +
+                            (data.legal_allowance || 0) +
+                            (data.additional_50_percent_allowance || 0) +
+                            (data.transport_allowance || 0) +
+                            (data.marital_allowance || 0) +
+                            (data.children_allowance || 0)
+                        );
+
+                        // Gross Salary = Net + Total Deductions (reversed from accounting logic)
+                        // Or Normal + Total Allowances
+                        // We use Net + Deductions as it's the "earned" amount before cuts
+                        const totalDeductions = data.total_deductions || 0;
+                        const netSalary = data.net_salary || 0;
+                        const grossSalary = netSalary + totalDeductions;
+
+                        setFinancialData({
+                            ...data,
+                            total_allowances: totalAllowances,
+                            gross_salary: grossSalary,
+                            total_deductions: totalDeductions // Ensure it's set
+                        });
                     } else {
                         setFinancialData({
                             user_id: user.id,
