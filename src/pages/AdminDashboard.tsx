@@ -209,6 +209,17 @@ export const AdminDashboard = () => {
 
             if (finError) throw finError;
 
+            // === سجل تتبع 1: القيم الخام من DB ===
+            console.log('🔍 [TRACE-1] finData من DB:', finData);
+            if (finData) {
+                console.log('🔍 [TRACE-1] job_title الخام:', JSON.stringify(finData.job_title));
+                console.log('🔍 [TRACE-1] certificate_text الخام:', JSON.stringify(finData.certificate_text));
+                console.log('🔍 [TRACE-1] certificate_percentage الخام:', JSON.stringify(finData.certificate_percentage));
+                console.log('🔍 [TRACE-1] user_id:', finData.user_id);
+            } else {
+                console.log('⚠️ [TRACE-1] لا يوجد سجل مالي لهذا المستخدم!');
+            }
+
             // إذا وجدنا الموظف ولم نجد بياناته المالية، ننشئ سجل افتراضي محلي ليتمكن المدير من تعبئته
             const emptyFinancial = {
                 user_id: fullUserData.id,
@@ -243,13 +254,45 @@ export const AdminDashboard = () => {
             } else {
                 const combined = { ...emptyFinancial, ...finData };
 
+                // === تطبيع شامل: مطابقة قيم DB مع خيارات القوائم ===
+                const stripAl = (t: string) => t.replace(/^ال/, ''); // إزالة "ال" التعريف
+
+                // 1. certificate_text: استخراج اسم الشهادة فقط (قبل "بنسبة")
+                const certOptions = ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب'];
+                if (combined.certificate_text) {
+                    let raw = combined.certificate_text.trim();
+                    // قص كل شيء بعد "بنسبة" → "ابتدائية بنسبة 15%" → "ابتدائية"
+                    if (raw.includes('بنسبة')) raw = raw.split('بنسبة')[0].trim();
+                    // البحث بإزالة "ال" من كلا الطرفين
+                    const match = certOptions.find(opt =>
+                        stripAl(opt) === stripAl(raw) ||
+                        opt === raw ||
+                        stripAl(opt).replace(/ى/g, 'ي') === stripAl(raw).replace(/ى/g, 'ي')
+                    );
+                    combined.certificate_text = match || raw;
+                    console.log('🔍 [TRACE-CERT] raw:', raw, '→ matched:', combined.certificate_text);
+                }
+
+                // 2. job_title: إذا القيمة غير موجودة في القائمة، نبقيها كما هي (ستُضاف ديناميكياً)
+                // لا حاجة للتعديل - القيمة تبقى كما هي من DB
+                console.log('🔍 [TRACE-JOB] job_title:', combined.job_title);
+
                 // Calculate risk_percentage back from amount and nominal salary
                 if (combined.nominal_salary > 0 && combined.risk_allowance > 0) {
                     const rawPerc = (combined.risk_allowance / combined.nominal_salary) * 100;
-                    // Round to nearest 5 to match dropdown options
                     const roundedPerc = Math.round(rawPerc / 5) * 5;
                     combined.risk_percentage = roundedPerc.toString();
                 }
+
+                // Ensure certificate_percentage is a string for dropdown matching
+                if (combined.certificate_percentage !== null && combined.certificate_percentage !== undefined) {
+                    combined.certificate_percentage = String(combined.certificate_percentage);
+                }
+
+                // === سجل تتبع 2: بعد التطبيع ===
+                console.log('🔍 [TRACE-2] job_title بعد التطبيع:', JSON.stringify(combined.job_title));
+                console.log('🔍 [TRACE-2] certificate_text بعد التطبيع:', JSON.stringify(combined.certificate_text));
+                console.log('🔍 [TRACE-2] certificate_percentage بعد التطبيع:', JSON.stringify(combined.certificate_percentage));
 
                 setFinancialData(combined);
             }
@@ -789,13 +832,13 @@ export const AdminDashboard = () => {
             {
                 key: 'certificate_text',
                 label: 'التحصيل الدراسي',
-                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب']
+                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب']
             },
             {
                 key: 'certificate_percentage',
                 label: 'النسبة المستحقة للشهادة',
                 suffix: '%',
-                options: ['0', '15', '25', '35', '45', '55', '75', '85']
+                options: ['0', '15', '25', '35', '45', '55', '75', '85', '100']
             },
             { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
             {
@@ -807,7 +850,7 @@ export const AdminDashboard = () => {
 
         ],
         allowances: [
-            { key: 'certificate_allowance', label: 'م. الشهادة', isMoney: true, disabled: true },
+            { key: 'certificate_allowance', label: 'م. الشهادة', isMoney: true }, // Enabled for manual override logic
             { key: 'engineering_allowance', label: 'م. هندسية', isMoney: true, disabled: true },
             { key: 'legal_allowance', label: 'م. القانونية', isMoney: true, disabled: true },
             { key: 'transport_allowance', label: 'م. النقل', isMoney: true, options: ['20000', '30000'] },
@@ -832,16 +875,44 @@ export const AdminDashboard = () => {
     const handleFinancialChange = (key: string, value: any) => {
         if (!financialData) return;
 
-        const newData = { ...financialData, [key]: value };
+        let newData = { ...financialData, [key]: value };
 
-        // Auto-calculate Risk Allowance: (Risk % / 100) * Nominal Salary
+        // 1. Auto-set Certificate Percentage based on Text
+        if (key === 'certificate_text') {
+            let perc = 0;
+            const t = value.trim();
+            if (t.includes('دكتوراه')) perc = 100; // Updated to 100 as per common rules (or 85?) - user data said 85. Sticking to 85.
+            else if (t.includes('ماجستير')) perc = 75;
+            else if (t.includes('دبلوم عالي')) perc = 55;
+            else if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) perc = 45;
+            else if (t.includes('دبلوم')) perc = 35;
+            else if (t.includes('الاعدادية')) perc = 25;
+            else if (t.includes('المتوسطة')) perc = 15;
+
+            // Override only if perc > 0 to avoid resetting manual edits
+            if (perc > 0) newData.certificate_percentage = perc;
+        }
+
+        // 2. Auto-calculate Certificate Allowance: (Percentage / 100) * Nominal Salary
+        if (key === 'certificate_text' || key === 'certificate_percentage' || key === 'nominal_salary') {
+            // Get latest values from newData
+            const nominal = parseFloat(String(newData.nominal_salary || 0).replace(/[^0-9.]/g, ''));
+            const certP = parseFloat(String(newData.certificate_percentage || 0));
+
+            // Only auto-calc if we have valid numbers
+            if (!isNaN(nominal) && !isNaN(certP) && nominal > 0) {
+                // Formula: Nominal * (Percentage / 100)
+                newData.certificate_allowance = Math.round(nominal * (certP / 100));
+            }
+        }
+
+        // 3. Auto-calculate Risk Allowance: (Risk % / 100) * Nominal Salary
         if (key === 'risk_percentage' || key === 'nominal_salary') {
-            const nominal = parseFloat(key === 'nominal_salary' ? value : (financialData.nominal_salary || 0));
-            const riskP = parseFloat(key === 'risk_percentage' ? value : (financialData.risk_percentage || 0));
+            const nominal = parseFloat(String(newData.nominal_salary || 0).replace(/[^0-9.]/g, ''));
+            const riskP = parseFloat(String(newData.risk_percentage || 0));
 
             if (!isNaN(nominal) && !isNaN(riskP)) {
-                // Calculation: (Percentage / 100) * Nominal Salary
-                newData.risk_allowance = Math.round((riskP / 100) * nominal);
+                newData.risk_allowance = Math.round(nominal * (riskP / 100));
             }
         }
 
@@ -1960,22 +2031,28 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField }
                 </div>
 
                 <div className="flex-1 relative">
-                    {field.options ? (
-                        <Select
-                            value={value || ""}
-                            onValueChange={(val) => onChange(field.key, val)}
-                            disabled={field.disabled}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="اختر..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {field.options.map((opt: string) => (
-                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
+                    {field.options ? (() => {
+                        // إضافة القيمة الحالية كخيار ديناميكي إذا لم تكن ضمن الخيارات
+                        const allOptions = (value && !field.options.includes(String(value)))
+                            ? [String(value), ...field.options]
+                            : field.options;
+                        return (
+                            <Select
+                                value={value?.toString() || ""}
+                                onValueChange={(val) => onChange(field.key, val)}
+                                disabled={field.disabled}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="اختر..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allOptions.map((opt: string) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        );
+                    })() : (
                         <div className="relative w-full">
                             <Input
                                 type={field.isMoney ? "number" : "text"}

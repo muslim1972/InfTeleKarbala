@@ -16,6 +16,20 @@ const parseNum = (val) => {
 
 const parseStr = (val) => (val ? String(val).trim() : null);
 
+// Helper to calculate percentage based on text
+const getCertPerc = (text) => {
+    if (!text) return 0;
+    const t = text.trim();
+    if (t.includes('دكتوراه')) return 85;
+    if (t.includes('ماجستير')) return 75;
+    if (t.includes('دبلوم عالي')) return 55;
+    if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) return 45;
+    if (t.includes('دبلوم')) return 35;
+    if (t.includes('الاعدادية') || t.includes('اعدادية')) return 25;
+    if (t.includes('المتوسطة') || t.includes('متوسطة')) return 15;
+    return 0; // Primary or Read/Write or null
+};
+
 async function importPhase2() {
     console.log('🚀 Phase 2: Importing Salaries (Linking via Card Number)...');
 
@@ -29,15 +43,15 @@ async function importPhase2() {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    // Dynamic Header Mapping (Same as before)
+    // Dynamic Header Mapping
     const headers = rows[0].map(h => String(h).trim());
     const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
     const colMap = {
-        // In Excel, this column is labeled "الرقم الوظيفي" BUT contains the Qi Card number
-        excel_card_col: getIdx(['الرقم الوظيفي', 'الوظيفي']),
+        excel_card_col: getIdx(['الرقم الوظيفي', 'الوظيفي']), // Start with 11...
 
         job_title: getIdx(['العنوان الوظيفي']),
+        cert_text: getIdx(['الشهادة']), // Correct Index
         grade: getIdx(['الدرجة']),
         stage: getIdx(['المرحلة']),
         tax_status: getIdx(['حالة الموظف']),
@@ -66,15 +80,12 @@ async function importPhase2() {
 
     console.log('📋 Column Mapping (Card Number is key)...');
 
-    // Fetch Profiles with Map: Card Number -> User ID
+    // Fetch Profiles
     console.log('🔄 Fetching profiles and mapping by Card Number...');
-
-    // Note: We need to ensure 'card_number' is selected. 
-    // If column doesn't exist yet, this will error. User must run SQL first.
     const { data: profiles, error } = await supabase.from('profiles').select('card_number, id, job_number');
 
     if (error) {
-        console.error('❌ Failed to fetch profiles. Did you run the SQL to add card_number?', error.message);
+        console.error('❌ Failed to fetch profiles:', error.message);
         process.exit(1);
     }
 
@@ -90,7 +101,7 @@ async function importPhase2() {
     console.log(`📊 DB Profiles with Card Numbers: ${cardsFound} / ${profiles.length}`);
 
     if (cardsFound === 0) {
-        console.error('❌ No card numbers found in DB. Please run Phase 1 again to populate card_number.');
+        console.error('❌ No card numbers found in DB. Please populate card_number first.');
         process.exit(1);
     }
 
@@ -109,22 +120,23 @@ async function importPhase2() {
         const userId = cardToId.get(cardNum);
 
         if (!userId) {
-            console.warn(`⚠️ User not found for Card: ${cardNum} (Row ${i + 1})`);
+            // console.warn(`⚠️ User not found for Card: ${cardNum}`);
             notFound++;
             continue;
         }
 
-        if (cardNum === '103131393') {
-            console.log(`🎯 FOUND HASHIM! Processing user_id: ${userId}`);
-        }
+        const certTextValue = parseStr(row[colMap.cert_text]);
+        const certPercValue = getCertPerc(certTextValue);
 
-
-        // Prepare Financial Record (Same logic)
+        // Prepare Financial Record
         const financialData = {
             user_id: userId,
             job_title: parseStr(row[colMap.job_title]),
+
+            certificate_text: certTextValue,
+            certificate_percentage: certPercValue,
+
             salary_grade: parseStr(row[colMap.grade]),
-            // ... (rest of fields same as before) ...
             salary_stage: parseStr(row[colMap.stage]),
             tax_deduction_status: parseStr(row[colMap.tax_status]),
             nominal_salary: parseNum(row[colMap.nominal]),
@@ -163,8 +175,7 @@ async function importPhase2() {
 
         const { error: insErr } = await supabase.from('financial_records').insert(financialData);
         if (insErr) {
-            console.error(`❌ Insert failed for ${userId} (Card ${cardNum}):`, insErr.message);
-            // console.error(financialData); // Optional: log data to debug
+            console.error(`❌ Insert failed for ${userId}:`, insErr.message);
         }
 
         const { data: existingYearly } = await supabase.from('yearly_records')
@@ -180,8 +191,8 @@ async function importPhase2() {
     }
 
     console.log(`\n\n✅ Finished Phase 2 (via Card ID).`);
-    console.log(`Updated/Inserted: ${updated}`);
-    console.log(`Not Found (Cards): ${notFound}`);
+    console.log(`Updated: ${updated}`);
+    console.log(`Not Found: ${notFound}`);
 }
 
 importPhase2().catch(e => console.error(e));
