@@ -5,7 +5,7 @@ import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, FileSearch } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -33,6 +33,7 @@ import { DateInput } from "../components/ui/DateInput";
 import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
 import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
+import { CustomAudit } from "../components/admin/CustomAudit";
 
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -41,7 +42,7 @@ import { useTheme } from "../context/ThemeContext";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news'>('admin_add');
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors'>('admin_add');
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -70,7 +71,10 @@ export const AdminDashboard = () => {
         news_bar: false,
         polls: false,
         directives: false,
-        conferences: false
+        conferences: false,
+        sup_permissions: false,
+        sup_custom_audit: false,
+        sup_full_audit: false
     });
 
     // New Data States
@@ -467,7 +471,10 @@ export const AdminDashboard = () => {
                 news_bar: false,
                 polls: false,
                 directives: false,
-                conferences: false
+                conferences: false,
+                sup_permissions: false,
+                sup_custom_audit: false,
+                sup_full_audit: false
             };
 
             if (!isCurrentlyOpen) {
@@ -691,7 +698,10 @@ export const AdminDashboard = () => {
                 news_bar: false,
                 polls: false,
                 directives: false,
-                conferences: false
+                conferences: false,
+                sup_permissions: false,
+                sup_custom_audit: false,
+                sup_full_audit: false
             });
 
             // تمرير الشاشة ليعرض بداية التفاصيل
@@ -1801,6 +1811,98 @@ export const AdminDashboard = () => {
                                     title="محتوى النشاطات"
                                     placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
                                 />
+                            </div>
+                        </AccordionSection>
+
+                    </div>
+                )
+            }
+
+            {/* ======= المشرفون TAB ======= */}
+            {
+                activeTab === 'admin_supervisors' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+
+                        {/* Header */}
+                        <div className={cn(
+                            "rounded-2xl p-5 border",
+                            theme === 'light'
+                                ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/60"
+                                : "bg-gradient-to-br from-amber-950/30 to-orange-950/20 border-amber-500/10"
+                        )}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={cn(
+                                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                                    theme === 'light'
+                                        ? "bg-amber-500/10 text-amber-600"
+                                        : "bg-amber-500/20 text-amber-400"
+                                )}>
+                                    <Shield className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className={cn("text-lg font-bold", theme === 'light' ? "text-amber-900" : "text-amber-300")}>لوحة المشرفين</h2>
+                                    <p className={cn("text-xs", theme === 'light' ? "text-amber-700/70" : "text-amber-400/60")}>التدقيق والرقابة المالية والإدارية</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section 1: صلاحيات المشرفون */}
+                        <AccordionSection
+                            id="sup_permissions"
+                            title="صلاحيات المشرفين"
+                            icon={Shield}
+                            isOpen={expandedSections.sup_permissions}
+                            color="from-amber-600 to-yellow-500"
+                            onToggle={() => toggleSection('sup_permissions')}
+                        >
+                            <div className="p-4 space-y-4">
+                                <div className={cn(
+                                    "rounded-xl border p-6 text-center",
+                                    theme === 'light'
+                                        ? "bg-amber-50/50 border-amber-200/40"
+                                        : "bg-amber-950/20 border-amber-500/10"
+                                )}>
+                                    <Shield className={cn("w-12 h-12 mx-auto mb-3", theme === 'light' ? "text-amber-500/40" : "text-amber-500/30")} />
+                                    <h3 className={cn("font-bold text-sm mb-1", theme === 'light' ? "text-amber-800" : "text-amber-300")}>إدارة صلاحيات المشرفين</h3>
+                                    <p className={cn("text-xs", theme === 'light' ? "text-amber-700/60" : "text-amber-400/40")}>تعيين المشرفين وتحديد صلاحيات الوصول والتدقيق لكل مشرف</p>
+                                </div>
+                            </div>
+                        </AccordionSection>
+
+                        {/* Section 2: تدقيق مخصص */}
+                        <AccordionSection
+                            id="sup_custom_audit"
+                            title="تدقيق مخصص"
+                            icon={ScanSearch}
+                            isOpen={expandedSections.sup_custom_audit}
+                            color="from-cyan-600 to-teal-500"
+                            onToggle={() => toggleSection('sup_custom_audit')}
+                        >
+                            <div className="p-4">
+                                <CustomAudit onClose={() => toggleSection('sup_custom_audit')} />
+                            </div>
+                        </AccordionSection>
+
+                        {/* Section 3: تدقيق شامل */}
+                        <AccordionSection
+                            id="sup_full_audit"
+                            title="تدقيق شامل"
+                            icon={FileSearch}
+                            isOpen={expandedSections.sup_full_audit}
+                            color="from-violet-600 to-purple-500"
+                            onToggle={() => toggleSection('sup_full_audit')}
+                        >
+                            <div className="p-4 space-y-4">
+                                <div className={cn(
+                                    "rounded-xl border p-6 text-center",
+                                    theme === 'light'
+                                        ? "bg-violet-50/50 border-violet-200/40"
+                                        : "bg-violet-950/20 border-violet-500/10"
+                                )}>
+                                    <FileSearch className={cn("w-12 h-12 mx-auto mb-3", theme === 'light' ? "text-violet-500/40" : "text-violet-500/30")} />
+                                    <h3 className={cn("font-bold text-sm mb-1", theme === 'light' ? "text-violet-800" : "text-violet-300")}>تدقيق جميع الموظفين</h3>
+                                    <p className={cn("text-xs", theme === 'light' ? "text-violet-700/60" : "text-violet-400/40")}>فحص شامل لجميع بيانات الموظفين المالية واكتشاف أي تناقضات أو أخطاء في الاحتساب</p>
+                                </div>
                             </div>
                         </AccordionSection>
 
