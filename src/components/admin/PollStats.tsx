@@ -8,6 +8,7 @@ import { User, Clock, ArrowRight, MessageSquare, Loader2, Printer } from 'lucide
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { GlassCard } from '../ui/GlassCard';
+import { formatDate } from '../../utils/formatDate';
 
 interface PollStatsProps {
     pollId: string;
@@ -238,7 +239,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                             <div className={cn("flex items-center gap-4 text-sm mt-1", "text-white/50")}>
                                 <span className="flex items-center gap-1">
                                     <Clock className="w-4 h-4" />
-                                    {new Date(poll?.created_at).toLocaleDateString('ar-IQ')}
+                                    {formatDate(poll?.created_at)}
                                 </span>
                                 <span className={cn(
                                     "flex items-center gap-1 font-bold px-2 py-0.5 rounded-full",
@@ -329,7 +330,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                                 c.app_users?.full_name
                                             )}
                                         </span>
-                                        <span>{new Date(c.created_at).toLocaleDateString()}</span>
+                                        <span>{formatDate(c.created_at)}</span>
                                     </div>
                                 </div>
                             ))}
@@ -356,7 +357,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 <div className="border-b-2 border-black pb-6 mb-10 flex items-start justify-between">
                     <div className="max-w-[70%]">
                         <h1 className="text-3xl font-bold text-black mb-3 leading-tight">{poll?.title}</h1>
-                        <p className="text-gray-500 text-sm">تاريخ التقرير: {new Date().toLocaleDateString('ar-IQ')} | المصدر: قسم المعلوماتية</p>
+                        <p className="text-gray-500 text-sm">تاريخ التقرير: {formatDate(new Date())} | المصدر: قسم المعلوماتية</p>
                     </div>
                     <div className="text-left">
                         <div className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-2 flex flex-col items-center">
@@ -441,7 +442,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                                 </>
                                             )}
                                         </span>
-                                        <span>{new Date(c.created_at).toLocaleDateString('ar-IQ')}</span>
+                                        <span>{formatDate(c.created_at)}</span>
                                     </div>
                                 </div>
                             ))}

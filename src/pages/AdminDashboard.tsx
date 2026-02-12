@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../components/ui/Select";
+import { DateInput } from "../components/ui/DateInput";
 
 
 
@@ -1429,10 +1430,9 @@ export const AdminDashboard = () => {
                                                 )}
                                             </div>
 
-                                            <Input
-                                                type="date"
+                                            <DateInput
                                                 value={adminData?.first_appointment_date || ''}
-                                                onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
+                                                onChange={val => setAdminData({ ...adminData, first_appointment_date: val })}
                                                 className="flex-1"
                                             />
                                         </div>

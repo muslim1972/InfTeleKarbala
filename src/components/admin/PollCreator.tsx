@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { PollStats } from './PollStats';
+import { formatDate } from '../../utils/formatDate';
+import { DateInput } from '../ui/DateInput';
 
 interface OptionDraft {
     text: string;
@@ -441,18 +443,16 @@ export function PollCreator() {
                                 <Search className="w-4 h-4" />
                                 تصفية حسب التاريخ:
                             </span>
-                            <input
-                                type="date"
-                                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-white text-sm"
+                            <DateInput
                                 value={dateFilter.start}
-                                onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })}
+                                onChange={val => setDateFilter({ ...dateFilter, start: val })}
+                                className="bg-black/40 border-white/10 text-white text-sm"
                             />
                             <span className="text-white/40">-</span>
-                            <input
-                                type="date"
-                                className="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1 text-gray-900 dark:text-white text-sm"
+                            <DateInput
                                 value={dateFilter.end}
-                                onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })}
+                                onChange={val => setDateFilter({ ...dateFilter, end: val })}
+                                className="bg-white dark:bg-black/40 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm"
                             />
                         </div>
                     )}
@@ -481,7 +481,7 @@ export function PollCreator() {
                                         {p.title}
                                     </h3>
                                     <div className="flex items-center gap-3 text-sm text-white/40">
-                                        <span>{new Date(p.created_at).toLocaleDateString('ar-IQ')}</span>
+                                        <span>{formatDate(p.created_at)}</span>
                                         <span className="w-1 h-1 bg-white/20 rounded-full" />
                                         <span className={cn(
                                             "px-2 py-0.5 rounded text-[10px] font-bold",

@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
-// cn removed
+import { formatDate } from "../../utils/formatDate";
 
 interface RecordListProps {
     data: any[];
@@ -20,9 +20,9 @@ export function RecordList({ data, fields, type, onEdit, onDelete, readOnly = fa
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-gray-900 dark:text-white text-sm">{item[fields[0].key]}</span>
                             {/* Generic Badges based on specific field checks - mimicking Admin functionality */}
-                            {item.book_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{item.book_date}</span>}
-                            {item.start_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{item.start_date}</span>}
-                            {item.penalty_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{item.penalty_date}</span>}
+                            {item.book_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{formatDate(item.book_date)}</span>}
+                            {item.start_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{formatDate(item.start_date)}</span>}
+                            {item.penalty_date && <span className="text-xs text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">{formatDate(item.penalty_date)}</span>}
                         </div>
                         {fields[1] && <p className="text-gray-500 dark:text-white/60 text-xs">{item[fields[1].key]}</p>}
                         {item.duration && <p className="text-brand-green text-xs font-bold">المدة: {item.duration} يوم</p>}

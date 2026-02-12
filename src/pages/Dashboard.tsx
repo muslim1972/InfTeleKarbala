@@ -11,6 +11,7 @@ import { cn } from "../lib/utils";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { RecordList } from "../components/features/RecordList";
 import { UserPolls } from "../components/features/UserPolls";
+import { formatDateTime } from "../utils/formatDate";
 
 // Interface for Financial Fields
 interface FinancialField {
@@ -355,7 +356,7 @@ export const Dashboard = () => {
                                 <div className="bg-muted/50 border border-border rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
                                     <span className="text-muted-foreground text-xs font-bold">آخر تحديث للبيانات المالية:</span>
                                     <div className="text-brand-green font-bold text-sm font-mono tracking-wider dir-ltr">
-                                        {new Date(financialData.last_modified_at).toLocaleDateString('en-GB')} {new Date(financialData.last_modified_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                        {formatDateTime(financialData.last_modified_at)}
                                     </div>
                                 </div>
                             )}
