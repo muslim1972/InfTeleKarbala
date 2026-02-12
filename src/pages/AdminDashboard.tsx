@@ -293,6 +293,8 @@ export const AdminDashboard = () => {
                 console.log('🔍 [TRACE-2] job_title بعد التطبيع:', JSON.stringify(combined.job_title));
                 console.log('🔍 [TRACE-2] certificate_text بعد التطبيع:', JSON.stringify(combined.certificate_text));
                 console.log('🔍 [TRACE-2] certificate_percentage بعد التطبيع:', JSON.stringify(combined.certificate_percentage));
+                console.log('🔍 [TRACE-3] engineering_allowance:', JSON.stringify(combined.engineering_allowance), 'type:', typeof combined.engineering_allowance);
+                console.log('🔍 [TRACE-3] certificate_allowance:', JSON.stringify(combined.certificate_allowance), 'type:', typeof combined.certificate_allowance);
 
                 setFinancialData(combined);
             }
@@ -388,25 +390,27 @@ export const AdminDashboard = () => {
             shouldUpdate = true;
         }
 
-        // 2. Calculate Engineering Allowance
-        const engineeringTitles = ['م. مهندس', 'مهندس', 'ر. مهندسين', 'ر. مهندسين اقدم', 'ر. مهندسين اقدم اول'];
-        let calcEngAllowance = 0;
-        if (engineeringTitles.includes(financialData.job_title)) {
-            calcEngAllowance = Math.round(nominalSalary * 0.35); // 35% fixed
-        }
-
-        if (Number(financialData.engineering_allowance) !== calcEngAllowance) {
-            newFinancialData.engineering_allowance = calcEngAllowance;
-            shouldUpdate = true;
+        // 2. Calculate Engineering Allowance (only if NOT already set from DB)
+        const engineeringTitles = ['م. مهندس', 'مهندس', 'ر. مهندسين', 'ر. مهندسين اقدم', 'ر. مهندسين اقدم اول',
+            'رئيس مهندسين', 'رئيس مهندسين اقدم', 'رئيس مهندسين اقدم اول'];
+        const isEngineer = engineeringTitles.some(t =>
+            financialData.job_title?.includes(t) || t.includes(financialData.job_title || '')
+        );
+        // إذا عنوانه هندسي ولا توجد قيمة من DB → نحسبها
+        // إذا توجد قيمة من DB → نحافظ عليها
+        if (isEngineer && Number(financialData.engineering_allowance) === 0) {
+            const calcEngAllowance = Math.round(nominalSalary * 0.35);
+            if (calcEngAllowance > 0) {
+                newFinancialData.engineering_allowance = calcEngAllowance;
+                shouldUpdate = true;
+            }
         }
 
         // 3. Calculate Deductions
-        // Tax Deduction: 3.5% of Nominal Salary, formatted to max 3 decimal places
-        let calcTaxDeduction = Math.round(nominalSalary * 0.035);
-        // Remove complex truncation logic in favor of standard rounding as requested
-        // if (!Number.isInteger(calcTaxDeduction)) { ... }
-
-        if (Number(financialData.tax_deduction_amount) !== calcTaxDeduction) {
+        // Tax Deduction: لا نستبدل القيمة إذا كانت موجودة من DB
+        // القيمة من Excel أدق من حساب 3.5% البسيط
+        if (Number(financialData.tax_deduction_amount) === 0 && nominalSalary > 0) {
+            const calcTaxDeduction = Math.round(nominalSalary * 0.035);
             newFinancialData.tax_deduction_amount = calcTaxDeduction;
             shouldUpdate = true;
         }
@@ -874,6 +878,9 @@ export const AdminDashboard = () => {
 
     const handleFinancialChange = (key: string, value: any) => {
         if (!financialData) return;
+
+        // تتبع: كشف الاستدعاءات التلقائية
+        console.log(`⚡ [TRACE-CHANGE] key="${key}" value=`, value, 'stack:', new Error().stack?.split('\n')[2]);
 
         let newData = { ...financialData, [key]: value };
 
@@ -2009,6 +2016,10 @@ function EditableField({
 
 function FinancialInput({ field, value, onChange, recordId, tableName, dbField }: any) {
     if (!field) return null;
+    // تتبع: طباعة القيمة لحقول معينة
+    if (field.key === 'engineering_allowance' || field.key === 'tax_deduction_amount') {
+        console.log(`🔍 [TRACE-RENDER] ${field.key}:`, value, 'type:', typeof value);
+    }
     return (
         <div className="grid grid-cols-[132px_1fr] items-center gap-2">
             {/* Label Column */}
