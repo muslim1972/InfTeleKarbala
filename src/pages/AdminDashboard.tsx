@@ -758,16 +758,15 @@ export const AdminDashboard = () => {
     const handleSaveRecord = async (type: 'thanks' | 'committees' | 'penalties' | 'leaves', data: any) => {
         if (!selectedEmployee) return;
 
-        // Validation: Ensure Admin is identified via Context
         if (!currentUser?.id) {
             toast.error("خطأ حرج: لم يتم التعرف على هوية المدير! يرجى إعادة تسجيل الدخول.");
             return;
         }
 
+        const isNewRecord = !data.id;
         setLoading(true);
         try {
             const tableName = `${type}_details`;
-
             const payload = {
                 ...data,
                 user_id: selectedEmployee.id,
@@ -779,14 +778,40 @@ export const AdminDashboard = () => {
 
             console.log(`[Audit] Saving as Admin: ${currentUser.full_name} (${currentUser.id})`);
 
-            const { error } = await supabase.from(tableName).upsert([payload]); // Changed to upsert for edit support
+            const { error } = await supabase.from(tableName).upsert([payload]);
             if (error) throw error;
 
-            toast.success(data.id ? "تم تحديث السجل بنجاح" : "تم إضافة السجل بنجاح");
-            fetchAdminRecords(); // Refresh list
+            // تحديث العدد في yearly_records عند إضافة سجل جديد (ليس تعديل)
+            if (isNewRecord) {
+                const countField: Record<string, string> = {
+                    thanks: 'thanks_books_count',
+                    committees: 'committees_count',
+                    penalties: 'penalties_count',
+                    leaves: 'leaves_taken'
+                };
+                const field = countField[type];
+                if (field) {
+                    const yearRec = yearlyData.find((yr: any) => yr.year === selectedAdminYear);
+                    if (yearRec) {
+                        const newCount = (yearRec[field] || 0) + 1;
+                        await supabase.from('yearly_records').update({ [field]: newCount }).eq('id', yearRec.id);
+                    } else {
+                        // إنشاء سجل سنوي جديد
+                        await supabase.from('yearly_records').insert({
+                            user_id: selectedEmployee.id,
+                            year: selectedAdminYear,
+                            [field]: 1
+                        });
+                    }
+                    // تحديث yearlyData محلياً
+                    const { data: yData } = await supabase.from('yearly_records')
+                        .select('*').eq('user_id', selectedEmployee.id).order('year', { ascending: false });
+                    setYearlyData(yData || []);
+                }
+            }
 
-            // Optional: Update Count in yearly_records (Implementation left as exercise or handled by DB trigger optimally)
-            // For now, we focus on the details.
+            toast.success(isNewRecord ? "تم إضافة السجل بنجاح" : "تم تحديث السجل بنجاح");
+            fetchAdminRecords();
         } catch (error: any) {
             toast.error("فشل الحفظ: " + error.message);
         } finally {
@@ -801,6 +826,26 @@ export const AdminDashboard = () => {
             const tableName = `${type}_details`;
             const { error } = await supabase.from(tableName).delete().eq('id', id);
             if (error) throw error;
+
+            // إنقاص العدد في yearly_records
+            const countField: Record<string, string> = {
+                thanks: 'thanks_books_count',
+                committees: 'committees_count',
+                penalties: 'penalties_count',
+                leaves: 'leaves_taken'
+            };
+            const field = countField[type];
+            if (field) {
+                const yearRec = yearlyData.find((yr: any) => yr.year === selectedAdminYear);
+                if (yearRec && (yearRec[field] || 0) > 0) {
+                    const newCount = (yearRec[field] || 0) - 1;
+                    await supabase.from('yearly_records').update({ [field]: newCount }).eq('id', yearRec.id);
+                }
+                // تحديث yearlyData محلياً
+                const { data: yData } = await supabase.from('yearly_records')
+                    .select('*').eq('user_id', selectedEmployee.id).order('year', { ascending: false });
+                setYearlyData(yData || []);
+            }
 
             toast.success("تم الحذف بنجاح");
             fetchAdminRecords();
@@ -1568,94 +1613,104 @@ export const AdminDashboard = () => {
             {/* TAB: Admin Records Portal */}
             {activeTab === 'admin_records' && (
                 <div className="space-y-6">
-                    {selectedEmployee ? (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
-                            {/* Sections */}
-                            <div className="space-y-4">
-                                <RecordSection
-                                    id="thanks"
-                                    title="كتب الشكر والتقدير"
-                                    icon={Award}
-                                    color="from-teal-600 to-teal-500"
-                                    data={adminRecords.thanks}
-                                    type="thanks"
-                                    onSave={handleSaveRecord}
-                                    onDelete={handleDeleteRecord}
-                                    isOpen={openRecordSection === 'thanks'}
-                                    onToggle={() => handleToggleRecordSection('thanks')}
-                                    selectedYear={selectedAdminYear}
-                                    fields={[
-                                        { key: 'book_number', label: 'رقم الكتاب' },
-                                        { key: 'book_date', label: 'تاريخ الكتاب', type: 'date-fixed-year' },
-                                        { key: 'reason', label: 'سبب الشكر' },
-                                        { key: 'issuer', label: 'الجهة المانحة' }
-                                    ]}
-                                />
-                                <RecordSection
-                                    id="committees"
-                                    title="اللجان"
-                                    icon={User}
-                                    color="from-purple-600 to-purple-500"
-                                    data={adminRecords.committees}
-                                    type="committees"
-                                    onSave={handleSaveRecord}
-                                    onDelete={handleDeleteRecord}
-                                    isOpen={openRecordSection === 'committees'}
-                                    onToggle={() => handleToggleRecordSection('committees')}
-                                    selectedYear={selectedAdminYear}
-                                    fields={[
-                                        { key: 'committee_name', label: 'اسم اللجنة' },
-                                        { key: 'role', label: 'العضوية / الصفة' },
-                                        { key: 'start_date', label: 'تاريخ اللجنة', type: 'date-fixed-year' }
-                                    ]}
-                                />
-                                <RecordSection
-                                    id="penalties"
-                                    title="العقوبات"
-                                    icon={Scissors}
-                                    color="from-red-600 to-red-500"
-                                    data={adminRecords.penalties}
-                                    type="penalties"
-                                    onSave={handleSaveRecord}
-                                    onDelete={handleDeleteRecord}
-                                    isOpen={openRecordSection === 'penalties'}
-                                    onToggle={() => handleToggleRecordSection('penalties')}
-                                    selectedYear={selectedAdminYear}
-                                    fields={[
-                                        { key: 'penalty_type', label: 'نوع العقوبة' },
-                                        { key: 'reason', label: 'السبب' },
-                                        { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date-fixed-year' },
-                                        { key: 'effect', label: 'الأثر المترتب (اختياري)' }
-                                    ]}
-                                />
-                                <RecordSection
-                                    id="leaves"
-                                    title="الاجازات"
-                                    icon={FileText}
-                                    color="from-green-600 to-green-500"
-                                    data={adminRecords.leaves}
-                                    type="leaves"
-                                    onSave={handleSaveRecord}
-                                    onDelete={handleDeleteRecord}
-                                    isOpen={openRecordSection === 'leaves'}
-                                    onToggle={() => handleToggleRecordSection('leaves')}
-                                    selectedYear={selectedAdminYear} // Pass selected year
-                                    fields={[
-                                        {
-                                            key: 'leave_type',
-                                            label: 'نوع الاجازة',
-                                            type: 'select',
-                                            options: ['اعتيادية', 'مرضية', 'سنوات', 'لجان طبية', 'ايقاف عن العمل']
-                                        },
-                                        { key: 'duration', label: 'المدة (محسوبة)', readOnly: true },
-                                        { key: 'start_date', label: 'تاريخ الانفكاك', type: 'date-fixed-year' },
-                                        { key: 'end_date', label: 'تاريخ المباشرة (اختياري)', type: 'date-fixed-year' },
-                                    ]}
-                                />
+                    {selectedEmployee ? (() => {
+                        const yearRec = yearlyData.find((yr: any) => yr.year === selectedAdminYear);
+                        const isCurrentYear = selectedAdminYear === new Date().getFullYear();
+                        return (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
+                                {/* Sections */}
+                                <div className="space-y-4">
+                                    <RecordSection
+                                        id="thanks"
+                                        title="كتب الشكر والتقدير"
+                                        icon={Award}
+                                        color="from-teal-600 to-teal-500"
+                                        data={adminRecords.thanks}
+                                        type="thanks"
+                                        onSave={handleSaveRecord}
+                                        onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'thanks'}
+                                        onToggle={() => handleToggleRecordSection('thanks')}
+                                        selectedYear={selectedAdminYear}
+                                        yearlyCount={yearRec?.thanks_books_count}
+                                        readOnly={!isCurrentYear}
+                                        fields={[
+                                            { key: 'book_number', label: 'رقم الكتاب' },
+                                            { key: 'book_date', label: 'تاريخ الكتاب', type: 'date-fixed-year' },
+                                            { key: 'reason', label: 'سبب الشكر' },
+                                            { key: 'issuer', label: 'الجهة المانحة' }
+                                        ]}
+                                    />
+                                    <RecordSection
+                                        id="committees"
+                                        title="اللجان"
+                                        icon={User}
+                                        color="from-purple-600 to-purple-500"
+                                        data={adminRecords.committees}
+                                        type="committees"
+                                        onSave={handleSaveRecord}
+                                        onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'committees'}
+                                        onToggle={() => handleToggleRecordSection('committees')}
+                                        selectedYear={selectedAdminYear}
+                                        yearlyCount={yearRec?.committees_count}
+                                        readOnly={!isCurrentYear}
+                                        fields={[
+                                            { key: 'committee_name', label: 'اسم اللجنة' },
+                                            { key: 'role', label: 'العضوية / الصفة' },
+                                            { key: 'start_date', label: 'تاريخ اللجنة', type: 'date-fixed-year' }
+                                        ]}
+                                    />
+                                    <RecordSection
+                                        id="penalties"
+                                        title="العقوبات"
+                                        icon={Scissors}
+                                        color="from-red-600 to-red-500"
+                                        data={adminRecords.penalties}
+                                        type="penalties"
+                                        onSave={handleSaveRecord}
+                                        onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'penalties'}
+                                        onToggle={() => handleToggleRecordSection('penalties')}
+                                        selectedYear={selectedAdminYear}
+                                        readOnly={!isCurrentYear}
+                                        fields={[
+                                            { key: 'penalty_type', label: 'نوع العقوبة' },
+                                            { key: 'reason', label: 'السبب' },
+                                            { key: 'penalty_date', label: 'تاريخ العقوبة', type: 'date-fixed-year' },
+                                            { key: 'effect', label: 'الأثر المترتب (اختياري)' }
+                                        ]}
+                                    />
+                                    <RecordSection
+                                        id="leaves"
+                                        title="الاجازات"
+                                        icon={FileText}
+                                        color="from-green-600 to-green-500"
+                                        data={adminRecords.leaves}
+                                        type="leaves"
+                                        onSave={handleSaveRecord}
+                                        onDelete={handleDeleteRecord}
+                                        isOpen={openRecordSection === 'leaves'}
+                                        onToggle={() => handleToggleRecordSection('leaves')}
+                                        selectedYear={selectedAdminYear}
+                                        readOnly={!isCurrentYear}
+                                        fields={[
+                                            {
+                                                key: 'leave_type',
+                                                label: 'نوع الاجازة',
+                                                type: 'select',
+                                                options: ['اعتيادية', 'مرضية', 'سنوات', 'لجان طبية', 'ايقاف عن العمل']
+                                            },
+                                            { key: 'duration', label: 'المدة (محسوبة)', readOnly: true },
+                                            { key: 'start_date', label: 'تاريخ الانفكاك', type: 'date-fixed-year' },
+                                            { key: 'end_date', label: 'تاريخ المباشرة (اختياري)', type: 'date-fixed-year' },
+                                        ]}
+                                    />
+                                </div >
+                                <div className="pb-32"></div>
                             </div>
-                            <div className="pb-32"></div>
-                        </div>
-                    ) : (
+                        );
+                    })() : (
                         <div className="text-center py-20">
                             <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
                                 <FileText className="w-10 h-10 text-white/20" />
@@ -1665,98 +1720,101 @@ export const AdminDashboard = () => {
                         </div>
                     )}
                 </div>
-            )}
+            )
+            }
 
             {/* News Ticker Tab */}
-            {activeTab === 'admin_news' && (
-                <div className="space-y-6 mx-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {
+                activeTab === 'admin_news' && (
+                    <div className="space-y-6 mx-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                    {/* News Bar Section */}
-                    <AccordionSection
-                        id="news_bar"
-                        title="إدارة شريط الاخبار"
-                        icon={FileText}
-                        isOpen={expandedSections.news_bar}
-                        color="from-teal-600 to-teal-500"
-                        onToggle={() => toggleSection('news_bar')}
-                    >
-                        <div className="p-2">
-                            <div className="flex justify-between items-center mb-4">
-                                <p className="text-white/60 text-sm leading-relaxed">
-                                    يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
-                                </p>
-                                <button
-                                    onClick={() => toggleSection('news_bar')}
-                                    className="text-white/40 hover:text-white flex items-center gap-1 text-xs transition-colors"
-                                >
-                                    <ChevronDown className="w-4 h-4 rotate-180" />
-                                    إغلاق
-                                </button>
+                        {/* News Bar Section */}
+                        <AccordionSection
+                            id="news_bar"
+                            title="إدارة شريط الاخبار"
+                            icon={FileText}
+                            isOpen={expandedSections.news_bar}
+                            color="from-teal-600 to-teal-500"
+                            onToggle={() => toggleSection('news_bar')}
+                        >
+                            <div className="p-2">
+                                <div className="flex justify-between items-center mb-4">
+                                    <p className="text-white/60 text-sm leading-relaxed">
+                                        يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
+                                    </p>
+                                    <button
+                                        onClick={() => toggleSection('news_bar')}
+                                        className="text-white/40 hover:text-white flex items-center gap-1 text-xs transition-colors"
+                                    >
+                                        <ChevronDown className="w-4 h-4 rotate-180" />
+                                        إغلاق
+                                    </button>
+                                </div>
+                                <TipsEditor appName="InfTeleKarbala" />
                             </div>
-                            <TipsEditor appName="InfTeleKarbala" />
-                        </div>
-                    </AccordionSection>
+                        </AccordionSection>
 
-                    {/* Polls Section */}
-                    <AccordionSection
-                        id="polls"
-                        title="الاستطلاعات"
-                        icon={PieChart}
-                        isOpen={expandedSections.polls}
-                        color="from-purple-600 to-purple-500"
-                        onToggle={() => toggleSection('polls')}
-                    >
-                        <div className="p-2">
-                            <PollCreator />
-                        </div>
-                    </AccordionSection>
+                        {/* Polls Section */}
+                        <AccordionSection
+                            id="polls"
+                            title="الاستطلاعات"
+                            icon={PieChart}
+                            isOpen={expandedSections.polls}
+                            color="from-purple-600 to-purple-500"
+                            onToggle={() => toggleSection('polls')}
+                        >
+                            <div className="p-2">
+                                <PollCreator />
+                            </div>
+                        </AccordionSection>
 
-                    {/* Directives Section (Red) */}
-                    <AccordionSection
-                        id="directives"
-                        title="التوجيهات"
-                        icon={AlertCircle}
-                        isOpen={expandedSections.directives}
-                        color="from-red-600 to-red-500"
-                        onToggle={() => toggleSection('directives')}
-                    >
-                        <div className="p-2">
-                            <MediaSectionEditor
-                                type="directive"
-                                title="محتوى التوجيهات الهامة"
-                                placeholder="اكتب التوجيه هنا... سيظهر هذا النص في نافذة منبثقة حمراء تتطلب تأكيد القراءة."
-                            />
-                        </div>
-                    </AccordionSection>
+                        {/* Directives Section (Red) */}
+                        <AccordionSection
+                            id="directives"
+                            title="التوجيهات"
+                            icon={AlertCircle}
+                            isOpen={expandedSections.directives}
+                            color="from-red-600 to-red-500"
+                            onToggle={() => toggleSection('directives')}
+                        >
+                            <div className="p-2">
+                                <MediaSectionEditor
+                                    type="directive"
+                                    title="محتوى التوجيهات الهامة"
+                                    placeholder="اكتب التوجيه هنا... سيظهر هذا النص في نافذة منبثقة حمراء تتطلب تأكيد القراءة."
+                                />
+                            </div>
+                        </AccordionSection>
 
-                    {/* Conferences Section (Green) */}
-                    <AccordionSection
-                        id="conferences"
-                        title="النشاطات"
-                        icon={User}
-                        isOpen={expandedSections.conferences}
-                        color="from-green-600 to-green-500"
-                        onToggle={() => toggleSection('conferences')}
-                    >
-                        <div className="p-2">
-                            <MediaSectionEditor
-                                type="conference"
-                                title="محتوى النشاطات"
-                                placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
-                            />
-                        </div>
-                    </AccordionSection>
+                        {/* Conferences Section (Green) */}
+                        <AccordionSection
+                            id="conferences"
+                            title="النشاطات"
+                            icon={User}
+                            isOpen={expandedSections.conferences}
+                            color="from-green-600 to-green-500"
+                            onToggle={() => toggleSection('conferences')}
+                        >
+                            <div className="p-2">
+                                <MediaSectionEditor
+                                    type="conference"
+                                    title="محتوى النشاطات"
+                                    placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
+                                />
+                            </div>
+                        </AccordionSection>
 
-                </div>
-            )}
+                    </div>
+                )
+            }
 
 
-        </Layout>
+        </Layout >
     );
 };
 
 
-function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, type, fields, isOpen, onToggle, selectedYear }: any) {
+function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, type, fields, isOpen, onToggle, selectedYear, yearlyCount, readOnly = false }: any) {
     const [newItem, setNewItem] = useState<any>({});
     const [isEditing, setIsEditing] = useState(false);
 
@@ -1825,152 +1883,172 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
     return (
         <AccordionSection
             id={`record-section-${id}`}
-            title={`${title} (${data.length})`}
+            title={`${title} (${yearlyCount !== undefined && yearlyCount !== null ? yearlyCount : data.length})`}
             icon={Icon}
             isOpen={isOpen}
             onToggle={onToggle}
             color={color}
         >
             <div className="space-y-4">
-                {/* Add/Edit Form */}
-                <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-muted/50 border-border")}>
-                    <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-foreground/70")}>
-                        {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {fields.map((field: any) => (
-                            <div key={field.key} className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                {/* Label */}
-                                <div className="flex justify-start pl-2">
-                                    <label className="text-xs text-muted-foreground font-bold block whitespace-nowrap text-right w-full">{field.label}</label>
-                                </div>
+                {/* Add/Edit Form - only in current year */}
+                {!readOnly && (
+                    <div className={cn("p-4 rounded-xl border space-y-3 transition-colors", isEditing ? "bg-brand-green/10 border-brand-green/30" : "bg-muted/50 border-border")}>
+                        <h4 className={cn("text-sm font-bold flex items-center gap-2", isEditing ? "text-brand-green" : "text-foreground/70")}>
+                            {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            {isEditing ? "تعديل السجل" : "إضافة سجل جديد"}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {fields.map((field: any) => (
+                                <div key={field.key} className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                    {/* Label */}
+                                    <div className="flex justify-start pl-2">
+                                        <label className="text-xs text-muted-foreground font-bold block whitespace-nowrap text-right w-full">{field.label}</label>
+                                    </div>
 
-                                {/* Input + Spacer */}
-                                <div className="flex items-center gap-2 relative w-full">
-                                    {/* Spacer for alignment (No history here yet, but keeps alignment) */}
-                                    <div className="w-6 shrink-0" />
+                                    {/* Input + Spacer */}
+                                    <div className="flex items-center gap-2 relative w-full">
+                                        {/* Spacer for alignment (No history here yet, but keeps alignment) */}
+                                        <div className="w-6 shrink-0" />
 
-                                    <div className="flex-1 relative">
-                                        {field.type === 'select' ? (
-                                            <div className="relative">
-                                                <Select
-                                                    value={newItem[field.key] || ""}
-                                                    onValueChange={(val) => setNewItem({ ...newItem, [field.key]: val })}
-                                                >
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="اختر..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="default_placeholder" className="hidden">اختر...</SelectItem>
-                                                        {field.options?.map((opt: string) => (
-                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        ) : field.type === 'date-fixed-year' ? (
-                                            <div className="flex gap-2">
-                                                {/* Day - Number Input */}
-                                                <Input
-                                                    type="number"
-                                                    placeholder="يوم"
-                                                    min={1} max={31}
-                                                    value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
-                                                    onChange={e => {
-                                                        let day = e.target.value;
-                                                        if (parseInt(day) > 31) day = "31";
-                                                        const dayStr = day.length === 1 ? `0${day}` : day;
-                                                        const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                        const parts = current.split('-');
-                                                        setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
-                                                    }}
-                                                    className="flex-1 text-center"
-                                                />
-                                                {/* Month */}
-                                                <div className="flex-1 relative">
+                                        <div className="flex-1 relative">
+                                            {field.type === 'select' ? (
+                                                <div className="relative">
                                                     <Select
-                                                        value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
-                                                        onValueChange={(val) => {
-                                                            const month = val;
-                                                            const current = newItem[field.key] || `${selectedYear}-01-01`;
-                                                            const parts = current.split('-');
-                                                            setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
-                                                        }}
+                                                        value={newItem[field.key] || ""}
+                                                        onValueChange={(val) => setNewItem({ ...newItem, [field.key]: val })}
                                                     >
                                                         <SelectTrigger className="w-full">
-                                                            <SelectValue placeholder="شهر" />
+                                                            <SelectValue placeholder="اختر..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                                <SelectItem key={m} value={m.toString().padStart(2, '0')}>{m}</SelectItem>
+                                                            <SelectItem value="default_placeholder" className="hidden">اختر...</SelectItem>
+                                                            {field.options?.map((opt: string) => (
+                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                                {/* Year (Fixed) */}
-                                                <div className="flex-1 bg-muted border border-border rounded-lg px-2 py-2 text-muted-foreground text-sm text-center font-mono select-none flex items-center justify-center">
-                                                    {selectedYear}
+                                            ) : field.type === 'date-fixed-year' ? (
+                                                <div className="flex gap-2">
+                                                    {/* Day - Text Input */}
+                                                    <Input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        maxLength={2}
+                                                        placeholder="يوم"
+                                                        value={newItem[field.key] ? newItem[field.key].split('-')[2] : ''}
+                                                        onChange={e => {
+                                                            let day = e.target.value.replace(/\D/g, '');
+                                                            if (parseInt(day) > 31) day = "31";
+                                                            if (parseInt(day) < 0) day = "";
+                                                            const dayStr = day.length === 1 ? `0${day}` : day;
+                                                            const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                            const parts = current.split('-');
+                                                            setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${parts[1]}-${dayStr}` });
+                                                        }}
+                                                        className="flex-1 text-center"
+                                                    />
+                                                    {/* Month */}
+                                                    <div className="flex-1 relative">
+                                                        <Select
+                                                            value={newItem[field.key] ? newItem[field.key].split('-')[1] : ''}
+                                                            onValueChange={(val) => {
+                                                                const month = val;
+                                                                const current = newItem[field.key] || `${selectedYear}-01-01`;
+                                                                const parts = current.split('-');
+                                                                setNewItem({ ...newItem, [field.key]: `${selectedYear || parts[0]}-${month}-${parts[2]}` });
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="w-full">
+                                                                <SelectValue placeholder="شهر" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                                    <SelectItem key={m} value={m.toString().padStart(2, '0')}>{m}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    {/* Year (Fixed) */}
+                                                    <div className="flex-1 bg-muted border border-border rounded-lg px-2 py-2 text-muted-foreground text-sm text-center font-mono select-none flex items-center justify-center">
+                                                        {selectedYear}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : field.readOnly ? (
-                                            <Input
-                                                type="text"
-                                                value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
-                                                readOnly
-                                                className="w-full bg-muted border border-border text-muted-foreground cursor-not-allowed font-bold"
-                                            />
-                                        ) : (
-                                            <Input
-                                                type={field.type || "text"}
-                                                placeholder={field.label}
-                                                value={newItem[field.key] || ""}
-                                                onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
-                                                className="flex-1"
-                                            />
-                                        )}
+                                            ) : field.readOnly ? (
+                                                <Input
+                                                    type="text"
+                                                    value={field.key === 'duration' ? calculateDuration() : (newItem[field.key] || "")}
+                                                    readOnly
+                                                    className="w-full bg-muted border border-border text-muted-foreground cursor-not-allowed font-bold"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    type={field.type || "text"}
+                                                    placeholder={field.label}
+                                                    value={newItem[field.key] || ""}
+                                                    onChange={e => setNewItem({ ...newItem, [field.key]: e.target.value })}
+                                                    className="flex-1"
+                                                />
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleSave}
-                            className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
-                                isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
-                            )}
-                        >
-                            {isEditing ? "حفظ التعديلات" : "حفظ السجل"}
-                        </button>
-                        {isEditing && (
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
                             <button
-                                onClick={() => {
-                                    setIsEditing(false);
-                                    setNewItem({});
-                                }}
-                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold"
+                                onClick={handleSave}
+                                className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-colors",
+                                    isEditing ? "bg-brand-green text-white hover:bg-brand-green/90" : "bg-brand-green/20 text-brand-green hover:bg-brand-green/30"
+                                )}
                             >
-                                إلغاء
+                                {isEditing ? "حفظ التعديلات" : "حفظ السجل"}
                             </button>
-                        )}
+                            {isEditing && (
+                                <button
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setNewItem({});
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold"
+                                >
+                                    إلغاء
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* Yearly Summary */}
+                {yearlyCount > 0 && data.length === 0 && (
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-brand-green/20 bg-brand-green/5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-brand-green/20 flex items-center justify-center">
+                                <span className="text-brand-green font-bold text-lg">{yearlyCount}</span>
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-foreground">{title} مسجلة لسنة {selectedYear}</p>
+                                <p className="text-xs text-muted-foreground">البيانات المستوردة من كشف الراتب</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* List using Shared Component */}
                 <RecordList
                     data={data}
                     fields={fields}
                     type={type}
-                    onEdit={(item) => {
+                    onEdit={readOnly ? undefined : (item) => {
                         setNewItem(item);
                         setIsEditing(true);
-                        // Optional: scroll to form
                     }}
-                    onDelete={onDelete}
+                    onDelete={readOnly ? undefined : onDelete}
+                    readOnly={readOnly}
+                    hideEmpty={yearlyCount > 0}
                 />
             </div>
-        </AccordionSection>
+        </AccordionSection >
     );
 }
 

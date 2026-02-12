@@ -8,9 +8,10 @@ interface RecordListProps {
     onEdit?: (item: any) => void;
     onDelete?: (type: string, id: any) => void;
     readOnly?: boolean;
+    hideEmpty?: boolean;
 }
 
-export function RecordList({ data, fields, type, onEdit, onDelete, readOnly = false }: RecordListProps) {
+export function RecordList({ data, fields, type, onEdit, onDelete, readOnly = false, hideEmpty = false }: RecordListProps) {
     return (
         <div className="space-y-2">
             {data.map((item: any, idx: number) => (
@@ -50,7 +51,7 @@ export function RecordList({ data, fields, type, onEdit, onDelete, readOnly = fa
                     )}
                 </div>
             ))}
-            {data.length === 0 && (
+            {data.length === 0 && !hideEmpty && (
                 <p className="text-center text-gray-400 dark:text-white/20 text-sm py-4">لا توجد سجلات</p>
             )}
         </div>
