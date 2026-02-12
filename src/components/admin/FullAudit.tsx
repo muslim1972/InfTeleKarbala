@@ -37,6 +37,9 @@ const ALL_FIELDS = [
     { key: 'tax_deduction_amount', label: 'ضريبة' },
 ];
 
+// الحقول الإلزامية التي يجب فحصها دائماً حتى لو كانت قيمتها صفر (مثل التقاعد)
+const MANDATORY_FIELDS = ['retirement_deduction'];
+
 // دالة مساعدة لقراءة الأرقام وتنظيفها من الفواصل
 const safeParseFloat = (val: any): number => {
     if (val === null || val === undefined || val === '') return 0;
@@ -81,6 +84,7 @@ interface AuditError {
     approvedPct: number | null;
     approvedVal: number | null;
     currentVal: number;
+    debugInfo?: string;
 }
 
 interface FullAuditProps {
@@ -141,6 +145,12 @@ export function FullAudit({ onClose }: FullAuditProps) {
                         const approvedPct = resolveApprovedPercentage(field.key, rec);
                         const currentVal = safeParseFloat(rec[field.key]);
 
+                        // التحقق مما إذا كان الحقل إلزامياً (مثل التقاعد)
+                        const isMandatory = MANDATORY_FIELDS.includes(field.key);
+
+                        // إذا لم يكن الحقل إلزامياً وكانت القيمة 0 (أو قريبة جداً من الصفر)، نعتبر أن الموظف لا يستحق هذا المخصص (تجاوز)
+                        if (!isMandatory && (currentVal === 0 || Math.abs(currentVal) < 1)) continue;
+
                         let approvedVal: number | null = null;
                         let isMismatch = false;
 
@@ -164,7 +174,8 @@ export function FullAudit({ onClose }: FullAuditProps) {
                                 nominalSalary: nomSal,
                                 approvedPct,
                                 approvedVal,
-                                currentVal
+                                currentVal,
+                                debugInfo: `V:${currentVal}, M:${isMandatory}, T:${typeof currentVal}`
                             });
                         }
                     }
@@ -324,7 +335,7 @@ export function FullAudit({ onClose }: FullAuditProps) {
                         className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base font-bold text-white transition-all duration-200 bg-blue-600 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 hover:shadow-lg hover:shadow-blue-600/30 active:scale-95"
                     >
                         <Play className="w-5 h-5 mr-2 ml-1 fill-current" />
-                        بدء الفحص الشامل
+                        بدء الفحص الذكي (Smart)
                         <div className="absolute inset-0 rounded-full ring-2 ring-white/20 group-hover:ring-white/40 animate-ping opacity-20" />
                     </button>
                 </div>
@@ -406,7 +417,10 @@ export function FullAudit({ onClose }: FullAuditProps) {
                                                     <tr key={idx} className={cn("hover:bg-black/5 dark:hover:bg-white/5 transition-colors")}>
                                                         <td className="px-4 py-3">
                                                             <div className="font-bold">{err.userName}</div>
-                                                            <div className="text-xs opacity-60 font-mono">{err.jobNumber}</div>
+                                                            <div className="text-xs opacity-60 font-mono">
+                                                                {err.jobNumber}
+                                                                {err.debugInfo && <span className="block text-[9px] text-red-500 mt-1" dir="ltr">{err.debugInfo}</span>}
+                                                            </div>
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <span className={cn("px-2 py-0.5 rounded textxs font-bold", isDark ? "bg-white/10" : "bg-gray-200")}>
