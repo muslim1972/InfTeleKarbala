@@ -145,13 +145,30 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     // === حل النسبة المعتمدة الديناميكية ===
     const getApprovedPercentage = (fieldKey: string): number | null => {
         if (!financialData) return null;
+
+        // 1. الحقول ذات النسب الديناميكية (تُقرأ من البيانات المالية)
         if (fieldKey === 'certificate_allowance') {
-            return parseFloat(financialData.certificate_percentage) || null;
+            const pct = parseFloat(financialData.certificate_percentage);
+            return isNaN(pct) ? null : pct;
         }
         if (fieldKey === 'risk_allowance') {
-            return parseFloat(financialData.risk_percentage) || null;
+            const pct = parseFloat(financialData.risk_percentage);
+            return isNaN(pct) ? null : pct;
         }
-        return APPROVED_PERCENTAGES[fieldKey] ?? null;
+
+        // 2. الحقول ذات النسب الثابتة المعروفة
+        const fixed = APPROVED_PERCENTAGES[fieldKey];
+        if (fixed !== undefined && fixed !== null) return fixed;
+
+        // 3. إذا لم تكن النسبة معروفة، نحسبها عكسياً من القيمة المخزنة
+        const nomSal = parseFloat(financialData.nominal_salary) || 0;
+        const storedVal = parseFloat(financialData[fieldKey]) || 0;
+        if (nomSal > 0 && storedVal > 0) {
+            const calculated = Math.round((storedVal / nomSal) * 10000) / 100; // دقة منزلتين
+            return calculated;
+        }
+
+        return null;
     };
 
     // === تنفيذ التحقق ===
@@ -174,10 +191,12 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         if (approved !== null) {
             const approvedCalc = Math.round((nominalSalary * approved) / 100);
             setRecalcResult(approvedCalc);
-            setValidationState(userPct === approved ? 'match' : 'mismatch');
+            // مقارنة النسبة المدخلة بالنسبة المعتمدة
+            setValidationState(Math.abs(userPct - approved) < 0.01 ? 'match' : 'mismatch');
         } else {
+            // لا توجد نسبة معتمدة → نقارن الناتج مع القيمة الحالية
             setRecalcResult(null);
-            setValidationState('match'); // لا توجد نسبة معتمدة للمقارنة
+            setValidationState(userCalc === fieldCurrentValue ? 'match' : 'mismatch');
         }
     };
 
