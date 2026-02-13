@@ -497,8 +497,8 @@ export const AdminDashboard = () => {
             else if (certText === 'ماجستير') expectedPerc = 125;
             else if (certText === 'دكتوراه') expectedPerc = 150;
             else if (certText === 'أمي' || certText === 'يقرأ ويكتب') expectedPerc = 15;
-            // الابتدائية تبقى 0 حالياً، ما لم يتم توضيح خلاف ذلك (عادة 0)
-            else if (certText === 'الابتدائية') expectedPerc = 0;
+            // للشهادات الأقل من المتوسطة (ابتدائية، يقرأ ويكتب) النسبة يجب أن تكون 15
+            else if (certText === 'الابتدائية') expectedPerc = 15;
 
             if (certPerc !== expectedPerc && certText) {
                 toast.error(`خطأ: شهادة "${certText}" يجب أن تكون نسبتها ${expectedPerc}% وليس ${certPerc}%`);
@@ -916,6 +916,7 @@ export const AdminDashboard = () => {
             else if (t.includes('دبلوم')) perc = 35;
             else if (t.includes('الاعدادية')) perc = 25;
             else if (t.includes('المتوسطة')) perc = 15;
+            else if (t.includes('الابتدائية')) perc = 15;
             else if (t.includes('يقرأ ويكتب') || t.includes('أمي')) perc = 15;
 
             // Override only if perc > 0 to avoid resetting manual edits (except for explicit low levels which we want to enforce if selected)

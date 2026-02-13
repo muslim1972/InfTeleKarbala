@@ -58,6 +58,7 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) return 45;
         if (t.includes('دبلوم')) return 35;
         if (t.includes('الاعدادية')) return 25;
+        if (t.includes('الابتدائية')) return 15;
         if (t.includes('المتوسطة')) return 15;
         if (t.includes('يقرأ ويكتب') || t.includes('أمي')) return 15;
         return 0; // Default (Primary or none)
@@ -379,7 +380,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     </div>
     <table>
         <thead>
-            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>المستحق (المعتمد)</th><th>الرقم الحالي</th><th>النسبة الحالية</th></tr>
+            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الاستحقاق حسب النسبة</th><th>الرقم حسب المالية</th><th>النسبة المعتمدة</th></tr>
         </thead>
         <tbody>
             ${mismatchRows.map((r, i) => `
