@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Check, X, AlertTriangle, CheckCircle2, Printer, ArrowLeftRight, FileWarning, Loader2, Sparkles, TrendingUp, Info, ShieldCheck, Calculator } from 'lucide-react';
+import { Search, X, AlertTriangle, CheckCircle2, Printer, ArrowLeftRight, FileWarning, Loader2, ShieldCheck, Calculator } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
@@ -76,13 +76,7 @@ interface MismatchRow {
     currentPct: number | null;
 }
 
-interface AnalysisResult {
-    type: 'percentage' | 'fixed';
-    value: number;
-    count: number;
-    percentageOfTotal: number;
-    examples: string[]; // مصفوفة أمثلة
-}
+
 
 interface CustomAuditProps {
     onClose: () => void;
@@ -95,13 +89,11 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     const [activeTab, setActiveTab] = useState<'custom' | 'full'>('custom');
 
     const searchRef = useRef<HTMLDivElement>(null);
-    const analysisRef = useRef<HTMLDivElement>(null);
 
     // === الحالات العامة ===
     const [scope, setScope] = useState<'all' | 'specific'>('all');
     const [auditType, setAuditType] = useState<'allowances' | 'deductions' | null>(null);
     const [selectedField, setSelectedField] = useState('');
-    const [userPercentage, setUserPercentage] = useState('');
 
     // === وضع "اسم محدد" ===
     const [searchQuery, setSearchQuery] = useState('');
@@ -126,12 +118,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
     const [reportGenerated, setReportGenerated] = useState(false);
     const [processedCount, setProcessedCount] = useState(0);
-
-    // === التحليل الذكي ===
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
-    const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-    const [totalAnalyzed, setTotalAnalyzed] = useState(0);
 
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -219,33 +205,31 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     };
 
     // === حساب فردي (لوضع التنقل ووضع اسم محدد) ===
-    const calculateSingle = useCallback((finData: any, userPctStr: string, field: string) => {
-        if (!finData || !field || !userPctStr) return;
+    const calculateSingle = useCallback((finData: any, field: string) => {
+        if (!finData || !field) return;
 
         const nominalSalary = parseFloat(finData.nominal_salary) || 0;
-        const userPct = parseFloat(userPctStr);
         const approved = resolveApprovedPercentage(field, finData);
         const fieldCurrentValue = parseFloat(finData[field]) || 0;
 
         setApprovedPercentage(approved);
         setCurrentValue(fieldCurrentValue);
 
-        const userCalc = Math.round((nominalSalary * userPct) / 100);
-        setAuditResult(userCalc);
-
         if (approved !== null) {
             const approvedCalc = Math.round((nominalSalary * approved) / 100);
             setRecalcResult(approvedCalc);
+            setAuditResult(approvedCalc); // النتيجة المتوقعة هي نفسها المحسوبة من النسبة المعتمدة
 
-            // تحقق: هل النسبة المدخلة تطابق المعتمدة؟
-            if (Math.abs(userPct - approved) < 0.01) {
+            // تحقق: هل القيمة الحالية تطابق المحسوب؟ (السماح بفرق بسيط للتقريب)
+            if (Math.abs(approvedCalc - fieldCurrentValue) <= 1) {
                 setValidationState('match');
             } else {
                 setValidationState('mismatch');
             }
         } else {
             setRecalcResult(null);
-            setValidationState(userCalc === fieldCurrentValue ? 'match' : 'mismatch');
+            setAuditResult(null);
+            setValidationState('idle');
         }
     }, []);
 
@@ -256,19 +240,18 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         if (!emp) return;
         setSelectedEmployee(emp);
         const finData = await loadFinancialData(emp.id);
-        if (finData && selectedField && userPercentage) {
-            calculateSingle(finData, userPercentage, selectedField);
+        if (finData && selectedField) {
+            calculateSingle(finData, selectedField);
         }
-    }, [allEmployees, loadFinancialData, selectedField, userPercentage, calculateSingle]);
+    }, [allEmployees, loadFinancialData, selectedField, calculateSingle]);
 
     // === توليد تقرير غير المطابق مع Pagination ===
     const generateMismatchReport = useCallback(async () => {
-        if (!selectedField || !userPercentage) return;
+        if (!selectedField) return;
         setIsGeneratingReport(true);
         setMismatchRows([]);
         setProcessedCount(0);
 
-        const userPct = parseFloat(userPercentage);
         const PAGE_SIZE = 1000;
         let from = 0;
         let hasMore = true;
@@ -292,19 +275,20 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 if (nomSal <= 0) continue;
 
                 const approved = resolveApprovedPercentage(selectedField, rec);
+                if (approved === null) continue;
+
                 const fieldCurrentValue = parseFloat(rec[selectedField]) || 0;
-                const userCalc = Math.round((nomSal * userPct) / 100);
-                const approvedCalc = approved !== null ? Math.round((nomSal * approved) / 100) : null;
+                const approvedCalc = Math.round((nomSal * approved) / 100);
                 const currentPct = nomSal > 0 ? Math.round((fieldCurrentValue / nomSal) * 10000) / 100 : 0;
 
-                const mismatch = Math.abs(userCalc - fieldCurrentValue) > 1;
+                const mismatch = Math.abs(approvedCalc - fieldCurrentValue) > 1;
 
                 if (mismatch) {
                     allRows.push({
                         name: (rec as any).profiles?.full_name || '—',
                         jobNumber: (rec as any).profiles?.job_number || '—',
                         nominalSalary: nomSal,
-                        userCalc,
+                        userCalc: approvedCalc,
                         approvedCalc,
                         currentValue: fieldCurrentValue,
                         currentPct,
@@ -321,87 +305,11 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         setMismatchRows(allRows);
         setIsGeneratingReport(false);
         setReportGenerated(true);
-    }, [selectedField, userPercentage]);
-
-    // === التحليل الذكي للبيانات ===
-    const analyzeFieldData = async () => {
-        if (!selectedField) return;
-        setIsAnalyzing(true);
-        setShowAnalysisModal(true);
-        setAnalysisResults([]);
-
-        const PAGE_SIZE = 1000;
-        let from = 0;
-        let hasMore = true;
-        let totalRows = 0;
-
-        const pctCounts: Record<number, { count: number, examples: string[] }> = {};
-        const fixedCounts: Record<number, { count: number, examples: string[] }> = {};
-
-        while (hasMore) {
-            const { data: batch, error } = await supabase
-                .from('financial_records')
-                .select('*, profiles!inner(full_name)')
-                .range(from, from + PAGE_SIZE - 1);
-
-            if (error || !batch || batch.length === 0) {
-                hasMore = false;
-                break;
-            }
-
-            for (const rec of batch) {
-                const nomSal = parseFloat(rec.nominal_salary) || 0;
-                const val = parseFloat(rec[selectedField]) || 0;
-                if (nomSal <= 0 || val <= 0) continue;
-
-                // 1. حساب النسبة
-                const pct = Math.round((val / nomSal) * 10000) / 100; // دقة مرتبتين
-
-                // 2. تجميع
-                if (!pctCounts[pct]) pctCounts[pct] = { count: 0, examples: [] };
-                pctCounts[pct].count++;
-                if (pctCounts[pct].examples.length < 3) pctCounts[pct].examples.push((rec as any).profiles?.full_name);
-
-                // 3. تجميع المبالغ الثابتة (إذا تكرر المبلغ لأكثر من راتب اسمي مختلف - تبسيطاً هنا نجمع التكرار فقط)
-                if (!fixedCounts[val]) fixedCounts[val] = { count: 0, examples: [] };
-                fixedCounts[val].count++;
-                if (fixedCounts[val].examples.length < 3) fixedCounts[val].examples.push((rec as any).profiles?.full_name);
-
-                totalRows++;
-            }
-
-            from += PAGE_SIZE;
-            if (batch.length < PAGE_SIZE) hasMore = false;
-        }
-
-        setTotalAnalyzed(totalRows);
-
-        // تحويل النتائج لمصفوفة
-        const results: AnalysisResult[] = [];
-
-        // إضافة النسب الأكثر تكراراً (تظهر إذا كانت تشكل > 1% من البيانات)
-        Object.entries(pctCounts).forEach(([pctStr, data]) => {
-            const pct = parseFloat(pctStr);
-            if (data.count > totalRows * 0.01) {
-                results.push({
-                    type: 'percentage',
-                    value: pct,
-                    count: data.count,
-                    percentageOfTotal: (data.count / totalRows) * 100,
-                    examples: data.examples // تمرير المصفوفة كاملة
-                });
-            }
-        });
-
-        // ترتيب النتائج
-        results.sort((a, b) => b.count - a.count);
-        setAnalysisResults(results);
-        setIsAnalyzing(false);
-    };
+    }, [selectedField]);
 
     // === التحقق اليدوي (لوضع اسم محدد) ===
     const handleVerify = () => {
-        calculateSingle(financialData, userPercentage, selectedField);
+        calculateSingle(financialData, selectedField);
     };
 
     // === طباعة تقرير فردي ===
@@ -418,7 +326,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     // === طباعة تقرير الشامل ===
     const printMismatchReport = () => {
         const fieldLabel = [...ALLOWANCE_FIELDS, ...DEDUCTION_FIELDS].find(f => f.key === selectedField)?.label || '';
-        const userPct = parseFloat(userPercentage);
 
         const pw = window.open('', '_blank');
         if (!pw) return;
@@ -453,11 +360,10 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     </div>
     <div class="summary">
         <div class="summary-item"><div class="label">غير المطابق</div><div class="value mismatch">${mismatchRows.length}</div></div>
-        <div class="summary-item"><div class="label">النسبة</div><div class="value">${userPct}%</div></div>
     </div>
     <table>
         <thead>
-            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الناتج (${userPct}%)</th><th>الرقم الحالي</th><th>النسبة الحالية</th></tr>
+            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>المستحق (المعتمد)</th><th>الرقم الحالي</th><th>النسبة الحالية</th></tr>
         </thead>
         <tbody>
             ${mismatchRows.map((r, i) => `
@@ -465,7 +371,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 <td>${i + 1}</td>
                 <td style="text-align:right">${r.name}<br/><small>${r.jobNumber}</small></td>
                 <td>${fmt(r.nominalSalary)}</td>
-                <td>${fmt(r.userCalc)}</td>
+                <td>${fmt(r.approvedCalc)}</td>
                 <td class="mismatch">${fmt(r.currentValue)}</td>
                 <td>${r.currentPct}%</td>
             </tr>`).join('')}
@@ -516,9 +422,8 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         <div class="info-item"><div class="label">الراتب الاسمي</div><div class="value">${fmt(financialData?.nominal_salary)} د.ع</div></div>
     </div>
     <div class="result-section">
-        <div class="result-row"><span class="label">النسبة المُدخلة</span><span class="value">${userPercentage}%</span></div>
-        <div class="result-row"><span class="label">النسبة المعتمدة</span><span class="value">${approvedPercentage !== null ? approvedPercentage + '%' : '—'}</span></div>
-        <div class="result-row"><span class="label">ناتج التدقيق</span><span class="value">${fmt(auditResult)} د.ع</span></div>
+        <div class="result-row"><span class="label">النسبة المعتمدة</span><span class="value">${approvedPercentage !== null ? approvedPercentage + '%' : 'غير محدد'}</span></div>
+        <div class="result-row"><span class="label">الاستحقاق (المحسوب)</span><span class="value">${fmt(auditResult ?? 0)} د.ع</span></div>
         <div class="result-row"><span class="label">القيمة الحالية</span><span class="value">${fmt(currentValue)} د.ع</span></div>
         <div class="result-row"><span class="label">الحالة</span><span class="value ${validationState === 'match' ? 'match' : 'mismatch'}">${validationState === 'match' ? '✓ مطابق' : '✗ غير مطابق'}</span></div>
     </div>
@@ -751,76 +656,39 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                         )}
                     </div>
 
-                    {/* ======= صف 3: نسبة الاحتساب ======= */}
+                    {/* ======= صف 3: زر البدء (بديل نسبة الاحتساب) ======= */}
                     {selectedField && (scope === 'specific' ? financialData : true) && (
                         <div className={cn("rounded-xl border p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200", cardBg)}>
-                            <div className="flex justify-between items-center">
-                                <label className={cn("text-xs font-bold block", labelClr)}>نسبة الاحتساب من الراتب الاسمي</label>
-                                {/* زر التحليل الذكي */}
-                                <button
-                                    type="button"
-                                    onClick={analyzeFieldData}
-                                    className={cn(
-                                        "text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-all font-bold",
-                                        theme === 'light' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20'
-                                    )}
-                                >
-                                    <Sparkles className="w-3 h-3" />
-                                    تحليل البيانات
-                                </button>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={userPercentage}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/[^\d.]/g, '');
-                                            setUserPercentage(val);
-                                            setValidationState('idle');
-                                            setReportGenerated(false);
-                                        }}
-                                        placeholder="0"
-                                        dir="ltr"
-                                        className={cn("w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 font-mono text-center text-lg tracking-wider", inputBg)}
-                                    />
-                                    <span className={cn("absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold", labelClr)}>%</span>
-
-                                    {/* زر الصح: تحقق فردي (specific أو navigate) أو توليد تقرير (report) */}
-                                    {scope === 'all' && allMode === 'report' ? (
-                                        <button
-                                            type="button"
-                                            onClick={generateMismatchReport}
-                                            disabled={!userPercentage || isGeneratingReport}
-                                            className={cn(
-                                                "absolute left-2 top-1/2 -translate-y-1/2 h-7 px-2 rounded-full flex items-center justify-center gap-1 transition-all text-[10px] font-bold",
-                                                userPercentage && !isGeneratingReport
-                                                    ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/30 cursor-pointer'
-                                                    : 'bg-gray-300 dark:bg-white/10 text-gray-500 dark:text-white/20 cursor-not-allowed'
-                                            )}
-                                        >
-                                            {isGeneratingReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileWarning className="w-3.5 h-3.5" />}
-                                            {isGeneratingReport ? 'جارٍ التدقيق...' : 'بدء التدقيق'}
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={handleVerify}
-                                            disabled={!userPercentage || !financialData}
-                                            className={cn(
-                                                "absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                                                userPercentage && financialData
-                                                    ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30 cursor-pointer'
-                                                    : 'bg-gray-300 dark:bg-white/10 text-gray-500 dark:text-white/20 cursor-not-allowed'
-                                            )}
-                                        >
-                                            <Check className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+                            {/* زر البدء الأساسي */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (scope === 'all' && allMode === 'report') {
+                                        generateMismatchReport();
+                                    } else {
+                                        handleVerify();
+                                    }
+                                }}
+                                disabled={isGeneratingReport}
+                                className={cn(
+                                    "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+                                    isGeneratingReport
+                                        ? "bg-gray-400 cursor-not-allowed"
+                                        : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                                )}
+                            >
+                                {isGeneratingReport ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        جاري الفحص...
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShieldCheck className="w-5 h-5" />
+                                        ابدأ التدقيق
+                                    </>
+                                )}
+                            </button>
 
                             {/* === تحذير المطابقة (فردي) === */}
                             {validationState !== 'idle' && !(scope === 'all' && allMode === 'report') && (
@@ -831,9 +699,9 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                         : theme === 'light' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-red-500/10 border border-red-500/20 text-red-400'
                                 )}>
                                     {validationState === 'match' ? (
-                                        <><CheckCircle2 className="w-4 h-4 flex-shrink-0" /><span>النسبة صحيحة ومطابقة للنسبة المعمول بها</span></>
+                                        <><CheckCircle2 className="w-4 h-4 flex-shrink-0" /><span>مطابق للنسبة المعتمدة</span></>
                                     ) : (
-                                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" /><span>النسبة التي أدخلتها لا تساوي النسبة المعمول بها ({approvedPercentage}%) في التطبيق</span></>
+                                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" /><span>غير مطابق! النسبة المعتمدة هي ({approvedPercentage ?? 'غير محدد'}%)</span></>
                                     )}
                                 </div>
                             )}
@@ -842,10 +710,10 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             {auditResult !== null && !(scope === 'all' && allMode === 'report') && (
                                 <div className={cn("rounded-xl border p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300", mutedBg, theme === 'light' ? 'border-gray-200' : 'border-white/10')}>
                                     <div className="flex items-center justify-between">
-                                        <span className={cn("text-xs font-bold", labelClr)}>ناتج التدقيق (بنسبتك)</span>
+                                        <span className={cn("text-xs font-bold", labelClr)}>المستحق (حسب النسبة المعتمدة)</span>
                                         <div className="flex items-center gap-2">
                                             <span className={cn("text-lg font-bold font-mono", textClr)}>{fmt(auditResult)}</span>
-                                            <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-gray-200 text-gray-600' : 'bg-white/10 text-white/50')}>{userPercentage}%</span>
+                                            <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-gray-200 text-gray-600' : 'bg-white/10 text-white/50')}>{approvedPercentage ?? '?'}%</span>
                                         </div>
                                     </div>
                                     {recalcResult !== null && approvedPercentage !== null && (
@@ -892,7 +760,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                                             <th className="px-3 py-2.5 text-right font-bold w-[40px]">#</th>
                                                             <th className="px-3 py-2.5 text-right font-bold w-[200px]">الاسم / الرقم الوظيفي</th>
                                                             <th className="px-3 py-2.5 text-center font-bold">الراتب الاسمي</th>
-                                                            <th className="px-3 py-2.5 text-center font-bold">الناتج ({userPercentage}%)</th>
+                                                            <th className="px-3 py-2.5 text-center font-bold">المستحق (المحسوب)</th>
                                                             <th className="px-3 py-2.5 text-center font-bold">الرقم الحالي</th>
                                                             <th className="px-3 py-2.5 text-center font-bold">النسبة الحالية</th>
                                                         </tr>
@@ -910,7 +778,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                                                     <div className={cn("text-[9px] font-mono", labelClr)}>#{row.jobNumber}</div>
                                                                 </td>
                                                                 <td className={cn("px-3 py-2 text-center font-mono", textClr)}>{fmt(row.nominalSalary)}</td>
-                                                                <td className={cn("px-3 py-2 text-center font-mono font-bold", textClr)}>{fmt(row.userCalc)}</td>
+                                                                <td className={cn("px-3 py-2 text-center font-mono font-bold", textClr)}>{fmt(row.approvedCalc)}</td>
                                                                 <td className={cn("px-3 py-2 text-center font-mono font-bold", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(row.currentValue)}</td>
                                                                 <td className="px-3 py-2 text-center font-mono font-bold text-red-500">{row.currentPct}%</td>
                                                             </tr>
@@ -952,82 +820,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                         )}
                     </div>
 
-                    {/* ======= نافذة التحليل الذكي ======= */}
-                    {showAnalysisModal && createPortal(
-                        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                            <div ref={analysisRef} className={cn("w-full max-w-lg rounded-2xl shadow-2xl p-6 border relative", theme === 'light' ? 'bg-white border-gray-100' : 'bg-[#0a0a0a] border-white/10')}>
-                                <button onClick={() => setShowAnalysisModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
-                                    <X className="w-5 h-5" />
-                                </button>
-
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                        <TrendingUp className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className={cn("text-lg font-bold", textClr)}>تحليل البيانات المالية</h3>
-                                        <p className={cn("text-xs", labelClr)}>استكشاف الأنماط الموجودة في {totalAnalyzed} سجل</p>
-                                    </div>
-                                </div>
-
-                                {isAnalyzing ? (
-                                    <div className="py-12 flex flex-col items-center justify-center text-center">
-                                        <Loader2 className="w-8 h-8 mb-4 animate-spin text-blue-500" />
-                                        <p className={cn("text-sm font-bold", textClr)}>جاري فحص السجلات...</p>
-                                        <p className={cn("text-xs mt-1", labelClr)}>يرجى الانتظار قليلاً</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-1">
-                                        {analysisResults.length > 0 ? (
-                                            analysisResults.map((res, i) => (
-                                                <div key={i} className={cn("rounded-xl border p-4 transition-all hover:border-blue-500/30", theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10')}>
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={cn("text-xl font-bold font-mono", textClr)}>{res.value}%</span>
-                                                            <span className={cn("text-xs px-2 py-0.5 rounded-full font-bold", theme === 'light' ? 'bg-blue-100 text-blue-700' : 'bg-blue-500/20 text-blue-400')}>
-                                                                الأكثر شيوعاً ({Math.round(res.percentageOfTotal)}%)
-                                                            </span>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => {
-                                                                setUserPercentage(res.value.toString());
-                                                                setShowAnalysisModal(false);
-                                                            }}
-                                                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/20"
-                                                        >
-                                                            اعتماد هذه النسبة
-                                                        </button>
-                                                    </div>
-                                                    <p className={cn("text-xs mb-3", labelClr)}>وجدنا هذه النسبة في {res.count} موظف من أصل {totalAnalyzed}</p>
-                                                    <div className={cn("text-[10px] p-2 rounded border", theme === 'light' ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5')}>
-                                                        <span className="block mb-1 font-bold opacity-70">أمثلة (مثل):</span>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {res.examples.map((ex, idx) => (
-                                                                <span key={idx} className={cn("px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-gray-100' : 'bg-white/10')}>{ex}</span>
-                                                            ))}
-                                                            <span className="opacity-50 text-[9px] px-1 self-center">+ وآخرين</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="py-8 text-center bg-gray-50/50 rounded-xl border border-dashed text-gray-400">
-                                                لم يتم العثور على أنماط واضحة
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5">
-                                    <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
-                                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                                        <p>ملاحظة: النتائج تعتمد على تحليل البيانات المتوفرة حالياً في النظام. قد توجد حالات استثنائية فردية.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>,
-                        document.body
-                    )}
+                    {/* ======= نافذة التحليل الذكي (تمت إزالتها) ======= */}
                 </>
             )}
         </div>
