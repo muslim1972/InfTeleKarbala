@@ -51,8 +51,16 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         if (isAllowance) return 0;
     }
     if (fieldKey === 'certificate_allowance') {
-        const pct = parseFloat(finData.certificate_percentage);
-        return isNaN(pct) ? null : pct;
+        const t = finData.certificate_text ? finData.certificate_text.trim() : '';
+        if (t.includes('دكتوراه')) return 150;
+        if (t.includes('ماجستير')) return 125;
+        if (t.includes('دبلوم عالي')) return 55;
+        if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) return 45;
+        if (t.includes('دبلوم')) return 35;
+        if (t.includes('الاعدادية')) return 25;
+        if (t.includes('المتوسطة')) return 15;
+        if (t.includes('يقرأ ويكتب') || t.includes('أمي')) return 15;
+        return 0; // Default (Primary or none)
     }
     if (fieldKey === 'risk_allowance') {
         const pct = parseFloat(finData.risk_percentage);

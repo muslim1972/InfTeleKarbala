@@ -5,7 +5,7 @@ import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, FileSearch, Save } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -484,6 +484,7 @@ export const AdminDashboard = () => {
         setLoading(true);
         try {
             // التحقق من توافق الشهادة والنسبة
+            // التحقق من توافق الشهادة والنسبة
             const certText = financialData.certificate_text;
             const certPerc = Number(financialData.certificate_percentage || 0);
 
@@ -491,13 +492,13 @@ export const AdminDashboard = () => {
             if (certText === 'المتوسطة') expectedPerc = 15;
             else if (certText === 'الاعدادية') expectedPerc = 25;
             else if (certText === 'دبلوم') expectedPerc = 35;
-            else if (certText === 'بكلوريوس') expectedPerc = 45;
+            else if (certText === 'بكلوريوس' || certText === 'بكالوريوس') expectedPerc = 45;
             else if (certText === 'دبلوم عالي') expectedPerc = 55;
-            else if (certText === 'ماجستير') expectedPerc = 75;
-            else if (certText === 'دكتوراه') expectedPerc = 85;
-
-            // للشهادات الأقل من المتوسطة (ابتدائية، يقرأ ويكتب) النسبة يجب أن تكون 0
-            if (certText === 'الابتدائية' || certText === 'يقرأ ويكتب') expectedPerc = 0;
+            else if (certText === 'ماجستير') expectedPerc = 125;
+            else if (certText === 'دكتوراه') expectedPerc = 150;
+            else if (certText === 'أمي' || certText === 'يقرأ ويكتب') expectedPerc = 15;
+            // الابتدائية تبقى 0 حالياً، ما لم يتم توضيح خلاف ذلك (عادة 0)
+            else if (certText === 'الابتدائية') expectedPerc = 0;
 
             if (certPerc !== expectedPerc && certText) {
                 toast.error(`خطأ: شهادة "${certText}" يجب أن تكون نسبتها ${expectedPerc}% وليس ${certPerc}%`);
@@ -856,13 +857,13 @@ export const AdminDashboard = () => {
             {
                 key: 'certificate_text',
                 label: 'التحصيل الدراسي',
-                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب']
+                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي']
             },
             {
                 key: 'certificate_percentage',
                 label: 'النسبة المستحقة للشهادة',
                 suffix: '%',
-                options: ['0', '15', '25', '35', '45', '55', '75', '85', '100']
+                options: ['0', '15', '25', '35', '45', '55', '75', '85', '100', '125', '150']
             },
             { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
             {
@@ -908,16 +909,17 @@ export const AdminDashboard = () => {
         if (key === 'certificate_text') {
             let perc = 0;
             const t = value.trim();
-            if (t.includes('دكتوراه')) perc = 100; // Updated to 100 as per common rules (or 85?) - user data said 85. Sticking to 85.
-            else if (t.includes('ماجستير')) perc = 75;
+            if (t.includes('دكتوراه')) perc = 150;
+            else if (t.includes('ماجستير')) perc = 125;
             else if (t.includes('دبلوم عالي')) perc = 55;
             else if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) perc = 45;
             else if (t.includes('دبلوم')) perc = 35;
             else if (t.includes('الاعدادية')) perc = 25;
             else if (t.includes('المتوسطة')) perc = 15;
+            else if (t.includes('يقرأ ويكتب') || t.includes('أمي')) perc = 15;
 
-            // Override only if perc > 0 to avoid resetting manual edits
-            if (perc > 0) newData.certificate_percentage = perc;
+            // Override only if perc > 0 to avoid resetting manual edits (except for explicit low levels which we want to enforce if selected)
+            if (perc > 0 || t.includes('يقرأ') || t.includes('أمي')) newData.certificate_percentage = perc;
         }
 
         // 2. Auto-calculate Certificate Allowance: (Percentage / 100) * Nominal Salary
@@ -1991,28 +1993,7 @@ export const AdminDashboard = () => {
                             </div>
                         </AccordionSection>
 
-                        {/* Section 3: تدقيق شامل */}
-                        <AccordionSection
-                            id="sup_full_audit"
-                            title="تدقيق شامل"
-                            icon={FileSearch}
-                            isOpen={expandedSections.sup_full_audit}
-                            color="from-violet-600 to-purple-500"
-                            onToggle={() => toggleSection('sup_full_audit')}
-                        >
-                            <div className="p-4 space-y-4">
-                                <div className={cn(
-                                    "rounded-xl border p-6 text-center",
-                                    theme === 'light'
-                                        ? "bg-violet-50/50 border-violet-200/40"
-                                        : "bg-violet-950/20 border-violet-500/10"
-                                )}>
-                                    <FileSearch className={cn("w-12 h-12 mx-auto mb-3", theme === 'light' ? "text-violet-500/40" : "text-violet-500/30")} />
-                                    <h3 className={cn("font-bold text-sm mb-1", theme === 'light' ? "text-violet-800" : "text-violet-300")}>تدقيق جميع الموظفين</h3>
-                                    <p className={cn("text-xs", theme === 'light' ? "text-violet-700/60" : "text-violet-400/40")}>فحص شامل لجميع بيانات الموظفين المالية واكتشاف أي تناقضات أو أخطاء في الاحتساب</p>
-                                </div>
-                            </div>
-                        </AccordionSection>
+
 
                     </div>
                 )
