@@ -80,6 +80,7 @@ interface MismatchRow {
     approvedCalc: number | null;
     currentValue: number;
     currentPct: number | null;
+    isFiveYearLeave?: boolean;
 }
 
 
@@ -298,6 +299,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                         approvedCalc,
                         currentValue: fieldCurrentValue,
                         currentPct,
+                        isFiveYearLeave: rec.is_five_year_leave,
                     });
                 }
             }
@@ -377,7 +379,10 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 <td>${i + 1}</td>
                 <td style="text-align:right">${r.name}<br/><small>${r.jobNumber}</small></td>
                 <td>${fmt(r.nominalSalary)}</td>
-                <td>${fmt(r.approvedCalc)}</td>
+                <td>
+                    ${fmt(r.approvedCalc)}
+                    ${r.isFiveYearLeave ? '<br/><small style="color:red; font-size:9px">(إجازة 5 سنوات)</small>' : ''}
+                </td>
                 <td class="mismatch">${fmt(r.currentValue)}</td>
                 <td>${r.currentPct}%</td>
             </tr>`).join('')}
@@ -429,7 +434,13 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     </div>
     <div class="result-section">
         <div class="result-row"><span class="label">النسبة المعتمدة</span><span class="value">${approvedPercentage !== null ? approvedPercentage + '%' : 'غير محدد'}</span></div>
-        <div class="result-row"><span class="label">الاستحقاق (المحسوب)</span><span class="value">${fmt(auditResult ?? 0)} د.ع</span></div>
+        <div class="result-row">
+            <div style="display:flex; flex-direction:column">
+                <span class="label">الاستحقاق (المحسوب)</span>
+                ${financialData?.is_five_year_leave ? '<span style="font-size:10px; color:#dc2626; margin-top:2px">(كونه يتمتع بإجازة 5 سنوات)</span>' : ''}
+            </div>
+            <span class="value">${fmt(auditResult ?? 0)} د.ع</span>
+        </div>
         <div class="result-row"><span class="label">القيمة الحالية</span><span class="value">${fmt(currentValue)} د.ع</span></div>
         <div class="result-row"><span class="label">الحالة</span><span class="value ${validationState === 'match' ? 'match' : 'mismatch'}">${validationState === 'match' ? '✓ مطابق' : '✗ غير مطابق'}</span></div>
     </div>
@@ -715,85 +726,88 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             {/* === نتائج فردية === */}
                             {auditResult !== null && !(scope === 'all' && allMode === 'report') && (
                                 <div className={cn("rounded-xl border p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300", mutedBg, theme === 'light' ? 'border-gray-200' : 'border-white/10')}>
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex flex-col items-start gap-0.5">
                                         <span className={cn("text-xs font-bold", labelClr)}>المستحق (حسب النسبة المعتمدة)</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className={cn("text-lg font-bold font-mono", textClr)}>{fmt(auditResult)}</span>
-                                            <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-gray-200 text-gray-600' : 'bg-white/10 text-white/50')}>{approvedPercentage ?? '?'}%</span>
-                                        </div>
+                                        {financialData?.is_five_year_leave && (
+                                            <span className="text-[10px] text-rose-500 font-bold">(كونه يتمتع بإجازة 5 سنوات)</span>
+                                        )}
                                     </div>
-                                    {recalcResult !== null && approvedPercentage !== null && (
-                                        <div className="flex items-center justify-between border-t border-dashed pt-3" style={{ borderColor: theme === 'light' ? '#ddd' : 'rgba(255,255,255,0.1)' }}>
-                                            <span className={cn("text-xs font-bold", labelClr)}>إعادة الاحتساب (النسبة المعتمدة)</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className={cn("text-lg font-bold font-mono", validationState === 'match' ? 'text-green-500' : 'text-amber-400')}>{fmt(recalcResult)}</span>
-                                                <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", validationState === 'match' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500')}>{approvedPercentage}%</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center justify-between border-t border-dashed pt-3" style={{ borderColor: theme === 'light' ? '#ddd' : 'rgba(255,255,255,0.1)' }}>
-                                        <span className={cn("text-xs font-bold", labelClr)}>الظاهر حالياً من شعبة المالية</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className={cn("text-lg font-bold font-mono", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(currentValue)}</span>
-                                            <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-blue-100 text-blue-600' : 'bg-blue-500/10 text-blue-400')}>المالية</span>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={cn("text-lg font-bold font-mono", textClr)}>{fmt(auditResult)}</span>
+                                        <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-gray-200 text-gray-600' : 'bg-white/10 text-white/50')}>{approvedPercentage ?? '?'}%</span>
                                     </div>
                                 </div>
                             )}
-
-                            {/* === جدول تقرير غير المطابقين (محدّث ليعرض أعمدة إضافية) === */}
-                            {scope === 'all' && allMode === 'report' && reportGenerated && (
-                                <div className="animate-in fade-in slide-in-from-bottom-3 duration-300 space-y-3">
-                                    <div className={cn("rounded-lg px-4 py-2.5 flex items-center justify-between gap-2 text-sm font-bold",
-                                        mismatchRows.length > 0
-                                            ? theme === 'light' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-red-500/10 border border-red-500/20 text-red-400'
-                                            : theme === 'light' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-green-500/10 border border-green-500/20 text-green-400'
-                                    )}>
-                                        <div className="flex items-center gap-2">
-                                            {mismatchRows.length > 0 ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                                            <span>{mismatchRows.length > 0 ? `تم العثور على ${mismatchRows.length} قيد غير مطابق` : 'جميع القيود مطابقة 100%'}</span>
-                                        </div>
-                                        <span className="text-[10px] font-normal opacity-70">تم فحص {processedCount} سجل</span>
+                            {recalcResult !== null && approvedPercentage !== null && (
+                                <div className="flex items-center justify-between border-t border-dashed pt-3" style={{ borderColor: theme === 'light' ? '#ddd' : 'rgba(255,255,255,0.1)' }}>
+                                    <span className={cn("text-xs font-bold", labelClr)}>إعادة الاحتساب (النسبة المعتمدة)</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={cn("text-lg font-bold font-mono", validationState === 'match' ? 'text-green-500' : 'text-amber-400')}>{fmt(recalcResult)}</span>
+                                        <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", validationState === 'match' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500')}>{approvedPercentage}%</span>
                                     </div>
+                                </div>
+                            )}
+                            <div className="flex items-center justify-between border-t border-dashed pt-3" style={{ borderColor: theme === 'light' ? '#ddd' : 'rgba(255,255,255,0.1)' }}>
+                                <span className={cn("text-xs font-bold", labelClr)}>الظاهر حالياً من شعبة المالية</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn("text-lg font-bold font-mono", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(currentValue)}</span>
+                                    <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded", theme === 'light' ? 'bg-blue-100 text-blue-600' : 'bg-blue-500/10 text-blue-400')}>المالية</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                    {/* الجدول */}
-                                    {mismatchRows.length > 0 && (
-                                        <div className={cn("rounded-xl border overflow-hidden", theme === 'light' ? 'border-gray-200' : 'border-white/10')}>
-                                            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                                                <table className="w-full text-xs">
-                                                    <thead className={cn("sticky top-0 z-10", theme === 'light' ? 'bg-gray-900 text-white' : 'bg-white/10 text-white')}>
-                                                        <tr>
-                                                            <th className="px-3 py-2.5 text-right font-bold w-[40px]">#</th>
-                                                            <th className="px-3 py-2.5 text-right font-bold w-[200px]">الاسم / الرقم الوظيفي</th>
-                                                            <th className="px-3 py-2.5 text-center font-bold">الراتب الاسمي</th>
-                                                            <th className="px-3 py-2.5 text-center font-bold">المستحق (المحسوب)</th>
-                                                            <th className="px-3 py-2.5 text-center font-bold">الرقم الحالي</th>
-                                                            <th className="px-3 py-2.5 text-center font-bold">النسبة الحالية</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {mismatchRows.map((row, i) => (
-                                                            <tr key={i} className={cn(
-                                                                "border-t transition-colors",
-                                                                theme === 'light' ? i % 2 === 0 ? 'bg-white' : 'bg-gray-50' : i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]',
-                                                                theme === 'light' ? 'border-gray-100 hover:bg-gray-100' : 'border-white/5 hover:bg-white/5'
-                                                            )}>
-                                                                <td className={cn("px-3 py-2 text-right font-mono", labelClr)}>{i + 1}</td>
-                                                                <td className={cn("px-3 py-2 text-right font-bold", textClr)}>
-                                                                    {row.name}
-                                                                    <div className={cn("text-[9px] font-mono", labelClr)}>#{row.jobNumber}</div>
-                                                                </td>
-                                                                <td className={cn("px-3 py-2 text-center font-mono", textClr)}>{fmt(row.nominalSalary)}</td>
-                                                                <td className={cn("px-3 py-2 text-center font-mono font-bold", textClr)}>{fmt(row.approvedCalc)}</td>
-                                                                <td className={cn("px-3 py-2 text-center font-mono font-bold", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(row.currentValue)}</td>
-                                                                <td className="px-3 py-2 text-center font-mono font-bold text-red-500">{row.currentPct}%</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
+                    {/* === جدول تقرير غير المطابقين (محدّث ليعرض أعمدة إضافية) === */}
+                    {scope === 'all' && allMode === 'report' && reportGenerated && (
+                        <div className="animate-in fade-in slide-in-from-bottom-3 duration-300 space-y-3">
+                            <div className={cn("rounded-lg px-4 py-2.5 flex items-center justify-between gap-2 text-sm font-bold",
+                                mismatchRows.length > 0
+                                    ? theme === 'light' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                    : theme === 'light' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-green-500/10 border border-green-500/20 text-green-400'
+                            )}>
+                                <div className="flex items-center gap-2">
+                                    {mismatchRows.length > 0 ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    <span>{mismatchRows.length > 0 ? `تم العثور على ${mismatchRows.length} قيد غير مطابق` : 'جميع القيود مطابقة 100%'}</span>
+                                </div>
+                                <span className="text-[10px] font-normal opacity-70">تم فحص {processedCount} سجل</span>
+                            </div>
+
+                            {/* الجدول */}
+                            {mismatchRows.length > 0 && (
+                                <div className={cn("rounded-xl border overflow-hidden", theme === 'light' ? 'border-gray-200' : 'border-white/10')}>
+                                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className={cn("sticky top-0 z-10", theme === 'light' ? 'bg-gray-900 text-white' : 'bg-white/10 text-white')}>
+                                                <tr>
+                                                    <th className="px-3 py-2.5 text-right font-bold w-[40px]">#</th>
+                                                    <th className="px-3 py-2.5 text-right font-bold w-[200px]">الاسم / الرقم الوظيفي</th>
+                                                    <th className="px-3 py-2.5 text-center font-bold">الراتب الاسمي</th>
+                                                    <th className="px-3 py-2.5 text-center font-bold">المستحق (المحسوب)</th>
+                                                    <th className="px-3 py-2.5 text-center font-bold">الرقم الحالي</th>
+                                                    <th className="px-3 py-2.5 text-center font-bold">النسبة الحالية</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {mismatchRows.map((row, i) => (
+                                                    <tr key={i} className={cn(
+                                                        "border-t transition-colors",
+                                                        theme === 'light' ? i % 2 === 0 ? 'bg-white' : 'bg-gray-50' : i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]',
+                                                        theme === 'light' ? 'border-gray-100 hover:bg-gray-100' : 'border-white/5 hover:bg-white/5'
+                                                    )}>
+                                                        <td className={cn("px-3 py-2 text-right font-mono", labelClr)}>{i + 1}</td>
+                                                        <td className={cn("px-3 py-2 text-right font-bold", textClr)}>
+                                                            {row.name}
+                                                            <div className={cn("text-[9px] font-mono", labelClr)}>#{row.jobNumber}</div>
+                                                        </td>
+                                                        <td className={cn("px-3 py-2 text-center font-mono", textClr)}>{fmt(row.nominalSalary)}</td>
+                                                        <td className={cn("px-3 py-2 text-center font-mono font-bold", textClr)}>{fmt(row.approvedCalc)}</td>
+                                                        <td className={cn("px-3 py-2 text-center font-mono font-bold", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(row.currentValue)}</td>
+                                                        <td className="px-3 py-2 text-center font-mono font-bold text-red-500">{row.currentPct}%</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
                         </div>
