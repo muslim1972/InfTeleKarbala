@@ -44,6 +44,12 @@ const DEDUCTION_FIELDS = [
 // ===== الدالة المساعدة لحل النسبة المعتمدة =====
 function resolveApprovedPercentage(fieldKey: string, finData: any): number | null {
     if (!finData) return null;
+
+    // === إجازة 5 سنوات: تصفير المخصصات ===
+    if (finData.is_five_year_leave) {
+        const isAllowance = ALLOWANCE_FIELDS.some(f => f.key === fieldKey);
+        if (isAllowance) return 0;
+    }
     if (fieldKey === 'certificate_allowance') {
         const pct = parseFloat(finData.certificate_percentage);
         return isNaN(pct) ? null : pct;
