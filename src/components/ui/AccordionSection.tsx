@@ -131,7 +131,7 @@ export function AccordionSection({ title, icon: Icon, isOpen, onToggle, children
                 <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isOpen ? "rotate-180 opacity-100" : "opacity-50", styles.text)} />
             </button>
 
-            <div className={cn("grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-black/10", isOpen ? "grid-rows-[1fr] opacity-100 py-4" : "grid-rows-[0fr] opacity-0 py-0")}>
+            <div className={cn("grid transition-all duration-300 ease-in-out bg-white/50 dark:bg-black/10", isOpen ? "grid-rows-[1fr] opacity-100 py-4" : "grid-rows-[0fr] opacity-0 py-0")}>
                 <div className="overflow-hidden px-4">
                     <div className="space-y-4">
                         {children}

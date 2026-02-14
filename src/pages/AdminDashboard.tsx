@@ -986,7 +986,7 @@ export const AdminDashboard = () => {
         <div className="space-y-3">
             {/* Tabs */}
             <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
-                ? 'bg-gray-100 border-gray-200'
+                ? 'bg-white border-gray-100' // Changed from bg-gray-100 to bg-white
                 : 'bg-black/40 border-white/5'
                 } backdrop-blur-md overflow-hidden`}>
                 <ScrollableTabs
@@ -1172,7 +1172,7 @@ export const AdminDashboard = () => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className="relative min-h-screen bg-zinc-950/30">
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
@@ -1633,17 +1633,17 @@ export const AdminDashboard = () => {
                         </div>
                     ) : (
                         <div className="text-center py-20">
-                            <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
-                                <User className="w-10 h-10 text-white/20" />
+                            <div className="p-4 bg-white/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-border/50 shadow-sm">
+                                <User className="w-10 h-10 text-muted-foreground/30" />
                             </div>
-                            <h3 className="text-white font-bold text-xl mb-2">إدارة الموظفين</h3>
-                            <p className="text-white/40">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
+                            <h3 className="text-foreground font-bold text-xl mb-2">إدارة الموظفين</h3>
+                            <p className="text-muted-foreground">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
 
                             <div className="mt-8 flex justify-center">
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowDataPatcher(true)}
-                                    className="gap-2 border-white/10 hover:bg-white/5 text-white bg-white/5"
+                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
                                 >
                                     <FileSpreadsheet className="w-4 h-4 text-green-500" />
                                     تحديث بيانات من Excel
@@ -1833,11 +1833,11 @@ export const AdminDashboard = () => {
                         );
                     })() : (
                         <div className="text-center py-20">
-                            <div className="p-4 bg-white/5 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-white/10">
-                                <FileText className="w-10 h-10 text-white/20" />
+                            <div className="p-4 bg-white/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-border/50 shadow-sm">
+                                <FileText className="w-10 h-10 text-muted-foreground/30" />
                             </div>
-                            <h3 className="text-white font-bold text-xl mb-2">سجلات الموظفين</h3>
-                            <p className="text-white/40">ابدأ بالبحث عن موظف لإدارة سجلاته الإدارية</p>
+                            <h3 className="text-foreground font-bold text-xl mb-2">سجلات الموظفين</h3>
+                            <p className="text-muted-foreground">ابدأ بالبحث عن موظف لإدارة سجلاته الإدارية</p>
                         </div>
                     )}
                 </div>
