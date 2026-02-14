@@ -1639,19 +1639,24 @@ export const AdminDashboard = () => {
                             <h3 className="text-foreground font-bold text-xl mb-2">إدارة الموظفين</h3>
                             <p className="text-muted-foreground">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
 
-                            <div className="mt-8 flex justify-center">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowDataPatcher(true)}
-                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
-                                >
-                                    <FileSpreadsheet className="w-4 h-4 text-green-500" />
-                                    تحديث بيانات من Excel
-                                </Button>
-                            </div>
-                            {showDataPatcher && (
-                                <DataPatcher onClose={() => setShowDataPatcher(false)} />
-                            )}
+                            {/* Excel Update Button - Visible ONLY to Muslim Aqeel */
+                                currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل')) && (
+                                    <>
+                                        <div className="mt-8 flex justify-center">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setShowDataPatcher(true)}
+                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
+                                            >
+                                                <FileSpreadsheet className="w-4 h-4 text-green-500" />
+                                                تحديث بيانات من Excel
+                                            </Button>
+                                        </div>
+                                        {showDataPatcher && (
+                                            <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                                        )}
+                                    </>
+                                )}
                         </div>
                     )}
                 </div>
