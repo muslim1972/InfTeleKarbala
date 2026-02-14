@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, AlertTriangle, CheckCircle2, Printer, ArrowLeftRight, FileWarning, Loader2, ShieldCheck, Calculator } from 'lucide-react';
+import { Search, X, AlertTriangle, CheckCircle2, Printer, Loader2, ShieldCheck, Calculator } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
@@ -51,16 +51,23 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         if (isAllowance) return 0;
     }
     if (fieldKey === 'certificate_allowance') {
-        const t = finData.certificate_text ? finData.certificate_text.trim() : '';
-        if (t.includes('دكتوراه')) return 150;
-        if (t.includes('ماجستير')) return 125;
-        if (t.includes('دبلوم عالي')) return 55;
-        if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) return 45;
-        if (t.includes('دبلوم')) return 35;
-        if (t.includes('الاعدادية')) return 25;
-        if (t.includes('الابتدائية')) return 15;
-        if (t.includes('المتوسطة')) return 15;
-        if (t.includes('يقرأ ويكتب') || t.includes('أمي')) return 15;
+        let t = finData.certificate_text ? finData.certificate_text.trim() : '';
+
+        // تطبيع النص: إزالة الأرقام، الرموز، والمسافات لتسهيل المطابقة (Smart Fuzzy Match)
+        // مثال: "دبلو م عالي 55%" -> "دبلومعالي"
+        // مثال: "بكلوريوس (قديم)" -> "بكلوريوسقديم"
+        const normalized = t.replace(/[0-9%.\s\-\(\)]/g, '');
+
+        if (normalized.includes('دكتوراه')) return 150;
+        if (normalized.includes('ماجستير')) return 125;
+        if (normalized.includes('دبلومعالي')) return 55; // دبلوم عالي
+        if (normalized.includes('بكلوريوس') || normalized.includes('بكالوريوس')) return 45;
+        if (normalized.includes('دبلوم') || normalized.includes('معهد')) return 35; // دبلوم أو معهد
+        if (normalized.includes('اعدادية') || normalized.includes('إعدادية')) return 25;
+        if (normalized.includes('توسطة')) return 15; // متوسطة
+        if (normalized.includes('بتدائية') || normalized.includes('إبتدائية')) return 15;
+        if (normalized.includes('يقرأ') || normalized.includes('أمي')) return 15;
+
         return 0; // Default (Primary or none)
     }
     if (fieldKey === 'risk_allowance') {
@@ -127,9 +134,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     const [currentValue, setCurrentValue] = useState<number | null>(null);
 
     // === وضع "كل المنتسبين" ===
-    const [allMode, setAllMode] = useState<'navigate' | 'report'>('navigate');
-    const [allEmployees, setAllEmployees] = useState<any[]>([]);
-    const [selectedAllIdx, setSelectedAllIdx] = useState(0);
+
     const [mismatchRows, setMismatchRows] = useState<MismatchRow[]>([]);
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
     const [reportGenerated, setReportGenerated] = useState(false);
@@ -176,30 +181,23 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         return data;
     }, []);
 
-    // === جلب كل الموظفين ===
-    const loadAllEmployees = useCallback(async () => {
-        const { data } = await supabase
-            .from('profiles')
-            .select('id, full_name, job_number')
-            .order('full_name');
-        setAllEmployees(data || []);
-        if (data && data.length > 0) {
-            setSelectedEmployee(data[0]);
-            setSelectedAllIdx(0);
-            loadFinancialData(data[0].id);
-        }
-    }, [loadFinancialData]);
+    // === جلب كل الموظفين (لإنشاء التقرير فقط إن لزم الأمر، أو يمكن الاستغناء عنه إذا كان التقرير يجلب البيانات بنفسه) ===
+    // في التقرير الحالي يتم جلب البيانات على دفعات (batches)، لذا قد لا نحتاج تحميل الجميع هنا
+    // لكن سنبقيه فارغاً أو نزيله لتنظيف الكود
+
 
     useEffect(() => {
         if (scope === 'all') {
-            loadAllEmployees();
+            // reset logic
+            setSelectedEmployee(null);
+            setFinancialData(null);
+            resetAuditResults();
         } else {
-            setAllEmployees([]);
             setSelectedEmployee(null);
             setFinancialData(null);
             resetAuditResults();
         }
-    }, [scope, loadAllEmployees]);
+    }, [scope]);
 
     const resetAuditResults = () => {
         setValidationState('idle');
@@ -249,17 +247,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         }
     }, []);
 
-    // === حساب تلقائي عند تغيير الموظف في وضع التنقل ===
-    const handleNavigateSelect = useCallback(async (idx: number) => {
-        setSelectedAllIdx(idx);
-        const emp = allEmployees[idx];
-        if (!emp) return;
-        setSelectedEmployee(emp);
-        const finData = await loadFinancialData(emp.id);
-        if (finData && selectedField) {
-            calculateSingle(finData, selectedField);
-        }
-    }, [allEmployees, loadFinancialData, selectedField, calculateSingle]);
+
 
     // === توليد تقرير غير المطابق مع Pagination ===
     const generateMismatchReport = useCallback(async () => {
@@ -434,7 +422,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 </head>
 <body>
     <div class="header">
-        <div><h1>تقرير تدقيق مخصص</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا الاتصالات</p></div>
+        <div><h1>تقرير تدقيق محدد</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا الاتصالات</p></div>
         <div style="text-align:left"><p>${fieldLabel}</p></div>
     </div>
     <div class="info-grid">
@@ -476,7 +464,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                     )}
                 >
                     <Calculator className="w-4 h-4" />
-                    تدقيق مخصص
+                    تدقيق محدد
                 </button>
                 <button
                     onClick={() => setActiveTab('full')}
@@ -523,105 +511,63 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 
                                 {/* حقل البحث / التنقل */}
                                 <div className="flex-1 relative" ref={searchRef}>
-                                    {scope === 'specific' ? (
-                                        <>
-                                            <label className={cn("text-xs font-bold mb-1.5 block", labelClr)}>البحث عن موظف</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    placeholder="الرقم الوظيفي أو الاسم..."
-                                                    value={searchQuery}
-                                                    onChange={e => setSearchQuery(e.target.value)}
-                                                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                                                    className={cn("w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 pr-9", inputBg)}
-                                                />
-                                                <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
-                                                {isSearching && (
-                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-brand-green/50 border-t-transparent rounded-full animate-spin" />
+                                    <label className={cn("text-xs font-bold mb-1.5 block", labelClr)}>البحث عن موظف</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder={scope === 'all' ? "كل المنتسبين" : "الرقم الوظيفي أو الاسم..."}
+                                            value={scope === 'all' ? '' : searchQuery}
+                                            onChange={e => setSearchQuery(e.target.value)}
+                                            onFocus={() => scope === 'specific' && suggestions.length > 0 && setShowSuggestions(true)}
+                                            disabled={scope === 'all'}
+                                            className={cn("w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 pr-9",
+                                                inputBg,
+                                                scope === 'all' && "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-white/5"
+                                            )}
+                                        />
+                                        <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
+                                        {isSearching && scope === 'specific' && (
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-brand-green/50 border-t-transparent rounded-full animate-spin" />
+                                        )}
+                                        {/* الاقتراحات */}
+                                        {showSuggestions && suggestions.length > 0 && scope === 'specific' && searchRef.current && createPortal(
+                                            <div
+                                                className={cn(
+                                                    "fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto",
+                                                    theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10'
                                                 )}
-                                                {/* الاقتراحات */}
-                                                {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
-                                                    <div
+                                                style={{
+                                                    top: `${searchRef.current.getBoundingClientRect().bottom + 4}px`,
+                                                    left: `${searchRef.current.getBoundingClientRect().left}px`,
+                                                    width: `${searchRef.current.getBoundingClientRect().width}px`
+                                                }}
+                                            >
+                                                {suggestions.map((user, idx) => (
+                                                    <button
+                                                        key={user.id || idx}
+                                                        type="button"
+                                                        onMouseDown={e => e.preventDefault()}
+                                                        onClick={() => handleSelectSuggestion(user)}
                                                         className={cn(
-                                                            "fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto",
-                                                            theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10'
+                                                            "w-full text-right px-3 py-2 border-b last:border-0 flex items-center justify-between transition-colors",
+                                                            theme === 'light' ? 'hover:bg-gray-100 border-gray-100' : 'hover:bg-white/10 border-white/5'
                                                         )}
-                                                        style={{
-                                                            top: `${searchRef.current.getBoundingClientRect().bottom + 4}px`,
-                                                            left: `${searchRef.current.getBoundingClientRect().left}px`,
-                                                            width: `${searchRef.current.getBoundingClientRect().width}px`
-                                                        }}
                                                     >
-                                                        {suggestions.map((user, idx) => (
-                                                            <button
-                                                                key={user.id || idx}
-                                                                type="button"
-                                                                onMouseDown={e => e.preventDefault()}
-                                                                onClick={() => handleSelectSuggestion(user)}
-                                                                className={cn(
-                                                                    "w-full text-right px-3 py-2 border-b last:border-0 flex items-center justify-between transition-colors",
-                                                                    theme === 'light' ? 'hover:bg-gray-100 border-gray-100' : 'hover:bg-white/10 border-white/5'
-                                                                )}
-                                                            >
-                                                                <span className={cn("text-sm font-bold", textClr)}>{user.full_name}</span>
-                                                                <span className={cn("text-xs font-mono", labelClr)}>{user.job_number}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>,
-                                                    document.body
-                                                )}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            {/* === وضع كل المنتسبين: Radio التنقل / التقرير === */}
-                                            <label className={cn("text-xs font-bold mb-1.5 block", labelClr)}>وضع التدقيق</label>
-                                            <div className="flex gap-2">
-                                                <label className={cn(
-                                                    "flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border transition-all flex-1 justify-center text-xs font-bold",
-                                                    allMode === 'navigate'
-                                                        ? theme === 'light' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                                                        : theme === 'light' ? 'bg-gray-50 border-gray-200 text-gray-500' : 'bg-white/5 border-white/10 text-white/40'
-                                                )}>
-                                                    <input type="radio" name="allMode" checked={allMode === 'navigate'} onChange={() => { setAllMode('navigate'); resetAuditResults(); }} className="accent-emerald-500 w-3.5 h-3.5" />
-                                                    <ArrowLeftRight className="w-3.5 h-3.5" />
-                                                    التنقل بين الموظفين
-                                                </label>
-                                                <label className={cn(
-                                                    "flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border transition-all flex-1 justify-center text-xs font-bold",
-                                                    allMode === 'report'
-                                                        ? theme === 'light' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                                                        : theme === 'light' ? 'bg-gray-50 border-gray-200 text-gray-500' : 'bg-white/5 border-white/10 text-white/40'
-                                                )}>
-                                                    <input type="radio" name="allMode" checked={allMode === 'report'} onChange={() => { setAllMode('report'); resetAuditResults(); }} className="accent-rose-500 w-3.5 h-3.5" />
-                                                    <FileWarning className="w-3.5 h-3.5" />
-                                                    تقرير غير المطابقة
-                                                </label>
-                                            </div>
-                                        </>
-                                    )}
+                                                        <span className={cn("text-sm font-bold", textClr)}>{user.full_name}</span>
+                                                        <span className={cn("text-xs font-mono", labelClr)}>{user.job_number}</span>
+                                                    </button>
+                                                ))}
+                                            </div>,
+                                            document.body
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* قائمة التنقل بين الموظفين (فقط في وضع navigate + all) */}
-                            {scope === 'all' && allMode === 'navigate' && (
-                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <label className={cn("text-xs font-bold mb-1.5 block", labelClr)}>اختر الموظف ({allEmployees.length})</label>
-                                    <select
-                                        value={selectedAllIdx}
-                                        onChange={e => handleNavigateSelect(parseInt(e.target.value))}
-                                        className={cn("w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50", inputBg)}
-                                    >
-                                        {allEmployees.map((emp, i) => (
-                                            <option key={emp.id} value={i}>{emp.full_name} — {emp.job_number}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
                         </div>
 
+
                         {/* بطاقة الموظف (لغير وضع التقرير) */}
-                        {selectedEmployee && financialData && !(scope === 'all' && allMode === 'report') && (
+                        {selectedEmployee && financialData && scope === 'specific' && (
                             <div className={cn("mt-3 rounded-lg p-3 flex items-center justify-between", mutedBg)}>
                                 <div className="flex items-center gap-3">
                                     <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold", theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green')}>
@@ -689,7 +635,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    if (scope === 'all' && allMode === 'report') {
+                                    if (scope === 'all') {
                                         generateMismatchReport();
                                     } else {
                                         handleVerify();
@@ -717,7 +663,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             </button>
 
                             {/* === تحذير المطابقة (فردي) === */}
-                            {validationState !== 'idle' && !(scope === 'all' && allMode === 'report') && (
+                            {validationState !== 'idle' && scope === 'specific' && (
                                 <div className={cn(
                                     "rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm font-bold animate-in fade-in zoom-in duration-200",
                                     validationState === 'match'
@@ -733,7 +679,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             )}
 
                             {/* === نتائج فردية === */}
-                            {auditResult !== null && !(scope === 'all' && allMode === 'report') && (
+                            {auditResult !== null && scope === 'specific' && (
                                 <div className={cn("rounded-xl border p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300", mutedBg, theme === 'light' ? 'border-gray-200' : 'border-white/10')}>
                                     <div className="flex flex-col items-start gap-0.5">
                                         <span className={cn("text-xs font-bold", labelClr)}>المستحق (حسب النسبة المعتمدة)</span>
@@ -767,7 +713,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                     )}
 
                     {/* === جدول تقرير غير المطابقين (محدّث ليعرض أعمدة إضافية) === */}
-                    {scope === 'all' && allMode === 'report' && reportGenerated && (
+                    {scope === 'all' && reportGenerated && (
                         <div className="animate-in fade-in slide-in-from-bottom-3 duration-300 space-y-3">
                             <div className={cn("rounded-lg px-4 py-2.5 flex items-center justify-between gap-2 text-sm font-bold",
                                 mismatchRows.length > 0
@@ -840,7 +786,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                         {/* زر الطباعة */}
                         {(auditResult !== null || (reportGenerated && mismatchRows.length > 0)) && (
                             <button
-                                onClick={scope === 'all' && allMode === 'report' ? printMismatchReport : printSingleReport}
+                                onClick={scope === 'all' ? printMismatchReport : printSingleReport}
                                 className="flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
                             >
                                 <Printer className="w-4 h-4" />
