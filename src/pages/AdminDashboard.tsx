@@ -1172,7 +1172,7 @@ export const AdminDashboard = () => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent}>
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className="relative min-h-screen bg-zinc-950/30">
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (

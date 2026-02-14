@@ -515,6 +515,10 @@ export const Dashboard = () => {
                             >
                                 {detailLoading ? (
                                     <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
+                                ) : detailItems.length === 0 ? (
+                                    <p className="text-center text-amber-600/70 dark:text-amber-400/70 text-sm py-4 font-medium">
+                                        تفاصيل كتب الشكر غير متوفرة حالياً
+                                    </p>
                                 ) : (
                                     <RecordList
                                         data={detailItems}
@@ -541,6 +545,10 @@ export const Dashboard = () => {
                             >
                                 {detailLoading ? (
                                     <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
+                                ) : detailItems.length === 0 ? (
+                                    <p className="text-center text-blue-600/70 dark:text-blue-400/70 text-sm py-4 font-medium">
+                                        تفاصيل اللجان غير متوفرة حالياً
+                                    </p>
                                 ) : (
                                     <RecordList
                                         data={detailItems}
@@ -567,6 +575,10 @@ export const Dashboard = () => {
                             >
                                 {detailLoading ? (
                                     <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
+                                ) : detailItems.length === 0 ? (
+                                    <p className="text-center text-red-600/70 dark:text-red-400/70 text-sm py-4 font-medium">
+                                        تفاصيل العقوبات غير متوفرة حالياً
+                                    </p>
                                 ) : (
                                     <RecordList
                                         data={detailItems}
@@ -594,8 +606,51 @@ export const Dashboard = () => {
                             >
                                 {/* Leaves Custom Content */}
                                 <div className="space-y-4">
-                                    <h3 className="text-foreground font-bold border-r-4 border-brand-green pr-3">رصيد الاجازات</h3>
+                                    <h3 className="text-foreground font-bold border-r-4 border-brand-green pr-3">
+                                        رصيد الاجازات {financialData?.leaves_balance_expiry_date ? `حتى نهاية ${financialData.leaves_balance_expiry_date}` : ''}
+                                    </h3>
 
+                                    {/* Balance Summary Card */}
+                                    <div className="bg-white dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                                        <div className="bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-3 mb-4 text-center">
+                                            <p className="text-sm text-zinc-500 mb-1 font-bold">إجمالي الرصيد المستحق</p>
+                                            <p className="text-2xl font-black text-zinc-900 dark:text-white">
+                                                {financialData?.remaining_leaves_balance || 0} يوم
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-700 pb-2">
+                                                <span className="text-zinc-500">الرصيد الاعتيادي المتبقي</span>
+                                                <span className="font-bold text-green-600">{financialData?.remaining_leaves_balance || 0} يوم</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-700 pb-2">
+                                                <span className="text-zinc-500">الرصيد المرضي المتبقي</span>
+                                                <span className="font-bold text-blue-600">365 يوم</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+                                            <div className="bg-zinc-50 dark:bg-zinc-900/30 rounded border border-zinc-200 dark:border-zinc-700 p-2 text-center">
+                                                <p className="text-xs text-zinc-400 mb-1">المستخدم (اعتيادية)</p>
+                                                <p className="font-bold text-zinc-700 dark:text-zinc-300">
+                                                    {currentYearRecord.leaves_taken || 0} يوم
+                                                </p>
+                                            </div>
+                                            <div className="bg-zinc-50 dark:bg-zinc-900/30 rounded border border-zinc-200 dark:border-zinc-700 p-2 text-center">
+                                                <p className="text-xs text-zinc-400 mb-1">المستخدم (مرضية)</p>
+                                                <p className="font-bold text-zinc-700 dark:text-zinc-300">
+                                                    {currentYearRecord.sick_leaves || 0} يوم
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-[10px] text-center text-zinc-400 mt-3 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-700">
+                                            تاريخ المباشرة: غير محدد
+                                        </p>
+                                    </div>
+
+                                    {/* Leaves History Button/List */}
                                     <GlassCard className="p-5 relative overflow-hidden transition-all duration-300">
                                         <AnimatePresence mode="wait">
                                             {selectedLeave ? (
