@@ -9,7 +9,7 @@ import { FullAudit } from './FullAudit';
 // ===== النسب المعتمدة حسب rwservlet.xml =====
 const APPROVED_PERCENTAGES: Record<string, number | null> = {
     certificate_allowance: null,
-    engineering_allowance: 35,
+    engineering_allowance: null,
     legal_allowance: 30,
     transport_allowance: null,
     marital_allowance: null,
@@ -70,6 +70,28 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
 
         return 0; // Default (Primary or none)
     }
+    if (fieldKey === 'engineering_allowance') {
+        const title = finData.job_title ? finData.job_title.trim() : '';
+        // العناوين المشمولة بمخصصات هندسية (35%)
+        const engineeringTitles = [
+            'م مهندس',
+            'مهندس',
+            'ر مهندسين',
+            'ر مهندسين اقدم',
+            'ر مهندسين اقدم اول'
+        ];
+
+        // تطبيع العنوان للمقارنة (إزالة مسافات زائدة)
+        // التحقق مما إذا كان العنوان يبدأ بأحد العناوين المذكورة أو يطابقها
+        // ملاحظة: قد نحتاج لـ startWith أو includes حسب دقة البيانات
+        // هنا سنستخدم includes للسلامة، أو exact match إذا كانت البيانات دقيقة
+        // بناءً على طلب المستخدم، هذه هي العناوين الخمسة.
+
+        const isEngineer = engineeringTitles.some(t => title === t || title.includes(t));
+
+        if (isEngineer) return 35;
+        return 0;
+    }
     if (fieldKey === 'risk_allowance') {
         const pct = parseFloat(finData.risk_percentage);
         return isNaN(pct) ? null : pct;
@@ -95,11 +117,9 @@ interface MismatchRow {
     userCalc: number;
     approvedCalc: number | null;
     currentValue: number;
-    currentPct: number | null;
+    notes: string;
     isFiveYearLeave?: boolean;
 }
-
-
 
 interface CustomAuditProps {
     onClose: () => void;
@@ -181,14 +201,8 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         return data;
     }, []);
 
-    // === جلب كل الموظفين (لإنشاء التقرير فقط إن لزم الأمر، أو يمكن الاستغناء عنه إذا كان التقرير يجلب البيانات بنفسه) ===
-    // في التقرير الحالي يتم جلب البيانات على دفعات (batches)، لذا قد لا نحتاج تحميل الجميع هنا
-    // لكن سنبقيه فارغاً أو نزيله لتنظيف الكود
-
-
     useEffect(() => {
         if (scope === 'all') {
-            // reset logic
             setSelectedEmployee(null);
             setFinancialData(null);
             resetAuditResults();
@@ -232,9 +246,8 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         if (approved !== null) {
             const approvedCalc = Math.round((nominalSalary * approved) / 100);
             setRecalcResult(approvedCalc);
-            setAuditResult(approvedCalc); // النتيجة المتوقعة هي نفسها المحسوبة من النسبة المعتمدة
+            setAuditResult(approvedCalc);
 
-            // تحقق: هل القيمة الحالية تطابق المحسوب؟ (السماح بفرق بسيط للتقريب)
             if (Math.abs(approvedCalc - fieldCurrentValue) <= 1) {
                 setValidationState('match');
             } else {
@@ -246,8 +259,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
             setValidationState('idle');
         }
     }, []);
-
-
 
     // === توليد تقرير غير المطابق مع Pagination ===
     const generateMismatchReport = useCallback(async () => {
@@ -278,24 +289,59 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 const nomSal = parseFloat(rec.nominal_salary) || 0;
                 if (nomSal <= 0) continue;
 
-                const approved = resolveApprovedPercentage(selectedField, rec);
+                // Pass the job_title from the joined profile to the resolver if needed, 
+                // though resolveApprovedPercentage currently expects it in the main object.
+                // We'll merge it to be safe or rely on what resolveApprovedPercentage uses.
+                // logic in resolveApprovedPercentage uses finData.job_title.
+                // The query selects profiles(job_title), we need to map it if not present in finData.
+                const profile = (rec as any).profiles;
+                const fullRecord = { ...rec, job_title: profile?.job_title || rec.job_title };
+
+                const approved = resolveApprovedPercentage(selectedField, fullRecord);
                 if (approved === null) continue;
 
                 const fieldCurrentValue = parseFloat(rec[selectedField]) || 0;
                 const approvedCalc = Math.round((nomSal * approved) / 100);
-                const currentPct = nomSal > 0 ? Math.round((fieldCurrentValue / nomSal) * 10000) / 100 : 0;
 
                 const mismatch = Math.abs(approvedCalc - fieldCurrentValue) > 1;
 
                 if (mismatch) {
+                    let note = '';
+                    if (selectedField === 'engineering_allowance') {
+                        if (approvedCalc > 0 && fieldCurrentValue === 0) {
+                            note = 'العنوان مهندس لكن لا توجد مخصصات';
+                        } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
+                            note = 'عدم تطابق المخصصات مع العنوان';
+                        } else {
+                            if (fieldCurrentValue > approvedCalc) note = `يستلم زيادة عن الاستحقاق (${fmt(fieldCurrentValue - approvedCalc)})`;
+                            else note = `يستلم أقل من الاستحقاق (${fmt(approvedCalc - fieldCurrentValue)})`;
+                        }
+                    } else if (selectedField === 'certificate_allowance') {
+                        // Logic for certificate
+                        if (approvedCalc > 0 && fieldCurrentValue === 0) {
+                            note = 'لديه شهادة ولا يستلم مخصصات';
+                        } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
+                            note = 'يستلم مخصصات شهادة دون وجه حق';
+                        } else {
+                            if (fieldCurrentValue > approvedCalc) note = `نسبة الشهادة الممنوحة أعلى من المستحق`;
+                            else note = `نسبة الشهادة الممنوحة أقل من المستحق`;
+                        }
+                    } else {
+                        // Generic
+                        if (fieldCurrentValue === 0) note = 'لا يستلم المخصصات المستحقة';
+                        else if (approvedCalc === 0) note = 'يستلم مخصصات غير مستحقة';
+                        else if (fieldCurrentValue > approvedCalc) note = `القيمة الحالية أعلى من المستحق`;
+                        else note = `القيمة الحالية أقل من المستحق`;
+                    }
+
                     allRows.push({
-                        name: (rec as any).profiles?.full_name || '—',
-                        jobNumber: (rec as any).profiles?.job_number || '—',
+                        name: profile?.full_name || '—',
+                        jobNumber: profile?.job_number || '—',
                         nominalSalary: nomSal,
                         userCalc: approvedCalc,
                         approvedCalc,
                         currentValue: fieldCurrentValue,
-                        currentPct,
+                        notes: note,
                         isFiveYearLeave: rec.is_five_year_leave,
                     });
                 }
@@ -368,7 +414,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     </div>
     <table>
         <thead>
-            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الاستحقاق حسب النسبة</th><th>الرقم حسب المالية</th><th>النسبة المعتمدة</th></tr>
+            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الاستحقاق حسب النسبة</th><th>الرقم حسب المالية</th><th>الملاحظات</th></tr>
         </thead>
         <tbody>
             ${mismatchRows.map((r, i) => `
@@ -381,7 +427,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                     ${r.isFiveYearLeave ? '<br/><small style="color:red; font-size:9px">(إجازة 5 سنوات)</small>' : ''}
                 </td>
                 <td class="mismatch">${fmt(r.currentValue)}</td>
-                <td>${r.currentPct}%</td>
+                <td style="font-size:11px; color:#dc2626">${r.notes}</td>
             </tr>`).join('')}
         </tbody>
     </table>
@@ -757,7 +803,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                                         <td className={cn("px-3 py-2 text-center font-mono", textClr)}>{fmt(row.nominalSalary)}</td>
                                                         <td className={cn("px-3 py-2 text-center font-mono font-bold", textClr)}>{fmt(row.approvedCalc)}</td>
                                                         <td className={cn("px-3 py-2 text-center font-mono font-bold", theme === 'light' ? 'text-blue-600' : 'text-blue-400')}>{fmt(row.currentValue)}</td>
-                                                        <td className="px-3 py-2 text-center font-mono font-bold text-red-500">{row.currentPct}%</td>
+                                                        <td className="px-3 py-2 text-center font-bold text-red-500 text-[10px]">{row.notes}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
