@@ -99,7 +99,7 @@ export function DirectivesModal({ type, content, isOpen, onClose, onAcknowledge 
 
                         {/* Footer */}
                         <div className="p-4 border-t border-white/5 bg-black/20 flex justify-end">
-                            {type === 'directive' ? (
+                            {type === 'directive' && onAcknowledge ? (
                                 <button
                                     onClick={handleAcknowledge}
                                     disabled={acknowledging}

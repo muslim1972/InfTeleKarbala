@@ -60,7 +60,7 @@ export function UserPolls() {
         <div className="max-w-2xl mx-auto space-y-8 pb-20">
 
             {/* Header Buttons Section */}
-            {(conference || (directive && !isDirectiveAcknowledged)) && (
+            {(conference || directive) && (
                 <div className="flex flex-col sm:flex-row gap-3">
                     {/* Conference Button (Green) */}
                     {conference && (
@@ -75,19 +75,26 @@ export function UserPolls() {
                         </button>
                     )}
 
-                    {/* Directive Button (Red) */}
-                    {directive && !isDirectiveAcknowledged && (
+                    {/* Directive Button */}
+                    {directive && (
                         <button
                             onClick={() => setModalData({ type: 'directive', content: directive.content })}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl p-3 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/30 relative overflow-hidden group animate-pulse-slow hover:scale-[1.02] active:scale-[0.98]"
+                            className={`flex-1 rounded-xl p-3 flex items-center justify-center gap-2 transition-all shadow-lg relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] ${!isDirectiveAcknowledged
+                                ? "bg-red-600 hover:bg-red-700 text-white shadow-red-600/30 animate-pulse-slow"
+                                : "bg-green-600 hover:bg-green-700 text-white shadow-green-600/30"
+                                }`}
                         >
                             <div className="bg-white/20 p-1.5 rounded-full z-10">
                                 <AlertCircle size={20} />
                             </div>
-                            <span className="font-bold text-base z-10">توجهيات هامة</span>
+                            <span className="font-bold text-base z-10">
+                                {!isDirectiveAcknowledged ? "توجيهات هامة" : "تبلغت بهذا التوجيه"}
+                            </span>
 
-                            {/* Shiny effect overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shine" />
+                            {/* Shiny effect overlay - Only for unread */}
+                            {!isDirectiveAcknowledged && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shine" />
+                            )}
                         </button>
                     )}
                 </div>
@@ -114,7 +121,11 @@ export function UserPolls() {
                 type={modalData?.type || 'conference'}
                 content={modalData?.content || ''}
                 onClose={() => setModalData(null)}
-                onAcknowledge={modalData?.type === 'directive' ? handleAcknowledgeDirective : undefined}
+                onAcknowledge={
+                    (modalData?.type === 'directive' && !isDirectiveAcknowledged)
+                        ? handleAcknowledgeDirective
+                        : undefined
+                }
             />
         </div>
     );
