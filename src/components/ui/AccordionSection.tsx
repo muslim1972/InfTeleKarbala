@@ -74,6 +74,14 @@ export function AccordionSection({ title, icon: Icon, isOpen, onToggle, children
             indicator: "bg-purple-500",
             wrapperBorder: "border-purple-500/30 dark:border-purple-500/30"
         };
+        if (color?.includes('yellow') || color?.includes('amber')) return {
+            bg: "bg-amber-500/10 dark:bg-amber-500/10",
+            border: "border-amber-500/30 dark:border-amber-500/30 ring-amber-500/20",
+            iconBg: "bg-amber-500 text-white shadow-lg shadow-amber-500/30",
+            text: "text-amber-900 dark:text-amber-100",
+            indicator: "bg-amber-500",
+            wrapperBorder: "border-amber-500/30 dark:border-amber-500/30"
+        };
 
         // Default (Gray/Glass) - maintained for non-colored sections
         return {
