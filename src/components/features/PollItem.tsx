@@ -153,7 +153,8 @@ export function PollItem({ poll }: PollItemProps) {
                         poll_id: poll.id,
                         question_id: qId,
                         option_id: optId,
-                        user_id: user.id
+                        user_id: user.id,
+                        is_anonymous: isAnonymous // Ensure this column exists in DB
                     });
                 }
             }

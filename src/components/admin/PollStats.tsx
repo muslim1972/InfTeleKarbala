@@ -67,7 +67,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 .from('poll_comments')
                 .select(`
                     comment_text, created_at, is_anonymous,
-                    app_users (full_name, job_number)
+                    profiles (full_name, job_number)
                 `)
                 .eq('poll_id', pollId)
                 .order('created_at', { ascending: false });
@@ -327,7 +327,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                                     فاعل خير
                                                 </>
                                             ) : (
-                                                c.app_users?.full_name
+                                                c.profiles?.full_name
                                             )}
                                         </span>
                                         <span>{formatDate(c.created_at)}</span>
@@ -437,8 +437,8 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                                 </>
                                             ) : (
                                                 <>
-                                                    👤 {c.app_users?.full_name || 'مجهول'}
-                                                    <span className="font-normal text-gray-400 font-mono">({c.app_users?.job_number})</span>
+                                                    👤 {c.profiles?.full_name || 'مجهول'}
+                                                    <span className="font-normal text-gray-400 font-mono">({c.profiles?.job_number})</span>
                                                 </>
                                             )}
                                         </span>
