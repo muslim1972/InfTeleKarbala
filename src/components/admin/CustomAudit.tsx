@@ -10,7 +10,7 @@ import { FullAudit } from './FullAudit';
 const APPROVED_PERCENTAGES: Record<string, number | null> = {
     certificate_allowance: null,
     engineering_allowance: null,
-    legal_allowance: 30,
+    legal_allowance: null,
     transport_allowance: null,
     marital_allowance: null,
     children_allowance: null,
@@ -90,6 +90,32 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         const isEngineer = engineeringTitles.some(t => title === t || title.includes(t));
 
         if (isEngineer) return 35;
+        return 0;
+    }
+    if (fieldKey === 'legal_allowance') {
+        const title = finData.job_title ? finData.job_title.trim() : '';
+        const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
+        const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
+
+        // العناوين القانونية المحددة بدقة
+        const legalTitles = [
+            'مستشار قانوني',
+            'مستشار قانوني اقدم',
+            'مستشار قانوني اقدم اول',
+            'مشاور قانوني',
+            'مشاور قانوني اقدم',
+            'مشاور قانوني اقدم اول',
+            'ر مستشارين',
+            'ر مستشارين اقدم',
+            'ر مستشارين اقدم اول',
+            'ر مشاورين',
+            'ر مشاورين اقدم',
+            'ر مشاورين اقدم اول'
+        ];
+        const isLegalTitle = legalTitles.some(t => title === t || title.includes(t));
+        const isBachelor = normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس');
+
+        if (isLegalTitle && isBachelor) return 30;
         return 0;
     }
     if (fieldKey === 'risk_allowance') {
@@ -303,37 +329,89 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 const fieldCurrentValue = parseFloat(rec[selectedField]) || 0;
                 const approvedCalc = Math.round((nomSal * approved) / 100);
 
-                const mismatch = Math.abs(approvedCalc - fieldCurrentValue) > 1;
+                let mismatch = Math.abs(approvedCalc - fieldCurrentValue) > 1;
+                let note = '';
+
+                // === منطق خاص للمخصصات القانونية (الشرط الرباعي) ===
+                if (selectedField === 'legal_allowance') {
+                    const riskValue = parseFloat(rec.risk_allowance) || 0;
+
+                    // إذا كان مستحقاً (30%)
+                    if (approvedCalc > 0) {
+                        // 1. يجب أن يستلم المبلغ الصحيح
+                        if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
+                            mismatch = true;
+                            if (fieldCurrentValue === 0) note = 'يستحق مخصصات قانونية ولا يستلمها';
+                            else note = `مبلغ المخصصات غير صحيح (يستحق ${fmt(approvedCalc)})`;
+                        }
+                        // 2. يجب أن تكون مخصصات الخطورة 0
+                        else if (riskValue > 0) {
+                            mismatch = true;
+                            note = 'يجمع بين مخصصات القانونية والخطورة (يجب حجب الخطورة)';
+                        }
+                    }
+                    // إذا لم يكن مستحقاً (0%)
+                    else {
+                        if (fieldCurrentValue > 0) {
+                            mismatch = true;
+                            const title = fullRecord.job_title || '';
+                            const cert = fullRecord.certificate_text || '';
+                            const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
+
+                            const legalTitles = [
+                                'مستشار قانوني',
+                                'مستشار قانوني اقدم',
+                                'مستشار قانوني اقدم اول',
+                                'مشاور قانوني',
+                                'مشاور قانوني اقدم',
+                                'مشاور قانوني اقدم اول',
+                                'ر مستشارين',
+                                'ر مستشارين اقدم',
+                                'ر مستشارين اقدم اول',
+                                'ر مشاورين',
+                                'ر مشاورين اقدم',
+                                'ر مشاورين اقدم اول'
+                            ];
+                            const isLegalTitle = legalTitles.some(t => title === t || title.includes(t));
+                            const isBachelor = normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس');
+
+                            if (!isLegalTitle && !isBachelor) note = 'العنوان والشهادة لا يطابقان شروط القانونية';
+                            else if (!isLegalTitle) note = 'العنوان ليس ضمن العناوين القانونية المعتمدة';
+                            else if (!isBachelor) note = 'الشهادة ليست بكلوريوس';
+                            else note = 'يستلم مخصصات غير مستحقة';
+                        }
+                    }
+                } else {
+                    // المنطق العام لبقية الحقول
+                    if (mismatch) {
+                        if (selectedField === 'engineering_allowance') {
+                            if (approvedCalc > 0 && fieldCurrentValue === 0) {
+                                note = 'العنوان مهندس لكن لا توجد مخصصات';
+                            } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
+                                note = 'عدم تطابق المخصصات مع العنوان';
+                            } else {
+                                if (fieldCurrentValue > approvedCalc) note = `يستلم زيادة عن الاستحقاق (${fmt(fieldCurrentValue - approvedCalc)})`;
+                                else note = `يستلم أقل من الاستحقاق (${fmt(approvedCalc - fieldCurrentValue)})`;
+                            }
+                        } else if (selectedField === 'certificate_allowance') {
+                            if (approvedCalc > 0 && fieldCurrentValue === 0) {
+                                note = 'لديه شهادة ولا يستلم مخصصات';
+                            } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
+                                note = 'يستلم مخصصات شهادة دون وجه حق';
+                            } else {
+                                if (fieldCurrentValue > approvedCalc) note = `نسبة الشهادة الممنوحة أعلى من المستحق`;
+                                else note = `نسبة الشهادة الممنوحة أقل من المستحق`;
+                            }
+                        } else {
+                            if (fieldCurrentValue === 0) note = 'لا يستلم المخصصات المستحقة';
+                            else if (approvedCalc === 0) note = 'يستلم مخصصات غير مستحقة';
+                            else if (fieldCurrentValue > approvedCalc) note = `القيمة الحالية أعلى من المستحق`;
+                            else note = `القيمة الحالية أقل من المستحق`;
+                        }
+                    }
+                }
 
                 if (mismatch) {
-                    let note = '';
-                    if (selectedField === 'engineering_allowance') {
-                        if (approvedCalc > 0 && fieldCurrentValue === 0) {
-                            note = 'العنوان مهندس لكن لا توجد مخصصات';
-                        } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
-                            note = 'عدم تطابق المخصصات مع العنوان';
-                        } else {
-                            if (fieldCurrentValue > approvedCalc) note = `يستلم زيادة عن الاستحقاق (${fmt(fieldCurrentValue - approvedCalc)})`;
-                            else note = `يستلم أقل من الاستحقاق (${fmt(approvedCalc - fieldCurrentValue)})`;
-                        }
-                    } else if (selectedField === 'certificate_allowance') {
-                        // Logic for certificate
-                        if (approvedCalc > 0 && fieldCurrentValue === 0) {
-                            note = 'لديه شهادة ولا يستلم مخصصات';
-                        } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
-                            note = 'يستلم مخصصات شهادة دون وجه حق';
-                        } else {
-                            if (fieldCurrentValue > approvedCalc) note = `نسبة الشهادة الممنوحة أعلى من المستحق`;
-                            else note = `نسبة الشهادة الممنوحة أقل من المستحق`;
-                        }
-                    } else {
-                        // Generic
-                        if (fieldCurrentValue === 0) note = 'لا يستلم المخصصات المستحقة';
-                        else if (approvedCalc === 0) note = 'يستلم مخصصات غير مستحقة';
-                        else if (fieldCurrentValue > approvedCalc) note = `القيمة الحالية أعلى من المستحق`;
-                        else note = `القيمة الحالية أقل من المستحق`;
-                    }
-
                     allRows.push({
                         name: profile?.full_name || '—',
                         jobNumber: profile?.job_number || '—',
@@ -785,7 +863,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                                     <th className="px-3 py-2.5 text-center font-bold">الراتب الاسمي</th>
                                                     <th className="px-3 py-2.5 text-center font-bold">المستحق (المحسوب)</th>
                                                     <th className="px-3 py-2.5 text-center font-bold">الرقم الحالي</th>
-                                                    <th className="px-3 py-2.5 text-center font-bold">النسبة الحالية</th>
+                                                    <th className="px-3 py-2.5 text-center font-bold">الملاحظات</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
