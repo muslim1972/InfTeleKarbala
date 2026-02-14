@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Trash2, Search, UserCheck, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -20,6 +20,11 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [contentId, setContentId] = useState<string | null>(null);
+
+    // Search & Check State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [checkResult, setCheckResult] = useState<{ status: 'acknowledged' | 'pending', date?: string, userName: string } | null>(null);
 
     useEffect(() => {
         fetchContent();
@@ -47,6 +52,46 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
             console.error(`Exception fetching ${type}:`, err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSearch = async (query: string) => {
+        if (query.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+
+        const { data } = await supabase
+            .from('profiles')
+            .select('id, full_name, username, job_number')
+            .or(`full_name.ilike.%${query}%,username.ilike.%${query}%,job_number.ilike.%${query}%`)
+            .limit(5);
+
+        if (data) setSearchResults(data);
+    };
+
+    const checkAcknowledgment = async (profile: any) => {
+        setSearchQuery('');
+        setSearchResults([]);
+        if (!contentId) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('user_acknowledgments')
+                .select('acknowledged_at')
+                .eq('user_id', profile.id)
+                .eq('content_id', contentId)
+                .maybeSingle();
+
+            if (error && error.code !== 'PGRST116') throw error;
+
+            setCheckResult({
+                status: data ? 'acknowledged' : 'pending',
+                date: data?.acknowledged_at,
+                userName: profile.full_name || profile.username
+            });
+        } catch (err) {
+            console.error("Error checking acknowledgment:", err);
         }
     };
 
@@ -112,7 +157,7 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
     }
 
     return (
-        <div className="bg-card p-4 rounded-xl border border-border space-y-4 shadow-sm">
+        <div className="bg-card p-4 rounded-xl border border-border space-y-4 shadow-sm relative">
             <div className="flex justify-between items-center">
                 <h3 className="text-foreground/70 font-bold text-sm">{title}</h3>
                 <div className="flex items-center gap-2">
@@ -169,6 +214,96 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
                     </Button>
                 </div>
             </div>
+
+            {/* Acknowledgment Check Section - Only for Directives */}
+            {type === 'directive' && contentId && (
+                <div className="pt-4 mt-4 border-t border-border/50">
+                    <h4 className="text-xs font-bold text-muted-foreground mb-3 flex items-center gap-2">
+                        <UserCheck size={14} />
+                        فحص سجل التبليغ للموظفين
+                    </h4>
+
+                    <div className="relative">
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute right-3 top-2.5 text-muted-foreground w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="بحث عن موظف (الاسم، الرقم الوظيفي)..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        handleSearch(e.target.value);
+                                    }}
+                                    className="w-full pl-3 pr-9 py-2 bg-muted/30 border border-input rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-green"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => {
+                                            setSearchQuery('');
+                                            setSearchResults([]);
+                                            setCheckResult(null);
+                                        }}
+                                        className="absolute left-2 top-2.5 text-muted-foreground hover:text-foreground"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Search Results Dropdown - Now appearing upwards */}
+                        {searchResults.length > 0 && (
+                            <div className="absolute bottom-full mb-1 right-0 left-0 bg-popover border border-border rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                {searchResults.map(profile => (
+                                    <button
+                                        key={profile.id}
+                                        onClick={() => checkAcknowledgment(profile)}
+                                        className="w-full text-right px-3 py-2 hover:bg-muted/50 text-sm flex items-center justify-between group border-b border-border/50 last:border-none"
+                                    >
+                                        <span className="font-bold text-foreground/80 group-hover:text-brand-green transition-colors">
+                                            {profile.full_name || profile.username}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground font-mono">
+                                            {profile.job_number}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Check Result */}
+                    {checkResult && (
+                        <div className={cn(
+                            "mt-3 p-3 rounded-lg border flex items-start gap-3 animate-in fade-in slide-in-from-top-1",
+                            checkResult.status === 'acknowledged'
+                                ? "bg-green-500/10 border-green-500/20"
+                                : "bg-red-500/10 border-red-500/20"
+                        )}>
+                            <div className={cn(
+                                "p-1.5 rounded-full mt-0.5",
+                                checkResult.status === 'acknowledged' ? "bg-green-500/20 text-green-600" : "bg-red-500/20 text-red-600"
+                            )}>
+                                {checkResult.status === 'acknowledged' ? <CheckCircle size={16} /> : <X size={16} />}
+                            </div>
+                            <div>
+                                <p className={cn(
+                                    "font-bold text-sm",
+                                    checkResult.status === 'acknowledged' ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
+                                )}>
+                                    {checkResult.userName}
+                                </p>
+                                <p className="text-muted-foreground text-xs mt-1">
+                                    {checkResult.status === 'acknowledged'
+                                        ? `تم التبليغ بتاريخ: ${new Date(checkResult.date!).toLocaleString('ar-IQ')}`
+                                        : "لم يتم التبليغ حتى الآن"}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
