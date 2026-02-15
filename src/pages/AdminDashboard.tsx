@@ -1362,7 +1362,7 @@ export const AdminDashboard = () => {
 
                                     {/* Role Selection (UI matching Add Employee) */}
                                     {/* Role Selection (Refactored) */}
-                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2">
                                         {/* Label */}
                                         <div className="flex justify-start pl-2">
                                             <label className="text-xs font-bold block text-muted-foreground text-right w-full">نوع الحساب</label>
@@ -1371,7 +1371,7 @@ export const AdminDashboard = () => {
                                         {/* Input Area + Spacer */}
                                         <div className="flex items-center gap-2 relative">
                                             {/* Spacer for alignment with history buttons */}
-                                            <div className="w-6 shrink-0" />
+                                            <div className="hidden md:block w-6 shrink-0" />
 
                                             <div className="flex gap-4 flex-1">
                                                 <Button
@@ -1403,7 +1403,7 @@ export const AdminDashboard = () => {
 
                                     {/* Admin Role Selection (Visible only if role is admin) */}
                                     {selectedEmployee.role === 'admin' && (
-                                        <div className="grid grid-cols-[132px_1fr] items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                             {/* Label */}
                                             <div className="flex justify-start pl-2">
                                                 <label className="text-xs font-bold block text-muted-foreground text-right w-full">صلاحية المشرف</label>
@@ -1412,14 +1412,14 @@ export const AdminDashboard = () => {
                                             {/* Input Area + Spacer */}
                                             <div className="flex items-center gap-2 relative">
                                                 {/* Spacer */}
-                                                <div className="w-6 shrink-0" />
+                                                <div className="hidden md:block w-6 shrink-0" />
 
-                                                <div className="flex gap-4 flex-1">
+                                                <div className="flex gap-4 flex-1 flex-wrap md:flex-nowrap">
                                                     <Button
                                                         type="button"
                                                         variant={(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? 'default' : 'outline'}
                                                         onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'developer' })}
-                                                        className="flex-1 gap-2"
+                                                        className="flex-1 gap-2 w-full md:w-auto"
                                                     >
                                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", (selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? "border-white" : "border-muted-foreground")}>
                                                             {(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1431,7 +1431,7 @@ export const AdminDashboard = () => {
                                                         type="button"
                                                         variant={selectedEmployee.admin_role === 'media' ? 'default' : 'outline'}
                                                         onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'media' })}
-                                                        className="flex-1 gap-2"
+                                                        className="flex-1 gap-2 w-full md:w-auto"
                                                     >
                                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
                                                             {selectedEmployee.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
