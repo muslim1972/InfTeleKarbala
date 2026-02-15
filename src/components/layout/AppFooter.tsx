@@ -17,7 +17,7 @@ export const AppFooter = () => {
                         <div className="absolute top-1/2 right-0 w-1/4 h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
 
                         <span className="text-blue-400 font-bold text-sm md:text-base tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)]">
-                            نظام الادارة الموحد / اتصالات ومعلوماتية كربلاء
+                            نظام الادارة الموحد / اتصالات ومعلوماتية كربلاء المقدسة
                         </span>
                     </div>
 
@@ -44,7 +44,7 @@ export const AppFooter = () => {
                         </div>
 
                         <div className="tracking-widest opacity-70 mr-6">
-                            نسخة v{__APP_VERSION__}
+                            النسخة التجريبية v{__APP_VERSION__}
                         </div>
                     </div>
                 </div>

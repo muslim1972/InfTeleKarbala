@@ -44,11 +44,11 @@ export const Login = () => {
         {/* Header / Logo Section */}
         <div className="text-center mb-10 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <h1 className="text-3xl md:text-4xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide">
-            مديرية الاتصالات ومعلوماتية كربلاء
+            مديرية الاتصالات ومعلوماتية كربلاء المقدسة
           </h1>
           <div className="h-1.5 w-24 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
           <h2 className="text-white/90 text-xl font-medium drop-shadow-md tracking-wider">
-            نظام ادارة الموظفين
+            نظام الادارة الموحد
           </h2>
         </div>
 
