@@ -3,10 +3,11 @@
  * يقلل حجم التحميل الأولي بشكل كبير
  */
 
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
+import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
 
 // Lazy loading للصفحات الثقيلة
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -26,6 +27,14 @@ const LoadingScreen = () => (
 
 const AppContent = () => {
   const { user, loading } = useAuth();
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(null);
+
+  // Reset view mode when user logs out
+  useEffect(() => {
+    if (!user) {
+      setAdminViewMode(null);
+    }
+  }, [user]);
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
@@ -34,6 +43,12 @@ const AppContent = () => {
 
   // توجيه المستخدم حسب الصلاحية
   if (user.role === 'admin') {
+    // If choice not made, show selector
+    if (!adminViewMode) {
+      return <AdminRoleSelector onSelect={setAdminViewMode} />;
+    }
+    // Render selected view
+    if (adminViewMode === 'user') return <Dashboard />;
     return <AdminDashboard />;
   }
 
