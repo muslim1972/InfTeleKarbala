@@ -8,6 +8,7 @@ export interface AppUser {
   full_name: string;
   job_number?: string;
   role: string;
+  admin_role?: string; // developer, media, etc.
   avatar_url?: string | null;
   iban?: string;
 }
@@ -82,6 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             full_name: profile.full_name,
             job_number: profile.job_number,
             role: profile.role || 'user',
+            admin_role: profile.admin_role,
             avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
             iban: profile.iban
           };
@@ -159,6 +161,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         full_name: fullProfile.full_name,
         job_number: fullProfile.job_number,
         role: fullProfile.role || 'user',
+        admin_role: fullProfile.admin_role,
         avatar_url: fullProfile.avatar || fullProfile.avatar_url,
         iban: fullProfile.iban
       };

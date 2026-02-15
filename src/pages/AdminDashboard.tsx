@@ -46,7 +46,10 @@ import { useTheme } from "../context/ThemeContext";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors'>('admin_add');
+
+    // Determine default tab based on role
+    const defaultTab = currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add';
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -54,7 +57,8 @@ export const AdminDashboard = () => {
         full_name: "",
         job_number: "",
         iban: "",
-        role: "user"
+        role: "user",
+        admin_role: "developer"
     });
 
     // Manage Employees State
@@ -515,6 +519,7 @@ export const AdminDashboard = () => {
                     username: selectedEmployee.username,
                     password: selectedEmployee.password,
                     role: selectedEmployee.role,
+                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : 'developer',
                     iban: selectedEmployee.iban,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar, // Save to 'avatar' column
                     // Audit fields (ensure profiles table has these or ignore if strict)
@@ -628,6 +633,7 @@ export const AdminDashboard = () => {
                     job_number: formData.job_number,
                     iban: formData.iban,
                     role: formData.role || 'user',
+                    admin_role: formData.role === 'admin' ? (formData.admin_role || 'developer') : 'developer', // Default to developer if not admin (though irrelevant for user)
                     updated_at: new Date().toISOString()
                 }])
                 .select()
@@ -677,7 +683,7 @@ export const AdminDashboard = () => {
             }, 100);
 
             // تصفير نموذج الإضافة للعملية القادمة
-            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user" });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user", admin_role: "developer" });
         } catch (error: any) {
             // Handle unique constraint violations
             if (error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -990,13 +996,19 @@ export const AdminDashboard = () => {
                 : 'bg-black/40 border-white/5'
                 } backdrop-blur-md overflow-hidden`}>
                 <ScrollableTabs
-                    tabs={[
-                        { id: 'admin_add', label: 'إضافة موظف' },
-                        { id: 'admin_manage', label: 'إدارة الموظفين' },
-                        { id: 'admin_records', label: 'إدارة السجلات' },
-                        { id: 'admin_news', label: 'الاعلام' },
-                        { id: 'admin_supervisors', label: 'المشرفون' },
-                    ]}
+                    tabs={(() => {
+                        const allTabs = [
+                            { id: 'admin_add', label: 'إضافة موظف' },
+                            { id: 'admin_manage', label: 'إدارة الموظفين' },
+                            { id: 'admin_records', label: 'إدارة السجلات' },
+                            { id: 'admin_news', label: 'الاعلام' },
+                            // Hide Supervisors tab for Media Role
+                            ...(currentUser?.admin_role === 'media' ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
+                        ];
+
+                        // Media role sees news + others but others are disabled via search/save
+                        return allTabs;
+                    })()}
                     activeTab={activeTab}
                     onTabChange={(id) => setActiveTab(id as any)}
                     containerClassName="w-full"
@@ -1049,7 +1061,8 @@ export const AdminDashboard = () => {
                     ) : (activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee)) ? (
                         <button
                             onClick={(e) => activeTab === 'admin_add' ? handleSaveEmployee(e) : handleUpdateEmployee()}
-                            disabled={loading}
+                            disabled={loading || currentUser?.admin_role === 'media'}
+                            title={currentUser?.admin_role === 'media' ? "ليس لديك صلاحية الحفظ" : "حفظ التعديلات"}
                             className="w-full py-2 px-2 bg-brand-green hover:bg-brand-green/90 text-white rounded-lg font-bold text-xs flex items-center justify-center shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap"
                         >
                             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin ml-2" /> : null}
@@ -1092,6 +1105,7 @@ export const AdminDashboard = () => {
                                             }, 200);
                                         }
                                     }}
+                                    disabled={currentUser?.admin_role === 'media'}
                                     autoFocus
                                     className={`w-48 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-green/50 ${theme === 'light'
                                         ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
@@ -1158,7 +1172,7 @@ export const AdminDashboard = () => {
                                     setSearchExpanded(true);
                                 }
                             }}
-                            disabled={loading || isSearching}
+                            disabled={loading || isSearching || currentUser?.admin_role === 'media'}
                             className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
                             title="بحث"
                         >
@@ -1221,6 +1235,37 @@ export const AdminDashboard = () => {
                                         مشرف
                                     </Button>
                                 </div>
+
+                                {/* Row 2.5: Admin Role (Visible only if role is admin) */}
+                                {formData.role === 'admin' && (
+                                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <Label>صلاحية المشرف</Label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Button
+                                                type="button"
+                                                variant={formData.admin_role === 'developer' ? 'default' : 'outline'}
+                                                onClick={() => setFormData({ ...formData, admin_role: 'developer' })}
+                                                className="w-full gap-2"
+                                            >
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'developer' ? "border-white" : "border-muted-foreground")}>
+                                                    {formData.admin_role === 'developer' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                مطور (كامل الصلاحيات)
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={formData.admin_role === 'media' ? 'default' : 'outline'}
+                                                onClick={() => setFormData({ ...formData, admin_role: 'media' })}
+                                                className="w-full gap-2"
+                                            >
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
+                                                    {formData.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                إعلام (نشر الأخبار)
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Row 3: Job Number */}
@@ -1355,6 +1400,48 @@ export const AdminDashboard = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Admin Role Selection (Visible only if role is admin) */}
+                                    {selectedEmployee.role === 'admin' && (
+                                        <div className="grid grid-cols-[132px_1fr] items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            {/* Label */}
+                                            <div className="flex justify-start pl-2">
+                                                <label className="text-xs font-bold block text-muted-foreground text-right w-full">صلاحية المشرف</label>
+                                            </div>
+
+                                            {/* Input Area + Spacer */}
+                                            <div className="flex items-center gap-2 relative">
+                                                {/* Spacer */}
+                                                <div className="w-6 shrink-0" />
+
+                                                <div className="flex gap-4 flex-1">
+                                                    <Button
+                                                        type="button"
+                                                        variant={(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? 'default' : 'outline'}
+                                                        onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'developer' })}
+                                                        className="flex-1 gap-2"
+                                                    >
+                                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", (selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? "border-white" : "border-muted-foreground")}>
+                                                            {(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                        </div>
+                                                        مطور (كامل)
+                                                    </Button>
+
+                                                    <Button
+                                                        type="button"
+                                                        variant={selectedEmployee.admin_role === 'media' ? 'default' : 'outline'}
+                                                        onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'media' })}
+                                                        className="flex-1 gap-2"
+                                                    >
+                                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
+                                                            {selectedEmployee.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                        </div>
+                                                        إعلام
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <EditableField
                                         label="الرقم الوظيفي الموحد"
