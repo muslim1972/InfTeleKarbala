@@ -84,59 +84,11 @@ export const Dashboard = () => {
     const [leavesList, setLeavesList] = useState<any[]>([]);
     const [selectedLeave, setSelectedLeave] = useState<any>(null);
 
-    // Lifetime Counters & Iraqi Logic
-    const [lifetimeUsage, setLifetimeUsage] = useState({ regular: 0, sick: 0 });
 
-    const calculateBalances = () => {
-        // استخدام resumption_date (تاريخ المباشرة الجديد) إن وجد، وإلا first_appointment_date
-        const appointmentDateStr = adminData?.resumption_date || adminData?.first_appointment_date;
-        const appointmentDate = appointmentDateStr ? new Date(appointmentDateStr) : null;
 
-        let totalSickBalance = 365;
-        let totalRegularBalance = 0;
 
-        // Sick Balance (Lifetime 365)
-        const remainingSick = totalSickBalance - (lifetimeUsage.sick || 0);
 
-        // Regular Balance - المعادلة الصحيحة
-        if (appointmentDate) {
-            const now = new Date();
 
-            // حساب السنوات الميلادية الكاملة (من سنة التعيين+1 إلى السنة الحالية-1)
-            const completeYears = now.getFullYear() - appointmentDate.getFullYear() - 1;
-
-            // حساب أشهر السنة الحالية
-            const currentYearMonths = now.getMonth() + 1; // +1 لأن getMonth() يبدأ من 0
-
-            // المعادلة: (السنوات الكاملة × 12 × 3) + (أشهر السنة الحالية × 3)
-            totalRegularBalance = (completeYears * 12 * 3) + (currentYearMonths * 3);
-        }
-
-        const remainingRegular = totalRegularBalance - (lifetimeUsage.regular || 0);
-
-        return {
-            sick: remainingSick,
-            regular: remainingRegular < 0 ? 0 : remainingRegular,
-            total_earned_regular: totalRegularBalance
-        };
-    };
-
-    const balances = calculateBalances();
-
-    // Fetch Lifetime Usage
-    useEffect(() => {
-        const fetchLifetime = async () => {
-            if (!user?.id) return;
-            const { data } = await supabase.rpc('get_lifetime_leaves_usage', { target_user_id: user.id });
-            if (data) {
-                setLifetimeUsage({
-                    regular: data.total_regular_days || 0,
-                    sick: data.total_sick_days || 0
-                });
-            }
-        };
-        fetchLifetime();
-    }, [user?.id, leavesList]); // Refresh when leaves change
 
     // Fetch Leaves for selected year
     useEffect(() => {
@@ -632,13 +584,13 @@ export const Dashboard = () => {
 
                                         <div className="grid grid-cols-2 gap-3 mt-4">
                                             <div className="bg-zinc-50 dark:bg-zinc-900/30 rounded border border-zinc-200 dark:border-zinc-700 p-2 text-center">
-                                                <p className="text-xs text-zinc-400 mb-1">المستخدم (اعتيادية)</p>
+                                                <p className="text-xs text-zinc-400 mb-1">المستخدم الكلي (اعتيادية)</p>
                                                 <p className="font-bold text-zinc-700 dark:text-zinc-300">
                                                     {currentYearRecord.leaves_taken || 0} يوم
                                                 </p>
                                             </div>
                                             <div className="bg-zinc-50 dark:bg-zinc-900/30 rounded border border-zinc-200 dark:border-zinc-700 p-2 text-center">
-                                                <p className="text-xs text-zinc-400 mb-1">المستخدم (مرضية)</p>
+                                                <p className="text-xs text-zinc-400 mb-1">المستخدم الكلي (مرضية)</p>
                                                 <p className="font-bold text-zinc-700 dark:text-zinc-300">
                                                     {currentYearRecord.sick_leaves || 0} يوم
                                                 </p>
@@ -650,88 +602,51 @@ export const Dashboard = () => {
                                         </p>
                                     </div>
 
-                                    {/* Leaves History Button/List */}
-                                    <GlassCard className="p-5 relative overflow-hidden transition-all duration-300">
-                                        <AnimatePresence mode="wait">
-                                            {selectedLeave ? (
-                                                <motion.div
-                                                    key="detail"
-                                                    initial={{ opacity: 0, x: -20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    exit={{ opacity: 0, x: 20 }}
-                                                    className="space-y-4"
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h4 className="text-brand-green font-bold text-lg mb-1">{selectedLeave.leave_type}</h4>
-                                                            <p className="text-white/60 text-sm">تفاصيل الاجازة المسجلة</p>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => setSelectedLeave(null)}
-                                                            className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-xs transition-colors"
-                                                        >
-                                                            عودة للملخص
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-xl border border-white/5">
-                                                        <div>
-                                                            <p className="text-white/40 text-xs mb-1">تاريخ الانفكاك</p>
-                                                            <p className="text-white font-mono font-bold">{selectedLeave.start_date}</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-white/40 text-xs mb-1">المدة</p>
-                                                            <p className="text-brand-green font-bold">{selectedLeave.duration} يوم</p>
-                                                        </div>
-                                                        {selectedLeave.end_date && (
-                                                            <div className="col-span-2 border-t border-white/5 pt-2 mt-2">
-                                                                <p className="text-white/40 text-xs mb-1">تاريخ المباشرة</p>
-                                                                <p className="text-white font-mono">{selectedLeave.end_date}</p>
+                                    {/* Leaves Detail View (Conditional) */}
+                                    <AnimatePresence>
+                                        {selectedLeave && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                                                animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+                                                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <GlassCard className="p-5 relative transition-all duration-300">
+                                                    <div className="space-y-4">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <h4 className="text-brand-green font-bold text-lg mb-1">{selectedLeave.leave_type}</h4>
+                                                                <p className="text-white/60 text-sm">تفاصيل الاجازة المسجلة</p>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                </motion.div>
-                                            ) : (
-                                                <motion.div
-                                                    key="summary"
-                                                    initial={{ opacity: 0, x: 20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    exit={{ opacity: 0, x: -20 }}
-                                                    className="space-y-3"
-                                                >
-                                                    <div className="flex justify-between border-b border-border pb-2 mb-3 bg-brand-green/5 p-3 rounded-lg">
-                                                        <span className="text-foreground font-bold text-sm">إجمالي الرصيد المستحق</span>
-                                                        <span className="text-foreground font-bold text-lg text-brand-yellow">{balances.total_earned_regular} يوم</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-b border-border pb-2">
-                                                        <span className="text-muted-foreground text-sm">الرصيد الاعتيادي المتبقي</span>
-                                                        <span className="text-brand-green font-bold">{balances.regular} يوم</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-b border-border pb-2">
-                                                        <span className="text-muted-foreground text-sm">الرصيد المرضي المتبقي</span>
-                                                        <span className="font-bold text-blue-500">{balances.sick} يوم</span>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 gap-3 pt-1">
-                                                        <div className="bg-muted/50 p-2 rounded text-center border border-border">
-                                                            <p className="text-muted-foreground text-xs">المستخدم (اعتيادية)</p>
-                                                            <p className="text-foreground font-bold">{lifetimeUsage.regular} يوم</p>
+                                                            <button
+                                                                onClick={() => setSelectedLeave(null)}
+                                                                className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-xs transition-colors"
+                                                            >
+                                                                إغلاق
+                                                            </button>
                                                         </div>
-                                                        <div className="bg-muted/50 p-2 rounded text-center border border-border">
-                                                            <p className="text-muted-foreground text-xs">المستخدم (مرضية)</p>
-                                                            <p className="text-foreground font-bold">{lifetimeUsage.sick} يوم</p>
+
+                                                        <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-xl border border-white/5">
+                                                            <div>
+                                                                <p className="text-white/40 text-xs mb-1">تاريخ الانفكاك</p>
+                                                                <p className="text-white font-mono font-bold">{selectedLeave.start_date}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-white/40 text-xs mb-1">المدة</p>
+                                                                <p className="text-brand-green font-bold">{selectedLeave.duration} يوم</p>
+                                                            </div>
+                                                            {selectedLeave.end_date && (
+                                                                <div className="col-span-2 border-t border-white/5 pt-2 mt-2">
+                                                                    <p className="text-white/40 text-xs mb-1">تاريخ المباشرة</p>
+                                                                    <p className="text-white font-mono">{selectedLeave.end_date}</p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
-
-                                                    <div className="text-center pt-2">
-                                                        <span className="text-muted-foreground text-[10px]">
-                                                            تاريخ المباشرة: {adminData?.first_appointment_date || 'غير محدد'}
-                                                        </span>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </GlassCard>
+                                                </GlassCard>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
 
                                     <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                                         <h4 className="text-xs font-bold text-muted-foreground px-4 py-3 bg-muted/50 border-b border-border">
