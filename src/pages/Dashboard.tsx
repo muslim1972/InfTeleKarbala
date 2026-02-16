@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { TabSystem } from "../components/features/TabSystem";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,6 +43,7 @@ const itemVariants = {
 
 export const Dashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls'>('financial');
 
     // Data State
@@ -691,6 +693,33 @@ export const Dashboard = () => {
                         <div className="h-20"></div>
                     </motion.div>
                 )}
+                {/* User Chat FAB */}
+                <motion.button
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => navigate('/chat', { state: { adminViewMode: 'user' } })}
+                    className="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group p-0 overflow-hidden border-2 border-white/20"
+                >
+                    <img
+                        src="/images/conv-icon.png"
+                        alt="المحادثات"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            // Fallback if image missing
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement?.classList.add('bg-gradient-to-r', 'from-violet-600', 'to-indigo-600', 'flex', 'items-center', 'justify-center');
+                            const icon = document.createElement('div');
+                            icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle w-8 h-8 text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>';
+                            e.currentTarget.parentElement?.appendChild(icon);
+                        }}
+                    />
+                    <span className="sr-only">المحادثات</span>
+
+                    {/* Ripple Effect Grid */}
+                    <div className="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20" />
+                </motion.button>
             </div>
         </Layout>
     );

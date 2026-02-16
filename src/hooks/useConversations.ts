@@ -65,7 +65,38 @@ export function useConversations() {
         }
 
         fetchConversations();
+
+        // Realtime subscription (simplified)
+        const subscription = supabase
+            .channel('public:conversations')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchConversations)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+        };
     }, [user]);
 
-    return { conversations, loading };
+    const createConversation = async (partnerId: string) => {
+        if (!user) return null;
+        try {
+            const { data, error } = await supabase
+                .from('conversations')
+                .insert([{
+                    is_group: false,
+                    participants: [user.id, partnerId],
+                    updated_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error creating conversation:', error);
+            return null;
+        }
+    };
+
+    return { conversations, loading, createConversation };
 }

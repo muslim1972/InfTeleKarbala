@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useConversations } from '../../hooks/useConversations';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,34 +8,41 @@ import { Plus, X, Search, Loader2, User, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
-export function ConversationList() {
-    const { conversations, loading } = useConversations();
-    const navigate = useNavigate();
+export const ConversationList = () => {
+    const { conversations, loading, createConversation } = useConversations();
     const { conversationId } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     const { user: currentUser } = useAuth();
 
+    // State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [users, setUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
 
-    // Fetch users for new chat
+    // Search State
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    const adminViewMode = (location.state as any)?.adminViewMode;
+
     useEffect(() => {
         if (showNewChatModal) {
             fetchUsers();
         }
     }, [showNewChatModal]);
 
+    // Initial fetch of users (limited or full depending on strategy)
+    // For now, we fetch initial batch for the "default" view, or rely on search.
     const fetchUsers = async () => {
         setLoadingUsers(true);
         try {
-            // Fetch potential chat partners (e.g., admins, supervisors)
-            // Excluding current user
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, avatar, role')
-                .neq('id', currentUser?.id || '')
-                .order('full_name');
+                .select('id, full_name, avatar_url, role')
+                .neq('id', currentUser?.id)
+                .limit(50); // Initial limit
 
             if (error) throw error;
             setUsers(data || []);
@@ -46,83 +53,94 @@ export function ConversationList() {
         }
     };
 
-    const handleCreateChat = () => {
-        setShowNewChatModal(true);
-    };
-
-    const startConversation = async (partnerId: string) => {
-        if (!currentUser) return;
-
-        // 1. Check if conversation already exists locally
-        const existing = conversations.find(c =>
-            !c.is_group && c.participants.includes(partnerId)
-        );
-
-        if (existing) {
-            setShowNewChatModal(false);
-            navigate(`/chat/${existing.id}`);
-            return;
-        }
-
-        // 2. Create new conversation in DB
-        try {
-            // Check DB purely to be safe (race conditions)
-            // For now, simpler to just insert. 
-            // If we want to prevent duplicates strictly, we'd query DB first.
-            // Let's query DB first for safety.
-            const { data: existingConvs } = await supabase
-                .from('conversations')
-                .select('*')
-                .contains('participants', JSON.stringify([currentUser.id, partnerId]));
-
-            // Filter ensuring exact pair for 1-on-1 (length 2 and contains both)
-            // JSON container might return groups too if they have these 2. 
-            // Simple check: is_group = false 
-            const exactMatch = existingConvs?.find((c: any) => !c.is_group && c.participants.length === 2);
-
-            if (exactMatch) {
-                setShowNewChatModal(false);
-                navigate(`/chat/${exactMatch.id}`);
+    // Debounced Search Effect (Server-Side)
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!searchQuery?.trim()) {
+                setSearchResults([]);
                 return;
             }
 
-            // Insert new
-            const { data: newConv, error } = await supabase
-                .from('conversations')
-                .insert([{
-                    is_group: false,
-                    participants: [currentUser.id, partnerId],
-                    updated_at: new Date().toISOString()
-                }])
-                .select()
-                .single();
+            setIsSearching(true);
+            try {
+                // Exact logic from AdminDashboard
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, avatar_url, role, job_number') // Added avatar_url
+                    .or(`job_number.ilike.${searchQuery}%,full_name.ilike.${searchQuery}%`)
+                    .limit(20);
 
-            if (error) throw error;
+                if (error) throw error;
+                // Filter out current user
+                setSearchResults(data?.filter(u => u.id !== currentUser?.id) || []);
+            } catch (err) {
+                console.error('Search error:', err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, currentUser?.id]);
+
+    const handleCreateChat = () => {
+        setShowNewChatModal(true);
+        setSearchQuery('');
+        setSearchResults([]);
+    };
+
+    const startConversation = async (partnerId: string) => {
+        try {
+            // Check if conversation exists
+            const existingConv = conversations.find((c: any) =>
+                !c.is_group &&
+                c.participants.some((p: any) => p.user_id === partnerId)
+            );
+
+            if (existingConv) {
+                setShowNewChatModal(false);
+                navigate(`/chat/${existingConv.id}`);
+                return;
+            }
+
+            const newConv = await createConversation(partnerId);
+            if (!newConv) return; // Error handled in hook
 
             setShowNewChatModal(false);
             navigate(`/chat/${newConv.id}`);
 
-            // Force reload conversations? The hook might need a refresh trigger.
-            // Since we use real-time or just navigation, the layout might re-fetch or we need to expose a refetch.
-            // For now, navigation will mount the chat. The list might lag a bit until refresh.
-            // Ideally, pass refetch from hook.
-            window.location.reload(); // Temporary brute force to refresh list or better: use valid state update
+            // Reload to show new conversation in list immediately
+            window.location.reload();
         } catch (error) {
-            console.error('Error creating conversation:', error);
-            alert('فشل إنشاء المحادثة');
+            console.error('Error in startConversation:', error);
         }
     };
 
-    const filteredUsers = users.filter(u =>
-        u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Use search results if query exists, otherwise show default users list
+    const displayUsers = searchQuery.trim() ? searchResults : users;
+
+    // Filter conversations based on View Mode
+    const filteredConversations = conversations.filter(c => {
+        // Admin View: Only Groups
+        if (adminViewMode === 'admin') {
+            return c.is_group === true;
+        }
+        // User View: Only Individual
+        return c.is_group === false;
+    });
 
     return (
         <div className="w-full md:w-80 border-l bg-white flex flex-col h-full relative">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => navigate('/', { state: { activeTab: 'admin_supervisors', adminViewMode: 'admin' } })}
+                        onClick={() => {
+                            if (adminViewMode === 'user') {
+                                navigate('/dashboard');
+                            } else {
+                                navigate('/', { state: { activeTab: 'admin_supervisors' } });
+                            }
+                        }}
                         className="p-2 hover:bg-gray-200 rounded-full transition-colors"
                         title="العودة لللوحة"
                     >
@@ -130,20 +148,25 @@ export function ConversationList() {
                     </button>
                     <h2 className="font-bold text-lg text-gray-800">المحادثات</h2>
                 </div>
-                <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
-                    <Plus className="w-5 h-5" />
-                </button>
+                {/* Only show "New Chat" button for users, or if admins need to start groups (different logic maybe) */}
+                {adminViewMode !== 'admin' && (
+                    <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
+                        <Plus className="w-5 h-5" />
+                    </button>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
                 {loading ? (
                     <div className="p-4 text-center text-gray-400">جاري التحميل...</div>
-                ) : conversations.length === 0 ? (
+                ) : filteredConversations.length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-sm">
-                        لا توجد محادثات.<br />ابدأ تواصل جديد!
+                        {adminViewMode === 'admin'
+                            ? 'لا توجد مجموعات نشطة.'
+                            : 'لا توجد محادثات.\nابدأ تواصل جديد!'}
                     </div>
                 ) : (
-                    conversations.map((conv: any) => (
+                    filteredConversations.map((conv: any) => (
                         <div
                             key={conv.id}
                             onClick={() => navigate(`/chat/${conv.id}`)}
@@ -187,8 +210,8 @@ export function ConversationList() {
                             <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="بحث عن مستخدم..."
-                                className="w-full pr-9 pl-3 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                placeholder="بحث عن مستخدم (الاسم أو الرقم الوظيفي)..."
+                                className="w-full pr-9 pl-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 autoFocus
@@ -200,26 +223,28 @@ export function ConversationList() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-2">
-                        {loadingUsers ? (
+                        {loadingUsers || isSearching ? (
                             <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-500" /></div>
-                        ) : filteredUsers.length === 0 ? (
+                        ) : displayUsers.length === 0 ? (
                             <div className="text-center p-8 text-gray-400 text-sm">لا يوجد مستخدمين</div>
                         ) : (
-                            filteredUsers.map(user => (
+                            displayUsers.map(user => (
                                 <button
                                     key={user.id}
                                     onClick={() => startConversation(user.id)}
                                     className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 rounded-lg transition-colors text-right"
                                 >
                                     <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold overflow-hidden">
-                                        {user.avatar ? (
-                                            <img src={user.avatar} alt={user.full_name} className="w-full h-full object-cover" />
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
                                         ) : (
-                                            user.full_name?.[0] || <User className="w-5 h-5" />
+                                            <div className="w-full h-full flex items-center justify-center text-lg bg-emerald-100">
+                                                <User className="w-5 h-5" />
+                                            </div>
                                         )}
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-gray-800 text-sm">{user.full_name}</div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-gray-900">{user.full_name}</div>
                                         <div className="text-xs text-gray-500">{user.role === 'admin' ? 'مشرف' : 'موظف'}</div>
                                     </div>
                                 </button>
@@ -230,4 +255,4 @@ export function ConversationList() {
             )}
         </div>
     );
-}
+};
