@@ -67,7 +67,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                             size="icon"
                             className="relative hover:bg-emerald-50 text-emerald-600"
                             onClick={async () => {
-                                if (user?.role === 'admin') { // Changed currentUser to user
+                                if (user?.role !== 'user') { // Checks for ANY admin/supervisor role
                                     const group = await getOrCreateSupervisorsGroup();
                                     if (group) {
                                         navigate(`/chat/${group.id}`);

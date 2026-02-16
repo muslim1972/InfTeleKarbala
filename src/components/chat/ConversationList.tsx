@@ -15,6 +15,25 @@ export const ConversationList = () => {
     const location = useLocation();
     const { user: currentUser } = useAuth();
 
+    // State for Admin View Mode
+    const [adminViewMode] = useState<'admin' | 'user'>(
+        (location.state as any)?.adminViewMode || (currentUser?.role !== 'user' ? 'admin' : 'user')
+    );
+
+    // Redirect Admins to Supervisors Group automatically
+    useEffect(() => {
+        const checkAdminRedirect = async () => {
+            if (currentUser?.role !== 'user' && adminViewMode === 'admin') {
+                const { getOrCreateSupervisorsGroup } = await import('../../lib/chatUtils');
+                const group = await getOrCreateSupervisorsGroup();
+                if (group) {
+                    navigate(`/chat/${group.id}`, { replace: true });
+                }
+            }
+        };
+        checkAdminRedirect();
+    }, [currentUser, adminViewMode, navigate]);
+
     // State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,8 +43,6 @@ export const ConversationList = () => {
     // Search State
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-
-    const adminViewMode = (location.state as any)?.adminViewMode;
 
     useEffect(() => {
         if (showNewChatModal) {
