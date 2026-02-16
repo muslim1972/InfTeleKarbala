@@ -1,11 +1,12 @@
 
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save, MessageCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -46,6 +47,7 @@ import { useTheme } from "../context/ThemeContext";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
+    const navigate = useNavigate();
 
     // Determine default tab based on role
     const defaultTab = currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add';
@@ -2046,6 +2048,13 @@ export const AdminDashboard = () => {
                                     <h2 className={cn("text-lg font-bold", theme === 'light' ? "text-amber-900" : "text-amber-300")}>لوحة المشرفين</h2>
                                     <p className={cn("text-xs", theme === 'light' ? "text-amber-700/70" : "text-amber-400/60")}>التدقيق والرقابة المالية والإدارية</p>
                                 </div>
+                                <Button
+                                    onClick={() => navigate('/chat')}
+                                    className="mr-auto bg-blue-600 hover:bg-blue-500 text-white gap-2"
+                                >
+                                    <MessageCircle className="w-4 h-4" />
+                                    المحادثات
+                                </Button>
                             </div>
                         </div>
 

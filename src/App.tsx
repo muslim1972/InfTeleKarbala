@@ -4,6 +4,7 @@
  */
 
 import { Suspense, lazy, useState, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -59,13 +60,20 @@ const AppContent = () => {
   return <Dashboard />;
 };
 
+const ChatLayout = lazy(() => import("./components/chat/ChatLayout").then(m => ({ default: m.ChatLayout })));
+
 function App() {
   return (
     <div dir="rtl">
       <AuthProvider>
         <Toaster position="top-center" reverseOrder={false} />
         <Suspense fallback={<LoadingScreen />}>
-          <AppContent />
+          <Routes>
+            <Route path="/chat" element={<ChatLayout />}>
+              <Route path=":conversationId" element={null} />
+            </Route>
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
         </Suspense>
       </AuthProvider>
     </div>
