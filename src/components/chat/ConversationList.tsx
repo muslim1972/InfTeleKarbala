@@ -135,14 +135,16 @@ export const ConversationList = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => {
-                            if (adminViewMode === 'user') {
-                                navigate('/dashboard');
-                            } else {
-                                navigate('/', { state: { activeTab: 'admin_supervisors' } });
-                            }
+                            // Explicitly navigate to preserve state (fixes "logout" issue on back)
+                            navigate('/', {
+                                state: {
+                                    adminViewMode: adminViewMode,
+                                    activeTab: adminViewMode === 'admin' ? 'admin_supervisors' : undefined
+                                }
+                            });
                         }}
                         className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                        title="العودة لللوحة"
+                        title="العودة للخلف"
                     >
                         <ArrowRight className="w-5 h-5 text-gray-600" />
                     </button>

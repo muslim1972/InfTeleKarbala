@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { User, Power, Settings, Sun, Moon } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, MessageCircle } from "lucide-react"; // Added MessageCircle
+import { useNavigate } from "react-router-dom"; // Added useNavigate
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { useTheme } from "../../context/ThemeContext";
+import { Button } from "../ui/Button"; // Added Button
+import { toast } from "react-hot-toast"; // Added toast
+import { getOrCreateSupervisorsGroup } from "../../lib/chatUtils"; // Added util
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
@@ -15,6 +19,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [showSettings, setShowSettings] = useState(false);
+    const navigate = useNavigate(); // Added hook usage
 
     if (!user) return null;
 
@@ -56,6 +61,28 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                 </div>
                             )}
                         </button>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="relative hover:bg-emerald-50 text-emerald-600"
+                            onClick={async () => {
+                                if (user?.role === 'admin') { // Changed currentUser to user
+                                    const group = await getOrCreateSupervisorsGroup();
+                                    if (group) {
+                                        navigate(`/chat/${group.id}`);
+                                    } else {
+                                        toast.error("تعذر فتح مجموعة المشرفين");
+                                    }
+                                } else {
+                                    navigate('/chat');
+                                }
+                            }}
+                        >
+                            <MessageCircle className="w-6 h-6" />
+                            {/* Badge logic can be improved later */}
+                            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                        </Button>
 
                         {/* Center: Theme Toggle */}
                         <button

@@ -54,19 +54,24 @@ export function useChatState(conversationId: string) {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to all events (INSERT, DELETE, UPDATE)
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`
         },
         (payload) => {
-          const newMsg = payload.new as Message;
-          setMessages(prev => {
-            // Avoid duplicate if we added it optimistically
-            const exists = prev.find(m => m.id === newMsg.id);
-            if (exists) return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
-            return [...prev, newMsg];
-          });
+          if (payload.eventType === 'INSERT') {
+            const newMsg = payload.new as Message;
+            setMessages(prev => {
+              // Avoid duplicate if we added it optimistically
+              const exists = prev.find(m => m.id === newMsg.id);
+              if (exists) return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
+              return [...prev, newMsg];
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const deletedMsg = payload.old as { id: string };
+            setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
+          }
         }
       )
       .subscribe((status) => {
@@ -140,12 +145,53 @@ export function useChatState(conversationId: string) {
     }
   };
 
+  // Selection Logic
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+
+  const toggleSelection = useCallback((messageId: string) => {
+    setSelectedMessages(prev =>
+      prev.includes(messageId)
+        ? prev.filter(id => id !== messageId)
+        : [...prev, messageId]
+    );
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedMessages([]);
+  }, []);
+
+  const deleteMessages = async () => {
+    if (selectedMessages.length === 0) return;
+
+    const toastId = toast.loading('جاري الحذف...');
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .in('id', selectedMessages);
+
+      if (error) throw error;
+
+      // Optimistic delete
+      setMessages(prev => prev.filter(m => !selectedMessages.includes(m.id)));
+      clearSelection();
+      toast.success('تم الحذف بنجاح', { id: toastId });
+    } catch (error) {
+      console.error('Error deleting messages:', error);
+      toast.error('فشل الحذف', { id: toastId });
+    }
+  };
+
   return {
     messages,
     loading,
     newMessage,
     setNewMessage,
     isSending,
-    sendMessage
+    sendMessage,
+    selectedMessages,
+    toggleSelection,
+    clearSelection,
+    deleteMessages
   };
 }

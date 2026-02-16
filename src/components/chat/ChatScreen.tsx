@@ -4,7 +4,7 @@ import { useConversationDetails } from '../../hooks/useConversationDetails';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ArrowRight, MoreVertical } from 'lucide-react';
-// useAuth removed as it was unused
+import { SelectionHeader } from './SelectionHeader';
 
 // Simple Avatar Component if not exists
 function SimpleAvatar({ src, fallback }: { src?: string, fallback: string }) {
@@ -22,10 +22,19 @@ export function ChatScreen() {
     const { conversationId } = useParams<{ conversationId: string }>();
     const navigate = useNavigate();
 
-    // If no conversationId, we might want to show a list or redirect.
-    // For now, let's assume valid ID is passed.
+    const {
+        messages,
+        loading: msgsLoading,
+        newMessage,
+        setNewMessage,
+        isSending,
+        sendMessage,
+        selectedMessages,      // New
+        toggleSelection,       // New
+        clearSelection,        // New
+        deleteMessages         // New
+    } = useChatState(conversationId || '');
 
-    const { messages, loading: msgsLoading, newMessage, setNewMessage, isSending, sendMessage } = useChatState(conversationId || '');
     const { details, loading: detailsLoading } = useConversationDetails(conversationId || '');
 
     if (!conversationId) {
@@ -33,48 +42,57 @@ export function ChatScreen() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
-            {/* Header */}
-            <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-10">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
-                        <ArrowRight className="w-5 h-5 text-gray-600" />
-                    </button>
-
+        <div className="flex flex-col h-screen bg-gray-50 relative">
+            {/* Header - Conditionally Rendered */}
+            {selectedMessages.length > 0 ? (
+                <SelectionHeader
+                    selectedCount={selectedMessages.length}
+                    onCancel={clearSelection}
+                    onDelete={deleteMessages}
+                />
+            ) : (
+                <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-10 transition-all">
                     <div className="flex items-center gap-3">
-                        <SimpleAvatar src={details?.avatar_url} fallback={details?.name || 'User'} />
-                        <div>
-                            <h2 className="font-semibold text-gray-800 text-sm">
-                                {detailsLoading ? 'جاري التحميل...' : details?.name}
-                            </h2>
-                            {details?.is_group && <span className="text-xs text-gray-500">مجموعة</span>}
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
+                            <ArrowRight className="w-5 h-5 text-gray-600" />
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <SimpleAvatar src={details?.avatar_url} fallback={details?.name || 'User'} />
+                            <div>
+                                <h2 className="font-semibold text-gray-800 text-sm">
+                                    {detailsLoading ? 'جاري التحميل...' : details?.name}
+                                </h2>
+                                {details?.is_group && <span className="text-xs text-gray-500">مجموعة</span>}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="relative group">
-                    <button
-                        onClick={() => alert("خيارات المحادثة ستتوفر قريباً: \n- معلومات الاتصال\n- حذف المحادثة\n- حظر المستخدم")}
-                        className="p-2 hover:bg-gray-100 rounded-full"
-                    >
-                        <MoreVertical className="w-5 h-5 text-gray-600" />
-                    </button>
-                    {/* Tooltip */}
-                    <div className="absolute left-0 top-full mt-1 hidden group-hover:block px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
-                        خيارات
+                    <div className="relative group">
+                        <button
+                            onClick={() => alert("خيارات المحادثة ستتوفر قريباً")}
+                            className="p-2 hover:bg-gray-100 rounded-full"
+                        >
+                            <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </button>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Messages */}
-            <MessageList messages={messages} loading={msgsLoading} />
+            <MessageList
+                messages={messages}
+                loading={msgsLoading}
+                selectedMessages={selectedMessages}
+                onToggleSelection={toggleSelection}
+            />
 
-            {/* Input */}
+            {/* Input - Hide when selecting? Optional, but usually kept. */}
             <MessageInput
                 value={newMessage}
                 onChange={setNewMessage}
                 onSend={sendMessage}
-                disabled={isSending}
+                disabled={isSending || selectedMessages.length > 0} // Disable input while selecting
             />
         </div>
     );
