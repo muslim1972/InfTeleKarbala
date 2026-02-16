@@ -46,8 +46,11 @@ export function useChatState(conversationId: string) {
 
     fetchMessages();
 
-    const channel = supabase
-      .channel(`chat:${conversationId}`)
+    // Create channel
+    const channel = supabase.channel(`chat:${conversationId}`);
+
+    // Subscribe
+    channel
       .on(
         'postgres_changes',
         {
@@ -58,18 +61,28 @@ export function useChatState(conversationId: string) {
         },
         (payload) => {
           const newMsg = payload.new as Message;
-          // Avoid duplicate if we added it optimistically
           setMessages(prev => {
+            // Avoid duplicate if we added it optimistically
             const exists = prev.find(m => m.id === newMsg.id);
             if (exists) return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
             return [...prev, newMsg];
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to chat changes');
+        }
+      });
 
+    // Cleanup
     return () => {
-      supabase.removeChannel(channel);
+      // Best effort cleanup to avoid "WebSocket closed" noise
+      try {
+        supabase.removeChannel(channel);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     };
   }, [conversationId, fetchMessages]);
 

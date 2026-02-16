@@ -52,9 +52,18 @@ export function ChatScreen() {
                     </div>
                 </div>
 
-                <button className="p-2 hover:bg-gray-100 rounded-full">
-                    <MoreVertical className="w-5 h-5 text-gray-600" />
-                </button>
+                <div className="relative group">
+                    <button
+                        onClick={() => alert("خيارات المحادثة ستتوفر قريباً: \n- معلومات الاتصال\n- حذف المحادثة\n- حظر المستخدم")}
+                        className="p-2 hover:bg-gray-100 rounded-full"
+                    >
+                        <MoreVertical className="w-5 h-5 text-gray-600" />
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute left-0 top-full mt-1 hidden group-hover:block px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
+                        خيارات
+                    </div>
+                </div>
             </div>
 
             {/* Messages */}

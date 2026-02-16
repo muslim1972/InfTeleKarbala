@@ -4,7 +4,7 @@
  */
 
 import { Suspense, lazy, useState, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -28,7 +28,10 @@ const LoadingScreen = () => (
 
 const AppContent = () => {
   const { user, loading } = useAuth();
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(null);
+  const location = useLocation();
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(
+    (location.state as any)?.adminViewMode || null
+  );
 
   // Reset view mode when user logs out
   useEffect(() => {

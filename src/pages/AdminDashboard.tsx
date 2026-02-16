@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
@@ -28,29 +28,21 @@ import {
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { DateInput } from "../components/ui/DateInput";
 import { Clock } from "lucide-react";
-
-
-
-
-// 1. Remove one of the imports (cleaning up lines 16-20)
-// This will be handled by replacing the import block
-
 import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
 import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 import { CustomAudit } from "../components/admin/CustomAudit";
-
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
     const navigate = useNavigate();
+    const location = useLocation();
 
-    // Determine default tab based on role
-    const defaultTab = currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add';
+    // Determine default tab based on role or navigation state
+    const defaultTab = location.state?.activeTab || (currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add');
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
