@@ -34,7 +34,7 @@ export function MessageBubble({ message, isSelected, isSelectionMode, onToggleSe
         <div
             className={cn(
                 "flex w-full mb-4 relative transition-colors duration-200",
-                isMe ? "justify-end" : "justify-start",
+                isMe ? "justify-start" : "justify-end",
                 isSelected && "bg-emerald-50/50 -mx-4 px-4 py-1" // Highlight container on select
             )}
             {...longPressEvent}
