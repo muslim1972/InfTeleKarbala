@@ -14,7 +14,7 @@ const APPROVED_PERCENTAGES: Record<string, number | null> = {
     transport_allowance: null,
     marital_allowance: null,
     children_allowance: null,
-    position_allowance: 15,
+    position_allowance: null,
     risk_allowance: null,
     additional_50_percent_allowance: 50,
     tax_deduction_amount: null,
@@ -122,6 +122,12 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         const pct = parseFloat(finData.risk_percentage);
         return isNaN(pct) ? null : pct;
     }
+    if (fieldKey === 'position_allowance') {
+        const val = parseFloat(finData.position_allowance) || 0;
+        // إذا كان لديه مخصصات منصب (القيمة > 0) فالنسبة الثابتة هي 15%
+        // إذا كانت القيمة 0، فالنسبة المتوقعة 0 (لا يوجد منصب)
+        return val > 0 ? 15 : 0;
+    }
     const fixed = APPROVED_PERCENTAGES[fieldKey];
     if (fixed !== undefined && fixed !== null) return fixed;
     const nomSal = parseFloat(finData.nominal_salary) || 0;
@@ -202,6 +208,13 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
             setShowSuggestions(false);
             return;
         }
+
+        // ✅ منع إعادة البحث/ظهور القائمة إذا كان الاسم في الحقل هو نفسه الاسم المختار
+        if (selectedEmployee && searchQuery === selectedEmployee.full_name) {
+            setShowSuggestions(false);
+            return;
+        }
+
         const timer = setTimeout(async () => {
             setIsSearching(true);
             const { data } = await supabase
@@ -214,7 +227,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
             setIsSearching(false);
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery, scope]);
+    }, [searchQuery, scope, selectedEmployee]);
 
     // === جلب البيانات المالية ===
     const loadFinancialData = useCallback(async (userId: string) => {
