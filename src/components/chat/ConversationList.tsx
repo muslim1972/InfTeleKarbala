@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useConversations } from '../../hooks/useConversations';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,15 +12,7 @@ export const ConversationList = () => {
     const { conversations, loading, createConversation } = useConversations();
     const { conversationId } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const { user: currentUser } = useAuth();
-
-    // State for View Mode (Defaults to 'user' for everyone to separate interfaces)
-    const [adminViewMode] = useState<'admin' | 'user'>(
-        (location.state as any)?.adminViewMode || 'user'
-    );
-
-    // Removed auto-redirect to Supervisors Group to prevent hijacking navigation
 
     // State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -39,7 +31,6 @@ export const ConversationList = () => {
     }, [showNewChatModal]);
 
     // Initial fetch of users (limited or full depending on strategy)
-    // For now, we fetch initial batch for the "default" view, or rely on search.
     const fetchUsers = async () => {
         setLoadingUsers(true);
         try {
@@ -47,7 +38,7 @@ export const ConversationList = () => {
                 .from('profiles')
                 .select('id, full_name, avatar_url, role')
                 .neq('id', currentUser?.id)
-                .limit(50); // Initial limit
+                .limit(50);
 
             if (error) throw error;
             setUsers(data || []);
@@ -58,7 +49,7 @@ export const ConversationList = () => {
         }
     };
 
-    // Debounced Search Effect (Server-Side)
+    // Debounced Search Effect
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (!searchQuery?.trim()) {
@@ -68,15 +59,13 @@ export const ConversationList = () => {
 
             setIsSearching(true);
             try {
-                // Exact logic from AdminDashboard
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('id, full_name, avatar_url, role, job_number') // Added avatar_url
+                    .select('id, full_name, avatar_url, role, job_number')
                     .or(`job_number.ilike.${searchQuery}%,full_name.ilike.${searchQuery}%`)
                     .limit(20);
 
                 if (error) throw error;
-                // Filter out current user
                 setSearchResults(data?.filter(u => u.id !== currentUser?.id) || []);
             } catch (err) {
                 console.error('Search error:', err);
@@ -96,7 +85,7 @@ export const ConversationList = () => {
 
     const startConversation = async (partnerId: string) => {
         try {
-            // Check if conversation exists
+            // Check if conversation exists (individual only)
             const existingConv = conversations.find((c: any) =>
                 !c.is_group &&
                 c.participants.some((p: any) => p.user_id === partnerId)
@@ -109,12 +98,10 @@ export const ConversationList = () => {
             }
 
             const newConv = await createConversation(partnerId);
-            if (!newConv) return; // Error handled in hook
+            if (!newConv) return;
 
             setShowNewChatModal(false);
             navigate(`/chat/${newConv.id}`);
-
-            // Reload to show new conversation in list immediately
             window.location.reload();
         } catch (error) {
             console.error('Error in startConversation:', error);
@@ -124,30 +111,16 @@ export const ConversationList = () => {
     // Use search results if query exists, otherwise show default users list
     const displayUsers = searchQuery.trim() ? searchResults : users;
 
-    // Filter conversations based on View Mode
-    const filteredConversations = conversations.filter(c => {
-        // Admin View: Only Groups
-        if (adminViewMode === 'admin') {
-            return c.is_group === true;
-        }
-        // User View: Only Individual
-        return c.is_group === false;
-    });
+    // Unified View: Show all conversations (Personal + Groups)
+    // Access control is handled by RLS and participation logic
+    const filteredConversations = conversations;
 
     return (
         <div className="w-full md:w-80 border-l bg-white flex flex-col h-full relative">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => {
-                            // Explicitly navigate to preserve state (fixes "logout" issue on back)
-                            navigate('/', {
-                                state: {
-                                    adminViewMode: adminViewMode,
-                                    activeTab: adminViewMode === 'admin' ? 'admin_supervisors' : undefined
-                                }
-                            });
-                        }}
+                        onClick={() => navigate('/')}
                         className="p-2 hover:bg-gray-200 rounded-full transition-colors"
                         title="العودة للخلف"
                     >
@@ -155,12 +128,10 @@ export const ConversationList = () => {
                     </button>
                     <h2 className="font-bold text-lg text-gray-800">المحادثات</h2>
                 </div>
-                {/* Only show "New Chat" button for users, or if admins need to start groups (different logic maybe) */}
-                {adminViewMode !== 'admin' && (
-                    <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
-                        <Plus className="w-5 h-5" />
-                    </button>
-                )}
+                {/* New Chat Button - Available to everyone */}
+                <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
+                    <Plus className="w-5 h-5" />
+                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -168,9 +139,9 @@ export const ConversationList = () => {
                     <div className="p-4 text-center text-gray-400">جاري التحميل...</div>
                 ) : filteredConversations.length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-sm">
-                        {adminViewMode === 'admin'
-                            ? 'لا توجد مجموعات نشطة.'
-                            : 'لا توجد محادثات.\nابدأ تواصل جديد!'}
+                        لا توجد محادثات.
+                        <br />
+                        ابدأ تواصل جديد!
                     </div>
                 ) : (
                     filteredConversations.map((conv: any) => (

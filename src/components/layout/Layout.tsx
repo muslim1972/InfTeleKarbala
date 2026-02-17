@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
@@ -11,6 +12,8 @@ interface LayoutProps {
 }
 
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
+    const navigate = useNavigate();
+
     return (
         <div className="min-h-screen w-full relative bg-background text-foreground font-tajawal transition-colors duration-300">
             {/* Cosmic Background Effects - Dynamic for both modes */}
@@ -26,6 +29,30 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                     {children}
                 </main>
                 <AppFooter />
+
+                {/* Global Chat FAB */}
+                <button
+                    onClick={() => navigate('/chat')}
+                    className="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 overflow-hidden border-2 border-white/20 bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center"
+                >
+                    <img
+                        src="/images/conv-icon.png"
+                        alt="المحادثات"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                        }}
+                    />
+                    {/* Fallback Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center -z-10">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle w-8 h-8 text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+                    </div>
+
+                    <span className="sr-only">المحادثات</span>
+
+                    {/* Ripple Effect Grid */}
+                    <div className="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20 pointer-events-none" />
+                </button>
             </div>
         </div>
     );

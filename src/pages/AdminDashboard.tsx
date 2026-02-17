@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
@@ -38,7 +38,7 @@ import { useTheme } from "../context/ThemeContext";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
-    const navigate = useNavigate();
+
     const location = useLocation();
 
     // Determine default tab based on role or navigation state
@@ -2040,32 +2040,6 @@ export const AdminDashboard = () => {
                                     <h2 className={cn("text-lg font-bold", theme === 'light' ? "text-amber-900" : "text-amber-300")}>لوحة المشرفين</h2>
                                     <p className={cn("text-xs", theme === 'light' ? "text-amber-700/70" : "text-amber-400/60")}>التدقيق والرقابة المالية والإدارية</p>
                                 </div>
-                                <button
-                                    onClick={async () => {
-                                        const { getOrCreateSupervisorsGroup } = await import('../lib/chatUtils');
-                                        const group = await getOrCreateSupervisorsGroup();
-                                        if (group) {
-                                            navigate(`/chat/${group.id}`);
-                                        } else {
-                                            toast.error("تعذر فتح مجموعة المشرفين");
-                                        }
-                                    }}
-                                    className="mr-auto w-12 h-12 rounded-full shadow-lg hover:shadow-xl transition-transform duration-300 hover:scale-110 active:scale-95 group p-0 overflow-hidden border-2 border-white/20 relative"
-                                >
-                                    <img
-                                        src="/images/conv-icon.png"
-                                        alt="المحادثات"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                            e.currentTarget.parentElement?.classList.add('bg-blue-600', 'flex', 'items-center', 'justify-center');
-                                            const icon = document.createElement('div');
-                                            icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>';
-                                            e.currentTarget.parentElement?.appendChild(icon);
-                                        }}
-                                    />
-                                    <div className="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20" />
-                                </button>
                             </div>
                         </div>
 
