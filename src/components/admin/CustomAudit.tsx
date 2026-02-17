@@ -41,6 +41,34 @@ const DEDUCTION_FIELDS = [
     { key: 'tax_deduction_amount', label: 'الاستقطاع الضريبي' },
 ];
 
+// ===== دالة مساعدة للتحقق من استحقاق المخصصات القانونية =====
+function getLegalAllowancePercentage(finData: any): number {
+    const title = finData.job_title ? finData.job_title.trim() : '';
+    const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
+    const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
+
+    // العناوين القانونية المحددة بدقة
+    const legalTitles = [
+        'مستشار قانوني',
+        'مستشار قانوني اقدم',
+        'مستشار قانوني اقدم اول',
+        'مشاور قانوني',
+        'مشاور قانوني اقدم',
+        'مشاور قانوني اقدم اول',
+        'ر مستشارين',
+        'ر مستشارين اقدم',
+        'ر مستشارين اقدم اول',
+        'ر مشاورين',
+        'ر مشاورين اقدم',
+        'ر مشاورين اقدم اول'
+    ];
+    const isLegalTitle = legalTitles.some(t => title === t || title.includes(t));
+    const isBachelor = normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس');
+
+    if (isLegalTitle && isBachelor) return 30;
+    return 0;
+}
+
 // ===== الدالة المساعدة لحل النسبة المعتمدة =====
 function resolveApprovedPercentage(fieldKey: string, finData: any): number | null {
     if (!finData) return null;
@@ -93,34 +121,15 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         return 0;
     }
     if (fieldKey === 'legal_allowance') {
-        const title = finData.job_title ? finData.job_title.trim() : '';
-        const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
-        const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
-
-        // العناوين القانونية المحددة بدقة
-        const legalTitles = [
-            'مستشار قانوني',
-            'مستشار قانوني اقدم',
-            'مستشار قانوني اقدم اول',
-            'مشاور قانوني',
-            'مشاور قانوني اقدم',
-            'مشاور قانوني اقدم اول',
-            'ر مستشارين',
-            'ر مستشارين اقدم',
-            'ر مستشارين اقدم اول',
-            'ر مشاورين',
-            'ر مشاورين اقدم',
-            'ر مشاورين اقدم اول'
-        ];
-        const isLegalTitle = legalTitles.some(t => title === t || title.includes(t));
-        const isBachelor = normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس');
-
-        if (isLegalTitle && isBachelor) return 30;
-        return 0;
+        return getLegalAllowancePercentage(finData);
     }
     if (fieldKey === 'risk_allowance') {
-        const pct = parseFloat(finData.risk_percentage);
-        return isNaN(pct) ? null : pct;
+        // 1. التحقق من استحقاق القانونية أولاً (لا يجتمعان)
+        const legalPct = getLegalAllowancePercentage(finData);
+        if (legalPct === 30) return 0; // إذا كان مستحقاً للقانونية، تحجب الخطورة
+
+        // 2. إذا لم يستحق قانونية، فالنسبة الثابتة للشركة هي 30%
+        return 30;
     }
     if (fieldKey === 'position_allowance') {
         const val = parseFloat(finData.position_allowance) || 0;
@@ -236,6 +245,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
             .select('*')
             .eq('user_id', userId)
             .single();
+
         setFinancialData(data);
         return data;
     }, []);
@@ -328,13 +338,13 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 const nomSal = parseFloat(rec.nominal_salary) || 0;
                 if (nomSal <= 0) continue;
 
-                // Pass the job_title from the joined profile to the resolver if needed, 
-                // though resolveApprovedPercentage currently expects it in the main object.
-                // We'll merge it to be safe or rely on what resolveApprovedPercentage uses.
-                // logic in resolveApprovedPercentage uses finData.job_title.
-                // The query selects profiles(job_title), we need to map it if not present in finData.
+                // دمج بيانات الملف الشخصي
                 const profile = (rec as any).profiles;
-                const fullRecord = { ...rec, job_title: profile?.job_title || rec.job_title };
+                const fullRecord = {
+                    ...rec,
+                    job_title: rec.job_title,
+                    certificate_text: rec.certificate_text
+                };
 
                 const approved = resolveApprovedPercentage(selectedField, fullRecord);
                 if (approved === null) continue;
