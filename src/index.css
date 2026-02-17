@@ -341,6 +341,44 @@ textarea,
   animation: ripple 2s linear infinite;
 }
 
+/* 
+  Custom Pulse Animation 
+  Total Duration: 6s
+  0% - 33% (2s): Hidden (Wait)
+  33% (2s): Start Growing
+  33% - 66% (2s): Grow & Fade Out
+  66% - 100% (2s): Hidden (Wait)
+*/
+@keyframes pulse-custom {
+
+  0%,
+  33% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  34% {
+    transform: scale(0.8);
+    opacity: 1;
+    /* Visible start */
+  }
+
+  66% {
+    transform: scale(2.5);
+    opacity: 0;
+    /* Faded out max */
+  }
+
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-custom {
+  animation: pulse-custom 6s ease-out infinite;
+}
+
 /* ✅ Hide spin buttons for input type="number" */
 .no-spin::-webkit-outer-spin-button,
 .no-spin::-webkit-inner-spin-button {
@@ -352,39 +390,23 @@ textarea,
   -moz-appearance: textfield;
 }
 
-/* Print Styling for PDF Export - Clean Slate Implementation */
+/* Print Styling */
 @media print {
-  /* -------------------------------------------------------------------------- */
-  /* 1. RESET & HIDE EVERYTHING                                                 */
-  /* -------------------------------------------------------------------------- */
-
-  /* USE VISIBILITY, NOT DISPLAY:NONE. 
-     Display:none removes elements from layout, so children cannot be shown individually.
-     Visibility:hidden just hides pixels but keeps layout structure, allowing children to override with visible. */
-
   body * {
     visibility: hidden;
   }
 
-  /* Force body to be a simple white page container */
   body {
     visibility: hidden;
     background-color: white !important;
-    background: white !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* 2. SHOW OPT-IN PRINT CONTENT                                               */
-  /* -------------------------------------------------------------------------- */
-
-  /* The specific container we want to print */
   #poll-stats-print-root {
     visibility: visible !important;
-    /* OVERRIDE HIDDEN PARENTS */
     display: block !important;
     position: absolute;
     left: 0;
@@ -393,24 +415,16 @@ textarea,
     min-height: 100% !important;
     margin: 0 !important;
     padding: 0mm !important;
-    /* Let body margins handle it or specific padding */
     background-color: white !important;
     color: black !important;
     font-family: 'Tajawal', sans-serif;
     z-index: 2147483647;
-    /* Max z-index to sit on top of everything */
   }
 
-  /* Ensure all children of the print root are visible */
   #poll-stats-print-root * {
     visibility: visible !important;
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* 3. CLEAN UP INTERNAL STYLES                                                */
-  /* -------------------------------------------------------------------------- */
-
-  /* Force all text to black */
   h1,
   h2,
   h3,
@@ -424,7 +438,6 @@ textarea,
     -webkit-text-fill-color: black !important;
   }
 
-  /* Remove any backgrounds/gradients from cards */
   [class*="bg-"],
   [class*="glass-card"] {
     background: transparent !important;
@@ -433,14 +446,8 @@ textarea,
     backdrop-filter: none !important;
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* 4. STRUCTURAL FRAMING (The User's Request)                                 */
-  /* -------------------------------------------------------------------------- */
-
-  /* Question Cards: Frame them elegantly */
   .glass-card {
     border: 1px solid #000 !important;
-    /* Distinct black border */
     border-radius: 4px !important;
     padding: 1rem !important;
     margin-bottom: 2rem !important;
@@ -448,11 +455,6 @@ textarea,
     page-break-inside: avoid !important;
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* 5. PAGE BREAKS & FLOW                                                      */
-  /* -------------------------------------------------------------------------- */
-
-  /* Prevent headings from being stranded */
   h1,
   h2,
   h3 {
@@ -460,7 +462,6 @@ textarea,
     page-break-after: avoid;
   }
 
-  /* Comments Section */
   .comments-section-title {
     margin-top: 2rem !important;
     border-bottom: 2px solid #000 !important;
@@ -469,7 +470,6 @@ textarea,
     break-after: avoid;
   }
 
-  /* Comment Grid Layout */
   .comments-grid {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -478,10 +478,8 @@ textarea,
 
   .comments-grid>* {
     width: calc(50% - 10px) !important;
-    /* Force 2 cols */
   }
 
-  /* Individual Comment Cards */
   .comment-card {
     border: 1px solid #ccc !important;
     padding: 10px !important;
@@ -489,21 +487,14 @@ textarea,
     color: black !important;
   }
 
-  /* Hide print-specific UI buttons */
   .print\:hidden {
     display: none !important;
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* 6. PRINT MODES (Full vs Summary)                                           */
-  /* -------------------------------------------------------------------------- */
-
-  /* In Summary Mode: Hide the actual comments grid, but keep the header (count) */
   .print-summary-mode .comments-grid {
     display: none !important;
   }
 
-  /* Additional cleanup if needed */
   .print-summary-mode .comment-card {
     display: none !important;
   }

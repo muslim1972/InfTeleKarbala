@@ -33,12 +33,13 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                 {/* Global Chat FAB */}
                 <button
                     onClick={() => navigate('/chat')}
-                    className="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 overflow-hidden border-2 border-white/20 bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center"
+                    className="fixed bottom-24 left-6 z-50 w-16 h-16 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
                 >
+                    {/* Main Icon - Increased Z-index */}
                     <img
                         src="/images/conv-icon.png"
                         alt="المحادثات"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover relative z-10"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
                         }}
@@ -50,8 +51,11 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
 
                     <span className="sr-only">المحادثات</span>
 
-                    {/* Ripple Effect Grid */}
-                    <div className="absolute inset-0 rounded-full border border-white/20 animate-ping opacity-20 pointer-events-none" />
+                    {/* Ripple Effect Grid - Z-index 0 to sit ON TOP of button background but BELOW image (z-10) */}
+                    <div
+                        className="absolute inset-0 rounded-full border-[6px] animate-pulse-custom pointer-events-none"
+                        style={{ borderColor: '#8b5cf6' }}
+                    />
                 </button>
             </div>
         </div>
