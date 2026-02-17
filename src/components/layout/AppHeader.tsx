@@ -5,9 +5,7 @@ import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { useTheme } from "../../context/ThemeContext";
-import { Button } from "../ui/Button"; // Added Button
-import { toast } from "react-hot-toast"; // Added toast
-import { getOrCreateSupervisorsGroup } from "../../lib/chatUtils"; // Added util
+import { Button } from "../ui/Button";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
@@ -66,17 +64,11 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                             variant="ghost"
                             size="icon"
                             className="relative hover:bg-emerald-50 text-emerald-600"
-                            onClick={async () => {
-                                if (user?.role !== 'user') { // Checks for ANY admin/supervisor role
-                                    const group = await getOrCreateSupervisorsGroup();
-                                    if (group) {
-                                        navigate(`/chat/${group.id}`);
-                                    } else {
-                                        toast.error("تعذر فتح مجموعة المشرفين");
-                                    }
-                                } else {
-                                    navigate('/chat');
-                                }
+                            onClick={() => {
+                                // Always navigate to the main chat list (User View)
+                                // This ensures separation: Header Icon -> Personal Chats
+                                // Admin Dashboard Button -> Supervisor Chat
+                                navigate('/chat');
                             }}
                         >
                             <MessageCircle className="w-6 h-6" />
