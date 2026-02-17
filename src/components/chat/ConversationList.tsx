@@ -111,9 +111,12 @@ export const ConversationList = () => {
     // Use search results if query exists, otherwise show default users list
     const displayUsers = searchQuery.trim() ? searchResults : users;
 
-    // Unified View: Show all conversations (Personal + Groups)
-    // Access control is handled by RLS and participation logic
-    const filteredConversations = conversations;
+    // Unified View: Show all conversations EXCEPT Supervisors Group
+    // User requested to remove Supervisors Group from this list
+    const filteredConversations = conversations.filter((c: any) =>
+        c.name !== 'مجموعة المشرفين' &&
+        c.name !== 'Supervisors Group'
+    );
 
     return (
         <div className="w-full md:w-80 border-l bg-white flex flex-col h-full relative">

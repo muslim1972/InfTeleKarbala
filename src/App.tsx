@@ -29,16 +29,26 @@ const LoadingScreen = () => (
 const AppContent = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(
-    (location.state as any)?.adminViewMode || null
-  );
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(() => {
+    const stateMode = (location.state as any)?.adminViewMode;
+    if (stateMode) return stateMode;
+    return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
+  });
 
   // Reset view mode when user logs out
   useEffect(() => {
     if (!user) {
       setAdminViewMode(null);
+      localStorage.removeItem('adminViewMode');
     }
   }, [user]);
+
+  // Persist view mode choice
+  useEffect(() => {
+    if (adminViewMode) {
+      localStorage.setItem('adminViewMode', adminViewMode);
+    }
+  }, [adminViewMode]);
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
