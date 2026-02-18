@@ -22,6 +22,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [endDate, setEndDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showBalanceError, setShowBalanceError] = useState(false); // New state for balance error
+  const [balanceErrorMessage, setBalanceErrorMessage] = useState(''); // Store the error message
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -53,29 +55,43 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      const { error: submitError } = await supabase
-        .from('leave_requests')
-        .insert({
-          user_id: user.id,
-          start_date: formData.startDate,
-          end_date: endDate,
-          days_count: formData.daysCount,
-          reason: formData.reason,
-          status: 'pending'
-        });
+      // Use RPC function instead of direct insert
+      const { data, error: rpcError } = await supabase.rpc('submit_leave_request', {
+        p_start_date: formData.startDate,
+        p_end_date: endDate,
+        p_days_count: formData.daysCount,
+        p_reason: formData.reason
+      });
 
-      if (submitError) throw submitError;
+      if (rpcError) throw rpcError;
+
+      // Custom check for logic error from the function (it returns JSON)
+      // Note: Supabase RPC returns the data directly. Our function returns JSONB.
+      // We need to cast or check the structure.
+      // The function returns { success: boolean, message: string, ... }
+
+      const response = data as any;
+
+      if (!response || !response.success) {
+        // If logic failed (e.g. insufficient balance)
+        setBalanceErrorMessage(response?.message || 'تعذر تقديم الطلب، يرجى المحاولة لاحقاً.');
+        setShowBalanceError(true);
+        setShowConfirmModal(false);
+        return; // Stop here
+      }
 
       setSuccess(true);
       setShowConfirmModal(false);
       if (onSuccess) onSuccess();
 
-      // Reset form after success
+      // Reset form on success
       setFormData({ startDate: '', daysCount: 1, reason: '' });
       setEndDate('');
 
     } catch (err: any) {
+      console.error('Submission error:', err);
       setError(err.message || 'حدث خطأ أثناء إرسال الطلب');
+      setShowConfirmModal(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -120,17 +136,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         </h2>
 
         {success ? (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center animate-fade-in-up">
             <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
             </div>
             <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم استلام طلبك بنجاح</h3>
             <p className="text-green-600 dark:text-green-400 mb-6">
-              سيتم مراجعة طلبك من قبل الجهات المختصة وإشعارك بالنتيجة.
+              تم إرسال الطلب إلى المسؤول المباشر للمراجعة.
             </p>
             <button
               onClick={() => setSuccess(false)}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition shadow-lg shadow-green-500/20"
             >
               تقديم طلب جديد
             </button>
@@ -196,7 +212,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm flex items-center gap-2">
                 <AlertCircle size={16} />
                 {error}
               </div>
@@ -215,13 +231,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl scale-100">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">تأكيد إرسال الطلب</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               هل أنت متأكد من صحة المعلومات المدخلة؟
               <br />
-              <span className="font-semibold block mt-2">
+              <span className="font-semibold block mt-2 text-blue-600 dark:text-blue-400">
                 البداية: {formData.startDate} | المدة: {formData.daysCount} يوم
               </span>
             </p>
@@ -235,7 +251,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
               <button
                 onClick={confirmSubmit}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
               >
                 {isSubmitting ? 'جاري التأكيد...' : 'نعم، أرسل'}
               </button>
@@ -243,6 +259,28 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           </div>
         </div>
       )}
+
+      {/* Balance Error Modal */}
+      {showBalanceError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border-2 border-red-500/20">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={28} className="text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">عذراً، لا يمكن إتمام الطلب</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 text-center leading-relaxed">
+              {balanceErrorMessage}
+            </p>
+            <button
+              onClick={() => setShowBalanceError(false)}
+              className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-900 dark:text-white font-bold rounded-xl transition"
+            >
+              حسناً، فهمت
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
