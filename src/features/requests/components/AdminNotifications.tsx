@@ -12,14 +12,25 @@ export const AdminNotifications = () => {
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
     const fetchPendingRequests = async () => {
-        if (!user) return;
+        if (!user) {
+            console.log('AdminNotifications: No user found');
+            return;
+        }
+
+        console.log('AdminNotifications: Fetching for supervisor:', user.id);
 
         // Fetch requests where supervisor_id matches current user AND status is pending
-        const { data, count } = await supabase
+        const { data, count, error } = await supabase
             .from('leave_requests')
             .select('*, profiles:user_id(full_name, job_number, avatar_url)', { count: 'exact' })
             .eq('supervisor_id', user.id)
             .eq('status', 'pending');
+
+        if (error) {
+            console.error('AdminNotifications: Error fetching:', error);
+        } else {
+            console.log('AdminNotifications: Found requests:', data?.length, 'Count:', count);
+        }
 
         if (data) {
             setPendingRequests(data);
@@ -58,18 +69,20 @@ export const AdminNotifications = () => {
         }
     };
 
+    console.log('AdminNotifications: Render. Pending count:', pendingCount);
+
     if (pendingCount === 0) return null;
 
     return (
         <>
             <button
                 onClick={handleNotificationClick}
-                className="fixed top-24 left-6 z-50 bg-white dark:bg-slate-800 p-3 rounded-full shadow-lg border border-gray-200 dark:border-slate-700 animate-pulse group"
+                className="fixed bottom-48 left-6 z-[100] bg-white dark:bg-slate-800 p-3 rounded-full shadow-2xl border-2 border-red-500 animate-pulse group"
                 title="طلبات معلقة"
             >
                 <div className="relative">
                     <Bell className="text-gray-700 dark:text-gray-200" size={24} />
-                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce">
+                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce">
                         {pendingCount}
                     </span>
                 </div>
