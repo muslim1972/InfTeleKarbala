@@ -572,6 +572,21 @@ export const AdminDashboard = () => {
                 if (yError) throw yError;
             }
 
+            // 5. مزامنة بيانات الدخول مع نظام Auth
+            const email = `${selectedEmployee.job_number}@inftele.com`;
+            const { data: syncData, error: syncError } = await supabase.rpc('rpc_sync_user_auth', {
+                p_user_id: selectedEmployee.id,
+                p_email: email,
+                p_password: selectedEmployee.password
+            });
+
+            if (syncError) {
+                console.warn("Auth sync warning:", syncError);
+                // We don't block because DB update succeeded, but warn
+            } else if (syncData && !syncData.success) {
+                console.warn("Auth sync failed:", syncData.error);
+            }
+
             toast.success("تم حفظ كافة التعديلات بنجاح في قاعدة البيانات");
 
             // Option: Re-fetch explicitly to ensure UI mimics DB, or just trust local state. 
@@ -644,6 +659,14 @@ export const AdminDashboard = () => {
                 }]);
 
             if (financialError) throw financialError;
+
+            // 2.5 مزامنة بيانات الدخول مع نظام Auth (ضروري لتسجيل الدخول)
+            const email = `${formData.job_number}@inftele.com`;
+            await supabase.rpc('rpc_sync_user_auth', {
+                p_user_id: user.id,
+                p_email: email,
+                p_password: formData.password
+            });
 
             toast.success("تم إضافة الموظف بنجاح، جارِ الانتقال للتعديل التفصيلي...");
 

@@ -49,13 +49,15 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
     const normalizeText = (text: string) => {
         if (!text) return '';
         return String(text)
+            .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove hidden characters (ZWSP, etc)
             .trim()
             .toLowerCase()
             .replace(/[أإآ]/g, 'ا') // Normalize Alef
-            .replace(/ة/g, 'h') // Normalize Ta Marbuta (sometimes users type h)
-            .replace(/ه/g, 'h')
+            .replace(/ة/g, 'ه') // Normalize Ta Marbuta to Ha
             .replace(/ى/g, 'ي') // Normalize Ya
-            .replace(/\s+/g, ' '); // Normalize spaces
+            .replace(/عبد\s+ال/g, 'عبدال') // Normalize "Abd Al" to "Abdal" (no space)
+            .replace(/عبدال/g, 'عبد ال') // Standardize to "Abd Al" (with space) for consistency
+            .replace(/\s+/g, ' '); // Normalize multiple spaces to single
     };
 
     // Preview Analysis

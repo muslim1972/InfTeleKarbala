@@ -15,6 +15,8 @@ const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
+const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
+const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 
 // مكون التحميل
 const LoadingScreen = () => (
@@ -85,6 +87,8 @@ function App() {
             <Route path="/chat" element={<ChatLayout />}>
               <Route path=":conversationId" element={null} />
             </Route>
+            <Route path="/requests/leave" element={<LeaveRequestPage />} />
+            <Route path="/requests" element={<RequestsPage />} />
             <Route path="/*" element={<AppContent />} />
           </Routes>
         </Suspense>

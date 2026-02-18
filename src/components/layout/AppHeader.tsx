@@ -57,8 +57,6 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                             )}
                         </button>
 
-
-
                         {/* Center: Theme Toggle */}
                         <button
                             onClick={toggleTheme}

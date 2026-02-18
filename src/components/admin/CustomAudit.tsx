@@ -16,7 +16,7 @@ const APPROVED_PERCENTAGES: Record<string, number | null> = {
     children_allowance: null,
     position_allowance: null,
     risk_allowance: null,
-    additional_50_percent_allowance: 50,
+    additional_50_percent_allowance: null,
     tax_deduction_amount: null,
     loan_deduction: null,
     execution_deduction: null,
@@ -136,6 +136,12 @@ function resolveApprovedPercentage(fieldKey: string, finData: any): number | nul
         // إذا كان لديه مخصصات منصب (القيمة > 0) فالنسبة الثابتة هي 15%
         // إذا كانت القيمة 0، فالنسبة المتوقعة 0 (لا يوجد منصب)
         return val > 0 ? 15 : 0;
+    }
+    if (fieldKey === 'additional_50_percent_allowance') {
+        const val = parseFloat(finData.additional_50_percent_allowance) || 0;
+        // إذا كان لديه مخصصات إضافية (القيمة > 0) فالنسبة الثابتة هي 50%
+        // إذا كانت القيمة 0، فالنسبة المتوقعة 0 (غير مستحق)
+        return val > 0 ? 50 : 0;
     }
     const fixed = APPROVED_PERCENTAGES[fieldKey];
     if (fixed !== undefined && fixed !== null) return fixed;
