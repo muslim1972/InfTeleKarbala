@@ -3,6 +3,7 @@ import { Calendar, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-reac
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
+import { SupervisorSelector } from './SupervisorSelector';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -17,13 +18,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
     startDate: '',
     daysCount: 1,
     reason: '',
+    supervisorId: null as string | null,
   });
 
   const [endDate, setEndDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showBalanceError, setShowBalanceError] = useState(false); // New state for balance error
-  const [balanceErrorMessage, setBalanceErrorMessage] = useState(''); // Store the error message
+  const [showBalanceError, setShowBalanceError] = useState(false);
+  const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -46,6 +48,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       setError('يرجى تعبئة جميع الحقول المطلوبة بشكل صحيح.');
       return;
     }
+    if (!formData.supervisorId) {
+      setError('يرجى اختيار المسؤول المباشر لإرسال الطلب إليه.');
+      return;
+    }
     setError(null);
     setShowConfirmModal(true);
   };
@@ -60,24 +66,20 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         p_start_date: formData.startDate,
         p_end_date: endDate,
         p_days_count: formData.daysCount,
-        p_reason: formData.reason
+        p_reason: formData.reason,
+        p_supervisor_id: formData.supervisorId // Pass supervisor ID
       });
 
       if (rpcError) throw rpcError;
 
       // Custom check for logic error from the function (it returns JSON)
-      // Note: Supabase RPC returns the data directly. Our function returns JSONB.
-      // We need to cast or check the structure.
-      // The function returns { success: boolean, message: string, ... }
-
       const response = data as any;
 
       if (!response || !response.success) {
-        // If logic failed (e.g. insufficient balance)
         setBalanceErrorMessage(response?.message || 'تعذر تقديم الطلب، يرجى المحاولة لاحقاً.');
         setShowBalanceError(true);
         setShowConfirmModal(false);
-        return; // Stop here
+        return;
       }
 
       setSuccess(true);
@@ -85,7 +87,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       if (onSuccess) onSuccess();
 
       // Reset form on success
-      setFormData({ startDate: '', daysCount: 1, reason: '' });
+      setFormData({ startDate: '', daysCount: 1, reason: '', supervisorId: null });
       setEndDate('');
 
     } catch (err: any) {
@@ -101,9 +103,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const expiryDate = financialData?.leaves_balance_expiry_date;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 pb-8">
       {/* Balance Info Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white rounded-t-2xl">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-lg font-bold opacity-90 mb-1">رصيد الإجازات المتبقي</h3>
@@ -140,9 +142,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم استلام طلبك بنجاح</h3>
+            <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم الإرسال بنجاح</h3>
             <p className="text-green-600 dark:text-green-400 mb-6">
-              تم إرسال الطلب إلى المسؤول المباشر للمراجعة.
+              تم إرسال الطلب إلى المسؤول المباشر للموافقة. ستصلك الإجابة قريباً.
             </p>
             <button
               onClick={() => setSuccess(false)}
@@ -153,6 +155,15 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Supervisor Selector */}
+            <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 mb-4">
+              <SupervisorSelector
+                selectedSupervisorId={formData.supervisorId}
+                onSelect={(id) => setFormData({ ...formData, supervisorId: id })}
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Start Date */}
               <div>
@@ -223,7 +234,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
               disabled={isSubmitting}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
+              {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب للمسؤول'}
             </button>
           </form>
         )}

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
+import { AdminNotifications } from "../../features/requests/components/AdminNotifications";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -25,6 +26,17 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
                 <AppHeader bottomContent={headerContent} title={headerTitle} showUserName={showUserName} />
+
+                {/* Supervisor Notifications (Outside AppHeader to be consistent with main FAB) */}
+                <div className="hidden md:block">
+                    {/* For Desktop/Tablet - Positioned near top left */}
+                    <AdminNotifications />
+                </div>
+                <div className="md:hidden">
+                    {/* Mobile handling if needed, or rely on absolute positioning in component */}
+                    <AdminNotifications />
+                </div>
+
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-32 md:pb-40", className)}>
                     {children}
                 </main>

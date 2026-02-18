@@ -1,13 +1,14 @@
--- Function to submit a leave request with balance check
+-- Function to submit a leave request with balance check AND supervisor
 CREATE OR REPLACE FUNCTION public.submit_leave_request(
     p_start_date DATE,
     p_end_date DATE,
     p_days_count INTEGER,
-    p_reason TEXT
+    p_reason TEXT,
+    p_supervisor_id UUID -- New parameter
 )
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER -- Runs with privileges of the creator (should be admin/service role)
+SECURITY DEFINER
 AS $$
 DECLARE
     v_user_id UUID;
@@ -26,8 +27,7 @@ BEGIN
         RAISE EXCEPTION 'Days count must be positive';
     END IF;
 
-    -- Get current balance from financial_records
-    -- usage of COALESCE to handle nulls if record doesn't exist (though it should)
+    -- Get current balance
     SELECT COALESCE(remaining_leaves_balance, 0)
     INTO v_current_balance
     FROM public.financial_records
@@ -42,21 +42,23 @@ BEGIN
         );
     END IF;
 
-    -- Insert request
+    -- Insert request with supervisor_id
     INSERT INTO public.leave_requests (
         user_id,
         start_date,
         end_date,
         days_count,
         reason,
-        status
+        status,
+        supervisor_id -- Insert supervisor
     ) VALUES (
         v_user_id,
         p_start_date,
         p_end_date,
         p_days_count,
         p_reason,
-        'pending' -- Always pending initially
+        'pending',
+        p_supervisor_id
     )
     RETURNING id INTO v_request_id;
 
