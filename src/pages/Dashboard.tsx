@@ -23,6 +23,7 @@ interface FinancialField {
     suffix?: string;
     highlight?: boolean;
     superHighlight?: boolean;
+    isProfile?: boolean;
 }
 
 // Animation Variants
@@ -265,6 +266,7 @@ export const Dashboard = () => {
             icon: User,
             color: 'from-blue-600 to-blue-500',
             fields: [
+                { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
                 { key: 'first_appointment_date', label: 'تاريخ أول مباشرة', isDate: true },
                 { key: 'job_title', label: 'العنوان الوظيفي' },
                 { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
@@ -272,8 +274,8 @@ export const Dashboard = () => {
                 { key: 'certificate_text', label: 'الشهادة' },
                 { key: 'certificate_percentage', label: 'النسبة المستحقة للشهادة', suffix: '%' },
                 { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
-                { key: 'gross_salary', label: 'الراتب المستحق قبل الاستقطاع', isMoney: true },
-                { key: 'net_salary', label: 'الراتب الصافي مستحق الدفع', isMoney: true, superHighlight: true },
+                { key: 'gross_salary', label: 'الراتب قبل الاستقطاع', isMoney: true },
+                { key: 'net_salary', label: 'الراتب الصافي', isMoney: true, superHighlight: true },
             ] as FinancialField[]
         },
         {
@@ -368,7 +370,7 @@ export const Dashboard = () => {
                                         >
                                             <div className="table w-full border-separate border-spacing-y-3 p-1">
                                                 {group.fields.map((field) => {
-                                                    const val = field.isDate ? adminData?.[field.key] : financialData[field.key];
+                                                    const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
                                                     const displayVal = field.isMoney
                                                         ? Math.round(Number(val || 0)).toLocaleString()
                                                         : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
