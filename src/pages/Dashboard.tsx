@@ -434,7 +434,7 @@ export const Dashboard = () => {
                                                 initial={{ height: 0, opacity: 0, marginTop: 0 }}
                                                 animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
                                                 exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                                className="bg-card border border-border p-4 rounded-xl font-mono text-center text-xl md:text-2xl tracking-[0.2em] text-foreground shadow-2xl overflow-hidden relative"
+                                                className="bg-card border border-border p-4 rounded-xl font-mono text-center text-lg md:text-2xl tracking-tight md:tracking-widest text-foreground shadow-2xl overflow-hidden relative whitespace-nowrap"
                                             >
                                                 <div className="absolute inset-0 bg-brand-yellow-DEFAULT/5 animate-pulse pointer-events-none" />
                                                 {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
