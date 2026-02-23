@@ -58,40 +58,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check current session on mount
   useEffect(() => {
     const initAuth = async () => {
-      // 1. Check for Visitor Session
-      const visitor = sessionStorage.getItem("visitor_user");
-      if (visitor) {
-        setUser(JSON.parse(visitor));
-        setLoading(false);
-        return;
-      }
-
-      // 2. Check Supabase Session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // Fetch full profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profile) {
-          const appUser: AppUser = {
-            id: profile.id,
-            username: profile.username, // Now in profiles
-            full_name: profile.full_name,
-            job_number: profile.job_number,
-            role: profile.role || 'user',
-            admin_role: profile.admin_role,
-            avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
-            iban: profile.iban
-          };
-          setUser(appUser);
-          logVisit(appUser);
+      try {
+        // 1. Check for Visitor Session
+        const visitor = sessionStorage.getItem("visitor_user");
+        if (visitor) {
+          setUser(JSON.parse(visitor));
+          setLoading(false);
+          return;
         }
+
+        // 2. Check Supabase Session
+        const { data, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.warn("Session retrieval error:", sessionError);
+          // Attempt to clear invalid session state safely
+          supabase.auth.signOut().catch(e => console.error("Sign out error", e));
+        }
+
+        const session = data?.session;
+        if (session?.user) {
+          // Fetch full profile
+          const { data: profile, error: profileErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileErr) {
+            console.error("Profile fetch error:", profileErr);
+          } else if (profile) {
+            const appUser: AppUser = {
+              id: profile.id,
+              username: profile.username, // Now in profiles
+              full_name: profile.full_name,
+              job_number: profile.job_number,
+              role: profile.role || 'user',
+              admin_role: profile.admin_role,
+              avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
+              iban: profile.iban
+            };
+            setUser(appUser);
+            logVisit(appUser);
+          }
+        }
+      } catch (err) {
+        console.error("Auth initialization failed:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();

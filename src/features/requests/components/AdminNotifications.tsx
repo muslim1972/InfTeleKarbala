@@ -12,8 +12,8 @@ export const AdminNotifications = () => {
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
     const fetchPendingRequests = async () => {
-        if (!user) {
-            console.log('AdminNotifications: No user found');
+        if (!user || user.id === 'visitor-id') {
+            console.log('AdminNotifications: No user or is visitor');
             return;
         }
 
@@ -39,6 +39,8 @@ export const AdminNotifications = () => {
     };
 
     useEffect(() => {
+        if (!user || user.id === 'visitor-id') return;
+
         fetchPendingRequests();
 
         // Subscribe to changes (Realtime)

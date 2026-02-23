@@ -32,6 +32,7 @@ import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
 import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 import { CustomAudit } from "../components/admin/CustomAudit";
+import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
@@ -43,7 +44,7 @@ export const AdminDashboard = () => {
 
     // Determine default tab based on role or navigation state
     const defaultTab = location.state?.activeTab || (currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add');
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -1021,6 +1022,7 @@ export const AdminDashboard = () => {
                             { id: 'admin_news', label: 'الاعلام' },
                             // Hide Supervisors tab for Media Role
                             ...(currentUser?.admin_role === 'media' ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
+                            { id: 'admin_training', label: 'التدريب الصيفي' }
                         ];
 
                         // Media role sees news + others but others are disabled via search/save
@@ -2109,6 +2111,14 @@ export const AdminDashboard = () => {
                 )
             }
 
+            {/* ======= التدريب الصيفي TAB ======= */}
+            {
+                activeTab === 'admin_training' && (
+                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                        <TrainingTabContent />
+                    </div>
+                )
+            }
 
         </Layout >
     );

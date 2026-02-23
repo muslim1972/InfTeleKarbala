@@ -2,11 +2,11 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests') => void;
+    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -19,6 +19,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         { id: 'administrative', label: 'الذاتية', icon: FileText },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
+        { id: 'training', label: 'التدريب الصيفي', icon: BookOpen },
     ] as const;
 
     const checkScroll = () => {

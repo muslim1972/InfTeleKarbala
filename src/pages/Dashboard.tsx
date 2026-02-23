@@ -12,6 +12,7 @@ import { AccordionSection } from "../components/ui/AccordionSection";
 import { RecordList } from "../components/features/RecordList";
 import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
+import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { formatDateTime } from "../utils/formatDate";
 
 // Interface for Financial Fields
@@ -44,7 +45,7 @@ const itemVariants = {
 
 export const Dashboard = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests'>('financial');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training'>('financial');
 
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
@@ -318,7 +319,7 @@ export const Dashboard = () => {
     const headerContent = (
         <div className="flex flex-col gap-2 w-full">
             <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
-            {(activeTab !== 'polls' && activeTab !== 'requests') && (
+            {(activeTab !== 'polls' && activeTab !== 'requests' && activeTab !== 'training') && (
                 <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
             )}
         </div>
@@ -333,6 +334,8 @@ export const Dashboard = () => {
                     <UserPolls />
                 ) : activeTab === 'requests' ? (
                     <RequestsTabContent />
+                ) : activeTab === 'training' ? (
+                    <TrainingTabContent />
                 ) : activeTab === 'financial' ? (
                     /* Financial Tab */
                     loading ? (

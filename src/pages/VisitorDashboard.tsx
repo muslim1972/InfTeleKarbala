@@ -159,20 +159,66 @@ const OnboardingStory = ({ onComplete }: { onComplete: () => void }) => {
     );
 };
 
-// --- Avatar Guide Bubble ---
-const AvatarGuide = () => {
+// --- Interactive Tooltip Tour ---
+const VisitorTour = () => {
+    const [step, setStep] = useState(1);
+
+    if (step > 4) return null;
+
+    const tourSteps = [
+        {
+            id: 1,
+            title: "جرب بنفسك",
+            text: "اضغط على صورتك الشخصية للدخول في تجربة المستخدم الحية (مؤقتة لهذه الجلسة).",
+            position: "top-20 right-4",
+            arrow: "absolute -top-2 right-6 w-4 h-4 bg-brand-green/90 rotate-45 border-l border-t border-white/20",
+            delay: 1
+        },
+        {
+            id: 2,
+            title: "الوضع الليلي والنهاري",
+            text: "تغيير سريع بين الوضع الفاتح والداكن لراحة عينيك.",
+            position: "top-16 left-0 right-0 mx-auto w-max",
+            arrow: "absolute -top-2 left-0 right-0 mx-auto w-4 h-4 bg-brand-green/90 rotate-45 border-l border-t border-white/20",
+            delay: 0.2
+        },
+        {
+            id: 3,
+            title: "تسجيل الخروج",
+            text: "للخروج الآمن من الجلسة وإنهاء التجربة بأي وقت.",
+            position: "top-20 left-4",
+            arrow: "absolute -top-2 left-6 w-4 h-4 bg-brand-green/90 rotate-45 border-l border-t border-white/20",
+            delay: 0.2
+        },
+        {
+            id: 4,
+            title: "المحادثات",
+            text: "تواصل واستفسر مباشرة عبر المساعد الذكي.",
+            position: "bottom-24 left-24", // Adjusted to be next to the FAB
+            arrow: "absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-4 bg-brand-green/90 rotate-45 border-l border-b border-white/20",
+            delay: 0.2
+        }
+    ];
+
+    const currentTour = tourSteps.find(t => t.id === step);
+
+    if (!currentTour) return null;
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10, x: 10 }}
-            animate={{ opacity: 1, y: 0, x: 0 }}
-            transition={{ delay: 1, duration: 0.8, type: "spring" }}
-            className="fixed top-20 right-4 z-50 pointer-events-none"
+            key={currentTour.id}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ delay: currentTour.delay, duration: 0.5, type: "spring" }}
+            className={`fixed z-[70] cursor-pointer hover:scale-105 transition-transform ${currentTour.position}`}
+            onClick={() => setStep(prev => prev + 1)}
         >
-            <div className="relative bg-brand-green/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-xl border border-white/20 max-w-[200px]">
-                {/* Arrow pointing up-right */}
-                <div className="absolute -top-2 right-6 w-4 h-4 bg-brand-green/90 rotate-45 border-l border-t border-white/20" />
+            <div className="relative bg-brand-green/90 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-xl border border-white/20 max-w-[220px]">
+                {/* Arrow */}
+                <div className={currentTour.arrow} />
 
-                <div className="flex gap-2 items-start">
+                <div className="flex gap-2 items-start relative z-10">
                     <div className="mt-1 min-w-[10px]">
                         <span className="flex h-3 w-3 relative">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -180,10 +226,11 @@ const AvatarGuide = () => {
                         </span>
                     </div>
                     <div>
-                        <p className="font-bold text-sm mb-1">جرب بنفسك</p>
+                        <p className="font-bold text-sm mb-1 text-white">{currentTour.title}</p>
                         <p className="text-xs text-white/90 leading-relaxed">
-                            اضغط على صورتك الشخصية للدخول في تجربة المستخدم الحية (مؤقتة لهذه الجلسة).
+                            {currentTour.text}
                         </p>
+                        <p className="text-[10px] text-white/50 mt-2 text-left w-full">انقر للمتابعة</p>
                     </div>
                 </div>
             </div>
@@ -204,8 +251,10 @@ export const VisitorDashboard = () => {
                 )}
             </AnimatePresence>
 
-            {/* Bubble Guide - Shown only after onboarding */}
-            {!showOnboarding && <AvatarGuide />}
+            {/* Interactive Tour - Shown only after onboarding */}
+            <AnimatePresence mode="wait">
+                {!showOnboarding && <VisitorTour />}
+            </AnimatePresence>
 
             <div className="max-w-4xl mx-auto px-4 py-6 relative min-h-[80vh]">
 
