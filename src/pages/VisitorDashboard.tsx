@@ -163,7 +163,7 @@ const OnboardingStory = ({ onComplete }: { onComplete: () => void }) => {
 const VisitorTour = () => {
     const [step, setStep] = useState(1);
 
-    if (step > 4) return null;
+    if (step > 5) return null;
 
     const tourSteps = [
         {
@@ -196,6 +196,14 @@ const VisitorTour = () => {
             text: "تواصل واستفسر مباشرة عبر المساعد الذكي.",
             position: "bottom-24 left-24", // Adjusted to be next to the FAB
             arrow: "absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-4 bg-brand-green/90 rotate-45 border-l border-b border-white/20",
+            delay: 0.2
+        },
+        {
+            id: 5,
+            title: "شريط الأخبار",
+            text: "تابع أحدث الأخبار والتبليغات الهامة من خلال هذا الشريط المتحرك.",
+            position: "bottom-32 left-0 right-0 mx-auto w-max", // Positioned above the AppFooter
+            arrow: "absolute -bottom-2 left-0 right-0 mx-auto w-4 h-4 bg-brand-green/90 rotate-45 border-r border-b border-white/20",
             delay: 0.2
         }
     ];
