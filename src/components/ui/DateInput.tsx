@@ -7,6 +7,7 @@ interface DateInputProps {
     onChange: (value: string) => void;
     className?: string;
     placeholder?: string;
+    disabled?: boolean;
 }
 
 /**
@@ -14,7 +15,7 @@ interface DateInputProps {
  * يخزّن القيمة داخلياً كـ yyyy-mm-dd للتوافق مع قاعدة البيانات
  * نقرة أيقونة التقويم تفتح خيار التاريخ الأصلي
  */
-export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyyy' }: DateInputProps) {
+export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyyy', disabled }: DateInputProps) {
     const hiddenDateRef = useRef<HTMLInputElement>(null);
 
     // تحويل yyyy-mm-dd → dd/mm/yyyy للعرض
@@ -85,8 +86,10 @@ export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyy
                 dir="ltr"
                 className={cn(
                     "w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground font-mono tracking-wider text-center focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green/50 transition-colors",
+                    disabled ? "opacity-50 cursor-not-allowed bg-muted" : "",
                     className
                 )}
+                disabled={disabled}
             />
             {/* أيقونة التقويم - تفتح التقويم الأصلي */}
             <button
@@ -100,8 +103,12 @@ export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyy
                         el.click();
                     }
                 }}
-                className="absolute left-2 text-muted-foreground hover:text-foreground transition-colors z-10"
+                className={cn(
+                    "absolute left-2 text-muted-foreground hover:text-foreground transition-colors z-10",
+                    disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                )}
                 tabIndex={-1}
+                disabled={disabled}
             >
                 <Calendar className="w-4 h-4" />
             </button>

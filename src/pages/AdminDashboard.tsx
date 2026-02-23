@@ -35,6 +35,7 @@ import { CustomAudit } from "../components/admin/CustomAudit";
 import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
@@ -42,8 +43,16 @@ export const AdminDashboard = () => {
 
     const location = useLocation();
 
+    // Strict helper just for account types (Role / Admin Role)
+    const isRoleEditable = currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل');
+    const canAddEmployee = isRoleEditable || currentUser?.admin_role === 'hr';
+
     // Determine default tab based on role or navigation state
-    const defaultTab = location.state?.activeTab || (currentUser?.admin_role === 'media' ? 'admin_news' : 'admin_add');
+    let baseTab = 'admin_manage';
+    if (currentUser?.admin_role === 'media') baseTab = 'admin_news';
+    else if (canAddEmployee) baseTab = 'admin_add';
+
+    const defaultTab = location.state?.activeTab || baseTab;
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -100,6 +109,46 @@ export const AdminDashboard = () => {
     });
     const [openRecordSection, setOpenRecordSection] = useState<string | null>(null);
 
+    // Field Permissions State
+    const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
+    const [fieldPermissions, setFieldPermissions] = useState<any[]>([]);
+
+    const fetchFieldPermissions = async () => {
+        try {
+            const { data } = await supabase.from('field_permissions').select('*');
+            if (data) setFieldPermissions(data);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        fetchFieldPermissions();
+    }, []);
+
+    const isFieldReadOnly = (columnName: string) => {
+        // Full access for developers, 'general' role, and Muslim Aqeel
+        if (currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) {
+            return false;
+        }
+
+        const perm = fieldPermissions.find(p => p.column_name === columnName);
+        const requiredLevel = perm ? perm.permission_level : 4; // default "عام" (4)
+
+        if (requiredLevel === 4) return false; // "عام" editable by any supervisor
+
+        // Map currentUser admin_role to integer level
+        let currentUserLevel = 4;
+        switch (currentUser?.admin_role) {
+            case 'finance': currentUserLevel = 1; break;
+            case 'hr': currentUserLevel = 2; break;
+            case 'media': currentUserLevel = 3; break;
+            case 'general': default: currentUserLevel = 4; break;
+        }
+
+        return currentUserLevel !== requiredLevel;
+    };
+
     const handleToggleRecordSection = (section: string) => {
         setOpenRecordSection(prev => {
             const newState = prev === section ? null : section;
@@ -154,8 +203,8 @@ export const AdminDashboard = () => {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('id, full_name, job_number, username, role')
-                    .or(`job_number.ilike.${query}%,full_name.ilike.${query}%`)
-                    .limit(10);
+                    .or(`job_number.ilike.%${query}%,full_name.ilike.%${query}%`)
+                    .limit(50);
 
                 if (error) {
                     console.error("Suggestion fetch error:", error);
@@ -388,20 +437,20 @@ export const AdminDashboard = () => {
     /*
     useEffect(() => {
         if (!financialData) return;
-
+    
         let shouldUpdate = false;
         const newFinancialData = { ...financialData };
-
+    
         // 1. Calculate Certificate Allowance
         const nominalSalary = Number(financialData.nominal_salary || 0);
         const certPercentage = Number(financialData.certificate_percentage || 0);
         const calcCertAllowance = Math.round((certPercentage / 100) * nominalSalary);
-
+    
         if (Number(financialData.certificate_allowance) !== calcCertAllowance) {
             newFinancialData.certificate_allowance = calcCertAllowance;
             shouldUpdate = true;
         }
-
+    
         // ... (other calculations omitted for brevity in comment) ...
         
         if (shouldUpdate) {
@@ -1015,14 +1064,17 @@ export const AdminDashboard = () => {
                 } backdrop-blur-md overflow-hidden`}>
                 <ScrollableTabs
                     tabs={(() => {
+                        const canAccessNews = isRoleEditable || currentUser?.admin_role === 'media';
+
                         const allTabs = [
-                            { id: 'admin_add', label: 'إضافة موظف' },
+                            ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
                             { id: 'admin_manage', label: 'إدارة الموظفين' },
                             { id: 'admin_records', label: 'إدارة السجلات' },
-                            { id: 'admin_news', label: 'الاعلام' },
-                            // Hide Supervisors tab for Media Role
-                            ...(currentUser?.admin_role === 'media' ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-                            { id: 'admin_training', label: 'التدريب الصيفي' }
+                            ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
+                            // Hide Supervisors tab if restricted by permissions
+                            ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
+                            // Hide Training tab if restricted by permissions
+                            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }])
                         ];
 
                         // Media role sees news + others but others are disabled via search/save
@@ -1236,6 +1288,7 @@ export const AdminDashboard = () => {
                                         variant={formData.role === 'user' ? 'default' : 'outline'}
                                         onClick={() => setFormData({ ...formData, role: 'user' })}
                                         className="w-full gap-2"
+                                        disabled={!isRoleEditable}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-white" : "border-muted-foreground")}>
                                             {formData.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1247,6 +1300,7 @@ export const AdminDashboard = () => {
                                         variant={formData.role === 'admin' ? 'default' : 'outline'}
                                         onClick={() => setFormData({ ...formData, role: 'admin' })}
                                         className="w-full gap-2"
+                                        disabled={!isRoleEditable}
                                     >
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-white" : "border-muted-foreground")}>
                                             {formData.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1255,32 +1309,65 @@ export const AdminDashboard = () => {
                                     </Button>
                                 </div>
 
-                                {/* Row 2.5: Admin Role (Visible only if role is admin) */}
-                                {formData.role === 'admin' && (
-                                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {/* Row 2.5: Admin Role (Visible only if role is admin and user has permission) */}
+                                {formData.role === 'admin' && isRoleEditable && (
+                                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300 col-span-1 md:col-span-2">
                                         <Label>صلاحية المشرف</Label>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-wrap gap-3">
                                             <Button
                                                 type="button"
                                                 variant={formData.admin_role === 'developer' ? 'default' : 'outline'}
                                                 onClick={() => setFormData({ ...formData, admin_role: 'developer' })}
-                                                className="w-full gap-2"
+                                                className="flex-1 min-w-[140px] gap-2"
                                             >
                                                 <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'developer' ? "border-white" : "border-muted-foreground")}>
                                                     {formData.admin_role === 'developer' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                                 </div>
-                                                مطور (كامل الصلاحيات)
+                                                مطور (كامل)
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={formData.admin_role === 'finance' ? 'default' : 'outline'}
+                                                onClick={() => setFormData({ ...formData, admin_role: 'finance' })}
+                                                className="flex-1 min-w-[140px] gap-2"
+                                            >
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'finance' ? "border-white" : "border-muted-foreground")}>
+                                                    {formData.admin_role === 'finance' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                مالية
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={formData.admin_role === 'hr' ? 'default' : 'outline'}
+                                                onClick={() => setFormData({ ...formData, admin_role: 'hr' })}
+                                                className="flex-1 min-w-[140px] gap-2"
+                                            >
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'hr' ? "border-white" : "border-muted-foreground")}>
+                                                    {formData.admin_role === 'hr' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                ذاتية
                                             </Button>
                                             <Button
                                                 type="button"
                                                 variant={formData.admin_role === 'media' ? 'default' : 'outline'}
                                                 onClick={() => setFormData({ ...formData, admin_role: 'media' })}
-                                                className="w-full gap-2"
+                                                className="flex-1 min-w-[140px] gap-2"
                                             >
                                                 <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
                                                     {formData.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                                 </div>
-                                                إعلام (نشر الأخبار)
+                                                إعلام
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={formData.admin_role === 'general' ? 'default' : 'outline'}
+                                                onClick={() => setFormData({ ...formData, admin_role: 'general' })}
+                                                className="flex-1 min-w-[140px] gap-2"
+                                            >
+                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'general' ? "border-white" : "border-muted-foreground")}>
+                                                    {formData.admin_role === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                                عام
                                             </Button>
                                         </div>
                                     </div>
@@ -1377,6 +1464,7 @@ export const AdminDashboard = () => {
                                         recordId={selectedEmployee.id}
                                         tableName="app_users"
                                         dbField="full_name"
+                                        isReadOnly={isFieldReadOnly('full_name')}
                                     />
 
                                     {/* Role Selection (UI matching Add Employee) */}
@@ -1398,6 +1486,7 @@ export const AdminDashboard = () => {
                                                     variant={selectedEmployee.role === 'user' ? 'default' : 'outline'}
                                                     onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
                                                     className="flex-1 gap-2"
+                                                    disabled={!isRoleEditable} // Enforced strictly here!
                                                 >
                                                     <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-white" : "border-muted-foreground")}>
                                                         {selectedEmployee.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1410,6 +1499,7 @@ export const AdminDashboard = () => {
                                                     variant={selectedEmployee.role === 'admin' ? 'default' : 'outline'}
                                                     onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
                                                     className="flex-1 gap-2"
+                                                    disabled={!isRoleEditable} // Enforced strictly here!
                                                 >
                                                     <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-white" : "border-muted-foreground")}>
                                                         {selectedEmployee.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1421,43 +1511,71 @@ export const AdminDashboard = () => {
                                     </div>
 
                                     {/* Admin Role Selection (Visible only if role is admin) */}
-                                    {selectedEmployee.role === 'admin' && (
-                                        <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            {/* Label */}
-                                            <div className="flex justify-start pl-2">
-                                                <label className="text-xs font-bold block text-muted-foreground text-right w-full">صلاحية المشرف</label>
+                                    {selectedEmployee.role === 'admin' && isRoleEditable && (
+                                        <div className="grid grid-cols-1 md:grid-cols-1 items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300 w-full mt-4">
+                                            <div className="flex justify-start pl-2 mb-2">
+                                                <label className="text-sm font-bold block text-muted-foreground text-right w-full">تعديل صلاحية المشرف</label>
                                             </div>
+                                            <div className="flex flex-wrap gap-3">
+                                                <Button
+                                                    type="button"
+                                                    variant={(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'developer' })}
+                                                    className="flex-1 min-w-[120px] gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", (selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? "border-white" : "border-muted-foreground")}>
+                                                        {(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    مطور
+                                                </Button>
 
-                                            {/* Input Area + Spacer */}
-                                            <div className="flex items-center gap-2 relative">
-                                                {/* Spacer */}
-                                                <div className="hidden md:block w-6 shrink-0" />
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.admin_role === 'finance' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'finance' })}
+                                                    className="flex-1 min-w-[120px] gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'finance' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.admin_role === 'finance' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    مالية
+                                                </Button>
 
-                                                <div className="flex gap-4 flex-1 flex-wrap md:flex-nowrap">
-                                                    <Button
-                                                        type="button"
-                                                        variant={(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? 'default' : 'outline'}
-                                                        onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'developer' })}
-                                                        className="flex-1 gap-2 w-full md:w-auto"
-                                                    >
-                                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", (selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? "border-white" : "border-muted-foreground")}>
-                                                            {(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                        </div>
-                                                        مطور (كامل)
-                                                    </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.admin_role === 'hr' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'hr' })}
+                                                    className="flex-1 min-w-[120px] gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'hr' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.admin_role === 'hr' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    ذاتية
+                                                </Button>
 
-                                                    <Button
-                                                        type="button"
-                                                        variant={selectedEmployee.admin_role === 'media' ? 'default' : 'outline'}
-                                                        onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'media' })}
-                                                        className="flex-1 gap-2 w-full md:w-auto"
-                                                    >
-                                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
-                                                            {selectedEmployee.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                        </div>
-                                                        إعلام
-                                                    </Button>
-                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.admin_role === 'media' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'media' })}
+                                                    className="flex-1 min-w-[120px] gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    إعلام
+                                                </Button>
+
+                                                <Button
+                                                    type="button"
+                                                    variant={selectedEmployee.admin_role === 'general' ? 'default' : 'outline'}
+                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'general' })}
+                                                    className="flex-1 min-w-[120px] gap-2"
+                                                >
+                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'general' ? "border-white" : "border-muted-foreground")}>
+                                                        {selectedEmployee.admin_role === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                    عام
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
@@ -1469,6 +1587,7 @@ export const AdminDashboard = () => {
                                         recordId={selectedEmployee.id}
                                         tableName="app_users"
                                         dbField="job_number"
+                                        isReadOnly={isFieldReadOnly('job_number')}
                                     />
 
                                     {/* IBAN Field */}
@@ -1479,6 +1598,7 @@ export const AdminDashboard = () => {
                                         recordId={selectedEmployee.id}
                                         tableName="app_users"
                                         dbField="iban"
+                                        isReadOnly={isFieldReadOnly('iban')}
                                     />
 
                                     <EditableField
@@ -1488,6 +1608,7 @@ export const AdminDashboard = () => {
                                         recordId={selectedEmployee.id}
                                         tableName="app_users"
                                         dbField="username"
+                                        isReadOnly={isFieldReadOnly('username')}
                                     />
 
                                     {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
@@ -1509,6 +1630,7 @@ export const AdminDashboard = () => {
                                                 placeholder="كلمة المرور"
                                                 dir="ltr"
                                                 className="font-mono text-left flex-1"
+                                                disabled={isFieldReadOnly('password')}
                                             />
                                         </div>
                                     </div>
@@ -1549,6 +1671,7 @@ export const AdminDashboard = () => {
                                                 value={adminData?.first_appointment_date || ''}
                                                 onChange={val => setAdminData({ ...adminData, first_appointment_date: val })}
                                                 className="flex-1"
+                                                disabled={isFieldReadOnly('first_hire_date')}
                                             />
                                         </div>
                                     </div>
@@ -1563,6 +1686,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="job_title"
+                                            isReadOnly={isFieldReadOnly("job_title")}
                                         />
                                         <FinancialInput
                                             key="risk_percentage"
@@ -1573,6 +1697,7 @@ export const AdminDashboard = () => {
                                             tableName="financial_records"
                                             // This is technically computed often but stored as text? Let's assume we want to track it
                                             dbField="risk_percentage"
+                                            isReadOnly={isFieldReadOnly("risk_percentage")}
                                         />
                                     </div>
 
@@ -1586,6 +1711,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="salary_grade"
+                                            isReadOnly={isFieldReadOnly("salary_grade")}
                                         />
 
                                         {/* Salary Stage (المرحلة) */}
@@ -1613,6 +1739,7 @@ export const AdminDashboard = () => {
                                                     <Select
                                                         value={financialData?.['salary_stage']?.toString() || ""}
                                                         onValueChange={(val) => setFinancialData({ ...(financialData || {}), 'salary_stage': val })}
+                                                        disabled={isFieldReadOnly('salary_stage')}
                                                     >
                                                         <SelectTrigger className="w-full">
                                                             <SelectValue placeholder="اختر..." />
@@ -1637,6 +1764,7 @@ export const AdminDashboard = () => {
                                         recordId={financialData?.id}
                                         tableName="financial_records"
                                         dbField="certificate_text"
+                                        isReadOnly={isFieldReadOnly("certificate_text")}
                                     />
 
                                     {/* Row 4: Certificate Percentage & Nominal Salary */}
@@ -1651,6 +1779,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="nominal_salary"
+                                            isReadOnly={isFieldReadOnly("nominal_salary")}
                                         />
                                         <FinancialInput
                                             key="certificate_percentage"
@@ -1660,6 +1789,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="certificate_percentage"
+                                            isReadOnly={isFieldReadOnly("certificate_percentage")}
                                         />
                                     </div>
 
@@ -1674,6 +1804,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="gross_salary"
+                                            isReadOnly={isFieldReadOnly("gross_salary")}
                                         />
                                         <FinancialInput
                                             key="net_salary"
@@ -1684,6 +1815,7 @@ export const AdminDashboard = () => {
                                             recordId={financialData?.id}
                                             tableName="financial_records"
                                             dbField="net_salary"
+                                            isReadOnly={isFieldReadOnly("net_salary")}
                                         />
                                     </div>
                                 </div>
@@ -1748,7 +1880,7 @@ export const AdminDashboard = () => {
                             {/* Excel Update Button - Visible ONLY to Muslim Aqeel */
                                 currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل')) && (
                                     <>
-                                        <div className="mt-8 flex justify-center">
+                                        <div className="mt-8 flex justify-center gap-4">
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setShowDataPatcher(true)}
@@ -1757,9 +1889,27 @@ export const AdminDashboard = () => {
                                                 <FileSpreadsheet className="w-4 h-4 text-green-500" />
                                                 تحديث بيانات من Excel
                                             </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setShowFieldPermissionsModal(true)}
+                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
+                                            >
+                                                <Shield className="w-4 h-4 text-amber-500" />
+                                                الحقول حسب الصلاحية
+                                            </Button>
                                         </div>
                                         {showDataPatcher && (
                                             <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                                        )}
+                                        {showFieldPermissionsModal && (
+                                            <FieldPermissionsModal
+                                                onClose={() => {
+                                                    setShowFieldPermissionsModal(false);
+                                                    fetchFieldPermissions();
+                                                }}
+                                                theme={theme}
+                                            />
                                         )}
                                     </>
                                 )}
@@ -1791,7 +1941,7 @@ export const AdminDashboard = () => {
                                         onToggle={() => handleToggleRecordSection('thanks')}
                                         selectedYear={selectedAdminYear}
                                         yearlyCount={yearRec?.thanks_books_count}
-                                        readOnly={!isCurrentYear}
+                                        readOnly={!isCurrentYear || isFieldReadOnly('thanks')}
                                         fields={[
                                             { key: 'book_number', label: 'رقم الكتاب' },
                                             { key: 'book_date', label: 'تاريخ الكتاب', type: 'date-fixed-year' },
@@ -1812,7 +1962,7 @@ export const AdminDashboard = () => {
                                         onToggle={() => handleToggleRecordSection('committees')}
                                         selectedYear={selectedAdminYear}
                                         yearlyCount={yearRec?.committees_count}
-                                        readOnly={!isCurrentYear}
+                                        readOnly={!isCurrentYear || isFieldReadOnly('committees')}
                                         fields={[
                                             { key: 'committee_name', label: 'اسم اللجنة' },
                                             { key: 'role', label: 'العضوية / الصفة' },
@@ -1831,7 +1981,7 @@ export const AdminDashboard = () => {
                                         isOpen={openRecordSection === 'penalties'}
                                         onToggle={() => handleToggleRecordSection('penalties')}
                                         selectedYear={selectedAdminYear}
-                                        readOnly={!isCurrentYear}
+                                        readOnly={!isCurrentYear || isFieldReadOnly('penalties')}
                                         fields={[
                                             { key: 'penalty_type', label: 'نوع العقوبة' },
                                             { key: 'reason', label: 'السبب' },
@@ -2370,7 +2520,9 @@ function EditableField({
     onChange,
     recordId,
     tableName,
-    dbField
+    dbField,
+    isReadOnly,
+    type = "text"
 }: any) {
     return (
         <div className="grid grid-cols-[132px_1fr] items-center gap-2">
@@ -2394,17 +2546,18 @@ function EditableField({
                 </div>
 
                 <Input
-                    type="text"
+                    type={type}
                     value={value || ""}
                     onChange={(e) => onChange(e.target.value)}
                     className="flex-1"
+                    disabled={isReadOnly}
                 />
             </div>
         </div>
     );
 }
 
-function FinancialInput({ field, value, onChange, recordId, tableName, dbField }: any) {
+function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly }: any) {
     if (!field) return null;
     // تتبع: طباعة القيمة لحقول معينة
     if (field.key === 'engineering_allowance' || field.key === 'tax_deduction_amount') {
@@ -2441,7 +2594,7 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField }
                             <Select
                                 value={value?.toString() || ""}
                                 onValueChange={(val) => onChange(field.key, val)}
-                                disabled={field.disabled}
+                                disabled={field.disabled || isReadOnly}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="اختر..." />
@@ -2459,7 +2612,7 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField }
                                 type={field.isMoney ? "number" : "text"}
                                 value={value || ""}
                                 onChange={(e) => onChange(field.key, e.target.value)}
-                                disabled={field.disabled}
+                                disabled={field.disabled || isReadOnly}
                                 className={cn("no-spin w-full", field.isMoney && "pl-10")}
                             />
                             {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
