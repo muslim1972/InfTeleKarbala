@@ -79,12 +79,12 @@ export const AdminNotifications = () => {
         <>
             <button
                 onClick={handleNotificationClick}
-                className="fixed bottom-48 left-6 z-[100] bg-white dark:bg-slate-800 p-3 rounded-full shadow-2xl border-2 border-red-500 animate-pulse group"
+                className="fixed bottom-[104px] left-[100px] z-[100] bg-white dark:bg-slate-800 p-2.5 rounded-full shadow-2xl border-2 border-red-500 animate-pulse group"
                 title="طلبات معلقة"
             >
                 <div className="relative">
-                    <Bell className="text-gray-700 dark:text-gray-200" size={24} />
-                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce">
+                    <Bell className="text-gray-700 dark:text-gray-200" size={20} />
+                    <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce">
                         {pendingCount}
                     </span>
                 </div>
