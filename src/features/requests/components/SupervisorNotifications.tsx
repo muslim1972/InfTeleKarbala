@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { ApprovalModal } from './ApprovalModal';
 
-export const AdminNotifications = () => {
+export const SupervisorNotifications = () => {
     const { user } = useAuth();
     const [pendingCount, setPendingCount] = useState(0);
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);

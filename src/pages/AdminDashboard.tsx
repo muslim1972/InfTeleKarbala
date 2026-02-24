@@ -37,6 +37,8 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
+import { DepartmentsManager } from "../components/admin/DepartmentsManager";
+import { DepartmentSelector } from "../components/admin/DepartmentSelector";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
@@ -53,7 +55,7 @@ export const AdminDashboard = () => {
     else if (canAddEmployee) baseTab = 'admin_add';
 
     const defaultTab = location.state?.activeTab || baseTab;
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -62,7 +64,8 @@ export const AdminDashboard = () => {
         job_number: "",
         iban: "",
         role: "user",
-        admin_role: "developer"
+        admin_role: "developer",
+        department_id: null as string | null
     });
 
     // Manage Employees State
@@ -565,6 +568,7 @@ export const AdminDashboard = () => {
                     role: selectedEmployee.role,
                     admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : 'developer',
                     iban: selectedEmployee.iban,
+                    department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar, // Save to 'avatar' column
                     // Audit fields (ensure profiles table has these or ignore if strict)
                     updated_at: new Date().toISOString(),
@@ -692,7 +696,8 @@ export const AdminDashboard = () => {
                     job_number: formData.job_number,
                     iban: formData.iban,
                     role: formData.role || 'user',
-                    admin_role: formData.role === 'admin' ? (formData.admin_role || 'developer') : 'developer', // Default to developer if not admin (though irrelevant for user)
+                    admin_role: formData.role === 'admin' ? (formData.admin_role || 'developer') : 'developer',
+                    department_id: formData.department_id,
                     updated_at: new Date().toISOString()
                 }])
                 .select()
@@ -750,7 +755,7 @@ export const AdminDashboard = () => {
             }, 100);
 
             // تصفير نموذج الإضافة للعملية القادمة
-            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user", admin_role: "developer" });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user", admin_role: "developer", department_id: null });
         } catch (error: any) {
             // Handle unique constraint violations
             if (error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -1071,6 +1076,7 @@ export const AdminDashboard = () => {
                             { id: 'admin_manage', label: 'إدارة الموظفين' },
                             { id: 'admin_records', label: 'إدارة السجلات' },
                             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
+                            { id: 'admin_departments', label: 'الهيكلية الإدارية' },
                             // Hide Requests tab if restricted by permissions
                             ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
                             // Hide Supervisors tab if restricted by permissions
@@ -1261,6 +1267,11 @@ export const AdminDashboard = () => {
     return (
         <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
 
+            {/* TAB: Departments Manager */}
+            {activeTab === 'admin_departments' && (
+                <DepartmentsManager theme={theme} />
+            )}
+
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto max-w-2xl">
@@ -1280,6 +1291,13 @@ export const AdminDashboard = () => {
                                     placeholder="الاسم الرباعي واللقب"
                                 />
                             </div>
+
+                            {/* Department / Position Tree Node */}
+                            <DepartmentSelector
+                                value={formData.department_id}
+                                onChange={(val: string | null) => setFormData({ ...formData, department_id: val })}
+                                theme={theme}
+                            />
 
                             {/* Row 2: Account Type */}
                             <div className="grid gap-2">
@@ -1468,6 +1486,17 @@ export const AdminDashboard = () => {
                                         dbField="full_name"
                                         isReadOnly={isFieldReadOnly('full_name')}
                                     />
+
+                                    <div className="px-2">
+                                        <DepartmentSelector
+                                            value={selectedEmployee.department_id}
+                                            onChange={(val: string | null) => setSelectedEmployee({ ...selectedEmployee, department_id: val })}
+                                            theme={theme}
+                                        />
+                                        <p className="text-[10px] text-gray-500 mt-1 dark:text-gray-400">
+                                            ملاحظة: يمكنك تعيينه كصاحب ارتباط إداري من خلال تبويبة "الهيكلية الإدارية"
+                                        </p>
+                                    </div>
 
                                     {/* Role Selection (UI matching Add Employee) */}
                                     {/* Role Selection (Refactored) */}

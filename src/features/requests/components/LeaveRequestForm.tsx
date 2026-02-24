@@ -3,7 +3,7 @@ import { Calendar, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-reac
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
-import { SupervisorSelector } from './SupervisorSelector';
+import { Network, UserCheck } from 'lucide-react'; // Import Network icon
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -28,6 +28,65 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const [managerInfo, setManagerInfo] = useState<{ id: string, name: string } | null>(null);
+  const [loadingManager, setLoadingManager] = useState(true);
+
+  // Auto-calculate Supervisor based on hierarchy
+  useEffect(() => {
+    const fetchManager = async () => {
+      if (!user) return;
+      try {
+        setLoadingManager(true);
+        // 1. Fetch user profile's department_id
+        const { data: profile } = await supabase.from('profiles').select('department_id').eq('id', user.id).single();
+        if (!profile?.department_id) {
+          setLoadingManager(false);
+          return;
+        }
+
+        // 2. Fetch department info
+        const { data: dept } = await supabase.from('departments')
+          .select(`
+            id, manager_id, parent_id, 
+            profiles:manager_id(full_name)
+          `)
+          .eq('id', profile.department_id).single();
+
+        if (!dept) {
+          setLoadingManager(false);
+          return;
+        }
+
+        let supervisor_id: string | null = dept.manager_id;
+        let supervisor_name: string | undefined = (dept.profiles as any)?.full_name;
+
+        // 3. Escalation: if the requester IS the manager, escalate to parent department
+        if (supervisor_id === user.id && dept.parent_id) {
+          const { data: parentDept } = await supabase.from('departments')
+            .select(`manager_id, profiles:manager_id(full_name)`)
+            .eq('id', dept.parent_id).single();
+
+          if (parentDept) {
+            supervisor_id = parentDept.manager_id;
+            supervisor_name = (parentDept.profiles as any)?.full_name;
+          }
+        }
+
+        if (supervisor_id && supervisor_name) {
+          setManagerInfo({ id: supervisor_id, name: supervisor_name });
+          setFormData(prev => ({ ...prev, supervisorId: supervisor_id }));
+        }
+
+      } catch (err) {
+        console.error("Error fetching manager for routing:", err);
+      } finally {
+        setLoadingManager(false);
+      }
+    };
+
+    fetchManager();
+  }, [user]);
 
   // Calculate end date automatically
   useEffect(() => {
@@ -156,12 +215,26 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
 
-            {/* Supervisor Selector */}
-            <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 mb-4">
-              <SupervisorSelector
-                selectedSupervisorId={formData.supervisorId}
-                onSelect={(id) => setFormData({ ...formData, supervisorId: id })}
-              />
+            {/* Automatic Routing Info */}
+            <div className={`p-4 rounded-xl border mb-4 flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
+              <div>
+                <span className={`block text-sm font-bold mb-1 \${managerInfo ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                  توجيه الطلب تلقائياً إلى:
+                </span>
+                {loadingManager ? (
+                  <span className="text-gray-500 flex items-center gap-2 text-sm"><Clock className="w-4 h-4 animate-spin" /> جاري تحديد المسؤول من الهيكلية...</span>
+                ) : managerInfo ? (
+                  <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-blue-500" />
+                    {managerInfo.name}
+                  </span>
+                ) : (
+                  <span className="text-red-500 font-medium text-sm">
+                    ⚠️ لم يتم تحديد قسم أو مسؤول مباشر لك في الهيكلية الإدارية، راجع الإدارة.
+                  </span>
+                )}
+              </div>
+              <Network className={`w-10 h-10 \${managerInfo ? 'text-blue-200 dark:text-blue-800' : 'text-red-200 dark:text-red-800/50'}`} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

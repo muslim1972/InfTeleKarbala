@@ -499,3 +499,16 @@ textarea,
     display: none !important;
   }
 }
+
+/* ✅ Fix Option Tag Visibility in Browsers */
+option {
+  color: black;
+  background-color: white;
+}
+
+html.dark option,
+.dark option {
+  color: white;
+  background-color: #1e293b;
+  /* slate-800 */
+}
