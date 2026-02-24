@@ -36,7 +36,7 @@ import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
-
+import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
@@ -53,7 +53,7 @@ export const AdminDashboard = () => {
     else if (canAddEmployee) baseTab = 'admin_add';
 
     const defaultTab = location.state?.activeTab || baseTab;
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -1071,6 +1071,7 @@ export const AdminDashboard = () => {
                             { id: 'admin_manage', label: 'إدارة الموظفين' },
                             { id: 'admin_records', label: 'إدارة السجلات' },
                             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
+                            { id: 'admin_requests', label: 'الطلبات' },
                             // Hide Supervisors tab if restricted by permissions
                             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
                             // Hide Training tab if restricted by permissions
@@ -2266,6 +2267,15 @@ export const AdminDashboard = () => {
                 activeTab === 'admin_training' && (
                     <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                         <TrainingTabContent isAdmin={true} />
+                    </div>
+                )
+            }
+
+            {/* ======= الطلبات TAB ======= */}
+            {
+                activeTab === 'admin_requests' && (
+                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                        <RequestsTabContent />
                     </div>
                 )
             }
