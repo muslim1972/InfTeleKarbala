@@ -14,6 +14,7 @@ interface LeaveRecord {
     end_date: string;
     status: string;
     days_count: number;
+    supervisor_id: string;
     supervisor: {
         full_name: string;
     } | null;
@@ -39,7 +40,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                     end_date,
                     status,
                     days_count,
-                    supervisor:profiles!leave_requests_supervisor_id_fkey(full_name)
+                    supervisor_id
                 `)
                 .eq('user_id', employeeId);
 
@@ -57,14 +58,35 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
             if (error) {
                 console.error("Error fetching leaves:", error);
-            } else {
-                // Formatting the supervisor data because Supabase joins return it as an array or object depending on relation
-                const formattedData = (data || []).map(item => ({
+            } else if (data && data.length > 0) {
+                // Secondary query to fetch supervisor names to avoid foreign key relation errors (PGRST200)
+                const validIds = data.map(r => r.supervisor_id).filter(Boolean);
+                const supervisorIds = [...new Set(validIds)];
+                let supervisorMap: Record<string, string> = {};
+
+                if (supervisorIds.length > 0) {
+                    const { data: supervisorsData } = await supabase
+                        .from('profiles')
+                        .select('id, full_name')
+                        .in('id', supervisorIds);
+
+                    if (supervisorsData) {
+                        supervisorsData.forEach(sup => {
+                            supervisorMap[sup.id] = sup.full_name;
+                        });
+                    }
+                }
+
+                const formattedData = data.map(item => ({
                     ...item,
-                    supervisor: Array.isArray(item.supervisor) ? item.supervisor[0] : item.supervisor
+                    supervisor: item.supervisor_id && supervisorMap[item.supervisor_id]
+                        ? { full_name: supervisorMap[item.supervisor_id] }
+                        : null
                 })) as LeaveRecord[];
 
                 setRecords(formattedData);
+            } else {
+                setRecords([]);
             }
         } catch (error) {
             console.error(error);
