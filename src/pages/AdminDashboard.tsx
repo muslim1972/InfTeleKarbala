@@ -1071,7 +1071,8 @@ export const AdminDashboard = () => {
                             { id: 'admin_manage', label: 'إدارة الموظفين' },
                             { id: 'admin_records', label: 'إدارة السجلات' },
                             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
-                            { id: 'admin_requests', label: 'الطلبات' },
+                            // Hide Requests tab if restricted by permissions
+                            ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
                             // Hide Supervisors tab if restricted by permissions
                             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
                             // Hide Training tab if restricted by permissions

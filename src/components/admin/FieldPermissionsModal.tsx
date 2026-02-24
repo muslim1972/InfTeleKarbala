@@ -32,10 +32,10 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         { key: 'thanks', label: 'سجلات: كتب الشكر' },
         { key: 'committees', label: 'سجلات: اللجان' },
         { key: 'penalties', label: 'سجلات: العقوبات' },
-        { key: 'leaves', label: 'سجلات: الاجازات' },
         // --- تبويبات النظام ---
         { key: 'tab_supervisors', label: 'تبويبة المشرفون' },
         { key: 'tab_training', label: 'تبويبة التدريب الصيفي' },
+        { key: 'tab_requests', label: 'تبويبة الطلبات' },
         // --- البيانات المالية والوظيفية ---
         { key: 'job_title', label: 'العنوان الوظيفي' },
         { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
