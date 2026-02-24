@@ -2265,7 +2265,7 @@ export const AdminDashboard = () => {
             {
                 activeTab === 'admin_training' && (
                     <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                        <TrainingTabContent />
+                        <TrainingTabContent isAdmin={true} />
                     </div>
                 )
             }

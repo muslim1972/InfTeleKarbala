@@ -4,7 +4,7 @@ import html2pdf from 'html2pdf.js';
 import { createPortal } from 'react-dom';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import { User, Clock, ArrowRight, MessageSquare, Loader2, Printer } from 'lucide-react';
+import { User, Clock, ArrowRight, MessageSquare, Loader2, Printer, ChevronUp, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { GlassCard } from '../ui/GlassCard';
@@ -189,7 +189,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                         <div className="relative">
                             <button
                                 onClick={() => setShowPrintMenu(!showPrintMenu)}
-                                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all"
+                                className="bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-900 dark:text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all mr-auto"
                             >
                                 <Printer className="w-5 h-5" />
                                 <span className="hidden md:inline">تصدير PDF</span>
@@ -224,19 +224,19 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                 />
                             )}
                         </div>,
-                        document.getElementById('admin-header-portal') || document.body
+                        document.getElementById('root') || document.body // Target root or body safely
                     )}
 
                     <div className="flex items-center gap-4">
                         <button
                             onClick={onBack}
-                            className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white"
+                            className="p-3 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-xl transition-colors text-gray-900 dark:text-white"
                         >
                             <ArrowRight className="w-5 h-5 rtl:rotate-180" />
                         </button>
                         <div>
-                            <h2 className={cn("text-2xl font-bold mb-2", "text-white")}>{poll?.title}</h2>
-                            <div className={cn("flex items-center gap-4 text-sm mt-1", "text-white/50")}>
+                            <h2 className={cn("text-2xl font-bold mb-2", "text-gray-900 dark:text-white")}>{poll?.title}</h2>
+                            <div className={cn("flex items-center gap-4 text-sm mt-1", "text-gray-500 dark:text-white/50")}>
                                 <span className="flex items-center gap-1">
                                     <Clock className="w-4 h-4" />
                                     {formatDate(poll?.created_at)}
@@ -259,10 +259,10 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                         <GlassCard key={q.id} className={cn(
                             "p-6 break-inside-avoid"
                         )}>
-                            <h3 className={cn("text-lg font-bold mb-6 flex items-start gap-3", "text-white")}>
+                            <h3 className={cn("text-lg font-bold mb-6 flex items-start gap-3", "text-gray-900 dark:text-white")}>
                                 <span className={cn(
                                     "w-8 h-8 flex items-center justify-center rounded-lg text-sm font-mono shrink-0",
-                                    "bg-white/10"
+                                    "bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white"
                                 )}>
                                     {idx + 1}
                                 </span>
@@ -274,11 +274,11 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                     <div key={opt.id} className="group relative">
                                         {/* Text & Count */}
                                         <div className="flex justify-between items-end mb-1 relative z-10 px-1">
-                                            <span className={cn("font-medium transition-colors", "text-white/90 group-hover:text-white")}>
+                                            <span className={cn("font-medium transition-colors", "text-gray-700 dark:text-white/90 group-hover:text-gray-900 dark:group-hover:text-white")}>
                                                 {opt.option_text}
                                             </span>
                                             <div className="flex items-center gap-2">
-                                                <span className={cn("text-xs", "text-white/40")}>{opt.count} صوت</span>
+                                                <span className={cn("text-xs", "text-gray-500 dark:text-white/40")}>{opt.count} صوت</span>
                                                 <span className="font-mono font-bold text-brand-green text-lg">
                                                     {opt.percentage}%
                                                 </span>
@@ -286,7 +286,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                         </div>
 
                                         {/* Bar Container */}
-                                        <div className={cn("h-3 rounded-full overflow-hidden relative", "bg-black/40 border border-white/5")}>
+                                        <div className={cn("h-3 rounded-full overflow-hidden relative", "bg-gray-200 dark:bg-black/40 border border-gray-300 dark:border-white/5")}>
                                             <motion.div
                                                 initial={{ width: 0 }}
                                                 animate={{ width: `${opt.percentage}%` }}
@@ -295,7 +295,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                                     "h-full rounded-full relative overflow-hidden",
                                                     opt.percentage > 50 ? "bg-gradient-to-r from-brand-green to-emerald-600" :
                                                         opt.percentage > 20 ? "bg-gradient-to-r from-blue-500 to-indigo-600" :
-                                                            "bg-white/20"
+                                                            "bg-gray-400 dark:bg-white/20"
                                                 )}
                                             >
                                                 <div className="absolute inset-0 bg-white/20 animate-pulse-slow" />
@@ -310,29 +310,52 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
 
                 {/* On-Screen Comments Area */}
                 <div className="border-t border-white/10 pt-4">
-                    <button onClick={() => setIsCommentsExpanded(!isCommentsExpanded)} className="flex items-center gap-2 text-white font-bold text-lg mb-4">
-                        <MessageSquare className="w-5 h-5 text-brand-yellow" />
-                        صوت الناس ({comments.length})
+                    {/* Comments Toggle */}
+                    <button
+                        onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
+                        className={cn(
+                            "w-full flex items-center justify-between p-4 rounded-xl border transition-colors",
+                            "bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-900 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:text-white"
+                        )}
+                    >
+                        <div className="flex items-center gap-2">
+                            <MessageSquare className="w-5 h-5 text-brand-yellow" />
+                            <span className="font-bold text-lg">صوت الناس ({comments.length})</span>
+                        </div>
+                        {isCommentsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </button>
                     {isCommentsExpanded && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-4 animate-in slide-in-from-top-2">
                             {comments.map((c, i) => (
-                                <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5">
-                                    <p className="text-white/80 text-sm mb-2">"{c.comment_text}"</p>
-                                    <div className="flex justify-between text-xs text-white/40">
-                                        <span className="flex items-center gap-1">
+                                <GlassCard key={i} className={cn("p-4", "border-gray-200 dark:border-white/5")}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
                                             {c.is_anonymous ? (
-                                                <>
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                                                    فاعل خير
-                                                </>
+                                                <div className="flex items-center gap-2 text-gray-500 dark:text-white/50">
+                                                    <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
+                                                        <User className="w-3 h-3" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">مشارك (هوية مخفية)</span>
+                                                </div>
                                             ) : (
-                                                c.profiles?.full_name
+                                                <div className="flex items-center gap-2 text-gray-700 dark:text-white/80">
+                                                    <div className="w-8 h-8 rounded-full bg-brand-green/20 text-brand-green flex items-center justify-center font-bold text-sm">
+                                                        {c.profiles?.full_name?.charAt(0) || 'م'}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-sm text-gray-900 dark:text-white">{c.profiles?.full_name || 'مستخدم غير معروف'}</div>
+                                                        <div className="text-xs opacity-70 font-mono text-gray-500 dark:text-white/50">{c.profiles?.job_number}</div>
+                                                    </div>
+                                                </div>
                                             )}
+                                        </div>
+                                        <span className="text-xs text-gray-400 dark:text-white/30 flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            {formatDate(c.created_at)}
                                         </span>
-                                        <span>{formatDate(c.created_at)}</span>
                                     </div>
-                                </div>
+                                    <p className="text-sm leading-relaxed text-gray-700 dark:text-white/90 mr-10">{c.comment_text}</p>
+                                </GlassCard>
                             ))}
                         </div>
                     )}
@@ -384,8 +407,8 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                         <div className="flex justify-between items-end mb-1 text-sm text-black px-1">
                                             <span className="font-bold text-base">{opt.option_text}</span>
                                             <div className="flex items-center gap-4">
-                                                <span className="text-gray-500 text-xs">{opt.count} صوت</span>
-                                                <span className="font-bold text-base">{opt.percentage}%</span>
+                                                <span className={cn("font-bold", "text-gray-700 dark:text-white/90")}>النسبة:</span>
+                                                <span className="text-gray-600 dark:text-white/70">{opt.percentage}% من إجمالي الأصوات</span>
                                             </div>
                                         </div>
                                         <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden border border-gray-200">

@@ -21,7 +21,11 @@ interface QuestionDraft {
     options: OptionDraft[];
 }
 
-export function PollCreator() {
+interface PollCreatorProps {
+    category?: 'media' | 'training';
+}
+
+export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
     const { user } = useAuth();
     // Phases: 'list' -> 'config' -> 'building' -> 'review' | 'stats' | 'view'
     const [phase, setPhase] = useState<'list' | 'config' | 'building' | 'review' | 'stats' | 'view'>('list');
@@ -59,6 +63,7 @@ export function PollCreator() {
         let query = supabase
             .from('polls')
             .select('*')
+            .eq('category', category)
             .order('created_at', { ascending: false });
 
         if (showDeleted) {
@@ -246,7 +251,8 @@ export function PollCreator() {
                     title: pollTitle,
                     description: '', // Optional
                     created_by: user.id,
-                    is_active: true
+                    is_active: true,
+                    category: category
                 })
                 .select()
                 .single();
@@ -476,7 +482,7 @@ export function PollCreator() {
                                 <div>
                                     <h3 className={cn(
                                         "font-bold text-lg mb-1 transition-colors",
-                                        !p.is_active && !p.is_deleted ? "text-red-400" : "text-white group-hover:text-brand-green"
+                                        !p.is_active && !p.is_deleted ? "text-red-400" : "text-gray-900 dark:text-white group-hover:text-brand-green"
                                     )}>
                                         {p.title}
                                     </h3>
@@ -491,7 +497,7 @@ export function PollCreator() {
                                             {p.is_deleted ? "محذوف" : p.is_active ? "نشط" : "متوقف"}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-brand-green mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <p className="text-xs text-gray-500 dark:text-white/40 group-hover:text-brand-green mt-2 transition-colors">
                                         انقر لعرض التفاصيل
                                     </p>
                                 </div>
@@ -644,15 +650,14 @@ export function PollCreator() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                         <div>
-                            <label className="text-sm font-bold text-white/70 block mb-2 flex items-center gap-2">
+                            <label className="text-sm font-bold text-gray-700 dark:text-white/70 block mb-2 flex items-center gap-2">
                                 <ListChecks className="w-4 h-4" />
                                 عدد خيارات الإجابة
                             </label>
-                            <div className="flex items-center bg-black/40 rounded-xl border border-white/10 p-1">
+                            <div className="flex items-center bg-gray-100 dark:bg-black/40 rounded-xl border border-gray-200 dark:border-white/10 p-1">
                                 <button
-                                    // Using a manual handler since handleOptionsCountChange is abstract in this snippet
                                     onClick={() => setCurrentOptionsCount(Math.max(2, currentOptionsCount - 1))}
-                                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 dark:text-white transition-colors"
+                                    className="p-2 hover:bg-gray-300 dark:hover:bg-white/10 rounded-lg text-gray-600 dark:text-white transition-colors"
                                 >
                                     -
                                 </button>
@@ -661,25 +666,27 @@ export function PollCreator() {
                                 </div>
                                 <button
                                     onClick={() => setCurrentOptionsCount(Math.min(10, currentOptionsCount + 1))}
-                                    className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 dark:text-white transition-colors"
+                                    className="p-2 hover:bg-gray-300 dark:hover:bg-white/10 rounded-lg text-gray-600 dark:text-white transition-colors"
                                 >
                                     +
                                 </button>
                             </div>
-                            <p className="text-xs text-white/30 mt-1">تلقائيا سيتم تحديث حقول الخيارات</p>
+                            <p className="text-xs text-gray-500 dark:text-white/30 mt-1">تلقائيا سيتم تحديث حقول الخيارات</p>
                         </div>
 
                         <div>
-                            <label className="text-sm font-bold text-white/70 block mb-2 flex items-center gap-2">
+                            <label className="text-sm font-bold text-gray-700 dark:text-white/70 block mb-2 flex items-center gap-2">
                                 <MousePointerClick className="w-4 h-4" />
                                 نوع الاختيار
                             </label>
-                            <div className="flex bg-black/40 rounded-xl border border-white/10 p-1">
+                            <div className="flex bg-gray-100 dark:bg-black/40 rounded-xl border border-gray-200 dark:border-white/10 p-1">
                                 <button
                                     onClick={() => setCurrentQuestionType('single')}
                                     className={cn(
                                         "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
-                                        currentQuestionType === 'single' ? "bg-blue-500/20 text-blue-400" : "text-white/40 hover:text-white"
+                                        currentQuestionType === 'single'
+                                            ? "bg-blue-500/20 text-blue-700 dark:text-blue-400"
+                                            : "text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white"
                                     )}
                                 >
                                     خيار واحد
@@ -688,7 +695,9 @@ export function PollCreator() {
                                     onClick={() => setCurrentQuestionType('multiple')}
                                     className={cn(
                                         "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
-                                        currentQuestionType === 'multiple' ? "bg-purple-500/20 text-purple-400" : "text-white/40 hover:text-white"
+                                        currentQuestionType === 'multiple'
+                                            ? "bg-purple-500/20 text-purple-700 dark:text-purple-400"
+                                            : "text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white"
                                     )}
                                 >
                                     عدة خيارات
@@ -697,11 +706,11 @@ export function PollCreator() {
                         </div>
                     </div>
 
-                    <div className="space-y-3 pt-4 border-t border-white/5 mt-6">
-                        <label className="text-sm font-bold text-white/50 block mb-2">نصوص الإجابات</label>
+                    <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-white/5 mt-6">
+                        <label className="text-sm font-bold text-gray-500 dark:text-white/50 block mb-2">نصوص الإجابات</label>
                         {Array.from({ length: currentOptionsCount }).map((_, idx) => (
                             <div key={idx} className="flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
-                                <span className="bg-white/5 w-8 h-10 flex items-center justify-center rounded-lg text-white/30 text-xs font-mono">
+                                <span className="bg-gray-100 dark:bg-white/5 w-8 h-10 flex items-center justify-center rounded-lg text-gray-500 dark:text-white/30 text-xs font-mono">
                                     {idx + 1}
                                 </span>
                                 <input
@@ -836,14 +845,14 @@ export function PollCreator() {
             )}
 
             {phase === 'view' && (
-                <div className="bg-black/20 border border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in zoom-in duration-300">
+                <div className="bg-white/50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-w-2xl mx-auto space-y-6 animate-in zoom-in duration-300">
                     <button
                         onClick={() => {
                             setPhase('list');
                             setCollectedQuestions([]);
                             setSelectedPollId(null);
                         }}
-                        className="text-white/40 hover:text-white flex items-center gap-2 text-sm transition-colors mb-4"
+                        className="text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 text-sm transition-colors mb-4"
                     >
                         <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
                         عودة للقائمة
@@ -853,24 +862,24 @@ export function PollCreator() {
                         <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/40">
                             <ListChecks className="w-8 h-8 text-blue-500" />
                         </div>
-                        <h3 className="text-xl font-bold text-white">تفاصيل الاستطلاع</h3>
-                        <p className="text-white/40 mt-1">عرض محتوى الاستطلاع (للقراءة فقط)</p>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">تفاصيل الاستطلاع</h3>
+                        <p className="text-gray-500 dark:text-white/40 mt-1">عرض محتوى الاستطلاع (للقراءة فقط)</p>
                     </div>
 
-                    <div className="bg-black/40 rounded-xl border border-white/10 p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
-                        <h4 className="font-bold text-lg text-white border-b border-white/10 pb-2">{pollTitle}</h4>
+                    <div className="bg-gray-100 dark:bg-black/40 rounded-xl border border-gray-200 dark:border-white/10 p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+                        <h4 className="font-bold text-lg text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-2">{pollTitle}</h4>
                         {collectedQuestions.length === 0 ? (
-                            <div className="text-center py-8 text-white/30">جارِ التحميل...</div>
+                            <div className="text-center py-8 text-gray-400 dark:text-white/30">جارِ التحميل...</div>
                         ) : (
                             collectedQuestions.map((q, i) => (
-                                <div key={i} className="bg-white/5 rounded-lg p-3">
+                                <div key={i} className="bg-white dark:bg-white/5 rounded-lg p-3 shadow-sm dark:shadow-none">
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className="text-blue-400 font-bold text-sm">سؤال {i + 1}: {q.text}</span>
-                                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/50">
+                                        <span className="text-blue-600 dark:text-blue-400 font-bold text-sm">سؤال {i + 1}: {q.text}</span>
+                                        <span className="text-[10px] bg-gray-200 dark:bg-white/10 px-2 py-0.5 rounded text-gray-600 dark:text-white/50">
                                             {q.type === 'single' ? 'خيار واحد' : 'عدة خيارات'}
                                         </span>
                                     </div>
-                                    <ul className="list-disc list-inside text-xs text-white/60 space-y-1">
+                                    <ul className="list-disc list-inside text-xs text-gray-500 dark:text-white/60 space-y-1">
                                         {q.options.map((opt, j) => (
                                             <li key={j}>{opt.text}</li>
                                         ))}
@@ -881,7 +890,7 @@ export function PollCreator() {
                     </div>
 
                     <div className="flex justify-center pt-4">
-                        <div className="text-white/30 text-xs">
+                        <div className="text-gray-400 dark:text-white/30 text-xs">
                             * هذا الاستطلاع منشور بالفعل ولا يمكن تعديل نصوص الأسئلة للحفاظ على نزاهة البيانات
                         </div>
                     </div>

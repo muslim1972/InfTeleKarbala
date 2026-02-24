@@ -1,9 +1,11 @@
-import { BookOpen, Laptop, BellRing } from "lucide-react";
+import { BookOpen, Laptop, BellRing, ClipboardList } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { AccordionSection } from "../ui/AccordionSection";
+import { PollCreator } from "../admin/PollCreator";
+import { TrainingPollsList } from "./TrainingPollsList";
 
-export const TrainingTabContent = () => {
+export const TrainingTabContent = ({ isAdmin = false }: { isAdmin?: boolean }) => {
     const [openSection, setOpenSection] = useState<string | null>(null);
 
     const toggleSection = (section: string) => {
@@ -27,6 +29,12 @@ export const TrainingTabContent = () => {
             title: 'التبليغات',
             icon: BellRing,
             color: 'from-amber-600 to-amber-500'
+        },
+        {
+            id: 'survey',
+            title: 'استطلاع رأي المتدربين',
+            icon: ClipboardList,
+            color: 'from-green-600 to-green-500'
         }
     ];
 
@@ -62,10 +70,16 @@ export const TrainingTabContent = () => {
                         isOpen={openSection === section.id}
                         onToggle={() => toggleSection(section.id)}
                     >
-                        <div className="p-4 text-center">
-                            <h4 className="text-sm font-bold text-foreground mb-1">تحت التطوير</h4>
-                            <p className="text-muted-foreground text-xs">سيتم اطلاق هذا القسم قريباً</p>
-                        </div>
+                        {section.id === 'survey' ? (
+                            <div className="p-4">
+                                {isAdmin ? <PollCreator category="training" /> : <TrainingPollsList />}
+                            </div>
+                        ) : (
+                            <div className="p-4 text-center">
+                                <h4 className="text-sm font-bold text-foreground mb-1">تحت التطوير</h4>
+                                <p className="text-muted-foreground text-xs">سيتم اطلاق هذا القسم قريباً</p>
+                            </div>
+                        )}
                     </AccordionSection>
                 </motion.div>
             ))}

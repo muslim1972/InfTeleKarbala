@@ -23,8 +23,8 @@ export interface Poll {
 /**
  * جلب الاستطلاعات النشطة مع الكاش
  */
-async function fetchPolls(): Promise<Poll[]> {
-    const cacheKey = CACHE_CONFIG.POLLS_KEY;
+async function fetchPolls(category: 'media' | 'training' = 'media'): Promise<Poll[]> {
+    const cacheKey = `${CACHE_CONFIG.POLLS_KEY}_${category}`;
 
     // محاولة جلب من الكاش
     const cached = await cacheManager.get<Poll[]>(cacheKey);
@@ -40,6 +40,7 @@ async function fetchPolls(): Promise<Poll[]> {
         .from('polls')
         .select('*')
         .eq('is_deleted', false)
+        .eq('category', category)
         .order('created_at', { ascending: false });
 
     if (pollsError) throw pollsError;
@@ -84,13 +85,13 @@ async function fetchPolls(): Promise<Poll[]> {
 /**
  * Hook لاستخدام الاستطلاعات مع الكاش
  */
-export function usePolls() {
+export function usePolls(category: 'media' | 'training' = 'media') {
     const settings = getOptimalSettings();
     const queryClient = useQueryClient();
 
     const query = useQuery({
-        queryKey: ['polls'],
-        queryFn: fetchPolls,
+        queryKey: ['polls', category],
+        queryFn: () => fetchPolls(category),
         staleTime: settings.staleTime,
         gcTime: settings.gcTime,
         refetchOnWindowFocus: false,
@@ -98,9 +99,9 @@ export function usePolls() {
     });
 
     // دالة لإعادة التحميل
-    const invalidateCache = async () => {
-        await cacheManager.delete(CACHE_CONFIG.POLLS_KEY);
-        queryClient.invalidateQueries({ queryKey: ['polls'] });
+    const invalidateCache = async (cat: 'media' | 'training' = category) => {
+        await cacheManager.delete(`${CACHE_CONFIG.POLLS_KEY}_${cat}`);
+        queryClient.invalidateQueries({ queryKey: ['polls', cat] });
     };
 
     return {
