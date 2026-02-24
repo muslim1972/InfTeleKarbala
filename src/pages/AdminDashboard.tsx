@@ -1462,7 +1462,7 @@ export const AdminDashboard = () => {
                                         value={selectedEmployee.full_name}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
                                         recordId={selectedEmployee.id}
-                                        tableName="app_users"
+                                        tableName="profiles"
                                         dbField="full_name"
                                         isReadOnly={isFieldReadOnly('full_name')}
                                     />
@@ -1585,7 +1585,7 @@ export const AdminDashboard = () => {
                                         value={selectedEmployee.job_number}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
                                         recordId={selectedEmployee.id}
-                                        tableName="app_users"
+                                        tableName="profiles"
                                         dbField="job_number"
                                         isReadOnly={isFieldReadOnly('job_number')}
                                     />
@@ -1596,7 +1596,7 @@ export const AdminDashboard = () => {
                                         value={selectedEmployee.iban || ""}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, iban: val })}
                                         recordId={selectedEmployee.id}
-                                        tableName="app_users"
+                                        tableName="profiles"
                                         dbField="iban"
                                         isReadOnly={isFieldReadOnly('iban')}
                                     />
@@ -1606,7 +1606,7 @@ export const AdminDashboard = () => {
                                         value={selectedEmployee.username}
                                         onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
                                         recordId={selectedEmployee.id}
-                                        tableName="app_users"
+                                        tableName="profiles"
                                         dbField="username"
                                         isReadOnly={isFieldReadOnly('username')}
                                     />
