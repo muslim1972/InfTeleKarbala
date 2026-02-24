@@ -567,10 +567,10 @@ export const AdminDashboard = () => {
                     iban: selectedEmployee.iban,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar, // Save to 'avatar' column
                     // Audit fields (ensure profiles table has these or ignore if strict)
-                    // Assuming profiles has simplified structure, but we can try updating if columns exist.
-                    // If profiles doesn't have audit columns, remove them. 
-                    // Based on previous scripts, profiles only has updated_at.
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    last_modified_by: currentUser.id,
+                    last_modified_by_name: currentUser.full_name,
+                    last_modified_at: new Date().toISOString()
                 })
                 .eq('id', selectedEmployee.id);
 
