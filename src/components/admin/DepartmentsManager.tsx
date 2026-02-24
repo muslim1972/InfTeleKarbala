@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
-import { Loader2, Plus, Edit, Trash2, Save, Network } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, Save, Network, Check, X, Edit2, Search } from "lucide-react";
 
 interface Department {
     id: string;
@@ -26,6 +26,14 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Inline Manager Editing State
+    const [editingManagerNodeId, setEditingManagerNodeId] = useState<string | null>(null);
+    const [managerSearch, setManagerSearch] = useState("");
+
+    // Inline Name Editing State
+    const [editingNameNodeId, setEditingNameNodeId] = useState<string | null>(null);
+    const [tempNodeName, setTempNodeName] = useState("");
 
     // Form State for Adding/Editing
     const [isEditing, setIsEditing] = useState(false);
@@ -143,10 +151,54 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         }
     };
 
-    const editNode = (dept: Department) => {
-        setCurrentDept(dept);
-        setIsEditing(true);
+    const saveInlineManager = async (deptId: string, newManagerId: string | null) => {
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from('departments')
+                .update({ manager_id: newManagerId, updated_at: new Date().toISOString() })
+                .eq('id', deptId);
+
+            if (error) throw error;
+            toast.success("تم تحديث المسؤول بنجاح");
+
+            // Update local state without refetching immediately
+            setDepartments(departments.map(d => d.id === deptId ? { ...d, manager_id: newManagerId } : d));
+            setEditingManagerNodeId(null);
+        } catch (error: any) {
+            console.error("Inline manager save error:", error);
+            toast.error("فشل تحديث المسؤول: " + error.message);
+        } finally {
+            setSaving(false);
+        }
     };
+
+    const saveInlineName = async (deptId: string, newName: string) => {
+        if (!newName.trim()) {
+            toast.error("لا يمكن ترك اسم التشكيل فارغاً");
+            return;
+        }
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from('departments')
+                .update({ name: newName.trim(), updated_at: new Date().toISOString() })
+                .eq('id', deptId);
+
+            if (error) throw error;
+            toast.success("تم تغيير الاسم بنجاح");
+
+            // Update local state without refetching immediately
+            setDepartments(departments.map(d => d.id === deptId ? { ...d, name: newName.trim() } : d));
+            setEditingNameNodeId(null);
+        } catch (error: any) {
+            console.error("Inline name save error:", error);
+            toast.error("فشل تغيير الاسم: " + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
 
     const cancelEdit = () => {
         setIsEditing(false);
@@ -154,46 +206,139 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     };
 
     // Recursive function to render the tree
-    const renderNode = (dept: Department, allDepts: Department[], depth: number = 0) => {
+    const renderNode = (dept: Department, allDepts: Department[]) => {
         const children = allDepts.filter(d => d.parent_id === dept.id);
 
         return (
-            <div key={dept.id} className="w-full">
-                <div className={`flex items-center justify-between p-3 border-b border-gray-100 dark:border-white/5 transition-colors hover:bg-gray-50 dark:hover:bg-white/5`}
-                    style={{ paddingRight: `${depth * 1.5 + 1}rem` }}
-                >
+            <div key={dept.id} className="w-full relative">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-100 dark:border-white/5 rounded-xl shadow-sm transition-all hover:shadow-md ${theme === 'light' ? 'bg-white' : 'bg-slate-800'}`}>
                     <div className="flex items-center gap-3">
-                        {depth > 0 && <div className="w-4 h-[1px] bg-gray-300 dark:bg-gray-600 block shrink-0" />}
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className={`font-bold ${theme === 'light' ? 'text-gray-800' : 'text-gray-200'}`}>
-                                    {dept.name}
-                                </span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400'}`}>
-                                    مستوى {dept.level}
-                                </span>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                            <Network className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col w-full">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 w-full">
+                                {editingNameNodeId === dept.id ? (
+                                    <div className="flex items-center gap-2 w-full max-w-sm">
+                                        <input
+                                            type="text"
+                                            value={tempNodeName}
+                                            onChange={(e) => setTempNodeName(e.target.value)}
+                                            className={`flex-1 px-2 py-1 text-sm font-bold rounded border outline-none ${theme === 'light' ? 'bg-white border-brand-green/50 focus:ring-2 focus:ring-brand-green/30' : 'bg-slate-900 border-brand-green/50 focus:ring-2 focus:ring-brand-green/30 text-white'}`}
+                                            autoFocus
+                                            onKeyDown={(e) => { if (e.key === 'Enter') saveInlineName(dept.id, tempNodeName); if (e.key === 'Escape') setEditingNameNodeId(null); }}
+                                        />
+                                        <button onClick={() => saveInlineName(dept.id, tempNodeName)} className="p-1.5 text-white bg-brand-green hover:bg-brand-green/90 rounded shrink-0 transition-colors" title="حفظ الاسم"><Check className="w-3.5 h-3.5" /></button>
+                                        <button onClick={() => setEditingNameNodeId(null)} className="p-1.5 text-gray-600 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 rounded shrink-0 transition-colors" title="إلغاء"><X className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className={`font-bold ${theme === 'light' ? 'text-gray-800' : 'text-gray-100'}`}>
+                                            {dept.name}
+                                        </span>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full w-fit ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                                            مستوى {dept.level}
+                                        </span>
+                                    </>
+                                )}
                             </div>
-                            {dept.manager_id && (
-                                <p className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    المدير/المسؤول: {users.find(u => u.id === dept.manager_id)?.full_name || 'مسؤول غير معروف'}
-                                </p>
-                            )}
+
+                            <div className="flex flex-col mt-1 w-full">
+                                <span className={`text-[11px] ml-1 mb-1 block ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>المسؤول:</span>
+                                {editingManagerNodeId === dept.id ? (
+                                    <div className="w-full max-w-sm relative">
+                                        <div className={`flex flex-col gap-1 w-full p-2 rounded-lg border shadow-sm ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-slate-900 border-white/10'}`}>
+                                            <div className="relative w-full">
+                                                <Search className="w-4 h-4 text-gray-400 absolute right-2 top-2.5" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="البحث باسم الموظف..."
+                                                    value={managerSearch}
+                                                    onChange={e => setManagerSearch(e.target.value)}
+                                                    className={`w-full pr-8 pl-2 py-2 text-sm rounded border ${theme === 'light' ? 'bg-white border-gray-300 focus:border-brand-green outline-none' : 'bg-slate-800 border-white/20 text-white focus:border-brand-green outline-none'}`}
+                                                    autoFocus
+                                                />
+                                                {/* AUTOCOMPLETE DROPDOWN */}
+                                                {managerSearch && (
+                                                    <div className={`absolute z-20 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-800 border-white/10'}`}>
+                                                        {users.filter(u => u.full_name.includes(managerSearch)).slice(0, 5).map(u => (
+                                                            <div
+                                                                key={u.id}
+                                                                onClick={() => saveInlineManager(dept.id, u.id)}
+                                                                className={`p-2 text-sm cursor-pointer border-b last:border-0 ${theme === 'light' ? 'hover:bg-brand-green/10 border-gray-100 text-gray-800' : 'hover:bg-brand-green/20 border-white/5 text-gray-200'}`}
+                                                            >
+                                                                {u.full_name}
+                                                            </div>
+                                                        ))}
+                                                        {users.filter(u => u.full_name.includes(managerSearch)).length === 0 && (
+                                                            <div className="p-2 text-sm text-gray-500 text-center">لا يوجد موظف بهذا الاسم</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 w-full mt-1">
+                                                <button onClick={() => saveInlineManager(dept.id, null)} className={`flex-1 flex justify-center items-center py-1.5 text-xs rounded transition-colors ${theme === 'light' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'}`}>إزالة المسؤول</button>
+                                                <button onClick={() => setEditingManagerNodeId(null)} className={`flex-1 py-1.5 text-xs rounded transition-colors ${theme === 'light' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>إلغاء</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="flex items-center gap-2 group/manager cursor-pointer w-fit"
+                                        onClick={() => {
+                                            setEditingManagerNodeId(dept.id);
+                                            setManagerSearch("");
+                                        }}
+                                        title="انقر لتعيين مسؤول"
+                                    >
+                                        <span className={`text-[12px] font-semibold transition-colors ${theme === 'light' ? 'text-gray-700 hover:text-brand-green' : 'text-gray-300 hover:text-brand-green'} ${!dept.manager_id && 'text-red-500/80'}`}>
+                                            {users.find(u => u.id === dept.manager_id)?.full_name || 'لا يوجد مسؤول (انقر للتعيين)'}
+                                        </span>
+                                        <Edit2 className="w-3 h-3 opacity-0 group-hover/manager:opacity-100 transition-opacity text-brand-green" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <button onClick={() => editNode(dept)} className={`p-1.5 rounded-md ${theme === 'light' ? 'text-blue-600 hover:bg-blue-50' : 'text-blue-400 hover:bg-blue-900/30'}`} title="تعديل">
+                    <div className="flex gap-2 mt-3 md:mt-0 justify-end md:justify-start">
+                        <button
+                            onClick={() => {
+                                setEditingNameNodeId(dept.id);
+                                setTempNodeName(dept.name);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${theme === 'light' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-blue-400 bg-blue-900/20 hover:bg-blue-900/40'}`}
+                            title="تعديل اسم التشكيل"
+                        >
                             <Edit className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(dept.id)} className={`p-1.5 rounded-md ${theme === 'light' ? 'text-red-600 hover:bg-red-50' : 'text-red-400 hover:bg-red-900/30'}`} title="حذف">
+                        <button onClick={() => handleDelete(dept.id)} className={`p-2 rounded-lg transition-colors ${theme === 'light' ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-red-400 bg-red-900/20 hover:bg-red-900/40'}`} title="حذف التشكيل">
                             <Trash2 className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
-                {/* Render Children */}
+
+                {/* Render Children with Vertical & Horizontal Tree Lines */}
                 {children.length > 0 && (
-                    <div className="flex flex-col w-full">
-                        {children.map(child => renderNode(child, allDepts, depth + 1))}
+                    <div className="flex flex-col w-full pr-8 relative mt-3 mr-4">
+                        {children.map((child, index) => {
+                            const isLast = index === children.length - 1;
+                            return (
+                                <div key={child.id} className="relative w-full mb-3">
+                                    {/* Vertical Line */}
+                                    <div
+                                        className={`absolute right-[-24px] top-[-12px] w-[2px] ${isLast ? 'h-[2.5rem]' : 'h-[calc(100%+12px)]'} ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
+                                    />
+
+                                    {/* Horizontal Line */}
+                                    <div
+                                        className={`absolute right-[-24px] top-[1.5rem] w-6 h-[2px] ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
+                                    />
+
+                                    {renderNode(child, allDepts)}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
