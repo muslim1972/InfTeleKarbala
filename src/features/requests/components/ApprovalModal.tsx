@@ -53,28 +53,28 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl scale-100 overflow-hidden relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl scale-100 overflow-hidden relative mt-10">
 
                 {/* Modification Type Banner */}
                 {request.modification_type === 'edited' && (
-                    <div className="-mx-6 -mt-6 mb-6 bg-orange-500 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                    <div className="absolute top-0 left-0 right-0 bg-orange-500 text-white text-center py-2 font-bold text-sm shadow-sm z-10">
                         تم تعديل طلب الإجازة
                     </div>
                 )}
                 {request.modification_type === 'canceled' && (
-                    <div className="-mx-6 -mt-6 mb-6 bg-red-400 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                    <div className="absolute top-0 left-0 right-0 bg-red-400 text-white text-center py-2 font-bold text-sm shadow-sm z-10">
                         طلب إلغاء الإجازة
                     </div>
                 )}
                 {request.modification_type === 'cut' && (
-                    <div className="-mx-6 -mt-6 mb-6 bg-green-500 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                    <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-center py-2 font-bold text-sm shadow-sm z-10">
                         تم قطع الإجازة (تاريخ المباشرة: {request.cut_date})
                     </div>
                 )}
 
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-6 border-b border-gray-100 dark:border-slate-700 pb-4">
+                <div className={`flex items-center gap-4 mb-6 border-b border-gray-100 dark:border-slate-700 pb-4 ${request.modification_type ? 'pt-8' : ''}`}>
                     <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white dark:border-slate-600 shadow-lg">
                         {request.profiles?.avatar_url ? (
                             <img src={request.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
