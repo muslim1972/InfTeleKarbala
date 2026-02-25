@@ -11,6 +11,8 @@ interface LeaveRequest {
     reason: string;
     status: string;
     created_at: string;
+    modification_type?: string;
+    cut_date?: string;
     profiles?: {
         full_name: string;
         job_number: string;
@@ -53,6 +55,23 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl scale-100 overflow-hidden relative">
+
+                {/* Modification Type Banner */}
+                {request.modification_type === 'edited' && (
+                    <div className="-mx-6 -mt-6 mb-6 bg-orange-500 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                        تم تعديل طلب الإجازة
+                    </div>
+                )}
+                {request.modification_type === 'canceled' && (
+                    <div className="-mx-6 -mt-6 mb-6 bg-red-400 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                        طلب إلغاء الإجازة
+                    </div>
+                )}
+                {request.modification_type === 'cut' && (
+                    <div className="-mx-6 -mt-6 mb-6 bg-green-500 text-white text-center py-3 font-bold text-sm rounded-t-2xl shadow-sm">
+                        تم قطع الإجازة (تاريخ المباشرة: {request.cut_date})
+                    </div>
+                )}
 
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6 border-b border-gray-100 dark:border-slate-700 pb-4">
@@ -131,7 +150,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         {isProcessing ? 'جاري المعالجة...' : (
                             <>
                                 <Check size={18} />
-                                موافق
+                                {request.modification_type === 'cut' ? 'نؤيد ذلك' : 'موافق'}
                             </>
                         )}
                     </button>

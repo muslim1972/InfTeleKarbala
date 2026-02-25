@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, FileText, AlertCircle, CheckCircle, Clock, Edit2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
 import { Network, UserCheck } from 'lucide-react'; // Import Network icon
+import EditLeaveRequestForm from './EditLeaveRequestForm';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -31,6 +32,33 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
   const [managerInfo, setManagerInfo] = useState<{ id: string, name: string } | null>(null);
   const [loadingManager, setLoadingManager] = useState(true);
+
+  // Latest request logic
+  const [latestRequest, setLatestRequest] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const fetchLatestRequest = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) {
+        setLatestRequest(data);
+      }
+    } catch (err) {
+      console.error('Error fetching latest request:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLatestRequest();
+  }, [user, success]); // refetch on success
 
   // Auto-calculate Supervisor based on hierarchy
   useEffect(() => {
@@ -161,8 +189,49 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const leavesBalance = financialData?.remaining_leaves_balance;
   const expiryDate = financialData?.leaves_balance_expiry_date;
 
+  const today = new Date().toISOString().split('T')[0];
+  const canModifyLatest = latestRequest && latestRequest.status !== 'rejected' && latestRequest.modification_type !== 'canceled' && latestRequest.end_date >= today;
+
+  if (isEditing && latestRequest) {
+    return (
+      <EditLeaveRequestForm
+        request={latestRequest}
+        onCancelEdit={() => setIsEditing(false)}
+        onSuccess={() => {
+          setIsEditing(false);
+          fetchLatestRequest();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 pb-8">
+      {/* Latest Request banner */}
+      {latestRequest && (
+        <div className={`m-6 p-4 rounded-xl border flex items-center justify-between ${canModifyLatest ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-gray-50 border-gray-200 dark:bg-slate-800 dark:border-slate-700'}`}>
+          <div>
+            <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1">
+              أحدث طلب إجازة
+              {latestRequest.modification_type === 'canceled' && <span className="text-red-500 font-bold mx-2">(ملغي)</span>}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              من {latestRequest.start_date} إلى {latestRequest.end_date}
+              ({latestRequest.status === 'pending' ? 'قيد الانتظار' : latestRequest.status === 'approved' ? 'موافق عليه' : 'مرفوض'})
+            </p>
+          </div>
+          {canModifyLatest && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+            >
+              <Edit2 size={16} />
+              تعديل الطلب
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Balance Info Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white rounded-t-2xl">
         <div className="flex justify-between items-start">
