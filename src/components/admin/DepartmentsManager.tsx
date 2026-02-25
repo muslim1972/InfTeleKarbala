@@ -15,6 +15,7 @@ interface Department {
 interface UserProfile {
     id: string;
     full_name: string;
+    department_id?: string | null;
 }
 
 interface DepartmentsManagerProps {
@@ -24,6 +25,7 @@ interface DepartmentsManagerProps {
 export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme }) => {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [users, setUsers] = useState<UserProfile[]>([]);
+    const [employeesByDept, setEmployeesByDept] = useState<Record<string, UserProfile[]>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -43,6 +45,21 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         parent_id: null,
         manager_id: null,
     });
+
+    // Expanded Nodes State
+    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
+
+    const toggleNodeExpand = (nodeId: string) => {
+        setExpandedNodeIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(nodeId)) {
+                newSet.delete(nodeId);
+            } else {
+                newSet.add(nodeId);
+            }
+            return newSet;
+        });
+    };
 
     const fetchDepartments = async () => {
         setLoading(true);
@@ -71,11 +88,24 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name')
+                .select('id, full_name, department_id')
                 .order('full_name');
 
             if (error) throw error;
-            setUsers(data || []);
+
+            const fetchedUsers = data || [];
+            setUsers(fetchedUsers);
+
+            // Group employees by department for the tree view
+            const grouped: Record<string, UserProfile[]> = {};
+            fetchedUsers.forEach(u => {
+                if (u.department_id) {
+                    if (!grouped[u.department_id]) grouped[u.department_id] = [];
+                    grouped[u.department_id].push(u);
+                }
+            });
+            setEmployeesByDept(grouped);
+
         } catch (error) {
             console.error("Error fetching users:", error);
         }
@@ -208,6 +238,8 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     // Recursive function to render the tree
     const renderNode = (dept: Department, allDepts: Department[]) => {
         const children = allDepts.filter(d => d.parent_id === dept.id);
+        const deptEmployees = employeesByDept[dept.id] || [];
+        const isExpanded = expandedNodeIds.has(dept.id);
 
         return (
             <div key={dept.id} className="w-full relative">
@@ -318,21 +350,45 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     </div>
                 </div>
 
+                {/* Employees List Section */}
+                <div className={`mt-2 pr-8 lg:pr-12`}>
+                    <button
+                        onClick={() => deptEmployees.length > 0 ? toggleNodeExpand(dept.id) : null}
+                        className={`text-xs flex items-center gap-1 transition-colors ${deptEmployees.length === 0 ? 'text-gray-400 cursor-default' : (theme === 'light' ? 'text-brand-green hover:text-brand-green/80 font-bold' : 'text-brand-green hover:text-brand-green/80 font-bold')}`}
+                        title={deptEmployees.length === 0 ? "لا يوجد موظفين في هذا التشكيل" : "عرض قائمة الموظفين"}
+                    >
+                        <span>الموظفين ({deptEmployees.length})</span>
+                        {deptEmployees.length > 0 && (
+                            <span className="text-[10px]">{isExpanded ? '▼' : '◀'}</span>
+                        )}
+                    </button>
+
+                    {isExpanded && deptEmployees.length > 0 && (
+                        <div className={`mt-2 flex flex-wrap gap-2 p-3 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-100' : 'bg-white/5 border-white/5'}`}>
+                            {deptEmployees.map(emp => (
+                                <div key={emp.id} className={`text-xs px-2 py-1 rounded-md ${theme === 'light' ? 'bg-white text-gray-700 shadow-sm border border-gray-100' : 'bg-slate-800 text-gray-300 border border-white/10'}`}>
+                                    {emp.full_name}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {/* Render Children with Vertical & Horizontal Tree Lines */}
                 {children.length > 0 && (
-                    <div className="flex flex-col w-full pr-8 relative mt-3 mr-4">
+                    <div className="flex flex-col w-full pr-4 md:pr-8 relative mt-3 mr-1 md:mr-4">
                         {children.map((child, index) => {
                             const isLast = index === children.length - 1;
                             return (
                                 <div key={child.id} className="relative w-full mb-3">
                                     {/* Vertical Line */}
                                     <div
-                                        className={`absolute right-[-24px] top-[-12px] w-[2px] ${isLast ? 'h-[2.5rem]' : 'h-[calc(100%+12px)]'} ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
+                                        className={`absolute right-[-12px] md:right-[-24px] top-[-12px] w-[2px] ${isLast ? 'h-[2.5rem]' : 'h-[calc(100%+12px)]'} ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
                                     />
 
                                     {/* Horizontal Line */}
                                     <div
-                                        className={`absolute right-[-24px] top-[1.5rem] w-6 h-[2px] ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
+                                        className={`absolute right-[-12px] md:right-[-24px] top-[1.5rem] w-3 md:w-6 h-[2px] ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700/60'}`}
                                     />
 
                                     {renderNode(child, allDepts)}
@@ -362,13 +418,15 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     </div>
                 </div>
 
-                <div className="flex flex-col">
+                <div className="flex flex-col overflow-x-auto">
                     {loading ? (
-                        <div className="p-8 flex justify-center">
+                        <div className="p-8 flex justify-center w-full">
                             <Loader2 className="w-6 h-6 animate-spin text-brand-green" />
                         </div>
                     ) : rootNodes.length > 0 ? (
-                        rootNodes.map(node => renderNode(node, departments))
+                        <div className="min-w-fit w-full pb-4">
+                            {rootNodes.map(node => renderNode(node, departments))}
+                        </div>
                     ) : (
                         <div className={`p-8 text-center \${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
                             لا توجد أي أقسام أو شعب مضافة حتى الآن.

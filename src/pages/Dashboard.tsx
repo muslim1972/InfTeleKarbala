@@ -52,6 +52,7 @@ export const Dashboard = () => {
     const [financialData, setFinancialData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [showIban, setShowIban] = useState(false);
+    const [departmentInfo, setDepartmentInfo] = useState({ name: 'غير محدد', managerName: 'غير محدد' });
 
     // UI State for Collapsible Sections
     const [openSection, setOpenSection] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export const Dashboard = () => {
 
                 try {
                     // جلب كل البيانات بالتوازي (أسرع بكثير)
-                    const [financialResult, adminResult, yearlyResult] = await Promise.all([
+                    const [financialResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
                         supabase
                             .from('financial_records')
                             .select('*')
@@ -192,7 +193,11 @@ export const Dashboard = () => {
                         supabase
                             .from('yearly_records')
                             .select('*')
-                            .eq('user_id', user.id)
+                            .eq('user_id', user.id),
+
+                        supabase
+                            .from('departments')
+                            .select('*')
                     ]);
 
                     // تعيين البيانات مع حساب الإجماليات للعرض
@@ -236,6 +241,44 @@ export const Dashboard = () => {
                     if (adminResult.data) setAdminData(adminResult.data);
                     if (yearlyResult.data) setYearlyData(yearlyResult.data);
 
+                    // Compute Department & Manager Details
+                    const deptData = deptsResult?.data || [];
+                    if (user.department_id) {
+                        let currentDept = deptData.find((d: any) => d.id === user.department_id);
+                        const originDeptName = currentDept?.name || 'غير محدد';
+                        let nearestManagerId = null;
+
+                        // Traverse up the tree to find a manager
+                        while (currentDept) {
+                            if (currentDept.manager_id) {
+                                nearestManagerId = currentDept.manager_id;
+                                break;
+                            }
+                            currentDept = deptData.find((d: any) => d.id === currentDept.parent_id);
+                        }
+
+                        let managerName = 'لا يوجد مسؤول مباشر';
+                        if (nearestManagerId) {
+                            // If the user IS the manager themselves, they might report to the parent manager
+                            if (nearestManagerId === user.id && currentDept?.parent_id) {
+                                const parentNode = deptData.find((d: any) => d.id === currentDept.parent_id);
+                                if (parentNode && parentNode.manager_id) {
+                                    nearestManagerId = parentNode.manager_id;
+                                }
+                            }
+
+                            // Fetch the manager's name
+                            if (nearestManagerId !== user.id) { // Don't say you manage yourself
+                                const { data: mgrProfile } = await supabase.from('profiles').select('full_name').eq('id', nearestManagerId).single();
+                                if (mgrProfile) managerName = mgrProfile.full_name;
+                            } else {
+                                managerName = 'الإدارة العليا'; // Root node manager
+                            }
+                        }
+
+                        setDepartmentInfo({ name: originDeptName, managerName });
+                    }
+
                 } catch (error) {
                     console.error("Error fetching data:", error);
                 } finally {
@@ -269,6 +312,8 @@ export const Dashboard = () => {
             color: 'from-blue-600 to-blue-500',
             fields: [
                 { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
+                { key: 'department_name', label: 'مكان العمل' },
+                { key: 'direct_manager', label: 'المسؤول المباشر' },
                 { key: 'first_appointment_date', label: 'تاريخ أول مباشرة', isDate: true },
                 { key: 'job_title', label: 'العنوان الوظيفي' },
                 { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
@@ -375,7 +420,15 @@ export const Dashboard = () => {
                                         >
                                             <div className="table w-full border-separate border-spacing-y-3 p-1">
                                                 {group.fields.map((field) => {
-                                                    const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
+                                                    let val;
+                                                    if (field.key === 'department_name') {
+                                                        val = departmentInfo.name;
+                                                    } else if (field.key === 'direct_manager') {
+                                                        val = departmentInfo.managerName;
+                                                    } else {
+                                                        val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
+                                                    }
+
                                                     const displayVal = field.isMoney
                                                         ? Math.round(Number(val || 0)).toLocaleString()
                                                         : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');

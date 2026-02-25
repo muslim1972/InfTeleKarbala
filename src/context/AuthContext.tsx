@@ -11,6 +11,7 @@ export interface AppUser {
   admin_role?: string; // developer, media, etc.
   avatar_url?: string | null;
   iban?: string;
+  department_id?: string | null;
 }
 
 interface AuthContextType {
@@ -96,7 +97,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               role: profile.role || 'user',
               admin_role: profile.admin_role,
               avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
-              iban: profile.iban
+              iban: profile.iban,
+              department_id: profile.department_id
             };
             setUser(appUser);
             logVisit(appUser);
@@ -178,7 +180,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: fullProfile.role || 'user',
         admin_role: fullProfile.admin_role,
         avatar_url: fullProfile.avatar || fullProfile.avatar_url,
-        iban: fullProfile.iban
+        iban: fullProfile.iban,
+        department_id: fullProfile.department_id
       };
 
       setUser(appUser);

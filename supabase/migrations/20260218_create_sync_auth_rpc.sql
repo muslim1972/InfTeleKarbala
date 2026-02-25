@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.rpc_sync_user_auth(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = public, auth, extensions
 AS $$
 DECLARE
     v_user_exists BOOLEAN;

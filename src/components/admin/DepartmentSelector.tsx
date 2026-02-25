@@ -52,25 +52,6 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
         fetchDepartments();
     }, []);
 
-    // Build hierarchical names for the dropdown
-    const getHierarchicalName = (dept: Department) => {
-        let name = dept.name;
-        let currentDept = dept;
-        let pId = currentDept.parent_id;
-
-        // Loop to find parents to append to the name (e.g., شعبة الشبكات - قسم الشبكات)
-        for (let i = 0; i < 3 && pId; i++) {
-            const parent = departments.find(d => d.id === pId);
-            if (parent) {
-                name = `\${name} - \${parent.name}`;
-                pId = parent.parent_id;
-            } else {
-                pId = null;
-            }
-        }
-        return name;
-    };
-
     return (
         <div className={cn("grid gap-2", className)}>
             <Label className="flex items-center gap-2">
@@ -93,7 +74,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
                     <option value="">-- غير محدد --</option>
                     {departments.map(dept => (
                         <option key={dept.id} value={dept.id}>
-                            {getHierarchicalName(dept)} (مستوى {dept.level})
+                            {dept.name} (مستوى {dept.level})
                         </option>
                     ))}
                 </select>
