@@ -152,6 +152,19 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
             }
 
             if (error) throw error;
+
+            // NEW: Automatically link the manager to the parent department
+            if (currentDept.manager_id && currentDept.parent_id) {
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({ department_id: currentDept.parent_id })
+                    .eq('id', currentDept.manager_id);
+                if (profileError) {
+                    console.error("Failed to link manager to parent department:", profileError);
+                    toast.error("تم حفظ القسم، لكن فشل ربط المرجع الإداري للمدير.");
+                }
+            }
+
             toast.success(currentDept.id ? "تم التعديل بنجاح" : "تمت الإضافة بنجاح");
             setIsEditing(false);
             setCurrentDept({ name: "", level: 3, parent_id: null, manager_id: null });
@@ -190,6 +203,29 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                 .eq('id', deptId);
 
             if (error) throw error;
+
+            // NEW: Automatically link the manager to the parent department
+            if (newManagerId) {
+                // We need to fetch the parent_id for this department first
+                const { data: deptData } = await supabase
+                    .from('departments')
+                    .select('parent_id')
+                    .eq('id', deptId)
+                    .single();
+
+                if (deptData?.parent_id) {
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .update({ department_id: deptData.parent_id })
+                        .eq('id', newManagerId);
+
+                    if (profileError) {
+                        console.error("Failed to link manager to parent department:", profileError);
+                        toast.error("تم تحديث المسؤول، لكن فشل ربط مرجعه الإداري.");
+                    }
+                }
+            }
+
             toast.success("تم تحديث المسؤول بنجاح");
 
             // Update local state without refetching immediately

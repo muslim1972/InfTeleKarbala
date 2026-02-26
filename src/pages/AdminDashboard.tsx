@@ -273,6 +273,21 @@ export const AdminDashboard = () => {
                 fullUserData.avatar_url = fullUserData.avatar;
             }
 
+            // NEW: If department_id is null, check if they manage a department and link to its parent
+            if (!fullUserData.department_id) {
+                const { data: managedDept } = await supabase
+                    .from('departments')
+                    .select('parent_id')
+                    .eq('manager_id', fullUserData.id)
+                    .maybeSingle();
+
+                if (managedDept?.parent_id) {
+                    fullUserData.department_id = managedDept.parent_id;
+                    // Optionally update the DB so it's fixed permanently
+                    supabase.from('profiles').update({ department_id: managedDept.parent_id }).eq('id', fullUserData.id).then();
+                }
+            }
+
             setSelectedEmployee(fullUserData);
             console.log("Selected employee set:", fullUserData.full_name, "ID:", fullUserData.id);
             setSearchExpanded(false);
