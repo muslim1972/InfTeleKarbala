@@ -17,7 +17,8 @@ import { Button } from "../components/ui/Button";
 import { Label } from "../components/ui/Label";
 import { ScrollableTabs } from "../components/ui/ScrollableTabs";
 import { DataPatcher } from '../components/admin/DataPatcher';
-import { FileSpreadsheet } from 'lucide-react';
+import { SmartSalaryUpdater } from '../components/admin/SmartSalaryUpdater';
+import { FileSpreadsheet, DatabaseZap } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -92,6 +93,7 @@ export const AdminDashboard = () => {
     const [searchExpanded, setSearchExpanded] = useState(false); // For expandable search bar
 
     const [showDataPatcher, setShowDataPatcher] = useState(false);
+    const [showSmartUpdater, setShowSmartUpdater] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [financialData, setFinancialData] = useState<any>(null);
     const [expandedSections, setExpandedSections] = useState({
@@ -691,6 +693,22 @@ export const AdminDashboard = () => {
 
     const handleDeleteEmployee = async () => {
         if (!selectedEmployee) return;
+
+        // حماية حساب المطور
+        if (selectedEmployee.job_number === '103130486' || selectedEmployee.full_name.includes('مسلم عقيل')) {
+            toast.error("⚠️ إجراء محظور: لا يمكن حذف حساب مدير النظام (المطور) للحفاظ على استقرار التطبيق وروابط قواعد البيانات العليا!", {
+                duration: 6000,
+                icon: '🚫',
+                style: {
+                    background: '#fee2e2',
+                    color: '#991b1b',
+                    fontWeight: 'bold',
+                    border: '1px solid #ef4444'
+                },
+            });
+            return;
+        }
+
         if (!currentUser?.full_name?.includes('مسلم عقيل') && !currentUser?.full_name?.includes('مسلم قيل')) {
             toast.error("عذراً، لا تملك صلاحية حذف الموظفين. فقط مدير النظام (مسلم عقيل) يمكنه ذلك.");
             return;
@@ -2064,6 +2082,15 @@ export const AdminDashboard = () => {
 
                                             <Button
                                                 variant="outline"
+                                                onClick={() => setShowSmartUpdater(true)}
+                                                className="gap-2 border-border/50 hover:bg-muted/20 hover:border-blue-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
+                                            >
+                                                <DatabaseZap className="w-4 h-4 text-blue-500" />
+                                                المحدث الشهري الذكي
+                                            </Button>
+
+                                            <Button
+                                                variant="outline"
                                                 onClick={() => setShowFieldPermissionsModal(true)}
                                                 className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
                                             >
@@ -2073,6 +2100,9 @@ export const AdminDashboard = () => {
                                         </div>
                                         {showDataPatcher && (
                                             <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                                        )}
+                                        {showSmartUpdater && (
+                                            <SmartSalaryUpdater onClose={() => setShowSmartUpdater(false)} />
                                         )}
                                         {showFieldPermissionsModal && (
                                             <FieldPermissionsModal
