@@ -3,7 +3,7 @@ import { Layout } from "../components/layout/Layout";
 import { TabSystem } from "../components/features/TabSystem";
 import { motion, AnimatePresence } from "framer-motion";
 import { YearSlider } from "../components/features/YearSlider";
-import { Award, Loader2, Eye, EyeOff, User, Wallet, Scissors, FileText } from "lucide-react";
+import { Award, Loader2, Eye, EyeOff, User, Wallet, Scissors, Calculator, FileText } from 'lucide-react';
 import { GlassCard } from "../components/ui/GlassCard";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -15,6 +15,7 @@ import { RequestsTabContent } from "../features/requests/components/RequestsTabC
 import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { formatDateTime } from "../utils/formatDate";
 import { SupervisorNotifications } from "../features/requests/components/SupervisorNotifications";
+import { SalaryCalculator } from "../components/features/SalaryCalculator";
 
 // Interface for Financial Fields
 interface FinancialField {
@@ -359,6 +360,13 @@ export const Dashboard = () => {
                 { key: 'other_deductions', label: 'استقطاع مبلغ مطروح', isMoney: true },
                 { key: 'total_deductions', label: 'مجموع الاستقطاعات', isMoney: true, highlight: true },
             ] as FinancialField[]
+        },
+        {
+            id: 'faq',
+            title: 'الأسئلة الشائعة والحاسبة',
+            icon: Calculator,
+            color: 'from-amber-600 to-amber-500',
+            fields: [] // Custom content section
         }
     ];
 
@@ -419,60 +427,77 @@ export const Dashboard = () => {
                                             onToggle={() => toggleSection(group.id)}
                                         >
                                             <div className="table w-full border-separate border-spacing-y-3 p-1">
-                                                {group.fields.map((field) => {
-                                                    let val;
-                                                    if (field.key === 'department_name') {
-                                                        val = departmentInfo.name;
-                                                    } else if (field.key === 'direct_manager') {
-                                                        val = departmentInfo.managerName;
-                                                    } else {
-                                                        val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
-                                                    }
-
-                                                    const displayVal = field.isMoney
-                                                        ? Math.round(Number(val || 0)).toLocaleString()
-                                                        : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
-
-                                                    return (
-                                                        <div
-                                                            key={field.key}
-                                                            className={cn(
-                                                                "table-row", // Unified Table Layout
-                                                                field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
-                                                            )}
-                                                        >
-                                                            {/* Label Column - Smart Auto Width */}
-                                                            <div className={cn(
-                                                                "table-cell align-middle pl-4 w-px whitespace-nowrap",
-                                                                field.superHighlight && "rounded-r-lg py-2 pr-2"
-                                                            )}>
-                                                                <span className={cn(
-                                                                    "text-xs font-bold block",
-                                                                    field.superHighlight ? "text-brand-green" : "text-muted-foreground"
-                                                                )}>
-                                                                    {field.label}
-                                                                </span>
+                                                {group.id === 'faq' ? (
+                                                    <div className="space-y-6 py-2">
+                                                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3">
+                                                            <div className="p-2 bg-amber-500 text-white rounded-lg h-fit">
+                                                                <Calculator className="w-5 h-5" />
                                                             </div>
-
-                                                            {/* Value Column */}
-                                                            <div className={cn(
-                                                                "table-cell align-middle w-full",
-                                                                field.superHighlight && "rounded-l-lg py-2 pl-2"
-                                                            )}>
-                                                                <div className={cn(
-                                                                    "px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all text-center",
-                                                                    field.superHighlight
-                                                                        ? "bg-brand-green text-white border-brand-green shadow-md"
-                                                                        : field.highlight
-                                                                            ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
-                                                                            : "bg-muted/50 border-input text-foreground hover:bg-muted"
-                                                                )}>
-                                                                    {displayVal}
-                                                                </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-amber-900 dark:text-amber-100">احسب راتبك بنفسك</h4>
+                                                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+                                                                    أداة تفاعلية تتيح لك تقدير راتبك الصافي بناءً على درجتك ومرحلتك الوظيفية والمخصصات التي تستحقها.
+                                                                </p>
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+                                                        <SalaryCalculator />
+                                                    </div>
+                                                ) : (
+                                                    group.fields.map((field) => {
+                                                        let val;
+                                                        if (field.key === 'department_name') {
+                                                            val = departmentInfo.name;
+                                                        } else if (field.key === 'direct_manager') {
+                                                            val = departmentInfo.managerName;
+                                                        } else {
+                                                            val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
+                                                        }
+
+                                                        const displayVal = field.isMoney
+                                                            ? Math.round(Number(val || 0)).toLocaleString()
+                                                            : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
+
+                                                        return (
+                                                            <div
+                                                                key={field.key}
+                                                                className={cn(
+                                                                    "table-row", // Unified Table Layout
+                                                                    field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
+                                                                )}
+                                                            >
+                                                                {/* Label Column - Smart Auto Width */}
+                                                                <div className={cn(
+                                                                    "table-cell align-middle pl-4 w-px whitespace-nowrap",
+                                                                    field.superHighlight && "rounded-r-lg py-2 pr-2"
+                                                                )}>
+                                                                    <span className={cn(
+                                                                        "text-xs font-bold block",
+                                                                        field.superHighlight ? "text-brand-green" : "text-muted-foreground"
+                                                                    )}>
+                                                                        {field.label}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Value Column */}
+                                                                <div className={cn(
+                                                                    "table-cell align-middle w-full",
+                                                                    field.superHighlight && "rounded-l-lg py-2 pl-2"
+                                                                )}>
+                                                                    <div className={cn(
+                                                                        "px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all text-center",
+                                                                        field.superHighlight
+                                                                            ? "bg-brand-green text-white border-brand-green shadow-md"
+                                                                            : field.highlight
+                                                                                ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
+                                                                                : "bg-muted/50 border-input text-foreground hover:bg-muted"
+                                                                    )}>
+                                                                        {displayVal}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
                                             </div>
                                         </AccordionSection>
                                     </motion.div>
