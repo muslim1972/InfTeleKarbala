@@ -6,7 +6,7 @@ import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save, Trash2, CheckCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -38,7 +38,17 @@ import { useTheme } from "../context/ThemeContext";
 import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
+import { getExpectedNominalSalary } from "../utils/salaryScale";
 import { DepartmentSelector } from "../components/admin/DepartmentSelector";
+import { createClient } from '@supabase/supabase-js';
+
+// Create a single instance to prevent "Multiple GoTrueClient instances" warnings
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const tempAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+});
+
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
@@ -658,6 +668,64 @@ export const AdminDashboard = () => {
         }
     };
 
+    const handleDeleteEmployee = async () => {
+        if (!selectedEmployee) return;
+        if (!currentUser?.full_name?.includes('مسلم عقيل') && !currentUser?.full_name?.includes('مسلم قيل')) {
+            toast.error("عذراً، لا تملك صلاحية حذف الموظفين. فقط مدير النظام (مسلم عقيل) يمكنه ذلك.");
+            return;
+        }
+
+        const confirmDelete = window.confirm(`هل أنت متأكد من حذف الموظف "${selectedEmployee.full_name}" بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء.`);
+        if (!confirmDelete) return;
+
+        // Double confirmation for safety
+        const confirmJobNumber = window.prompt(`لتأكيد الحذف، يرجى كتابة الرقم الوظيفي للموظف (${selectedEmployee.job_number}):`);
+        if (confirmJobNumber !== selectedEmployee.job_number) {
+            toast.error("تم الإلغاء. الرقم الوظيفي غير مطابق.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // First delete from auth using RPC to be safe, then delete from profiles
+            // Assuming we have an RPC rpc_delete_user_auth or similar, but
+            // We MUST delete using service role RPC.
+            // We'll call the new rpc_delete_user_auth first to clear auth.users,
+            // then we delete the profile (if it wasn't cascaded down).
+
+            const { error: authDeleteError } = await supabase.rpc('rpc_delete_user_auth', {
+                p_user_id: selectedEmployee.id
+            });
+
+            if (authDeleteError) throw authDeleteError;
+
+            // Delete from profiles just in case it doesn't cascade
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', selectedEmployee.id);
+
+            if (profileError) throw profileError;
+            if (profileError) {
+                console.warn("Profile delete error (might be already deleted by cascade):", profileError);
+            }
+
+            toast.success("تم حذف الموظف بنجاح من قاعدة البيانات وقسم المصادقة.");
+
+            // Clear current selection
+            setSelectedEmployee(null);
+            setFinancialData(null);
+            setAdminData(null);
+            setYearlyData([]);
+            setSearchJobNumber('');
+        } catch (error: any) {
+            console.error("Delete error:", error);
+            toast.error(error.message || "فشل في حذف الموظف.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
     const handleSaveEmployee = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -685,11 +753,33 @@ export const AdminDashboard = () => {
                 return; // Stop execution to prevent 409 error
             }
 
-            // 1. إضافة المستخدم في جدول profiles
-            // We need to ensure we insert into profiles with correct defaults
+            // 1. إنشاء الحساب في auth.users عبر signUp لإنشاء الهويات بشكل صحيح
+            const email = `${formData.job_number}@inftele.com`;
+
+            const { data: authData, error: signUpError } = await tempAuthClient.auth.signUp({
+                email: email,
+                password: formData.password
+            });
+
+            if (signUpError || !authData.user) {
+                console.error("Auth signUp error:", signUpError);
+                throw new Error("فشل إنشاء حساب المستخدم في نظام المصادقة: " + signUpError?.message);
+            }
+
+            const newUserId = authData.user.id;
+
+            // توثيق البريد الإلكتروني وتزامن كلمة المرور عبر RPC للتأكد من حالة الحساب
+            await supabase.rpc('rpc_sync_user_auth', {
+                p_user_id: newUserId,
+                p_email: email,
+                p_password: formData.password
+            });
+
+            // 2. إضافة المستخدم في جدول profiles
             const { data: user, error: userError } = await supabase
                 .from('profiles')
                 .insert([{
+                    id: newUserId,
                     username: formData.username,
                     password: formData.password,
                     full_name: formData.full_name,
@@ -714,14 +804,6 @@ export const AdminDashboard = () => {
                 }]);
 
             if (financialError) throw financialError;
-
-            // 2.5 مزامنة بيانات الدخول مع نظام Auth (ضروري لتسجيل الدخول)
-            const email = `${formData.job_number}@inftele.com`;
-            await supabase.rpc('rpc_sync_user_auth', {
-                p_user_id: user.id,
-                p_email: email,
-                p_password: formData.password
-            });
 
             toast.success("تم إضافة الموظف بنجاح، جارِ الانتقال للتعديل التفصيلي...");
 
@@ -1257,6 +1339,18 @@ export const AdminDashboard = () => {
                         >
                             {loading || isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         </button>
+
+                        {/* Delete User Button - Visible only to admin (مسلم عقيل) and when an employee is selected */}
+                        {selectedEmployee && (currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) && (
+                            <button
+                                onClick={handleDeleteEmployee}
+                                disabled={loading}
+                                className="bg-red-500/10 text-red-500 p-1.5 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-all active:scale-95 border border-red-500/20 mr-2"
+                                title="حذف الموظف نهائياً"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1802,16 +1896,42 @@ export const AdminDashboard = () => {
                                     {/* Row 4: Nominal Salary & Certificate Percentage - Adjusted for mobile: 130px fixed width for Cert to give Salary more space */}
                                     {/* Row 4: Certificate Percentage & Nominal Salary - Vertical Stack */}
                                     <div className="grid grid-cols-1 gap-4">
-                                        <FinancialInput
-                                            key="nominal_salary"
-                                            field={financialFields.basic.find(f => f.key === 'nominal_salary')}
-                                            value={financialData?.nominal_salary}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="nominal_salary"
-                                            isReadOnly={isFieldReadOnly("nominal_salary")}
-                                        />
+                                        <div className="relative">
+                                            <FinancialInput
+                                                key="nominal_salary"
+                                                field={financialFields.basic.find(f => f.key === 'nominal_salary')}
+                                                value={financialData?.nominal_salary}
+                                                onChange={handleFinancialChange}
+                                                recordId={financialData?.id}
+                                                tableName="financial_records"
+                                                dbField="nominal_salary"
+                                                isReadOnly={isFieldReadOnly("nominal_salary")}
+                                            />
+                                            {financialData?.salary_grade && financialData?.salary_stage && getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) !== null && (
+                                                <div className="flex items-center gap-2 mt-1 mb-2 text-xs mr-[140px] pr-2">
+                                                    {Number(financialData.nominal_salary) === getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) ? (
+                                                        <span className="text-green-600 dark:text-green-400 font-medium flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-green-200 dark:border-green-800">
+                                                            <CheckCircle size={12} /> مطابق لسلم الرواتب
+                                                        </span>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                                                                <AlertCircle size={12} /> غير مطابق (المستحق: {getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage)?.toLocaleString()})
+                                                            </span>
+                                                            {!isFieldReadOnly("nominal_salary") && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setFinancialData({ ...financialData, nominal_salary: getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) })}
+                                                                    className="text-white bg-amber-500 hover:bg-amber-600 px-2 py-1 rounded-md text-[11px] transition font-bold shadow-sm"
+                                                                >
+                                                                    تحديث وتصحيح
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         <FinancialInput
                                             key="certificate_percentage"
                                             field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage')!, label: "م.الشهادة %" }}

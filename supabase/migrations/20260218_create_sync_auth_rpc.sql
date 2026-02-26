@@ -66,15 +66,17 @@ BEGIN
             user_id,
             identity_data,
             provider,
+            provider_id,
             last_sign_in_at,
             created_at,
             updated_at
         )
         VALUES (
-            p_user_id,
+            gen_random_uuid(),
             p_user_id,
             jsonb_build_object('sub', p_user_id, 'email', p_email),
             'email',
+            p_user_id::text,
             now(),
             now(),
             now()
