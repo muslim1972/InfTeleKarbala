@@ -18,6 +18,7 @@ interface MatchResult {
     excelName: string;
     oldValue?: any;
     newValue: any;
+    rawRow?: any[];
 }
 
 export function DataPatcher({ onClose }: DataPatcherProps) {
@@ -44,6 +45,10 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
 
     // Matching Configuration
     const [matchBy, setMatchBy] = useState<'full_name' | 'username'>('full_name');
+
+    // Missing Logic States
+    const [showMissingModal, setShowMissingModal] = useState(false);
+    const [allowMissingSkip, setAllowMissingSkip] = useState(false);
 
     // Normalization helper for Arabic names
     const normalizeText = (text: string) => {
@@ -194,6 +199,7 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
 
         try {
             setStep('executing');
+            setAllowMissingSkip(false);
 
             // 1. Fetch ALL "profiles" with their "financial_records"
             const { data: profilesRaw, error } = await supabase
@@ -290,7 +296,8 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
                     results.push({
                         status: 'missing',
                         excelName: excelValueRaw,
-                        newValue: newValue
+                        newValue: newValue,
+                        rawRow: row
                     });
                 }
             });
@@ -875,6 +882,27 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
                     {
                         step === 'preview' && (
                             <div className="h-full flex flex-col p-6 animate-in slide-in-from-right-10 duration-300">
+                                {/* Missing Records Warning Zone */}
+                                {stats.missing > 0 && (
+                                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <div>
+                                            <h4 className="font-bold text-amber-800 dark:text-amber-400 flex items-center gap-2">
+                                                <AlertTriangle className="w-5 h-5" />
+                                                تنبيه مهم: {stats.missing} سجل إضافي في الإكسل
+                                            </h4>
+                                            <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-1">
+                                                تم إيجاد أسماء وأرقام في هذا الملف لا تمتلك أي قيود أساسية لدينا في قاعدة البيانات لتتم المطابقة المعيارية عليها.
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowMissingModal(true)}
+                                            className="whitespace-nowrap px-4 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-800/50 dark:hover:bg-amber-800 text-amber-700 dark:text-amber-300 font-bold rounded-lg transition-colors border border-amber-300 dark:border-amber-700 shadow-sm"
+                                        >
+                                            استعراض الأسماء الإضافية
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* Stats Bar */}
                                 <div className="grid grid-cols-4 gap-2 mb-4">
                                     <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-900/50 flex flex-col items-center justify-center">
@@ -959,6 +987,60 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
                                         </table>
                                     </div>
                                 </div>
+
+                                {/* Missing Records Modal */}
+                                {showMissingModal && (
+                                    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                                        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
+                                            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-t-xl">
+                                                <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white">
+                                                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                                                    الأسماء الإضافية غير المتطابقة مع النظام ({stats.missing})
+                                                </h3>
+                                                <button
+                                                    onClick={() => setShowMissingModal(false)}
+                                                    className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                                                >
+                                                    <X className="w-5 h-5 text-zinc-500" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 flex-1 overflow-auto bg-zinc-50/30 dark:bg-black/10">
+                                                <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
+                                                    <table className="w-full text-right text-sm">
+                                                        <thead className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-bold border-b border-zinc-200 dark:border-zinc-700">
+                                                            <tr>
+                                                                <th className="p-3 w-12 text-center">#</th>
+                                                                <th className="p-3">الاسم في الإكسل</th>
+                                                                <th className="p-3">القيمة الجديدة</th>
+                                                                <th className="p-3 w-1/2">بيانات الصف بالكامل (مقتطف مع العناوين)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                            {matches.filter(m => m.status === 'missing').map((m, idx) => (
+                                                                <tr key={idx} className="hover:bg-amber-50/30 dark:hover:bg-amber-900/10 transition-colors">
+                                                                    <td className="p-3 text-center font-mono text-zinc-400">{idx + 1}</td>
+                                                                    <td className="p-3 font-bold text-amber-700 dark:text-amber-500">
+                                                                        {m.excelName || 'بدون اسم'}
+                                                                    </td>
+                                                                    <td className="p-3 text-blue-600 dark:text-blue-400 font-mono" dir="ltr">
+                                                                        {typeof m.newValue === 'object' ? JSON.stringify(m.newValue) : String(m.newValue)}
+                                                                    </td>
+                                                                    <td className="p-3 text-xs text-zinc-500 font-mono leading-relaxed" dir="ltr">
+                                                                        {m.rawRow ?
+                                                                            m.rawRow.map((cell: any, i: number) =>
+                                                                                cell && headers[i] ? `[${headers[i]}]: ${cell}` : null
+                                                                            ).filter(Boolean).join(' | ').substring(0, 150) + (m.rawRow.length > 5 ? '...' : '')
+                                                                            : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )
                     }
@@ -1020,14 +1102,29 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
                             )}
 
                             {step === 'preview' && (
-                                <button
-                                    onClick={executeUpdate}
-                                    disabled={(stats.found + stats.new) === 0}
-                                    className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/20"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    تنفيذ التحديث ({stats.found + stats.new})
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    {stats.missing > 0 && (
+                                        <label className="flex items-center gap-2 cursor-pointer bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded-lg border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                checked={allowMissingSkip}
+                                                onChange={(e) => setAllowMissingSkip(e.target.checked)}
+                                                className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 focus:ring-offset-0 disabled:opacity-50 cursor-pointer"
+                                            />
+                                            <span className="text-sm font-bold text-amber-900 dark:text-amber-300">
+                                                أؤكد تجاوز الأسماء المفقودة ({stats.missing}) وحقن المُطابَق فقط
+                                            </span>
+                                        </label>
+                                    )}
+                                    <button
+                                        onClick={executeUpdate}
+                                        disabled={(stats.found + stats.new) === 0 || (stats.missing > 0 && !allowMissingSkip)}
+                                        className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/20"
+                                    >
+                                        <Save className="w-4 h-4" />
+                                        تنفيذ التحديث ({stats.found + stats.new})
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )
