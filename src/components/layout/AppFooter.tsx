@@ -1,7 +1,11 @@
 import { Code2 } from "lucide-react";
 import TipsMarquee from "../ui/TipsMarquee";
 
-export const AppFooter = () => {
+interface AppFooterProps {
+    onDeveloperClick?: () => void;
+}
+
+export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
     return (
         <footer className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col">
 
@@ -23,23 +27,26 @@ export const AppFooter = () => {
 
                     {/* Line 3: Credits & Version */}
                     <div className="flex items-center justify-between text-[10px] md:text-xs text-white/50 font-mono relative pt-1">
-                        <div className="flex items-center gap-2 transition-colors hover:text-blue-300">
+                        <div className="flex items-center gap-2">
                             <Code2 className="w-3 h-3" />
                             <span>اعداد المهندس مسلم عقيل</span>
                         </div>
 
                         {/* Signature Image - Centered with Solar Halo */}
-                        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-12 h-12">
+                        <div
+                            onClick={onDeveloperClick}
+                            className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-12 h-12 cursor-pointer group active:scale-95 transition-all z-[60]"
+                        >
                             {/* Halo Effect - Sun Rays */}
-                            <div className="absolute w-full h-full bg-yellow-500/40 rounded-full blur-sm animate-ripple" style={{ animationDelay: '0s' }} />
-                            <div className="absolute w-full h-full bg-yellow-400/30 rounded-full blur-md animate-ripple" style={{ animationDelay: '0.6s' }} />
-                            <div className="absolute w-full h-full bg-orange-400/20 rounded-full blur-lg animate-ripple" style={{ animationDelay: '1.2s' }} />
+                            <div className="absolute w-full h-full bg-yellow-500/40 rounded-full blur-sm animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
+                            <div className="absolute w-full h-full bg-yellow-400/30 rounded-full blur-md animate-ripple group-hover:bg-blue-400/40" style={{ animationDelay: '0.6s' }} />
+                            <div className="absolute w-full h-full bg-orange-400/20 rounded-full blur-lg animate-ripple group-hover:bg-purple-400/30" style={{ animationDelay: '1.2s' }} />
 
                             {/* The Image */}
                             <img
                                 src="/MyName.png"
                                 alt="Signature"
-                                className="h-10 md:h-12 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+                                className="h-10 md:h-12 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500"
                             />
                         </div>
 

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
+import DeveloperCV from "../ui/DeveloperCV";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -13,6 +15,7 @@ interface LayoutProps {
 
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
     const navigate = useNavigate();
+    const [isCVOpen, setIsCVOpen] = useState(false);
 
     return (
         <div className="min-h-screen w-full relative bg-background text-foreground font-tajawal transition-colors duration-300">
@@ -29,7 +32,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-32 md:pb-40", className)}>
                     {children}
                 </main>
-                <AppFooter />
+                <AppFooter onDeveloperClick={() => setIsCVOpen(true)} />
 
                 {/* Global Chat FAB */}
                 <button
@@ -58,6 +61,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                         style={{ borderColor: '#8b5cf6' }}
                     />
                 </button>
+                <DeveloperCV isOpen={isCVOpen} onClose={() => setIsCVOpen(false)} />
             </div>
         </div>
     );
