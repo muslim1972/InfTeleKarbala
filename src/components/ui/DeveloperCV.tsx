@@ -34,7 +34,7 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                         initial={{ y: 50, opacity: 0, scale: 0.95 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 50, opacity: 0, scale: 0.95 }}
-                        className="relative w-full max-w-5xl bg-slate-900/50 border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-max text-white mb-10"
+                        className="relative w-full max-w-5xl bg-slate-900/50 border border-white/10 rounded-[2rem] shadow-2xl overflow-visible flex flex-col md:flex-row min-h-max text-white mb-10"
                         dir="rtl"
                     >
                         {/* Background Decorations */}
@@ -45,21 +45,43 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         {/* Side Panel (Profile) */}
-                        <div className="w-full md:w-1/3 bg-gradient-to-b from-blue-600/20 to-slate-900/80 p-8 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-l border-white/10 relative z-10">
+                        <div className="w-full md:w-1/3 bg-gradient-to-b from-blue-600/20 to-slate-900/80 p-8 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-l border-white/10 relative z-20 overflow-visible">
                             <motion.div
                                 initial={{ scale: 0, rotate: -10 }}
                                 animate={{ scale: 1, rotate: 0 }}
                                 transition={{ delay: 0.2, type: 'spring' }}
-                                className="relative"
+                                className="relative group/profile flex flex-col items-center overflow-visible"
                             >
-                                <div className="w-48 h-48 rounded-full border-4 border-blue-400/30 p-1 bg-gradient-to-tr from-blue-500 to-purple-500 shadow-2xl overflow-hidden mb-6">
+                                {/* Left Dedication Image - Using absolute screen-space relative to profile */}
+                                <motion.img
+                                    initial={{ opacity: 0, scale: 0 }}
+                                    animate={{ opacity: 1, scale: 1, x: -160, y: -40, rotate: -20 }}
+                                    transition={{ delay: 0.6, type: 'spring' }}
+                                    src="/white Dedication.png"
+                                    alt="Dedication Left"
+                                    className="absolute left-1/2 top-0 w-32 h-32 object-contain pointer-events-none drop-shadow-[0_0_20px_rgba(255,255,255,0.5)] z-[-1]"
+                                    style={{ transformOrigin: 'center center' }}
+                                />
+
+                                {/* Right Dedication Image - Using absolute screen-space relative to profile */}
+                                <motion.img
+                                    initial={{ opacity: 0, scale: 0 }}
+                                    animate={{ opacity: 1, scale: 1, x: 160, y: -40, rotate: 20 }}
+                                    transition={{ delay: 0.6, type: 'spring' }}
+                                    src="/white Dedication.png"
+                                    alt="Dedication Right"
+                                    className="absolute right-1/2 top-0 w-32 h-32 object-contain pointer-events-none drop-shadow-[0_0_20px_rgba(255,255,255,0.5)] scale-x-[-1] z-[-1]"
+                                    style={{ transformOrigin: 'center center' }}
+                                />
+
+                                <div className="w-48 h-48 rounded-full border-4 border-blue-400/30 p-1 bg-gradient-to-tr from-blue-500 to-purple-500 shadow-2xl overflow-hidden mb-6 relative z-10">
                                     <img
                                         src="/صورة 1.jpg"
                                         alt="Eng. Muslim A. Alanazi"
                                         className="w-full h-full object-cover rounded-full"
                                     />
                                 </div>
-                                <div className="absolute -bottom-2 -right-2 bg-blue-500 p-2 rounded-full shadow-lg">
+                                <div className="absolute top-36 left-1/2 -translate-x-1/2 bg-blue-500 p-2 rounded-full shadow-lg z-20">
                                     <Cpu className="text-white" size={20} />
                                 </div>
                             </motion.div>
@@ -203,14 +225,36 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                                                 <a href="https://shamelapp.com" target="_blank" rel="noopener noreferrer" className="mr-1 text-blue-400 hover:text-white underline decoration-dotted transition-colors">من هنا</a>
                                             </p>
                                         </div>
-                                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 hover:border-green-500/40 transition-all group sm:col-span-2">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className="text-xs font-bold text-green-400">الحالي</span>
-                                                <Briefcase size={16} className="opacity-40 group-hover:text-green-400" />
+                                        <motion.div
+                                            whileHover={{ scale: 1.02 }}
+                                            className="p-8 bg-gradient-to-br from-green-500/10 to-blue-600/20 rounded-[2.5rem] border-2 border-green-500/40 shadow-[0_10px_40px_rgba(34,197,94,0.15)] hover:shadow-[0_15px_50px_rgba(34,197,94,0.25)] transition-all group sm:col-span-2 relative overflow-hidden flex flex-col items-center text-center"
+                                        >
+                                            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-green-400 to-transparent opacity-40" />
+
+                                            <div className="flex flex-col items-center gap-3 mb-6 w-full">
+                                                <div className="bg-green-500/20 p-3 rounded-2xl mb-2">
+                                                    <Briefcase size={32} className="text-green-400" />
+                                                </div>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="h-px w-8 bg-green-500/30" />
+                                                    <span className="px-4 py-1 bg-green-500 text-white text-[10px] font-black rounded-full uppercase tracking-tighter animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.5)]">الحالي</span>
+                                                    <div className="h-px w-8 bg-green-500/30" />
+                                                </div>
                                             </div>
-                                            <h4 className="font-bold mb-1">نظام الموارد البشرية (HR System)</h4>
-                                            <p className="text-xs opacity-70 leading-relaxed">تطبيق متكامل لإدارة الموارد البشرية يعمل حالياً في مديرية اتصالات ومعلوماتية كربلاء المقدسة، مصمم لتسهيل الإجراءات الإدارية والمالية بدقة عالية، بالتعاون مع اساتذة الاختصاص في المديرية.</p>
-                                        </div>
+
+                                            <div className="space-y-2 mb-6">
+                                                <h4 className="text-3xl font-black text-white drop-shadow-lg">نظام الموارد البشرية</h4>
+                                                <h5 className="text-xl font-mono font-bold text-green-400 tracking-widest uppercase">HR System</h5>
+                                            </div>
+
+                                            <p className="text-sm md:text-lg opacity-80 leading-relaxed max-w-2xl">
+                                                تطبيق متكامل لإدارة الموارد البشرية يعمل حالياً في مديرية اتصالات ومعلوماتية كربلاء المقدسة، مصمم لتسهيل الإجراءات الإدارية والمالية بدقة عالية، بالتعاون مع اساتذة الاختصاص في المديرية.
+                                            </p>
+
+                                            {/* Decorative Background Element */}
+                                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-green-500/5 rounded-full blur-3xl" />
+                                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl" />
+                                        </motion.div>
                                     </div>
                                 </motion.section>
 
