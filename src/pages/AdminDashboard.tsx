@@ -40,6 +40,7 @@ import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal
 import { RequestsTabPermissionsModal } from "../components/admin/RequestsTabPermissionsModal";
 import { ClipboardCheck } from "lucide-react";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
+import { HRLeaveNotifications } from "../features/requests/components/HRLeaveNotifications";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
 import { getExpectedNominalSalary } from "../utils/salaryScale";
 import { DepartmentSelector } from "../components/admin/DepartmentSelector";
@@ -1395,6 +1396,7 @@ export const AdminDashboard = () => {
 
     return (
         <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
+            <HRLeaveNotifications onNavigateToRequests={() => setActiveTab('admin_requests')} />
 
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
@@ -2487,19 +2489,10 @@ export const AdminDashboard = () => {
             {
                 activeTab === 'admin_requests' && (
                     <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                        {selectedEmployee ? (
-                            <AdminLeaveRequests employeeId={selectedEmployee.id} employeeName={selectedEmployee.full_name} />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-gray-100 dark:border-slate-700 h-[60vh]">
-                                <div className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
-                                    <Search size={32} className="text-blue-500" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">الرجاء اختيار موظف أولاً</h3>
-                                <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-                                    قم بالبحث عن موظف واختياره من شريط البحث بالأعلى لعرض وإدارة إجازاته.
-                                </p>
-                            </div>
-                        )}
+                        <AdminLeaveRequests
+                            employeeId={selectedEmployee?.id}
+                            employeeName={selectedEmployee?.full_name}
+                        />
                     </div>
                 )
             }
