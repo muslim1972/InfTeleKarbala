@@ -1,6 +1,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
 import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen } from "lucide-react";
 
@@ -13,14 +14,22 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
     const [showRightArrow, setShowRightArrow] = useState(false);
+    const { user } = useAuth();
 
-    const tabs = [
+    const baseTabs = [
         { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'administrative', label: 'الذاتية', icon: FileText },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'training', label: 'التدريب الصيفي', icon: BookOpen },
     ] as const;
+
+    const tabs = baseTabs.filter(tab => {
+        if (tab.id === 'requests') {
+            return user?.role === 'admin' || user?.can_view_requests === true;
+        }
+        return true;
+    });
 
     const checkScroll = () => {
         if (scrollContainerRef.current) {

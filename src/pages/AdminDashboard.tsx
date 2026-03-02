@@ -37,6 +37,8 @@ import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
+import { RequestsTabPermissionsModal } from "../components/admin/RequestsTabPermissionsModal";
+import { ClipboardCheck } from "lucide-react";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
 import { getExpectedNominalSalary } from "../utils/salaryScale";
@@ -132,6 +134,7 @@ export const AdminDashboard = () => {
 
     // Field Permissions State
     const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
+    const [showRequestsPermissionsModal, setShowRequestsPermissionsModal] = useState(false);
     const [fieldPermissions, setFieldPermissions] = useState<any[]>([]);
 
     const fetchFieldPermissions = async () => {
@@ -792,27 +795,21 @@ export const AdminDashboard = () => {
                 return; // Stop execution to prevent 409 error
             }
 
-            // 1. إنشاء الحساب في auth.users عبر signUp لإنشاء الهويات بشكل صحيح
+            // 1. إنشاء معرّف فريد للمستخدم (بدلاً من signUp لتجاوز قيود Rate Limit)
             const email = `${formData.job_number}@inftele.com`;
+            const newUserId = crypto.randomUUID();
 
-            const { data: authData, error: signUpError } = await tempAuthClient.auth.signUp({
-                email: email,
-                password: formData.password
-            });
-
-            if (signUpError || !authData.user) {
-                console.error("Auth signUp error:", signUpError);
-                throw new Error("فشل إنشاء حساب المستخدم في نظام المصادقة: " + signUpError?.message);
-            }
-
-            const newUserId = authData.user.id;
-
-            // توثيق البريد الإلكتروني وتزامن كلمة المرور عبر RPC للتأكد من حالة الحساب
-            await supabase.rpc('rpc_sync_user_auth', {
+            // توثيق البريد الإلكتروني وتزامن كلمة المرور عبر RPC لإنشاء الحساب مباشرة
+            const { error: syncError } = await supabase.rpc('rpc_sync_user_auth', {
                 p_user_id: newUserId,
                 p_email: email,
                 p_password: formData.password
             });
+
+            if (syncError) {
+                console.error("RPC Sync Auth error:", syncError);
+                throw new Error("فشل إنشاء حساب المستخدم في النظام: " + syncError.message);
+            }
 
             // 2. إضافة المستخدم في جدول profiles
             const { data: user, error: userError } = await supabase
@@ -2070,7 +2067,7 @@ export const AdminDashboard = () => {
                             {/* Excel Update Button - Visible ONLY to Muslim Aqeel */
                                 currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل')) && (
                                     <>
-                                        <div className="mt-8 flex justify-center gap-4">
+                                        <div className="mt-8 flex flex-wrap justify-center gap-4">
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setShowDataPatcher(true)}
@@ -2097,7 +2094,22 @@ export const AdminDashboard = () => {
                                                 <Shield className="w-4 h-4 text-amber-500" />
                                                 الحقول حسب الصلاحية
                                             </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setShowRequestsPermissionsModal(true)}
+                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
+                                            >
+                                                <ClipboardCheck className="w-4 h-4 text-purple-500" />
+                                                تحديد مستخدمي تبويبة الطلبات
+                                            </Button>
                                         </div>
+                                        {showRequestsPermissionsModal && (
+                                            <RequestsTabPermissionsModal
+                                                onClose={() => setShowRequestsPermissionsModal(false)}
+                                                theme={theme}
+                                            />
+                                        )}
                                         {showDataPatcher && (
                                             <DataPatcher onClose={() => setShowDataPatcher(false)} />
                                         )}
