@@ -135,6 +135,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       setError('يرجى تعبئة جميع الحقول المطلوبة بشكل صحيح.');
       return;
     }
+    if (formData.startDate < today) {
+      setError('لا يمكن أن يكون تاريخ بدء الإجازة في الماضي.');
+      return;
+    }
+    if (formData.daysCount > 9) {
+      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 9 أيام. للمدد الأطول، يرجى تقديم استمارة طلب إجازة طويلة.');
+      return;
+    }
     if (!formData.supervisorId) {
       setError('يرجى اختيار المسؤول المباشر لإرسال الطلب إليه.');
       return;
@@ -316,6 +324,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                   <input
                     type="date"
                     required
+                    min={today}
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
@@ -332,7 +341,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 <input
                   type="number"
                   min="1"
-                  max={leavesBalance || 30}
+                  max="9"
                   required
                   value={formData.daysCount}
                   onChange={(e) => setFormData({ ...formData, daysCount: parseInt(e.target.value) || 0 })}
@@ -393,6 +402,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
               <span className="font-semibold block mt-2 text-blue-600 dark:text-blue-400">
                 البداية: {formData.startDate} | المدة: {formData.daysCount} يوم
               </span>
+              {leavesBalance !== undefined && formData.daysCount > leavesBalance && (
+                <span className="block mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-800/50 dark:text-amber-300 rounded-lg text-sm flex items-start gap-2">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                  <span>
+                    <strong>تنبيه:</strong> رصيدك المتبقي ({leavesBalance} يوم) لا يغطي فترة الإجازة بالكامل. سيتم إرسال الطلب لإدارتك مع إرفاق ملاحظة بـ "الرصيد لا يسمح".
+                  </span>
+                </span>
+              )}
             </p>
             <div className="flex gap-3">
               <button

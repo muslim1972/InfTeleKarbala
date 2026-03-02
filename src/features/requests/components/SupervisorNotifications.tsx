@@ -22,19 +22,46 @@ export const SupervisorNotifications = () => {
         // Fetch requests where supervisor_id matches current user AND status is pending
         const { data, count, error } = await supabase
             .from('leave_requests')
-            .select('*, profiles:user_id(full_name, job_number, avatar_url)', { count: 'exact' })
+            .select('*', { count: 'exact' })
             .eq('supervisor_id', user.id)
             .eq('status', 'pending');
 
         if (error) {
             console.error('AdminNotifications: Error fetching:', error);
-        } else {
-            console.log('AdminNotifications: Found requests:', data?.length, 'Count:', count);
-        }
+        } else if (data && data.length > 0) {
+            console.log('AdminNotifications: Found requests:', data.length, 'Count:', count);
 
-        if (data) {
-            setPendingRequests(data);
+            // Secondary query to fetch user profiles to avoid foreign key errors (PGRST200)
+            const validIds = data.map(r => r.user_id).filter(Boolean);
+            const userIds = [...new Set(validIds)];
+            let profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};
+
+            if (userIds.length > 0) {
+                const { data: profilesData } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, job_number, avatar_url')
+                    .in('id', userIds);
+
+                if (profilesData) {
+                    profilesData.forEach(p => {
+                        profileMap[p.id] = p;
+                    });
+                }
+            }
+
+            const formattedData = data.map(item => ({
+                ...item,
+                profiles: item.user_id && profileMap[item.user_id]
+                    ? profileMap[item.user_id]
+                    : null
+            }));
+
+            setPendingRequests(formattedData);
             setPendingCount(count || 0);
+        } else {
+            console.log('AdminNotifications: Found requests: 0 Count:', count || 0);
+            setPendingRequests([]);
+            setPendingCount(0);
         }
     };
 

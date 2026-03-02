@@ -14,6 +14,7 @@ DECLARE
     v_user_id UUID;
     v_current_balance INTEGER;
     v_request_id UUID;
+    v_final_reason TEXT;
 BEGIN
     -- Get current user ID
     v_user_id := auth.uid();
@@ -34,12 +35,11 @@ BEGIN
     WHERE user_id = v_user_id
     LIMIT 1;
 
+    v_final_reason := p_reason;
+
     -- Check balance
     IF v_current_balance < p_days_count THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'message', 'رصيد الإجازات غير كافٍ. الرصيد الحالي: ' || v_current_balance || ' يوم، المطلوب: ' || p_days_count || ' يوم.'
-        );
+        v_final_reason := 'الرصيد لا يسمح.' || CHR(10) || p_reason;
     END IF;
 
     -- Insert request with supervisor_id
@@ -56,7 +56,7 @@ BEGIN
         p_start_date,
         p_end_date,
         p_days_count,
-        p_reason,
+        v_final_reason,
         'pending',
         p_supervisor_id
     )
