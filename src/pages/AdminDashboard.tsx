@@ -43,20 +43,6 @@ import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
 import { getExpectedNominalSalary } from "../utils/salaryScale";
 import { DepartmentSelector } from "../components/admin/DepartmentSelector";
-import { createClient } from '@supabase/supabase-js';
-
-// Create a separate instance with a custom storageKey to prevent "Multiple GoTrueClient instances" warnings
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const tempAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        storageKey: 'temp-admin-auth-creator' // <--- This prevents the console warning
-    }
-});
-
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
