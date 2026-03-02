@@ -621,16 +621,21 @@ export const AdminDashboard = () => {
 
             // 3. تحديث البيانات الإدارية
             if (adminData) {
+                // If we have an existing record with an ID, UPSERT needs that ID to match, 
+                // or we must rely on ON CONFLICT. Supabase upsert uses Primary Key by default.
+                // Since user_id is unique, we should configure upsert to use it, or just pass the id if we have it.
+                const adminPayload = { ...adminData };
+
                 const { error: admError } = await supabase
                     .from('administrative_summary')
                     .upsert({
-                        ...adminData,
+                        ...adminPayload,
                         user_id: selectedEmployee.id,
                         updated_at: new Date().toISOString(),
                         last_modified_by: currentUser.id,
                         last_modified_by_name: currentUser.full_name,
                         last_modified_at: new Date().toISOString()
-                    });
+                    }, { onConflict: 'user_id' }); // Explicitly tell Supabase to conflict on user_id
                 if (admError) throw admError;
             }
 
@@ -1108,23 +1113,31 @@ export const AdminDashboard = () => {
         // 2. Auto-calculate Certificate Allowance: (Percentage / 100) * Nominal Salary
         if (key === 'certificate_text' || key === 'certificate_percentage' || key === 'nominal_salary') {
             // Get latest values from newData
-            const nominal = parseFloat(String(newData.nominal_salary || 0).replace(/[^0-9.]/g, ''));
-            const certP = parseFloat(String(newData.certificate_percentage || 0));
+            const nominalStr = String(newData.nominal_salary || '0').replace(/[^0-9.]/g, '');
+            const nominal = parseFloat(nominalStr === '' ? '0' : nominalStr);
+            const certPStr = String(newData.certificate_percentage || '0');
+            const certP = parseFloat(certPStr === '' ? '0' : certPStr);
 
             // Only auto-calc if we have valid numbers
             if (!isNaN(nominal) && !isNaN(certP) && nominal > 0) {
                 // Formula: Nominal * (Percentage / 100)
                 newData.certificate_allowance = Math.round(nominal * (certP / 100));
+            } else {
+                newData.certificate_allowance = 0;
             }
         }
 
         // 3. Auto-calculate Risk Allowance: (Risk % / 100) * Nominal Salary
         if (key === 'risk_percentage' || key === 'nominal_salary') {
-            const nominal = parseFloat(String(newData.nominal_salary || 0).replace(/[^0-9.]/g, ''));
-            const riskP = parseFloat(String(newData.risk_percentage || 0));
+            const nominalStr = String(newData.nominal_salary || '0').replace(/[^0-9.]/g, '');
+            const nominal = parseFloat(nominalStr === '' ? '0' : nominalStr);
+            const riskPStr = String(newData.risk_percentage || '0');
+            const riskP = parseFloat(riskPStr === '' ? '0' : riskPStr);
 
             if (!isNaN(nominal) && !isNaN(riskP)) {
                 newData.risk_allowance = Math.round(nominal * (riskP / 100));
+            } else {
+                newData.risk_allowance = 0;
             }
         }
 
