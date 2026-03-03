@@ -274,18 +274,35 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     return (
         <div className="space-y-6">
             <style>{`
+                .print-only {
+                    visibility: hidden;
+                    position: absolute;
+                    top: -9999px;
+                    left: -9999px;
+                    height: 0;
+                    overflow: hidden;
+                }
                 @media print {
                     @page { size: A4 portrait; margin: 0; }
-                    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
-                    body * { visibility: hidden; }
+                    html, body {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        height: 100vh !important;
+                        overflow: hidden !important;
+                    }
+                    body * { visibility: hidden !important; }
                     #print-section {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100vw;
-                        height: 100vh;
                         visibility: visible !important;
-                        background: white;
+                        position: fixed !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100vw !important;
+                        height: 100vh !important;
+                        background: white !important;
+                        overflow: hidden !important;
+                        z-index: 9999 !important;
                     }
                     #print-section * { visibility: visible !important; }
                 }
@@ -293,68 +310,84 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
             {/* Hidden Print Layout */}
             {printingRecord && (
-                <div id="print-section" className="hidden print:block w-[210mm] h-[297mm] mx-auto bg-white text-black py-4 px-12 relative font-sans" dir="rtl">
-                    {/* Header Section */}
-                    <div className="flex justify-between items-start mb-8">
-                        {/* Top Right: Directorate Info */}
-                        <div className="text-center w-80 leading-relaxed text-sm">
-                            <p className="font-bold mb-1">مديرية اتصالات ومعلوماتية</p>
-                            <p className="text-lg font-black mb-2">كربلاء المقدسة</p>
-                            <p className="font-bold text-xs mb-1">نظام الإدارة الموحد</p>
-                            <p className="text-xs font-semibold">طبعت : {new Date().toLocaleDateString('en-GB')}</p>
-                        </div>
-
-                        {/* Top Left: Approval Seal */}
-                        <div className="text-center mt-2">
-                            <div className="border-[2px] border-green-700/80 rounded-full px-4 py-1.5 mb-2 inline-block">
-                                <p className="text-green-700 font-bold text-sm tracking-wide">حاصل على موافقة المسؤول المباشر</p>
+                <div
+                    id="print-section"
+                    className="print-only"
+                    style={{
+                        direction: 'rtl',
+                        fontFamily: 'Arial, sans-serif',
+                        color: '#000',
+                        background: '#fff',
+                    }}
+                >
+                    {/* Actual print content with fixed layout */}
+                    <div style={{
+                        width: '100%',
+                        height: '100vh',
+                        padding: '12mm 16mm 10mm 16mm',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                    }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8mm' }}>
+                            <div style={{ textAlign: 'center', lineHeight: '1.6' }}>
+                                <p style={{ fontWeight: 'bold', fontSize: '11pt', margin: '0 0 2px 0' }}>مديرية اتصالات ومعلوماتية</p>
+                                <p style={{ fontWeight: '900', fontSize: '14pt', margin: '0 0 2px 0' }}>كربلاء المقدسة</p>
+                                <p style={{ fontWeight: 'bold', fontSize: '9pt', margin: '0 0 2px 0' }}>نظام الإدارة الموحد</p>
+                                <p style={{ fontSize: '8pt', margin: '4px 0 0 0' }}>طبعت : {new Date().toLocaleDateString('en-GB')}</p>
                             </div>
-                            <p className="text-xs font-bold text-gray-800">{new Date(printingRecord.created_at).toLocaleDateString('en-GB')}</p>
-                        </div>
-                    </div>
-
-                    {/* Title */}
-                    <div className="text-center mb-10">
-                        <h1 className="text-xl font-black tracking-wider">استمارة الاجازة الاعتيادية</h1>
-                    </div>
-
-                    {/* Body content */}
-                    <div className="text-lg leading-[3rem] font-bold px-4 mb-20 relative">
-                        <div className="flex flex-wrap items-center">
-                            <span className="ml-2">يرجى الموافقة على منحي إجازة اعتيادية لمدة</span>
-                            <span className="inline-block px-4 mx-2 min-w-[80px] text-center font-mono">
-                                {printingRecord.days_count} يوم
-                            </span>
-                            <span className="mr-8">اعتبارا من</span>
-                        </div>
-                        <div className="flex items-center mt-4">
-                            <span className="ml-2 w-16">تأريخ</span>
-                            <span className="inline-block px-4 mx-2 text-center font-mono">
-                                {printingRecord.start_date}
-                            </span>
-                            <span className="ml-4 mr-4 text-nowrap">. وذلك لأغراض</span>
-                            <span className="inline-block px-4 min-w-[200px] text-center flex-1 break-words leading-relaxed overflow-hidden" style={{ maxHeight: '12rem' }}>
-                                {printingRecord.reason || '-'}
-                            </span>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ border: '2px solid #166534', borderRadius: '50px', padding: '4px 14px', display: 'inline-block' }}>
+                                    <p style={{ color: '#166534', fontWeight: 'bold', fontSize: '10pt', margin: 0 }}>حاصل على موافقة المسؤول المباشر</p>
+                                </div>
+                                <p style={{ fontSize: '8pt', fontWeight: 'bold', margin: '4px 0 0 0' }}>{new Date(printingRecord.created_at).toLocaleDateString('en-GB')}</p>
+                            </div>
                         </div>
 
-                        {/* Employee Name floating middle left (2 empty lines below text) */}
-                        <div className="absolute left-8 mt-16 text-center min-w-[200px]">
-                            <p className="text-lg font-bold px-4 pb-1 inline-block">{printingRecord.employee_name}</p>
-                        </div>
-                    </div>
-
-                    {/* Bottom Section */}
-                    {/* Positioned higher up from bottom to reduce space from employee name */}
-                    <div className="absolute w-full top-[16rem] mt-48 left-0 right-0 flex justify-between px-16 items-start text-base text-center">
-                        {/* Bottom Right: Supervisor */}
-                        <div className="w-1/3 pt-4">
-                            <p className="font-bold mb-4">{printingRecord.supervisor?.full_name}</p>
+                        {/* Title */}
+                        <div style={{ textAlign: 'center', marginBottom: '7mm' }}>
+                            <h1 style={{ fontSize: '15pt', fontWeight: '900', margin: 0, letterSpacing: '1px' }}>استمارة الاجازة الاعتيادية</h1>
                         </div>
 
-                        {/* Bottom Left: Manager */}
-                        <div className="w-1/3 pt-4">
-                            <p className="font-bold mb-4">{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
+                        {/* Body */}
+                        <div style={{ fontSize: '12pt', fontWeight: 'bold', lineHeight: '2.2', paddingRight: '8px', paddingLeft: '8px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ marginLeft: '6px' }}>يرجى الموافقة على منحي إجازة اعتيادية لمدة</span>
+                                <span style={{ marginRight: '8px', marginLeft: '8px', minWidth: '60px', textAlign: 'center' }}>
+                                    {printingRecord.days_count} يوم
+                                </span>
+                                <span style={{ marginRight: '20px' }}>اعتبارا من</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '4px' }}>
+                                <span style={{ marginLeft: '8px', width: '50px' }}>تأريخ</span>
+                                <span style={{ marginLeft: '8px', marginRight: '8px', textAlign: 'center' }}>
+                                    {printingRecord.start_date}
+                                </span>
+                                <span style={{ marginLeft: '12px', marginRight: '12px', whiteSpace: 'nowrap' }}>. وذلك لأغراض</span>
+                                <span style={{ flex: 1, textAlign: 'center', wordBreak: 'break-word', lineHeight: '1.5', maxHeight: '60px', overflow: 'hidden' }}>
+                                    {printingRecord.reason || '-'}
+                                </span>
+                            </div>
+
+                            {/* Employee Name */}
+                            <div style={{ marginTop: '14mm', paddingLeft: '40mm', textAlign: 'left' }}>
+                                <p style={{ fontWeight: 'bold', fontSize: '12pt', margin: 0 }}>{printingRecord.employee_name}</p>
+                            </div>
+                        </div>
+
+                        {/* Spacer — 3 empty lines */}
+                        <div style={{ height: '22mm', flexShrink: 0 }}></div>
+
+                        {/* Signatures */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '30mm', paddingLeft: '30mm', textAlign: 'center' }}>
+                            <div style={{ width: '40%' }}>
+                                <p style={{ fontWeight: 'bold', fontSize: '11pt', margin: 0 }}>{printingRecord.supervisor?.full_name}</p>
+                            </div>
+                            <div style={{ width: '40%' }}>
+                                <p style={{ fontWeight: 'bold', fontSize: '11pt', margin: 0 }}>{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
