@@ -170,7 +170,7 @@ export const Dashboard = () => {
 
     // Fetch All Data in Parallel (محسّن للأداء)
     useEffect(() => {
-        if (user?.id) {
+        if (user?.id && (activeTab === 'financial' || activeTab === 'administrative')) {
             const fetchData = async () => {
                 setLoading(true);
                 console.log("Fetching all data in parallel for user ID:", user.id);
@@ -290,7 +290,7 @@ export const Dashboard = () => {
 
             fetchData();
         }
-    }, [user?.id]);
+    }, [user?.id, activeTab]);
 
     // Reset details when year changes
     useEffect(() => {

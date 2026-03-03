@@ -18,16 +18,7 @@ interface EmployeeFinancialData {
  * جلب البيانات المالية والإدارية للموظف مع الكاش
  */
 async function fetchEmployeeData(userId: string): Promise<EmployeeFinancialData> {
-    const cacheKey = `${CACHE_CONFIG.FINANCIAL_KEY}${userId}`;
-
-    // محاولة جلب من الكاش أولاً
-    const cached = await cacheManager.get<EmployeeFinancialData>(cacheKey);
-    if (cached) {
-        console.log('[useEmployeeData] جلب من الكاش');
-        return cached;
-    }
-
-    console.log('[useEmployeeData] جلب من قاعدة البيانات...');
+    console.log('[useEmployeeData] جلب من قاعدة البيانات للحصول على أرصدة دقيقة...');
 
     // جلب كل البيانات بالتوازي
     const [financialResult, adminResult, yearlyResult] = await Promise.all([
@@ -57,9 +48,6 @@ async function fetchEmployeeData(userId: string): Promise<EmployeeFinancialData>
         yearlyData: yearlyResult.data || []
     };
 
-    // حفظ في الكاش
-    await cacheManager.set(cacheKey, data);
-
     return data;
 }
 
@@ -74,9 +62,9 @@ export function useEmployeeData(userId: string | undefined) {
         queryKey: ['employeeData', userId],
         queryFn: () => fetchEmployeeData(userId!),
         enabled: !!userId,
-        staleTime: settings.staleTime,
+        staleTime: 0, // Forced 0 to ensure financial data is ALWAYS fresh on remount/focus
         gcTime: settings.gcTime,
-        refetchOnWindowFocus: settings.refetchOnWindowFocus,
+        refetchOnWindowFocus: true,
         retry: 2,
     });
 

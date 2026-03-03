@@ -19,19 +19,19 @@ export const SupervisorNotifications = () => {
 
         console.log('AdminNotifications: Fetching for supervisor:', user.id);
 
-        // Fetch requests where supervisor_id matches current user AND status is pending
+        // Fetch requests where supervisor_id matches current user AND any status is pending
         const { data, count, error } = await supabase
             .from('leave_requests')
             .select('*', { count: 'exact' })
             .eq('supervisor_id', user.id)
-            .eq('status', 'pending');
+            .or('status.eq.pending,leave_status.eq.pending,cancellation_status.eq.pending,cut_status.eq.pending');
 
         if (error) {
             console.error('AdminNotifications: Error fetching:', error);
         } else if (data && data.length > 0) {
             console.log('AdminNotifications: Found requests:', data.length, 'Count:', count);
 
-            // Secondary query to fetch user profiles to avoid foreign key errors (PGRST200)
+            // Secondary query to fetch user profiles
             const validIds = data.map(r => r.user_id).filter(Boolean);
             const userIds = [...new Set(validIds)];
             let profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};

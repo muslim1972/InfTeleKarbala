@@ -12,7 +12,7 @@ interface LeaveRequestFormProps {
 
 const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const { data: employeeData, isLoading } = useEmployeeData(user?.id);
+  const { data: employeeData, isLoading, invalidateCache } = useEmployeeData(user?.id);
   const financialData = employeeData?.financialData;
 
   const [formData, setFormData] = useState({
@@ -179,6 +179,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
       setSuccess(true);
       setShowConfirmModal(false);
+
+      // Update the cache immediately so user sees the new balance
+      await invalidateCache();
+
       if (onSuccess) onSuccess();
 
       // Reset form on success
@@ -205,8 +209,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       <EditLeaveRequestForm
         request={latestRequest}
         onCancelEdit={() => setIsEditing(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setIsEditing(false);
+          await invalidateCache(); // Refresh balance after cancel/edit
           fetchLatestRequest();
         }}
       />

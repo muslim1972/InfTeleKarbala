@@ -35,12 +35,28 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
         setError(null);
 
         try {
-            const { error: updateError } = await supabase
+            // Determine which status column to update based on request type
+            let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
+
+            if (request.modification_type === 'canceled') {
+                updatePayload.cancellation_status = status;
+            } else if (request.modification_type === 'cut') {
+                updatePayload.cut_status = status;
+            } else {
+                // Normally (new, or edited)
+                updatePayload.leave_status = status;
+            }
+
+            const { data, error: updateError } = await supabase
                 .from('leave_requests')
-                .update({ status: status })
-                .eq('id', request.id);
+                .update(updatePayload)
+                .eq('id', request.id)
+                .select();
 
             if (updateError) throw updateError;
+            if (!data || data.length === 0) {
+                throw new Error("لم يتم التحديث في قاعدة البيانات. قد يكون بسبب نقص في صلاحياتك (RLS) أو أن الطلب تمت معالجته بالفعل.");
+            }
 
             onProcessed();
             onClose();
