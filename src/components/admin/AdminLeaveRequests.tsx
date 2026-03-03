@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User } from 'lucide-react';
 import { DateInput } from '../ui/DateInput';
@@ -35,12 +35,21 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     const [isLoadingApproved, setIsLoadingApproved] = useState(true);
     const [approvedRecords, setApprovedRecords] = useState<LeaveRecord[]>([]);
 
-    // Archive search state (specific employee from top search bar)
+    // Archive search state
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isLoadingArchive, setIsLoadingArchive] = useState(false);
     const [archiveRecords, setArchiveRecords] = useState<LeaveRecord[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+
+    // Internal employee search state (mirrors top search bar)
+    const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
+    const [archiveSuggestions, setArchiveSuggestions] = useState<any[]>([]);
+    const [showArchiveSuggestions, setShowArchiveSuggestions] = useState(false);
+    const [isArchiveSearching, setIsArchiveSearching] = useState(false);
+    const [localEmployeeId, setLocalEmployeeId] = useState<string | undefined>(employeeId);
+    const [localEmployeeName, setLocalEmployeeName] = useState<string | undefined>(employeeName);
+    const archiveSearchRef = useRef<HTMLDivElement>(null);
 
     // Print state
     const [printingRecord, setPrintingRecord] = useState<LeaveRecord | null>(null);
@@ -51,11 +60,67 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         fetchAllApprovedRequests();
     }, []);
 
-    // Reset archive when employee changes
+    // Sync local employee with props
     useEffect(() => {
+        setLocalEmployeeId(employeeId);
+        setLocalEmployeeName(employeeName);
         setArchiveRecords([]);
         setHasSearched(false);
-    }, [employeeId]);
+    }, [employeeId, employeeName]);
+
+    // Debounced search for archive section
+    useEffect(() => {
+        const delaySearch = setTimeout(async () => {
+            const query = archiveSearchQuery.trim();
+            if (!query) {
+                setArchiveSuggestions([]);
+                setShowArchiveSuggestions(false);
+                return;
+            }
+            setIsArchiveSearching(true);
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, job_number, role')
+                    .or(`job_number.ilike.%${query}%,full_name.ilike.%${query}%`)
+                    .limit(50);
+                if (error) {
+                    setArchiveSuggestions([]);
+                    setShowArchiveSuggestions(false);
+                } else {
+                    setArchiveSuggestions(data || []);
+                    setShowArchiveSuggestions((data || []).length > 0);
+                }
+            } catch {
+                setArchiveSuggestions([]);
+                setShowArchiveSuggestions(false);
+            } finally {
+                setIsArchiveSearching(false);
+            }
+        }, 300);
+        return () => clearTimeout(delaySearch);
+    }, [archiveSearchQuery]);
+
+    // Close suggestions on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (archiveSearchRef.current && !archiveSearchRef.current.contains(e.target as Node)) {
+                setShowArchiveSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelectArchiveEmployee = (user: any) => {
+        setLocalEmployeeId(user.id);
+        setLocalEmployeeName(user.full_name);
+        setArchiveSearchQuery('');
+        setShowArchiveSuggestions(false);
+        setArchiveSuggestions([]);
+        setArchiveRecords([]);
+        setHasSearched(false);
+    };
 
     const fetchAllApprovedRequests = async () => {
         setIsLoadingApproved(true);
@@ -157,7 +222,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
         return data.map(item => ({
             ...item,
-            employee_name: employeeName || '',
+            employee_name: localEmployeeName || '',
             supervisor: item.supervisor_id && supMap[item.supervisor_id]
                 ? supMap[item.supervisor_id]
                 : null
@@ -165,7 +230,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     };
 
     const handleArchiveSearch = async () => {
-        if (!employeeId) return;
+        if (!localEmployeeId) return;
         setIsLoadingArchive(true);
         setHasSearched(true);
 
@@ -173,7 +238,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             let query = supabase
                 .from('leave_requests')
                 .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at')
-                .eq('user_id', employeeId);
+                .eq('user_id', localEmployeeId);
 
             if (startDate) query = query.gte('start_date', startDate);
             if (endDate) query = query.lte('end_date', endDate);
@@ -343,7 +408,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 )}
             </div>
 
-            {/* 2. Archive / Search Section (Collapsible) — uses selectedEmployee from top search bar */}
+            {/* 2. Archive / Search Section (Collapsible) — with built-in employee search */}
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 transition-all">
                 <button
                     onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
@@ -355,7 +420,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         </div>
                         <div className="text-right">
                             <h2 className="text-lg font-bold">الأرشيف وبحث الاستمارات</h2>
-                            <p className="text-sm text-gray-500">اختر موظفاً من شريط البحث بالأعلى ثم ابحث في إجازاته</p>
+                            <p className="text-sm text-gray-500">ابحث عن موظف بالاسم أو الرقم الوظيفي ثم ابحث في إجازاته</p>
                         </div>
                     </div>
                     <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
@@ -365,12 +430,73 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
                 {isArchiveExpanded && (
                     <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-700 animate-in slide-in-from-top-4 duration-300">
-                        {employeeId ? (
+                        {/* Employee Search Field */}
+                        <div className="mb-6" ref={archiveSearchRef}>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">بحث عن موظف</label>
+                            <div className="relative">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="الرقم الوظيفي أو الاسم..."
+                                        value={archiveSearchQuery}
+                                        onChange={e => setArchiveSearchQuery(e.target.value)}
+                                        onFocus={() => { if (archiveSuggestions.length > 0) setShowArchiveSuggestions(true); }}
+                                        className="w-full border rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all"
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                        {isArchiveSearching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                                    </div>
+                                </div>
+
+                                {/* Suggestions Dropdown */}
+                                {showArchiveSuggestions && archiveSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[200px] overflow-y-auto">
+                                        {archiveSuggestions.map((user, idx) => (
+                                            <button
+                                                key={user.id || idx}
+                                                type="button"
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => handleSelectArchiveEmployee(user)}
+                                                className="w-full text-right px-4 py-3 border-b last:border-0 border-gray-100 dark:border-slate-700 flex items-center justify-between group hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                                        <User size={14} className="text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{user.full_name}</div>
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400">{user.job_number}</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
+                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {localEmployeeId ? (
                             <>
                                 {/* Selected employee info */}
-                                <div className="mb-6 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-xl text-sm border border-blue-200 dark:border-blue-800/50">
-                                    <User size={16} className="text-blue-600" />
-                                    <span className="font-bold text-blue-800 dark:text-blue-300">{employeeName}</span>
+                                <div className="mb-6 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-xl text-sm border border-blue-200 dark:border-blue-800/50">
+                                    <div className="flex items-center gap-2">
+                                        <User size={16} className="text-blue-600" />
+                                        <span className="font-bold text-blue-800 dark:text-blue-300">{localEmployeeName}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setLocalEmployeeId(undefined);
+                                            setLocalEmployeeName(undefined);
+                                            setArchiveRecords([]);
+                                            setHasSearched(false);
+                                        }}
+                                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold transition-colors"
+                                    >
+                                        تغيير
+                                    </button>
                                 </div>
 
                                 {/* Date Filters + Search Button */}
@@ -463,7 +589,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                             <div className="text-center py-10 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
                                 <Search size={32} className="mx-auto mb-3 text-gray-400" />
                                 <p className="font-bold">اختر موظفاً أولاً</p>
-                                <p className="text-sm mt-1">استخدم شريط البحث في أعلى الصفحة للبحث عن الموظف المراد عرض أرشيف إجازاته</p>
+                                <p className="text-sm mt-1">استخدم حقل البحث أعلاه للبحث عن الموظف المراد عرض أرشيف إجازاته</p>
                             </div>
                         )}
                     </div>
