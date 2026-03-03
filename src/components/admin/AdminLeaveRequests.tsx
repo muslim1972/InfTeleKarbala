@@ -142,9 +142,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 if (allIds.length > 0) {
                     const { data: profiles } = await supabase
                         .from('profiles')
-                        .select('id, full_name, job_title, job_number, department_id')
+                        .select('id, full_name, job_number, department_id')
                         .in('id', allIds);
-
                     if (profiles) {
                         profiles.forEach(p => { profileMap[p.id] = p; });
                         const deptIds = [...new Set(profiles.map(p => p.department_id).filter(Boolean))];
@@ -164,7 +163,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         ? deptMap[profileMap[item.user_id].department_id!] || ''
                         : '',
                     supervisor: item.supervisor_id && profileMap[item.supervisor_id]
-                        ? { full_name: profileMap[item.supervisor_id].full_name, job_title: profileMap[item.supervisor_id].job_title }
+                        ? { full_name: profileMap[item.supervisor_id].full_name, job_title: '' }
                         : null
                 })) as LeaveRecord[];
 
@@ -197,11 +196,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             }
 
             if (lastManagerId) {
-                const { data: mgrProfile } = await supabase.from('profiles').select('full_name, job_title').eq('id', lastManagerId).single();
+                const { data: mgrProfile } = await supabase.from('profiles').select('full_name').eq('id', lastManagerId).single();
                 if (mgrProfile) {
                     setDirectorateManager({
                         full_name: mgrProfile.full_name,
-                        job_title: mgrProfile.job_title || 'مدير المديرية'
+                        job_title: 'مدير المديرية'
                     });
                 }
             }
@@ -216,8 +215,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         let supMap: Record<string, { full_name: string; job_title?: string }> = {};
 
         if (supIds.length > 0) {
-            const { data: sups } = await supabase.from('profiles').select('id, full_name, job_title').in('id', supIds);
-            if (sups) sups.forEach(s => { supMap[s.id] = s; });
+            const { data: sups } = await supabase.from('profiles').select('id, full_name').in('id', supIds);
+            if (sups) sups.forEach(s => { supMap[s.id] = { ...s, job_title: '' }; });
         }
 
         return data.map(item => ({

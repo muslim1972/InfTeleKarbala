@@ -12,12 +12,19 @@ export const HRLeaveNotifications = ({ onNavigateToRequests }: HRLeaveNotificati
     const [approvedCount, setApprovedCount] = useState(0);
 
     const fetchApprovedCount = async () => {
-        if (!user || user.id === 'visitor-id') return;
+        if (!user || user.id === 'visitor-id') {
+            console.log('HRLeaveNotifications: Skipping - no user or visitor');
+            return;
+        }
+
+        console.log('HRLeaveNotifications: Fetching approved count for user:', user.id, user.full_name);
 
         const { count, error } = await supabase
             .from('leave_requests')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'approved');
+
+        console.log('HRLeaveNotifications: Result - count:', count, 'error:', error);
 
         if (error) {
             console.error('HRLeaveNotifications: Error fetching:', error);
