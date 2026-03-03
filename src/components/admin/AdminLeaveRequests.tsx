@@ -372,21 +372,21 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                             </div>
 
                             {/* Employee Name */}
-                            <div style={{ marginTop: '14mm', paddingLeft: '20mm', textAlign: 'left' }}>
+                            <div style={{ marginTop: '14mm', paddingLeft: '5mm', textAlign: 'left' }}>
                                 <p style={{ fontWeight: 'bold', fontSize: '12pt', margin: 0 }}>{printingRecord.employee_name}</p>
                             </div>
                         </div>
 
                         {/* Spacer — 3 empty lines */}
-                        <div style={{ height: '22mm', flexShrink: 0 }}></div>
+                        <div style={{ height: '49mm', flexShrink: 0 }}></div>
 
                         {/* Signatures */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '30mm', paddingLeft: '30mm', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '15mm', paddingLeft: '15mm', textAlign: 'center' }}>
                             <div style={{ width: '40%' }}>
-                                <p style={{ fontWeight: 'bold', fontSize: '11pt', margin: 0 }}>{printingRecord.supervisor?.full_name}</p>
+                                <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: 0 }}>{printingRecord.supervisor?.full_name}</p>
                             </div>
                             <div style={{ width: '40%' }}>
-                                <p style={{ fontWeight: 'bold', fontSize: '11pt', margin: 0 }}>{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
+                                <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: 0 }}>{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
                             </div>
                         </div>
                     </div>
