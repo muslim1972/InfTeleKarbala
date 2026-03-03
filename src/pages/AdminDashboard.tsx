@@ -6,7 +6,7 @@ import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save, Trash2, CheckCircle } from "lucide-react";
+import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save, Trash2, CheckCircle, ShieldAlert } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
@@ -19,6 +19,7 @@ import { ScrollableTabs } from "../components/ui/ScrollableTabs";
 import { DataPatcher } from '../components/admin/DataPatcher';
 import { SmartSalaryUpdater } from '../components/admin/SmartSalaryUpdater';
 import { FileSpreadsheet, DatabaseZap } from 'lucide-react';
+import { FixLeaveBalanceModal } from '../components/admin/FixLeaveBalanceModal';
 import {
     Select,
     SelectContent,
@@ -122,6 +123,7 @@ export const AdminDashboard = () => {
     // Field Permissions State
     const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
     const [showRequestsPermissionsModal, setShowRequestsPermissionsModal] = useState(false);
+    const [showFixBalanceModal, setShowFixBalanceModal] = useState(false);
     const [fieldPermissions, setFieldPermissions] = useState<any[]>([]);
 
     const fetchFieldPermissions = async () => {
@@ -2104,6 +2106,18 @@ export const AdminDashboard = () => {
                                                 <ClipboardCheck className="w-4 h-4 text-purple-500" />
                                                 تحديد مستخدمي تبويبة الطلبات
                                             </Button>
+
+                                            {/* Fix Leave Balance Button for Muslim Aqeel */}
+                                            {currentUser?.job_number === '103130486' && (
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setShowFixBalanceModal(true)}
+                                                    className="gap-2 border-border/50 hover:bg-muted/20 hover:border-rose-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
+                                                >
+                                                    <ShieldAlert className="w-4 h-4 text-rose-500" />
+                                                    إصلاح الرصيد
+                                                </Button>
+                                            )}
                                         </div>
                                         {showRequestsPermissionsModal && (
                                             <RequestsTabPermissionsModal
@@ -2113,6 +2127,9 @@ export const AdminDashboard = () => {
                                         )}
                                         {showDataPatcher && (
                                             <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                                        )}
+                                        {showFixBalanceModal && (
+                                            <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} />
                                         )}
                                         {showSmartUpdater && (
                                             <SmartSalaryUpdater onClose={() => setShowSmartUpdater(false)} />
