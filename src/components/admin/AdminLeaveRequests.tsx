@@ -25,6 +25,7 @@ interface LeaveRecord {
     supervisor: {
         full_name: string;
         job_title?: string;
+        engineering_allowance?: number;
     } | null;
 }
 
@@ -136,14 +137,25 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
                 const allIds = [...new Set([...userIds, ...supervisorIds])];
 
-                let profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string }> = {};
+                let profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
                 let deptMap: Record<string, string> = {};
+                let engMap: Record<string, number> = {};
 
                 if (allIds.length > 0) {
                     const { data: profiles } = await supabase
                         .from('profiles')
                         .select('id, full_name, job_number, department_id')
                         .in('id', allIds);
+
+                    const { data: finData } = await supabase
+                        .from('financial_records')
+                        .select('user_id, engineering_allowance')
+                        .in('user_id', allIds);
+                    if (finData) {
+                        finData.forEach(f => {
+                            engMap[f.user_id] = f.engineering_allowance || 0;
+                        });
+                    }
                     if (profiles) {
                         profiles.forEach(p => { profileMap[p.id] = p; });
                         const deptIds = [...new Set(profiles.map(p => p.department_id).filter(Boolean))];
@@ -163,7 +175,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         ? deptMap[profileMap[item.user_id].department_id!] || ''
                         : '',
                     supervisor: item.supervisor_id && profileMap[item.supervisor_id]
-                        ? { full_name: profileMap[item.supervisor_id].full_name, job_title: '' }
+                        ? {
+                            full_name: profileMap[item.supervisor_id].full_name,
+                            job_title: '',
+                            engineering_allowance: engMap[item.supervisor_id] || 0
+                        }
                         : null
                 })) as LeaveRecord[];
 
@@ -212,11 +228,20 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     // Populate supervisor info for records
     const populateSupervisors = async (data: any[]) => {
         const supIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
-        let supMap: Record<string, { full_name: string; job_title?: string }> = {};
+        let supMap: Record<string, { full_name: string; engineering_allowance?: number; job_title?: string }> = {};
 
         if (supIds.length > 0) {
             const { data: sups } = await supabase.from('profiles').select('id, full_name').in('id', supIds);
-            if (sups) sups.forEach(s => { supMap[s.id] = { ...s, job_title: '' }; });
+
+            let engMap: Record<string, number> = {};
+            const { data: finData } = await supabase.from('financial_records').select('user_id, engineering_allowance').in('user_id', supIds);
+            if (finData) {
+                finData.forEach(f => { engMap[f.user_id] = f.engineering_allowance || 0; });
+            }
+
+            if (sups) sups.forEach(s => {
+                supMap[s.id] = { ...s, job_title: '', engineering_allowance: engMap[s.id] || 0 };
+            });
         }
 
         return data.map(item => ({
@@ -383,6 +408,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         {/* Signatures */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '15mm', paddingLeft: '15mm', textAlign: 'center' }}>
                             <div style={{ width: '40%' }}>
+                                {printingRecord.supervisor?.engineering_allowance && printingRecord.supervisor.engineering_allowance > 0 && (
+                                    <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: '0 0 4px 0' }}>المهندس</p>
+                                )}
                                 <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: 0 }}>{printingRecord.supervisor?.full_name}</p>
                             </div>
                             <div style={{ width: '40%' }}>
