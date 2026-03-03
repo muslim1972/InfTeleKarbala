@@ -62,6 +62,17 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
         return () => clearTimeout(debounceTimer);
     }, [searchQuery]);
 
+    // Close suggestions on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleSelectSuggestion = async (employee: any) => {
         setSelectedEmployee(employee);
         setSuggestions([]);
@@ -161,10 +172,10 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
 
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border ${theme === 'light' ? 'bg-white border-zinc-200' : 'bg-zinc-900 border-zinc-800'
+            <div className={`w-full max-w-md rounded-2xl shadow-2xl border flex flex-col ${theme === 'light' ? 'bg-white border-zinc-200' : 'bg-zinc-900 border-zinc-800'
                 }`}>
                 {/* Header */}
-                <div className={`flex items-center justify-between p-4 border-b ${theme === 'light' ? 'border-zinc-100 bg-zinc-50' : 'border-zinc-800 bg-zinc-950/50'
+                <div className={`flex items-center justify-between p-4 border-b rounded-t-2xl ${theme === 'light' ? 'border-zinc-100 bg-zinc-50' : 'border-zinc-800 bg-zinc-950/50'
                     }`}>
                     <div className="flex items-center gap-2 text-rose-600">
                         <ShieldAlert className="w-5 h-5" />

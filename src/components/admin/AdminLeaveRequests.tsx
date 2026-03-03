@@ -22,6 +22,7 @@ interface LeaveRecord {
     employee_job_number?: string;
     employee_job_title?: string;
     employee_department?: string;
+    employee_balance?: number;
     supervisor: {
         full_name: string;
         job_title?: string;
@@ -287,7 +288,24 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
     const handlePrint = async (record: LeaveRecord) => {
         await resolveDirectorateManager(record.user_id);
-        setPrintingRecord(record);
+
+        let balance = 0;
+        try {
+            const { data } = await supabase
+                .from('financial_records')
+                .select('remaining_leaves_balance')
+                .eq('user_id', record.user_id)
+                .single();
+            if (data) balance = data.remaining_leaves_balance || 0;
+        } catch (e) {
+            console.error("Error fetching balance:", e);
+        }
+
+        setPrintingRecord({
+            ...record,
+            employee_balance: balance
+        });
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 window.print();
@@ -377,28 +395,42 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         </div>
 
                         {/* Body */}
-                        <div style={{ fontSize: '15pt', fontWeight: 'bold', lineHeight: '2.2', paddingRight: '20mm', paddingLeft: '20mm' }}>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ marginLeft: '6px' }}>يرجى الموافقة على منحي إجازة اعتيادية لمدة</span>
-                                <span style={{ marginRight: '8px', marginLeft: '8px', minWidth: '60px', textAlign: 'center' }}>
-                                    {printingRecord.days_count} يوم
+                        <div style={{ fontSize: '15pt', fontWeight: 'bold', lineHeight: '2.5', paddingRight: '5mm', paddingLeft: '5mm' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span>تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة اعتيادية لمدة</span>
+                                <span style={{ marginRight: '8px', marginLeft: '8px', textAlign: 'center' }}>
+                                    ( {printingRecord.days_count} يوم )
                                 </span>
-                                <span style={{ marginRight: '20px' }}>اعتبارا من</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '4px' }}>
-                                <span style={{ marginLeft: '8px', width: '50px' }}>تأريخ</span>
-                                <span style={{ marginLeft: '8px', marginRight: '8px', textAlign: 'center' }}>
-                                    {printingRecord.start_date}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '12px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>من تأريخ :</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
+                                    ( {printingRecord.start_date} )
                                 </span>
-                                <span style={{ marginLeft: '12px', marginRight: '12px', whiteSpace: 'nowrap' }}>. وذلك لأغراض</span>
-                                <span style={{ marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>لغرض</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
                                     {printingRecord.reason || '-'}
                                 </span>
                             </div>
-
-                            {/* Employee Name */}
-                            <div style={{ marginTop: '14mm', paddingLeft: '5mm', textAlign: 'left' }}>
-                                <p style={{ fontWeight: 'bold', fontSize: '12pt', margin: 0 }}>{printingRecord.employee_name}</p>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>الرصيد المتبقي</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
+                                    {printingRecord.employee_balance !== undefined ? printingRecord.employee_balance : 'غير مقروء'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>كود الطلب</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center', fontSize: '11pt', fontFamily: 'monospace' }}>
+                                    {printingRecord.id}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
+                                <span style={{ marginLeft: '8px', width: '150px' }}>اسم صاحب الطلب :</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
+                                    {printingRecord.employee_name}
+                                </span>
                             </div>
                         </div>
 
