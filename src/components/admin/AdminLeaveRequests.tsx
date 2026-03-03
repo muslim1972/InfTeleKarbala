@@ -324,7 +324,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                     <div style={{
                         width: '100%',
                         height: '100vh',
-                        padding: '12mm 16mm 10mm 16mm',
+                        padding: '24mm 16mm 10mm 16mm',
                         boxSizing: 'border-box',
                         display: 'flex',
                         flexDirection: 'column',
@@ -352,7 +352,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         </div>
 
                         {/* Body */}
-                        <div style={{ fontSize: '12pt', fontWeight: 'bold', lineHeight: '2.2', paddingRight: '8px', paddingLeft: '8px' }}>
+                        <div style={{ fontSize: '15pt', fontWeight: 'bold', lineHeight: '2.2', paddingRight: '20mm', paddingLeft: '20mm' }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
                                 <span style={{ marginLeft: '6px' }}>يرجى الموافقة على منحي إجازة اعتيادية لمدة</span>
                                 <span style={{ marginRight: '8px', marginLeft: '8px', minWidth: '60px', textAlign: 'center' }}>
@@ -366,13 +366,13 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                     {printingRecord.start_date}
                                 </span>
                                 <span style={{ marginLeft: '12px', marginRight: '12px', whiteSpace: 'nowrap' }}>. وذلك لأغراض</span>
-                                <span style={{ flex: 1, textAlign: 'center', wordBreak: 'break-word', lineHeight: '1.5', maxHeight: '60px', overflow: 'hidden' }}>
+                                <span style={{ marginLeft: '4px', whiteSpace: 'nowrap' }}>
                                     {printingRecord.reason || '-'}
                                 </span>
                             </div>
 
                             {/* Employee Name */}
-                            <div style={{ marginTop: '14mm', paddingLeft: '40mm', textAlign: 'left' }}>
+                            <div style={{ marginTop: '14mm', paddingLeft: '20mm', textAlign: 'left' }}>
                                 <p style={{ fontWeight: 'bold', fontSize: '12pt', margin: 0 }}>{printingRecord.employee_name}</p>
                             </div>
                         </div>
