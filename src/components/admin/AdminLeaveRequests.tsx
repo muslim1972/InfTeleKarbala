@@ -275,69 +275,86 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         <div className="space-y-6">
             <style>{`
                 @media print {
+                    @page { size: A4 portrait; margin: 0; }
+                    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
                     body * { visibility: hidden; }
-                    #print-section, #print-section * { visibility: visible; }
                     #print-section {
-                        position: absolute; left: 0; top: 0; width: 100%;
-                        background: white; color: black; padding: 40px;
-                        font-family: inherit; direction: rtl;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100vw;
+                        height: 100vh;
+                        visibility: visible !important;
+                        background: white;
                     }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    #print-section * { visibility: visible !important; }
                 }
             `}</style>
 
             {/* Hidden Print Layout */}
             {printingRecord && (
-                <div id="print-section" className="hidden">
-                    <div className="border-4 border-double border-gray-900 mx-auto max-w-4xl min-h-[800px] p-10 relative bg-white">
-                        <div className="text-center mb-10 pb-6 border-b-2 border-gray-300">
-                            <h1 className="text-3xl font-black mb-2 text-black">استمارة طلب إجازة</h1>
-                            <p className="text-lg text-gray-700 font-bold">وزارة الاتصالات - مديرية اتصالات ومعلوماتية كربلاء المقدسة</p>
+                <div id="print-section" className="hidden print:block w-[210mm] h-[297mm] mx-auto bg-white text-black py-4 px-12 relative font-sans" dir="rtl">
+                    {/* Header Section */}
+                    <div className="flex justify-between items-start mb-8">
+                        {/* Top Right: Directorate Info */}
+                        <div className="text-center w-80 leading-relaxed text-sm">
+                            <p className="font-bold mb-1">مديرية اتصالات ومعلوماتية</p>
+                            <p className="text-lg font-black mb-2">كربلاء المقدسة</p>
+                            <p className="font-bold text-xs mb-1">نظام الإدارة الموحد</p>
+                            <p className="text-xs font-semibold">طبعت : {new Date().toLocaleDateString('en-GB')}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-8 mb-10 text-lg text-black font-semibold">
-                            <div className="flex bg-gray-50 p-3 border border-gray-200">
-                                <span className="w-32 text-gray-600">اسم الموظف:</span>
-                                <span>{printingRecord.employee_name}</span>
+
+                        {/* Top Left: Approval Seal */}
+                        <div className="text-center mt-2">
+                            <div className="border-[2px] border-green-700/80 rounded-full px-4 py-1.5 mb-2 inline-block">
+                                <p className="text-green-700 font-bold text-sm tracking-wide">حاصل على موافقة المسؤول المباشر</p>
                             </div>
-                            <div className="flex bg-gray-50 p-3 border border-gray-200">
-                                <span className="w-32 text-gray-600">الرقم الوظيفي:</span>
-                                <span>{printingRecord.employee_job_number || '-'}</span>
-                            </div>
-                            <div className="flex bg-gray-50 p-3 border border-gray-200">
-                                <span className="w-32 text-gray-600">القسم / الشعبة:</span>
-                                <span>{printingRecord.employee_department || '-'}</span>
-                            </div>
-                            <div className="flex bg-gray-50 p-3 border border-gray-200">
-                                <span className="w-32 text-gray-600">العنوان الوظيفي:</span>
-                                <span>{printingRecord.employee_job_title || '-'}</span>
-                            </div>
+                            <p className="text-xs font-bold text-gray-800">{new Date(printingRecord.created_at).toLocaleDateString('en-GB')}</p>
                         </div>
-                        <div className="mb-10 p-6 border-2 border-gray-900 rounded-lg text-black bg-white">
-                            <h2 className="text-xl font-black border-b border-gray-300 pb-3 mb-4">تفاصيل الإجازة</h2>
-                            <div className="grid grid-cols-2 gap-y-6 text-lg">
-                                <div><span className="font-bold text-gray-700 ml-2">تاريخ البدء:</span> <span className="font-mono">{printingRecord.start_date}</span></div>
-                                <div><span className="font-bold text-gray-700 ml-2">تاريخ الانتهاء:</span> <span className="font-mono">{printingRecord.end_date}</span></div>
-                                <div><span className="font-bold text-gray-700 ml-2">عدد الأيام:</span> {printingRecord.days_count} يوم</div>
-                                <div className="col-span-2">
-                                    <span className="font-bold text-gray-700 ml-2 block mb-2">السبب:</span>
-                                    <div className="p-3 bg-gray-50 border border-gray-200 min-h-[60px] whitespace-pre-wrap rounded">
-                                        {printingRecord.reason || 'لا يوجد'}
-                                    </div>
-                                </div>
-                            </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="text-center mb-10">
+                        <h1 className="text-xl font-black tracking-wider">استمارة الاجازة الاعتيادية</h1>
+                    </div>
+
+                    {/* Body content */}
+                    <div className="text-lg leading-[3rem] font-bold px-4 mb-20 relative">
+                        <div className="flex flex-wrap items-center">
+                            <span className="ml-2">يرجى الموافقة على منحي إجازة اعتيادية لمدة</span>
+                            <span className="inline-block px-4 mx-2 min-w-[80px] text-center font-mono">
+                                {printingRecord.days_count} يوم
+                            </span>
+                            <span className="mr-8">اعتبارا من</span>
                         </div>
-                        <div className="absolute bottom-16 left-10 right-10 flex justify-between px-10 items-end text-black text-center text-lg">
-                            <div className="w-64">
-                                <p className="font-bold mb-12">موافقة المسؤول المباشر</p>
-                                <p className="font-semibold">{printingRecord.supervisor?.full_name}</p>
-                                <p className="text-sm text-gray-600">{printingRecord.supervisor?.job_title || 'مسؤول'}</p>
-                                <p className="text-xs text-gray-400 mt-2 font-mono">{new Date(printingRecord.created_at).toLocaleDateString()}</p>
-                            </div>
-                            <div className="w-64">
-                                <p className="font-bold mb-12">موافقة مدير المديرية</p>
-                                <p className="font-semibold">{directorateManager?.full_name || '.......................'}</p>
-                                <p className="text-sm text-gray-600">{directorateManager?.job_title || '.......................'}</p>
-                            </div>
+                        <div className="flex items-center mt-4">
+                            <span className="ml-2 w-16">تأريخ</span>
+                            <span className="inline-block px-4 mx-2 text-center font-mono">
+                                {printingRecord.start_date}
+                            </span>
+                            <span className="ml-4 mr-4 text-nowrap">. وذلك لأغراض</span>
+                            <span className="inline-block px-4 min-w-[200px] text-center flex-1 break-words leading-relaxed overflow-hidden" style={{ maxHeight: '12rem' }}>
+                                {printingRecord.reason || '-'}
+                            </span>
+                        </div>
+
+                        {/* Employee Name floating middle left (2 empty lines below text) */}
+                        <div className="absolute left-8 mt-16 text-center min-w-[200px]">
+                            <p className="text-lg font-bold px-4 pb-1 inline-block">{printingRecord.employee_name}</p>
+                        </div>
+                    </div>
+
+                    {/* Bottom Section */}
+                    {/* Positioned higher up from bottom to reduce space from employee name */}
+                    <div className="absolute w-full top-[16rem] mt-48 left-0 right-0 flex justify-between px-16 items-start text-base text-center">
+                        {/* Bottom Right: Supervisor */}
+                        <div className="w-1/3 pt-4">
+                            <p className="font-bold mb-4">{printingRecord.supervisor?.full_name}</p>
+                        </div>
+
+                        {/* Bottom Left: Manager */}
+                        <div className="w-1/3 pt-4">
+                            <p className="font-bold mb-4">{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
                         </div>
                     </div>
                 </div>
@@ -395,7 +412,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                     onClick={() => handlePrint(record)}
                                     className="mt-4 w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
                                 >
-                                    <Printer size={16} /> طباعة استمارة الإجازة
+                                    <Printer size={16} /> طباعة استمارة الإجازة PDF
                                 </button>
                             </div>
                         ))}
