@@ -386,6 +386,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                 <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: 0 }}>{printingRecord.supervisor?.full_name}</p>
                             </div>
                             <div style={{ width: '40%' }}>
+                                <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: '0 0 4px 0' }}>الدكتور</p>
                                 <p style={{ fontWeight: 'bold', fontSize: '13pt', margin: 0 }}>{directorateManager?.full_name || 'علي عباس جاسم الصباغ'}</p>
                             </div>
                         </div>
