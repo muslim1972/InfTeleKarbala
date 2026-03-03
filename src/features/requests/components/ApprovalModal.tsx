@@ -42,6 +42,9 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 updatePayload.cancellation_status = status;
             } else if (request.modification_type === 'cut') {
                 updatePayload.cut_status = status;
+                if (status === 'approved') {
+                    updatePayload.hr_cut_status = 'pending';
+                }
             } else {
                 // Normally (new, or edited)
                 updatePayload.leave_status = status;

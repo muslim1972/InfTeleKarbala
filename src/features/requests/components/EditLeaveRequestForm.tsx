@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, AlertCircle, Scissors } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { DateInput } from '../../../components/ui/DateInput';
 
 interface EditLeaveRequestFormProps {
     request: any;
@@ -99,11 +100,10 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ البداية الجديد</label>
-                            <input
-                                type="date"
+                            <DateInput
                                 value={formData.startDate}
-                                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none"
+                                onChange={(val) => setFormData({ ...formData, startDate: val })}
+                                className="w-full bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-xl py-3"
                             />
                         </div>
                         <div>
@@ -139,11 +139,10 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                 <div className="space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ المباشرة (قطع الإجازة)</label>
-                        <input
-                            type="date"
+                        <DateInput
                             value={cutDate}
-                            onChange={(e) => setCutDate(e.target.value)}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none"
+                            onChange={setCutDate}
+                            className="w-full bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-xl py-3"
                         />
                     </div>
                     <button
