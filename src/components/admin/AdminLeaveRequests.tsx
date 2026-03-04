@@ -285,30 +285,45 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         }
     };
 
-    // Populate supervisor info for records
+    // Populate supervisor and employee info for records (used by Search Archive and others)
     const populateSupervisors = async (data: any[]) => {
-        const supIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
-        let supMap: Record<string, { full_name: string; engineering_allowance?: number; job_title?: string }> = {};
+        const userIds = [...new Set(data.map(r => r.user_id).filter(id => id && id.trim() !== ''))];
+        const supIds = [...new Set(data.map(r => r.supervisor_id).filter(id => id && id.trim() !== ''))];
+        const allIds = [...new Set([...userIds, ...supIds])];
 
-        if (supIds.length > 0) {
-            const { data: sups } = await supabase.from('profiles').select('id, full_name').in('id', supIds);
+        let profileMap: Record<string, any> = {};
+        let engMap: Record<string, number> = {};
+        let deptMap: Record<string, string> = {};
 
-            let engMap: Record<string, number> = {};
-            const { data: finData } = await supabase.from('financial_records').select('user_id, engineering_allowance').in('user_id', supIds);
-            if (finData) {
-                finData.forEach(f => { engMap[f.user_id] = f.engineering_allowance || 0; });
+        if (allIds.length > 0) {
+            const { data: profiles } = await supabase.from('profiles').select('id, full_name, job_number, department_id').in('id', allIds);
+            const { data: finData } = await supabase.from('financial_records').select('user_id, engineering_allowance').in('user_id', allIds);
+
+            if (finData) finData.forEach(f => { engMap[f.user_id] = f.engineering_allowance || 0; });
+
+            if (profiles) {
+                profiles.forEach(p => { profileMap[p.id] = p; });
+                const deptIds = [...new Set(profiles.map(p => p.department_id).filter(Boolean))];
+                if (deptIds.length > 0) {
+                    const { data: depts } = await supabase.from('departments').select('id, name').in('id', deptIds);
+                    if (depts) depts.forEach(d => { deptMap[d.id] = d.name; });
+                }
             }
-
-            if (sups) sups.forEach(s => {
-                supMap[s.id] = { ...s, job_title: '', engineering_allowance: engMap[s.id] || 0 };
-            });
         }
-
         return data.map(item => ({
             ...item,
-            employee_name: localEmployeeName || '',
-            supervisor: item.supervisor_id && supMap[item.supervisor_id]
-                ? supMap[item.supervisor_id]
+            employee_name: profileMap[item.user_id]?.full_name || localEmployeeName || 'غير معروف',
+            employee_job_number: profileMap[item.user_id]?.job_number || '',
+            employee_job_title: profileMap[item.user_id]?.job_title || '',
+            employee_department: profileMap[item.user_id]?.department_id
+                ? deptMap[profileMap[item.user_id].department_id] || ''
+                : '',
+            supervisor: item.supervisor_id && profileMap[item.supervisor_id]
+                ? {
+                    full_name: profileMap[item.supervisor_id].full_name,
+                    job_title: profileMap[item.supervisor_id].job_title || '',
+                    engineering_allowance: engMap[item.supervisor_id] || 0
+                }
                 : null
         })) as LeaveRecord[];
     };
@@ -412,25 +427,17 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
             {/* Hidden Print Layout */}
             {printingRecord && (
-                <div
-                    id="print-section"
-                    className="print-only"
-                    style={{
-                        direction: 'rtl',
-                        fontFamily: 'Arial, sans-serif',
-                        color: '#000',
-                        background: '#fff',
-                    }}
-                >
-                    {/* Actual print content with fixed layout */}
-                    <div style={{
-                        width: '100%',
-                        height: '100vh',
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: 'none', background: 'white' }}>
+                    <div id="print-section" className="print-only" dir="rtl" style={{
+                        width: '210mm',
+                        minHeight: '297mm', /* Standard A4 height */
                         padding: '24mm 16mm 10mm 16mm',
                         boxSizing: 'border-box',
                         display: 'flex',
                         flexDirection: 'column',
-                        overflow: 'hidden',
+                        backgroundColor: 'white',
+                        fontFamily: 'Arial, sans-serif',
+                        color: '#000',
                     }}>
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8mm' }}>
@@ -512,7 +519,6 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                     </div>
                 </div>
             )}
-
 
             {/* 1. Pending HR Cut Approvals */}
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
@@ -866,12 +872,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                             <div className="text-center py-10 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
                                 <Search size={32} className="mx-auto mb-3 text-gray-400" />
                                 <p className="font-bold">اختر موظفاً أولاً</p>
-                                <p className="text-sm mt-1">استخدم حقل البحث أعلاه للبحث عن الموظف المراد عرض أرشيف إجازاته</p>
                             </div>
                         )}
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
-};
+}
