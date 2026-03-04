@@ -415,10 +415,10 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         position: fixed !important;
                         left: 0 !important;
                         top: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
+                        width: 210mm !important;
+                        height: auto !important;
                         background: white !important;
-                        overflow: hidden !important;
+                        overflow: visible !important;
                         z-index: 9999 !important;
                     }
                     #print-section * { visibility: visible !important; }
@@ -501,7 +501,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         </div>
 
                         {/* Spacer to push signatures up slightly so they don't get cut off by printer margins */}
-                        <div style={{ height: '25mm', flexShrink: 0 }}></div>
+                        <div style={{ height: '15mm', flexShrink: 0 }}></div>
 
                         {/* Signatures */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '15mm', paddingLeft: '15mm', textAlign: 'center' }}>
