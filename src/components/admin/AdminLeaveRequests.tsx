@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User } from 'lucide-react';
+import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User, Archive } from 'lucide-react';
 import { DateInput } from '../ui/DateInput';
 
 interface AdminLeaveRequestsProps {
@@ -25,6 +25,7 @@ interface LeaveRecord {
     employee_balance?: number;
     cut_status?: string;
     hr_cut_status?: string;
+    is_archived?: boolean;
     cut_date?: string;
     supervisor: {
         full_name: string;
@@ -137,8 +138,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived')
                 .eq('status', 'approved')
+                .eq('is_archived', false) // Only fetch unarchived for the pending queue
                 .order('created_at', { ascending: false });
 
             if (data && data.length > 0) {
@@ -214,7 +216,33 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 .order('created_at', { ascending: false });
 
             if (data && data.length > 0) {
-                const formatted = await populateSupervisors(data);
+                const userIds = [...new Set(data.map(r => r.user_id).filter(Boolean))];
+                const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
+                const allIds = [...new Set([...userIds, ...supervisorIds])];
+
+                let profileMap: Record<string, any> = {};
+                let engMap: Record<string, number> = {};
+
+                if (allIds.length > 0) {
+                    const { data: profiles } = await supabase.from('profiles').select('id, full_name, job_number').in('id', allIds);
+                    const { data: finData } = await supabase.from('financial_records').select('user_id, engineering_allowance').in('user_id', allIds);
+                    if (finData) finData.forEach(f => { engMap[f.user_id] = f.engineering_allowance || 0; });
+                    if (profiles) profiles.forEach(p => { profileMap[p.id] = p; });
+                }
+
+                const formatted = data.map(item => ({
+                    ...item,
+                    employee_name: profileMap[item.user_id]?.full_name || 'غير معروف',
+                    employee_job_number: profileMap[item.user_id]?.job_number || '',
+                    supervisor: item.supervisor_id && profileMap[item.supervisor_id]
+                        ? {
+                            full_name: profileMap[item.supervisor_id].full_name,
+                            job_title: '',
+                            engineering_allowance: engMap[item.supervisor_id] || 0
+                        }
+                        : null
+                })) as LeaveRecord[];
+
                 setCutApprovalRecords(formatted);
             } else {
                 setCutApprovalRecords([]);
@@ -293,7 +321,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         try {
             let query = supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived')
                 .eq('user_id', localEmployeeId);
 
             if (startDate) query = query.gte('start_date', startDate);
@@ -465,8 +493,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                             </div>
                         </div>
 
-                        {/* Spacer — 3 empty lines */}
-                        <div style={{ height: '49mm', flexShrink: 0 }}></div>
+                        {/* Spacer to push signatures up slightly so they don't get cut off by printer margins */}
+                        <div style={{ height: '25mm', flexShrink: 0 }}></div>
 
                         {/* Signatures */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: '15mm', paddingLeft: '15mm', textAlign: 'center' }}>
@@ -624,12 +652,29 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                         <p className="text-gray-500">المدة: <span className="font-bold">{record.days_count} يوم</span> — المسؤول: <span className="font-bold">{record.supervisor?.full_name || '-'}</span></p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => handlePrint(record)}
-                                    className="mt-4 w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
-                                >
-                                    <Printer size={16} /> طباعة استمارة الإجازة PDF
-                                </button>
+                                <div className="mt-4 flex flex-col gap-2">
+                                    <button
+                                        onClick={() => handlePrint(record)}
+                                        className="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
+                                    >
+                                        <Printer size={16} /> طباعة استمارة الإجازة PDF
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm('هل أنت متأكد من حفظ (أرشفة) هذه الإجازة لتختفي من قائمة "بانتظار الطباعة"؟')) {
+                                                const { error } = await supabase.from('leave_requests').update({ is_archived: true }).eq('id', record.id);
+                                                if (!error) {
+                                                    fetchAllApprovedRequests();
+                                                } else {
+                                                    alert("حدث خطأ أثناء أرشفة الإجازة.");
+                                                }
+                                            }
+                                        }}
+                                        className="w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 rounded-lg text-sm font-bold transition flex justify-center items-center gap-2"
+                                    >
+                                        <Archive size={16} /> حفظ (أرشفة الاستمارة)
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
