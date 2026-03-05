@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Loader2, LogIn, User } from "lucide-react";
+import { Loader2, LogIn, User, Eye, EyeOff } from "lucide-react";
 import { AppFooter } from "../components/layout/AppFooter";
 
 export const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,17 +67,27 @@ export const Login = () => {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
             <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">كلمة المرور</label>
-            <input
-              type="password"
-              required
-              maxLength={6}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner"
-              placeholder="••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                maxLength={6}
+                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner"
+                placeholder="••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-1 z-10"
+                title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {error && (

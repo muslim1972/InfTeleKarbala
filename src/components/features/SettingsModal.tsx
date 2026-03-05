@@ -1,9 +1,6 @@
 import { useState, useRef } from 'react';
-import { X, Camera, Lock, User, UserPen } from 'lucide-react';
+import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-// import { useTheme } from '../../context/ThemeContext'; // Removed
-import { GlassCard } from '../ui/GlassCard';
-import { cn } from '../../lib/utils';
 import { toast } from 'react-hot-toast';
 
 interface SettingsModalProps {
@@ -13,9 +10,8 @@ interface SettingsModalProps {
 
 export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     const { user, updateProfile, changePassword, uploadAvatar } = useAuth();
-    // const { theme, toggleTheme } = useTheme(); // Removed
-    const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
     const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
 
     // Profile State
     const [fullName, setFullName] = useState(user?.full_name || '');
@@ -26,8 +22,13 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
     // Password State
     const [currentPassword, setCurrentPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+
     const [newPassword, setNewPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +77,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
         if (!username.trim()) return toast.error('اسم المستخدم مطلوب');
 
         setLoading(true);
-        const result = await updateProfile({ username }); // Note: Should probably verify uniqueness in backend or via separate check
+        const result = await updateProfile({ username });
         setLoading(false);
 
         if (result.success) {
@@ -90,209 +91,296 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     const handleChangePassword = async () => {
         if (newPassword !== confirmPassword) return toast.error('كلمة المرور وتأكيدها غير متطابقين');
         if (newPassword.length < 6) return toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-        // Note: Assuming currentPassword check happens in backend or we ignore it for this simple implementation if API doesn't enforce it safely (Client-side check of password is insecure if not verified by server). 
-        // Since we use a simple table update, strict verifying current password would require an API call to check credentials first.
-        // For now, I'll implement a client-check using login() logic if feasible, or just assume the session is valid and allow override (less secure).
-        // Better: Let's assume we trust the logged-in session for this simple app level.
 
         setLoading(true);
         const result = await changePassword(newPassword);
         setLoading(false);
 
         if (result.success) {
-            toast.success('تم تغيير كلمة المرور');
+            toast.success('تم تغيير كلمة المرور بنجاح');
             setNewPassword('');
             setConfirmPassword('');
             setCurrentPassword('');
+            setShowCurrentPassword(false);
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
         } else {
             toast.error(result.error || 'فشل تغيير كلمة المرور');
         }
     };
 
-    const tabs = [
-        { id: 'profile', label: 'الملف الشخصي', icon: User },
-        { id: 'security', label: 'الأمان', icon: Lock },
-    ];
-
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <GlassCard className="w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] !bg-[#0f172a]/80 !border-white/10">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+            {/* Main Modal Container */}
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-3xl bg-zinc-950/80 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl relative">
+
+                {/* Decorative Background Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/10 rounded-full blur-[100px] pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+
                 {/* Header */}
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <UserPen className="w-5 h-5 text-brand-green" />
-                        الإعدادات الشخصية
-                    </h2>
-                    <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
-                        <X className="w-6 h-6" />
+                <div className="p-6 border-b border-white/5 flex justify-between items-center relative z-10 w-full pl-6 pr-6 bg-black/20">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-green/20 to-brand-green/5 border border-brand-green/20 shadow-inner">
+                            <UserPen className="w-6 h-6 text-brand-green drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-white font-tajawal drop-shadow-md">
+                                الإعدادات الشخصية
+                            </h2>
+                            <p className="text-white/40 text-sm mt-0.5 font-medium">تخصيص ملفك الشخصي وحماية حسابك</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-3 rounded-full bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 border border-transparent hover:border-red-500/30 transition-all group"
+                    >
+                        <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     </button>
                 </div>
 
-                <div className="flex flex-1 overflow-hidden">
-                    {/* Sidebar Tabs */}
-                    <div className="w-1/3 border-l border-white/10 bg-black/20 p-2 flex flex-col gap-2 overflow-y-auto">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
-                                    className={cn(
-                                        "flex items-center gap-3 p-3 rounded-xl transition-all text-sm font-bold w-full text-right",
-                                        activeTab === tab.id
-                                            ? "bg-brand-green text-white shadow-lg"
-                                            : "text-white/60 hover:bg-white/5 hover:text-white"
-                                    )}
-                                >
-                                    <Icon className="w-4 h-4" />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                {/* Top Tabs */}
+                <div className="flex border-b border-white/10 relative z-10 bg-black/40 px-6 pt-4 gap-4">
+                    <button
+                        onClick={() => setActiveTab('profile')}
+                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'profile'
+                                ? 'text-brand-green'
+                                : 'text-white/50 hover:text-white/80'
+                            }`}
+                    >
+                        <User className="w-5 h-5" />
+                        الملف الشخصي
+                        {activeTab === 'profile' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-green rounded-t-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+                        )}
+                    </button>
 
-                    {/* Content Area */}
-                    <div className="flex-1 p-6 overflow-y-auto bg-black/10 flex flex-col">
-                        <div className="flex-1">
-                            {activeTab === 'profile' && (
-                                <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-                                    {/* Avatar Section */}
-                                    <div className="flex flex-col items-center gap-4">
-                                        <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/10 shadow-xl group-hover:border-brand-green transition-colors">
-                                                {user?.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-brand-yellow to-brand-green flex items-center justify-center">
-                                                        <User className="w-10 h-10 text-white" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Camera className="w-8 h-8 text-white" />
-                                            </div>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleFileChange}
-                                            />
+                    <button
+                        onClick={() => setActiveTab('security')}
+                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'security'
+                                ? 'text-blue-400'
+                                : 'text-white/50 hover:text-white/80'
+                            }`}
+                    >
+                        <Lock className="w-5 h-5" />
+                        بوابة الأمان
+                        {activeTab === 'security' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-full shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>
+                        )}
+                    </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 p-6 md:p-8 overflow-y-auto bg-gradient-to-br from-black/0 via-black/10 to-black/30 relative z-10 custom-scrollbar min-h-[400px]">
+                    <div className="max-w-xl mx-auto pb-8">
+
+                        {/* Section 1: Profile */}
+                        {activeTab === 'profile' && (
+                            <div className="space-y-8 animate-in slide-in-from-left-4 fade-in duration-500">
+
+                                {/* Avatar Section - BOOM */}
+                                <div className="flex flex-col items-center gap-5 pt-2">
+                                    <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                                        <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-green to-blue-500 opacity-20 group-hover:opacity-60 blur-md transition-opacity duration-500"></div>
+
+                                        <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/10 bg-zinc-900 shadow-2xl group-hover:border-brand-green/50 transition-all duration-300 group-hover:scale-[1.02]">
+                                            {user?.avatar_url ? (
+                                                <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+                                                    <User className="w-12 h-12 text-white/20" />
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-white/50 text-sm">انقر لتغيير الصورة</p>
-                                    </div>
 
-                                    {/* Full Name Section */}
-                                    <div className="space-y-2">
-                                        <label className="text-white/80 text-sm font-bold">الاسم الكامل</label>
+                                        <div className="absolute inset-0 rounded-full bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border-2 border-brand-green border-dashed">
+                                            <Camera className="w-8 h-8 text-white mb-1 drop-shadow-lg" />
+                                            <span className="text-white text-[10px] font-bold">تغيير الصورة</span>
+                                        </div>
+
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Full Name Section */}
+                                <div className="space-y-6 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/5 rounded-full blur-[50px] pointer-events-none group-hover:bg-brand-green/10 transition-colors"></div>
+
+                                    <div className="space-y-2 relative z-10">
+                                        <label className="text-white/80 text-sm font-bold flex items-center gap-2 mb-3">
+                                            <User className="w-4 h-4 text-brand-green" />
+                                            الاسم الكامل
+                                        </label>
                                         <input
                                             type="text"
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none transition-colors"
+                                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white placeholder:text-white/20 focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green/50 transition-all shadow-inner text-lg font-tajawal"
+                                            placeholder="أدخل اسمك الكامل..."
                                         />
-                                        <button
-                                            onClick={handleUpdateProfile}
-                                            disabled={loading}
-                                            className="w-full bg-brand-green hover:bg-brand-green/90 text-white font-bold py-2 rounded-xl mt-2 transition-colors disabled:opacity-50"
-                                        >
-                                            حفظ الاسم
-                                        </button>
                                     </div>
-                                </div>
-                            )}
 
-                            {activeTab === 'security' && (
-                                <div className="space-y-8 animate-in slide-in-from-left-4 duration-300">
-                                    {/* Change Username */}
-                                    <div className="space-y-3 pb-6 border-b border-white/10">
-                                        <h3 className="text-white font-bold mb-2">تغيير اسم المستخدم</h3>
+                                    <button
+                                        onClick={handleUpdateProfile}
+                                        disabled={loading || fullName === user?.full_name}
+                                        className="w-full bg-gradient-to-r from-brand-green to-brand-green-dark hover:from-emerald-400 hover:to-brand-green text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_20px_rgba(34,197,94,0.2)] hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] active:scale-[0.98] mt-4 border border-white/10 relative z-10"
+                                    >
+                                        <Save className="w-5 h-5" />
+                                        حفظ التعديلات
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Section 2: Security */}
+                        {activeTab === 'security' && (
+                            <div className="space-y-8 animate-in slide-in-from-left-4 fade-in duration-500">
+
+                                {/* Change Username */}
+                                <div className="space-y-6 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-[50px] pointer-events-none group-hover:bg-blue-500/10 transition-colors"></div>
+
+                                    <h3 className="text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4 relative z-10">
+                                        <UserPen className="w-5 h-5 text-blue-400" />
+                                        تعديل اسم المستخدم
+                                    </h3>
+
+                                    <div className="space-y-5 relative z-10">
                                         <div className="space-y-2">
-                                            <label className="text-white/60 text-xs">اسم المستخدم الجديد</label>
+                                            <label className="text-white/60 text-xs font-bold px-1">اسم المستخدم الجديد</label>
                                             <input
                                                 type="text"
                                                 value={username}
                                                 onChange={(e) => setUsername(e.target.value)}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none"
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner"
                                                 dir="ltr"
+                                                placeholder="أدخل اسم المستخدم الجديد"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-white/60 text-xs">تأكيد اسم المستخدم</label>
+                                            <label className="text-white/60 text-xs font-bold px-1">تأكيد اسم المستخدم</label>
                                             <input
                                                 type="text"
                                                 value={confirmUsername}
                                                 onChange={(e) => setConfirmUsername(e.target.value)}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none"
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner"
                                                 dir="ltr"
+                                                placeholder="أعد كتابة اسم المستخدم"
                                             />
                                         </div>
-                                        <button
-                                            onClick={handleUpdateUsername}
-                                            disabled={loading || !confirmUsername}
-                                            className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-2 rounded-xl border border-white/10 transition-colors disabled:opacity-50"
-                                        >
-                                            تحديث اسم المستخدم
-                                        </button>
                                     </div>
 
-                                    {/* Change Password */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-white font-bold mb-2">تغيير كلمة المرور</h3>
-                                        <div className="space-y-2">
-                                            <label className="text-white/60 text-xs">كلمة المرور الحالية</label>
-                                            <input
-                                                type="password"
-                                                value={currentPassword}
-                                                onChange={(e) => setCurrentPassword(e.target.value)}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none"
-                                                dir="ltr"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-white/60 text-xs">كلمة المرور الجديدة</label>
-                                            <input
-                                                type="password"
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none"
-                                                dir="ltr"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-white/60 text-xs">تأكيد كلمة المرور</label>
-                                            <input
-                                                type="password"
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-brand-green outline-none"
-                                                dir="ltr"
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={handleChangePassword}
-                                            disabled={loading || !newPassword}
-                                            className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-200 font-bold py-2 rounded-xl border border-red-500/20 transition-colors disabled:opacity-50"
-                                        >
-                                            تغيير كلمة المرور
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={handleUpdateUsername}
+                                        disabled={loading || !confirmUsername || username === user?.username}
+                                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 border border-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg active:scale-[0.98] relative z-10"
+                                    >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                        اعتماد اسم المستخدم
+                                    </button>
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Bottom Close Button */}
-                        <div className="mt-8 pt-4 border-t border-white/10 flex justify-end">
-                            <button
-                                onClick={onClose}
-                                className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors"
-                            >
-                                إغلاق
-                            </button>
-                        </div>
+                                {/* Change Password */}
+                                <div className="space-y-6 bg-white/5 border border-red-500/10 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5  rounded-full blur-[50px] pointer-events-none group-hover:bg-red-500/10 transition-colors"></div>
+
+                                    <h3 className="text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4 relative z-10">
+                                        <KeyRound className="w-5 h-5 text-red-400" />
+                                        تعديل كلمة المرور
+                                    </h3>
+
+                                    <div className="space-y-5 relative z-10">
+                                        {/* Current Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-white/60 text-xs font-bold px-1">كلمة المرور الحالية</label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showCurrentPassword ? "text" : "password"}
+                                                    maxLength={6}
+                                                    value={currentPassword}
+                                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-3 text-white font-mono tracking-widest text-center focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all shadow-inner placeholder:tracking-normal"
+                                                    dir="ltr"
+                                                    placeholder="كلمة المرور الحالية"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-white/40 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                                                >
+                                                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* New Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-white/60 text-xs font-bold px-1">كلمة المرور الجديدة</label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showNewPassword ? "text" : "password"}
+                                                    maxLength={6}
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-3 text-white font-mono tracking-widest text-center focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all shadow-inner placeholder:tracking-normal"
+                                                    dir="ltr"
+                                                    placeholder="أدخل الرمز الجديد"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-white/40 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                                                >
+                                                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Confirm Password */}
+                                        <div className="space-y-2">
+                                            <label className="text-white/60 text-xs font-bold px-1">تأكيد كلمة المرور</label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    maxLength={6}
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-3 text-white font-mono tracking-widest text-center focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all shadow-inner placeholder:tracking-normal"
+                                                    dir="ltr"
+                                                    placeholder="أعد كتابة الرمز الجديد"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-white/40 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                                                >
+                                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleChangePassword}
+                                        disabled={loading || !newPassword || !confirmPassword || !currentPassword}
+                                        className="w-full bg-gradient-to-r from-red-600/80 to-red-500/80 hover:from-red-500 hover:to-red-400 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 border border-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-[0.98] relative z-10"
+                                    >
+                                        <Lock className="w-5 h-5" />
+                                        تحديث كلمة السـر
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
-            </GlassCard>
+            </div>
         </div>
     );
 };
