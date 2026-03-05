@@ -20,6 +20,10 @@ export const SupervisorNotifications = () => {
         console.log('AdminNotifications: Fetching for supervisor:', user.id);
 
         // Fetch requests where supervisor_id matches current user AND any status is pending
+        // IMPORTANT FIX: Supabase .eq() combined with .or() on the same level can sometimes
+        // cause unexpected filtering if not grouped properly.
+        // We will fetch all requests that have ANY pending status, and then firmly filter
+        // them on the client side to ensure 'status' is also 'pending' or whatever logic is needed.
         const { data, count, error } = await supabase
             .from('leave_requests')
             .select('*', { count: 'exact' })
@@ -29,10 +33,34 @@ export const SupervisorNotifications = () => {
         if (error) {
             console.error('AdminNotifications: Error fetching:', error);
         } else if (data && data.length > 0) {
-            console.log('AdminNotifications: Found requests:', data.length, 'Count:', count);
+            // THE REAL FIX: Strict Client-Side Filtering
+            // We ONLY want to show notifications for requests that are truly unresolved.
+            // If the main 'status' is 'approved' or 'rejected', it means a final decision was made.
+            let activeRequests = data.filter(req => req.status === 'pending');
+
+            // DE-DUPLICATION FIX:
+            // Since a request might match multiple OR conditions (e.g. status is pending AND leave_status is pending),
+            // Supabase (PostgREST) might sometimes return duplicate rows depending on the query planner.
+            // We must strictly ensure we only have one instance of each request ID.
+            const uniqueMap = new Map();
+            activeRequests.forEach(req => {
+                if (!uniqueMap.has(req.id)) {
+                    uniqueMap.set(req.id, req);
+                }
+            });
+            activeRequests = Array.from(uniqueMap.values());
+
+            if (activeRequests.length === 0) {
+                console.log('AdminNotifications: All requests were already processed.');
+                setPendingRequests([]);
+                setPendingCount(0);
+                return;
+            }
+
+            console.log('AdminNotifications: Found unique requests:', activeRequests.length, 'Total fetched:', data.length);
 
             // Secondary query to fetch user profiles
-            const validIds = data.map(r => r.user_id).filter(Boolean);
+            const validIds = activeRequests.map(r => r.user_id).filter(Boolean);
             const userIds = [...new Set(validIds)];
             let profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};
 
@@ -49,7 +77,7 @@ export const SupervisorNotifications = () => {
                 }
             }
 
-            const formattedData = data.map(item => ({
+            const formattedData = activeRequests.map(item => ({
                 ...item,
                 profiles: item.user_id && profileMap[item.user_id]
                     ? profileMap[item.user_id]
@@ -57,7 +85,7 @@ export const SupervisorNotifications = () => {
             }));
 
             setPendingRequests(formattedData);
-            setPendingCount(count || 0);
+            setPendingCount(activeRequests.length); // Use the filtered length
         } else {
             console.log('AdminNotifications: Found requests: 0 Count:', count || 0);
             setPendingRequests([]);

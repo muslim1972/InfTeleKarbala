@@ -140,7 +140,18 @@ export const AdminDashboard = () => {
     }, []);
 
     const isFieldReadOnly = (columnName: string) => {
-        // Full access for developers, 'general' role, and Muslim Aqeel
+        // Special strict check for the Requests tab
+        if (columnName === 'tab_requests') {
+            const hasExplicitPermission = Boolean(currentUser?.can_view_requests);
+            // Developer, HR, and Muslim Aqeel can see the tab
+            const isAllowedRole = currentUser?.admin_role === 'developer' ||
+                currentUser?.admin_role === 'hr' ||
+                currentUser?.full_name?.includes('مسلم عقيل') ||
+                currentUser?.full_name?.includes('مسلم قيل');
+            return !(isAllowedRole || hasExplicitPermission);
+        }
+
+        // Full access for developers, 'general' role, and Muslim Aqeel for everything else
         if (currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) {
             return false;
         }
@@ -1398,7 +1409,10 @@ export const AdminDashboard = () => {
 
     return (
         <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
-            <HRLeaveNotifications onNavigateToRequests={() => setActiveTab('admin_requests')} />
+            {/* Show HR Notifications ONLY for 'hr' admins, not developers or general */}
+            {currentUser?.admin_role === 'hr' && (
+                <HRLeaveNotifications onNavigateToRequests={() => setActiveTab('admin_requests')} />
+            )}
 
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (

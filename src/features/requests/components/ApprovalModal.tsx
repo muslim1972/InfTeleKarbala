@@ -35,7 +35,6 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
         setError(null);
 
         try {
-            // Determine which status column to update based on request type
             let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
 
             if (request.modification_type === 'canceled') {
