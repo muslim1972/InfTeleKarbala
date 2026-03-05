@@ -30,7 +30,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const [managerInfo, setManagerInfo] = useState<{ id: string, name: string } | null>(null);
+  const [managerInfo, setManagerInfo] = useState<{ id: string, name: string, isTopManagerSelf?: boolean } | null>(null);
   const [loadingManager, setLoadingManager] = useState(true);
 
   // Latest request logic
@@ -73,37 +73,56 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           return;
         }
 
-        // 2. Fetch department info
-        const { data: dept } = await supabase.from('departments')
-          .select(`
-            id, manager_id, parent_id, 
-            profiles:manager_id(full_name)
-          `)
-          .eq('id', profile.department_id).single();
+        // 2. Start checking from the user's immediate department
+        let currentDeptId = profile.department_id;
+        let finalSupervisorId: string | null = null;
+        let finalSupervisorName: string | undefined = undefined;
+        let isTopManagerSelf = false;
 
-        if (!dept) {
-          setLoadingManager(false);
-          return;
-        }
+        while (currentDeptId) {
+          const { data: dept } = await supabase.from('departments')
+            .select(`
+              id, manager_id, parent_id, 
+              profiles:manager_id(full_name)
+            `)
+            .eq('id', currentDeptId).single();
 
-        let supervisor_id: string | null = dept.manager_id;
-        let supervisor_name: string | undefined = (dept.profiles as any)?.full_name;
+          if (!dept) break;
 
-        // 3. Escalation: if the requester IS the manager, escalate to parent department
-        if (supervisor_id === user.id && dept.parent_id) {
-          const { data: parentDept } = await supabase.from('departments')
-            .select(`manager_id, profiles:manager_id(full_name)`)
-            .eq('id', dept.parent_id).single();
+          // If the manager of this department is NOT the user requesting leave
+          // AND the manager ID exists, we found our target!
+          if (dept.manager_id && dept.manager_id !== user.id) {
+            finalSupervisorId = dept.manager_id;
+            finalSupervisorName = (dept.profiles as any)?.full_name;
+            break;
+          }
 
-          if (parentDept) {
-            supervisor_id = parentDept.manager_id;
-            supervisor_name = (parentDept.profiles as any)?.full_name;
+          // If the user IS the manager of this department, we need to escalate to the parent
+          if (dept.manager_id === user.id) {
+            if (dept.parent_id) {
+              // Move up the tree
+              currentDeptId = dept.parent_id;
+            } else {
+              // We reached the absolute top of the tree AND the user is the top manager!
+              // Fallback to themselves, but flag it so we can show a special message.
+              finalSupervisorId = dept.manager_id;
+              finalSupervisorName = (dept.profiles as any)?.full_name;
+              isTopManagerSelf = true;
+              break;
+            }
+          } else if (!dept.manager_id) {
+            // Department has no manager assigned, try escalating to parent if exists
+            if (dept.parent_id) {
+              currentDeptId = dept.parent_id;
+            } else {
+              break; // Reached the top with no manager
+            }
           }
         }
 
-        if (supervisor_id && supervisor_name) {
-          setManagerInfo({ id: supervisor_id, name: supervisor_name });
-          setFormData(prev => ({ ...prev, supervisorId: supervisor_id }));
+        if (finalSupervisorId && finalSupervisorName) {
+          setManagerInfo({ id: finalSupervisorId, name: finalSupervisorName, isTopManagerSelf });
+          setFormData(prev => ({ ...prev, supervisorId: finalSupervisorId }));
         }
 
       } catch (err) {
@@ -299,17 +318,24 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
             {/* Automatic Routing Info */}
             <div className={`p-4 rounded-xl border mb-4 flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
-              <div>
-                <span className={`block text-sm font-bold mb-1 \${managerInfo ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+              <div className="flex-1">
+                <span className={`block text-sm font-bold mb-1 ${managerInfo ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
                   توجيه الطلب تلقائياً إلى:
                 </span>
                 {loadingManager ? (
                   <span className="text-gray-500 flex items-center gap-2 text-sm"><Clock className="w-4 h-4 animate-spin" /> جاري تحديد المسؤول من الهيكلية...</span>
                 ) : managerInfo ? (
-                  <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-blue-500" />
-                    {managerInfo.name}
-                  </span>
+                  <div className="space-y-2">
+                    <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-blue-500" />
+                      {managerInfo.name}
+                    </span>
+                    {managerInfo.isTopManagerSelf && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 rounded-lg text-xs leading-relaxed font-semibold">
+                        حيث أنه لا توجد في التطبيق جهة عليا لحد الان فتم اعادة عرض الطلب عليك . يرجى ابداء الرأي . مع التقدير
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span className="text-red-500 font-medium text-sm">
                     ⚠️ لم يتم تحديد قسم أو مسؤول مباشر لك في الهيكلية الإدارية، راجع الإدارة.
