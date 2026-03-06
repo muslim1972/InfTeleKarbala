@@ -280,7 +280,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Failed to update password' };
+      let errorMessage = err.message || 'فشل تحديث كلمة المرور';
+      if (errorMessage.includes('different from the old password')) {
+        errorMessage = 'كلمة المرور الجديدة يجب أن تكون مختلفة عن القديمة';
+      }
+      return { success: false, error: errorMessage };
     }
   };
 

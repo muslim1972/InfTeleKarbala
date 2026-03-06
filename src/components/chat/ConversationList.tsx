@@ -7,6 +7,7 @@ import { ar } from 'date-fns/locale';
 import { Plus, X, Search, Loader2, User, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 export const ConversationList = () => {
     const { conversations, loading, createConversation } = useConversations();
@@ -17,70 +18,51 @@ export const ConversationList = () => {
     // State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [users, setUsers] = useState<any[]>([]);
-    const [loadingUsers, setLoadingUsers] = useState(false);
 
     // Search State
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
     useEffect(() => {
-        if (showNewChatModal) {
-            fetchUsers();
-        }
-    }, [showNewChatModal]);
+        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
-    // Initial fetch of users (limited or full depending on strategy)
-    const fetchUsers = async () => {
-        setLoadingUsers(true);
-        try {
+    // Initial fetch of users (cached)
+    const { data: users = [], isLoading: loadingUsers } = useQuery({
+        queryKey: ['chat-users-default', currentUser?.id],
+        queryFn: async () => {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, full_name, avatar_url, role')
                 .neq('id', currentUser?.id)
                 .limit(50);
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: showNewChatModal && !!currentUser?.id,
+        staleTime: 5 * 60 * 1000, // 5 minutes cache
+    });
+
+    // Search results (cached)
+    const { data: searchResults = [], isFetching: isSearching } = useQuery({
+        queryKey: ['chat-users-search', debouncedSearchQuery, currentUser?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url, role, job_number')
+                .or(`job_number.ilike.${debouncedSearchQuery}%,full_name.ilike.${debouncedSearchQuery}%`)
+                .limit(20);
 
             if (error) throw error;
-            setUsers(data || []);
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        } finally {
-            setLoadingUsers(false);
-        }
-    };
-
-    // Debounced Search Effect
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (!searchQuery?.trim()) {
-                setSearchResults([]);
-                return;
-            }
-
-            setIsSearching(true);
-            try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, avatar_url, role, job_number')
-                    .or(`job_number.ilike.${searchQuery}%,full_name.ilike.${searchQuery}%`)
-                    .limit(20);
-
-                if (error) throw error;
-                setSearchResults(data?.filter(u => u.id !== currentUser?.id) || []);
-            } catch (err) {
-                console.error('Search error:', err);
-            } finally {
-                setIsSearching(false);
-            }
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchQuery, currentUser?.id]);
+            return data?.filter(u => u.id !== currentUser?.id) || [];
+        },
+        enabled: showNewChatModal && !!debouncedSearchQuery.trim() && !!currentUser?.id,
+        staleTime: 1 * 60 * 1000, // 1 minute cache for search results
+    });
 
     const handleCreateChat = () => {
         setShowNewChatModal(true);
         setSearchQuery('');
-        setSearchResults([]);
     };
 
     const startConversation = async (partnerId: string) => {
@@ -109,7 +91,7 @@ export const ConversationList = () => {
     };
 
     // Use search results if query exists, otherwise show default users list
-    const displayUsers = searchQuery.trim() ? searchResults : users;
+    const displayUsers = debouncedSearchQuery.trim() ? searchResults : users;
 
     // Unified View: Show all conversations EXCEPT Supervisors Group
     // User requested to remove Supervisors Group from this list

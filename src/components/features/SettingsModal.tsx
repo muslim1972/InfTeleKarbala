@@ -91,6 +91,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     const handleChangePassword = async () => {
         if (newPassword !== confirmPassword) return toast.error('كلمة المرور وتأكيدها غير متطابقين');
         if (newPassword.length < 6) return toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+        if (newPassword === currentPassword) return toast.error('كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية');
 
         setLoading(true);
         const result = await changePassword(newPassword);
@@ -144,8 +145,8 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                     <button
                         onClick={() => setActiveTab('profile')}
                         className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'profile'
-                                ? 'text-brand-green'
-                                : 'text-white/50 hover:text-white/80'
+                            ? 'text-brand-green'
+                            : 'text-white/50 hover:text-white/80'
                             }`}
                     >
                         <User className="w-5 h-5" />
@@ -158,8 +159,8 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                     <button
                         onClick={() => setActiveTab('security')}
                         className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'security'
-                                ? 'text-blue-400'
-                                : 'text-white/50 hover:text-white/80'
+                            ? 'text-blue-400'
+                            : 'text-white/50 hover:text-white/80'
                             }`}
                     >
                         <Lock className="w-5 h-5" />

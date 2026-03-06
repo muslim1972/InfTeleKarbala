@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { ArrowRight, CheckCircle2, AlertTriangle, Loader2, Upload, Database, FileSpreadsheet, X, Save, PlusCircle, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -117,7 +117,7 @@ export function DataPatcher({ onClose }: DataPatcherProps) {
     };
 
     // Parse data when workbook, sheet, or header row changes
-    useMemo(() => {
+    useEffect(() => {
         if (!workbook || !selectedSheet) return;
 
         try {
