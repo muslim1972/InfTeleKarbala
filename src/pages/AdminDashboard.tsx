@@ -400,12 +400,7 @@ export const AdminDashboard = () => {
                 }
 
                 // === سجل تتبع 2: بعد التطبيع ===
-                console.log('🔍 [TRACE-2] job_title بعد التطبيع:', JSON.stringify(combined.job_title));
-                console.log('🔍 [TRACE-2] certificate_text بعد التطبيع:', JSON.stringify(combined.certificate_text));
-                console.log('🔍 [TRACE-2] certificate_percentage بعد التطبيع:', JSON.stringify(combined.certificate_percentage));
-                console.log('🔍 [TRACE-3] engineering_allowance:', JSON.stringify(combined.engineering_allowance), 'type:', typeof combined.engineering_allowance);
-                console.log('🔍 [TRACE-3] certificate_allowance:', JSON.stringify(combined.certificate_allowance), 'type:', typeof combined.certificate_allowance);
-
+                // Debugging logs removed
                 setFinancialData(combined);
             }
 
@@ -2948,10 +2943,6 @@ function EditableField({
 
 function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly }: any) {
     if (!field) return null;
-    // تتبع: طباعة القيمة لحقول معينة
-    if (field.key === 'engineering_allowance' || field.key === 'tax_deduction_amount') {
-        console.log(`🔍 [TRACE-RENDER] ${field.key}:`, value, 'type:', typeof value);
-    }
     return (
         <div className="grid grid-cols-[132px_1fr] items-center gap-2">
             {/* Label Column */}
