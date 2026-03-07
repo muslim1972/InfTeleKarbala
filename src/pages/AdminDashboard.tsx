@@ -45,6 +45,8 @@ import { HRLeaveNotifications } from "../features/requests/components/HRLeaveNot
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
 import { getExpectedNominalSalary } from "../utils/salaryScale";
 import { DepartmentSelector } from "../components/admin/DepartmentSelector";
+import { FiveYearLeaveDetailsModal } from "../components/admin/FiveYearLeaveDetailsModal";
+import { FiveYearLeaveHistoryModal } from "../components/admin/FiveYearLeaveHistoryModal";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
@@ -86,7 +88,6 @@ export const AdminDashboard = () => {
     const [showSmartUpdater, setShowSmartUpdater] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [financialData, setFinancialData] = useState<any>(null);
-    const [originalFinancialData, setOriginalFinancialData] = useState<any>(null);
     const [expandedSections, setExpandedSections] = useState({
         main_info: false, // Renamed from collision with 'basic'
         basic: false,
@@ -105,6 +106,17 @@ export const AdminDashboard = () => {
     // New Data States
     const [adminData, setAdminData] = useState<any>(null);
     const [yearlyData, setYearlyData] = useState<any[]>([]); // Array of yearly records
+
+    // Five Year Leave States
+    const [activeFiveYearLeave, setActiveFiveYearLeave] = useState<any>(null); // Most recent active/canceled leave
+    const [showFiveYearLeaveModal, setShowFiveYearLeaveModal] = useState(false);
+    const [showFiveYearLeaveHistoryModal, setShowFiveYearLeaveHistoryModal] = useState(false);
+    const [newFiveYearLeave, setNewFiveYearLeave] = useState<any>({
+        order_number: '',
+        order_date: '',
+        start_date: '',
+        end_date: ''
+    });
 
     // Administrative Records Portal State
     const [selectedAdminYear, setSelectedAdminYear] = useState(new Date().getFullYear());
@@ -348,7 +360,6 @@ export const AdminDashboard = () => {
 
             if (!finData) {
                 setFinancialData(emptyFinancial);
-                setOriginalFinancialData(emptyFinancial);
                 toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
             } else {
                 const combined = { ...emptyFinancial, ...finData };
@@ -396,7 +407,6 @@ export const AdminDashboard = () => {
                 console.log('🔍 [TRACE-3] certificate_allowance:', JSON.stringify(combined.certificate_allowance), 'type:', typeof combined.certificate_allowance);
 
                 setFinancialData(combined);
-                setOriginalFinancialData(combined);
             }
 
             // 3. Fetch Administrative Summary
@@ -426,6 +436,29 @@ export const AdminDashboard = () => {
             if (!yError) {
                 setYearlyData(yData || []);
             }
+
+            // 5. Fetch Five Year Leaves (Active or Canceled)
+            const { data: fylData, error: fylError } = await supabase
+                .from('five_year_leaves')
+                .select('*')
+                .eq('user_id', fullUserData.id)
+                .order('created_at', { ascending: false });
+
+            if (!fylError && fylData) {
+                // Get the most recent leave (could be active or canceled)
+                const currentRecord = fylData.length > 0 ? fylData[0] : null;
+                setActiveFiveYearLeave(currentRecord);
+            } else {
+                setActiveFiveYearLeave(null);
+            }
+
+            // Reset new five year leave form fields when loading a new employee
+            setNewFiveYearLeave({
+                order_number: '',
+                order_date: '',
+                start_date: '',
+                end_date: ''
+            });
 
             toast.success("تم جلب بيانات الموظف بنجاح");
         } catch (error: any) {
@@ -510,6 +543,70 @@ export const AdminDashboard = () => {
         financialData?.social_security_deduction
     ]);
     */
+
+    const handleNewFiveYearLeaveChange = (field: keyof typeof newFiveYearLeave, value: string) => {
+        setNewFiveYearLeave((prev: any) => {
+            const next = { ...prev, [field]: value };
+            if (field === 'start_date' && value) {
+                const date = new Date(value);
+                date.setFullYear(date.getFullYear() + 5);
+                next.end_date = date.toISOString().split('T')[0];
+            }
+            return next;
+        });
+    };
+
+    const handleCreateFiveYearLeave = async () => {
+        if (!newFiveYearLeave.order_number || !newFiveYearLeave.order_date || !newFiveYearLeave.start_date) {
+            toast.error("يرجى ملء جميع حقول الأمر وتاريخ الانفكاك.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            // 1. Insert into five_year_leaves
+            const { error: insertError } = await supabase
+                .from('five_year_leaves')
+                .insert({
+                    user_id: selectedEmployee.id,
+                    order_number: newFiveYearLeave.order_number,
+                    order_date: newFiveYearLeave.order_date,
+                    start_date: newFiveYearLeave.start_date,
+                    end_date: newFiveYearLeave.end_date,
+                    status: 'active',
+                    created_by: currentUser?.id,
+                    created_by_name: currentUser?.full_name
+                });
+
+            if (insertError) throw insertError;
+
+            // 2. Set is_five_year_leave = true in financial_records to cut allowances
+            if (financialData?.id) {
+                const { error: updateError } = await supabase
+                    .from('financial_records')
+                    .update({
+                        is_five_year_leave: true,
+                        // Update legacy columns for backward compatibility / fallback
+                        leave_start_date: newFiveYearLeave.start_date,
+                        leave_end_date: newFiveYearLeave.end_date
+                    })
+                    .eq('id', financialData.id);
+                if (updateError) throw updateError;
+            }
+
+            toast.success("تم تفعيل إجازة الخمس سنوات بنجاح.");
+
+            // Refresh data
+            await loadEmployeeData(selectedEmployee);
+
+        } catch (e: any) {
+            console.error(e);
+            toast.error(e.message || "حدث خطأ أثناء تفعيل الإجازة.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const toggleSection = (sectionId: string) => {
         setExpandedSections(prev => {
@@ -1173,25 +1270,7 @@ export const AdminDashboard = () => {
         toast.success(checked ? "تم تأشير الموظف بإجازة 5 سنوات (لن يظهر في أخطاء التدقيق)" : "تم إزالة تأشير إجازة 5 سنوات");
     };
 
-    const handleFiveYearLeaveDateChange = (date: string) => {
-        if (!financialData) return;
 
-        // Calculate Return Date automatically (Date + 5 Years)
-        let returnDate = '';
-        if (date) {
-            const d = new Date(date);
-            if (!isNaN(d.getTime())) {
-                d.setFullYear(d.getFullYear() + 5);
-                returnDate = d.toISOString().split('T')[0];
-            }
-        }
-
-        setFinancialData({
-            ...financialData,
-            leave_start_date: date,
-            leave_end_date: returnDate
-        });
-    };
 
     // Header Content with Tabs and Search
     const headerContent = (
@@ -2274,78 +2353,97 @@ export const AdminDashboard = () => {
                                         onToggle={() => handleToggleRecordSection('five_year_leave')}
                                     >
                                         <div className="p-4 grid grid-cols-1 gap-4">
-                                            <div id="record-section-five_year_leave" className="flex items-center gap-4 bg-muted/50 dark:bg-white/5 p-4 rounded-xl border border-border dark:border-white/10">
-                                                <ToggleSwitch
-                                                    checked={financialData?.is_five_year_leave || false}
-                                                    onCheckedChange={handleFiveYearLeaveChange}
-                                                />
-                                                <div>
-                                                    <p className="font-bold text-foreground dark:text-white">تفعيل إجازة الخمس سنوات</p>
-                                                    <p className="text-xs text-muted-foreground dark:text-white/50">عند التفعيل، سيتم تصفير المخصصات وتفعيل الاستقطاعات تلقائياً.</p>
+                                            {activeFiveYearLeave ? (
+                                                <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl flex items-center justify-between cursor-pointer hover:bg-orange-500/20 transition-colors"
+                                                    onClick={() => setShowFiveYearLeaveModal(true)}>
+                                                    <div>
+                                                        <h4 className="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-2">ملخص إجازة الخمس سنوات
+                                                            {activeFiveYearLeave.status === 'canceled' && <span className="text-red-500 text-xs border border-red-500/50 px-2 py-0.5 rounded-full">ملغاة</span>}
+                                                        </h4>
+                                                        <p className="text-sm text-muted-foreground mt-1">
+                                                            رقم الأمر: {activeFiveYearLeave.order_number} | تاريخ الانفكاك: {activeFiveYearLeave.start_date}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setShowFiveYearLeaveHistoryModal(true);
+                                                            }}
+                                                            className="p-2 hover:bg-orange-600/10 dark:hover:bg-orange-400/10 rounded-full transition-colors text-orange-600 dark:text-orange-400"
+                                                            title="سجل الحركات"
+                                                        >
+                                                            <Clock className="w-5 h-5" />
+                                                        </button>
+                                                        <ChevronDown className="w-5 h-5 text-orange-500 -rotate-90" />
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <>
+                                                    <div id="record-section-five_year_leave" className="flex items-center gap-4 bg-muted/50 dark:bg-white/5 p-4 rounded-xl border border-border dark:border-white/10">
+                                                        <ToggleSwitch
+                                                            checked={financialData?.is_five_year_leave || false}
+                                                            onCheckedChange={handleFiveYearLeaveChange} // We keep this to trigger the form visibility + legacy integration
+                                                        />
+                                                        <div>
+                                                            <p className="font-bold text-foreground dark:text-white">تفعيل إجازة الخمس سنوات</p>
+                                                            <p className="text-xs text-muted-foreground dark:text-white/50">عند التفعيل، سيتم تصفير المخصصات وتفعيل الاستقطاعات تلقائياً.</p>
+                                                        </div>
+                                                    </div>
 
-                                            {(financialData?.is_five_year_leave) && (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 mt-4">
-                                                    <div className="space-y-2">
-                                                        <Label className="text-foreground dark:text-white">تاريخ الانفكاك</Label>
-                                                        <Input
-                                                            type="date"
-                                                            value={financialData?.leave_start_date || ''}
-                                                            onChange={(e) => handleFiveYearLeaveDateChange(e.target.value)}
-                                                            className="bg-transparent dark:bg-zinc-900/50 border-input dark:border-white/10 text-foreground dark:text-white"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-foreground dark:text-white">تاريخ المباشرة المتوقع (+5 سنوات)</Label>
-                                                        <Input
-                                                            type="text"
-                                                            value={financialData?.leave_end_date || ''}
-                                                            readOnly
-                                                            className="bg-muted dark:bg-white/5 border-border dark:border-white/5 text-muted-foreground dark:text-white/50 cursor-not-allowed font-mono text-left dir-ltr"
-                                                        />
-                                                    </div>
-                                                </div>
+                                                    {(financialData?.is_five_year_leave) && (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 mt-4 bg-muted/30 dark:bg-white/5 p-4 rounded-lg border border-border dark:border-white/10">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-foreground dark:text-white">رقم الأمر</Label>
+                                                                <Input
+                                                                    type="text"
+                                                                    value={newFiveYearLeave.order_number}
+                                                                    onChange={(e) => handleNewFiveYearLeaveChange('order_number', e.target.value)}
+                                                                    className="bg-transparent dark:bg-zinc-900/50 border-input dark:border-white/10 text-foreground dark:text-white"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-foreground dark:text-white">تاريخ الأمر</Label>
+                                                                <DateInput
+                                                                    value={newFiveYearLeave.order_date}
+                                                                    onChange={(val) => handleNewFiveYearLeaveChange('order_date', val)}
+                                                                    className="bg-transparent dark:bg-zinc-900/50 border-input dark:border-white/10 text-foreground dark:text-white"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-foreground dark:text-white">تاريخ الانفكاك</Label>
+                                                                <DateInput
+                                                                    value={newFiveYearLeave.start_date}
+                                                                    onChange={(val) => handleNewFiveYearLeaveChange('start_date', val)}
+                                                                    className="bg-transparent dark:bg-zinc-900/50 border-input dark:border-white/10 text-foreground dark:text-white"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-foreground dark:text-white">تاريخ المباشرة المتوقع (+5 سنوات)</Label>
+                                                                <Input
+                                                                    type="text"
+                                                                    value={newFiveYearLeave.end_date ? newFiveYearLeave.end_date.split('-').reverse().join('/') : ""}
+                                                                    readOnly
+                                                                    className="bg-muted dark:bg-zinc-900/50 border-border dark:border-white/5 text-muted-foreground cursor-not-allowed font-mono text-left dir-ltr"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {(financialData?.is_five_year_leave) && (
+                                                        <div className="flex justify-end mt-4 pt-4 border-t border-white/10">
+                                                            <Button
+                                                                disabled={!newFiveYearLeave.order_number || !newFiveYearLeave.order_date || !newFiveYearLeave.start_date || loading}
+                                                                onClick={handleCreateFiveYearLeave}
+                                                                className="bg-orange-600 hover:bg-orange-500 text-white gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Save className="w-4 h-4" />
+                                                                حفظ الأجازة وتفعيلها
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
-
-                                            <div className="flex justify-end mt-4 pt-4 border-t border-white/10">
-                                                <Button
-                                                    disabled={
-                                                        financialData?.is_five_year_leave === originalFinancialData?.is_five_year_leave &&
-                                                        financialData?.leave_start_date === originalFinancialData?.leave_start_date &&
-                                                        financialData?.leave_end_date === originalFinancialData?.leave_end_date
-                                                    }
-                                                    onClick={async () => {
-                                                        if (!financialData?.id) return;
-                                                        const { error } = await supabase
-                                                            .from('financial_records')
-                                                            .update({
-                                                                is_five_year_leave: financialData.is_five_year_leave,
-                                                                leave_start_date: financialData.leave_start_date,
-                                                                leave_end_date: financialData.leave_end_date
-                                                            })
-                                                            .eq('id', financialData.id);
-
-                                                        if (error) {
-                                                            toast.error('فشل حفظ البيانات');
-                                                            console.error(error);
-                                                        } else {
-                                                            toast.success('تم حفظ بيانات الإجازة بنجاح');
-                                                            // Update the original data so the button disables again
-                                                            setOriginalFinancialData({
-                                                                ...originalFinancialData,
-                                                                is_five_year_leave: financialData.is_five_year_leave,
-                                                                leave_start_date: financialData.leave_start_date,
-                                                                leave_end_date: financialData.leave_end_date
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="bg-orange-600 hover:bg-orange-500 text-white gap-2 disabled:opacity-50 disabled:bg-gray-500 disabled:cursor-not-allowed transition-all"
-                                                >
-                                                    <Save className="w-4 h-4" />
-                                                    حفظ التغييرات
-                                                </Button>
-                                            </div>
                                         </div>
                                     </AccordionSection>
 
@@ -2542,6 +2640,24 @@ export const AdminDashboard = () => {
                     </div>
                 )
             }
+
+            {/* Five Year Leave Edit/Cancel Modal */}
+            <FiveYearLeaveDetailsModal
+                isOpen={showFiveYearLeaveModal}
+                onClose={() => setShowFiveYearLeaveModal(false)}
+                leave={activeFiveYearLeave}
+                financialData={financialData}
+                currentUser={currentUser}
+                onRefresh={() => {
+                    if (selectedEmployee) loadEmployeeData(selectedEmployee);
+                }}
+            />
+
+            <FiveYearLeaveHistoryModal
+                isOpen={showFiveYearLeaveHistoryModal}
+                onClose={() => setShowFiveYearLeaveHistoryModal(false)}
+                leave={activeFiveYearLeave}
+            />
 
         </Layout >
     );
