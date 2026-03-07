@@ -86,6 +86,7 @@ export const AdminDashboard = () => {
     const [showSmartUpdater, setShowSmartUpdater] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [financialData, setFinancialData] = useState<any>(null);
+    const [originalFinancialData, setOriginalFinancialData] = useState<any>(null);
     const [expandedSections, setExpandedSections] = useState({
         main_info: false, // Renamed from collision with 'basic'
         basic: false,
@@ -347,6 +348,7 @@ export const AdminDashboard = () => {
 
             if (!finData) {
                 setFinancialData(emptyFinancial);
+                setOriginalFinancialData(emptyFinancial);
                 toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
             } else {
                 const combined = { ...emptyFinancial, ...finData };
@@ -394,6 +396,7 @@ export const AdminDashboard = () => {
                 console.log('🔍 [TRACE-3] certificate_allowance:', JSON.stringify(combined.certificate_allowance), 'type:', typeof combined.certificate_allowance);
 
                 setFinancialData(combined);
+                setOriginalFinancialData(combined);
             }
 
             // 3. Fetch Administrative Summary
@@ -2271,35 +2274,35 @@ export const AdminDashboard = () => {
                                         onToggle={() => handleToggleRecordSection('five_year_leave')}
                                     >
                                         <div className="p-4 grid grid-cols-1 gap-4">
-                                            <div id="record-section-five_year_leave" className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                                            <div id="record-section-five_year_leave" className="flex items-center gap-4 bg-muted/50 dark:bg-white/5 p-4 rounded-xl border border-border dark:border-white/10">
                                                 <ToggleSwitch
                                                     checked={financialData?.is_five_year_leave || false}
                                                     onCheckedChange={handleFiveYearLeaveChange}
                                                 />
                                                 <div>
-                                                    <p className="font-bold text-white">تفعيل إجازة الخمس سنوات</p>
-                                                    <p className="text-xs text-white/50">عند التفعيل، سيتم تصفير المخصصات وتفعيل الاستقطاعات تلقائياً.</p>
+                                                    <p className="font-bold text-foreground dark:text-white">تفعيل إجازة الخمس سنوات</p>
+                                                    <p className="text-xs text-muted-foreground dark:text-white/50">عند التفعيل، سيتم تصفير المخصصات وتفعيل الاستقطاعات تلقائياً.</p>
                                                 </div>
                                             </div>
 
                                             {(financialData?.is_five_year_leave) && (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 mt-4">
                                                     <div className="space-y-2">
-                                                        <Label className="text-white">تاريخ الانفكاك</Label>
+                                                        <Label className="text-foreground dark:text-white">تاريخ الانفكاك</Label>
                                                         <Input
                                                             type="date"
                                                             value={financialData?.leave_start_date || ''}
                                                             onChange={(e) => handleFiveYearLeaveDateChange(e.target.value)}
-                                                            className="bg-zinc-900/50 border-white/10 text-white"
+                                                            className="bg-transparent dark:bg-zinc-900/50 border-input dark:border-white/10 text-foreground dark:text-white"
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label className="text-white">تاريخ المباشرة المتوقع (+5 سنوات)</Label>
+                                                        <Label className="text-foreground dark:text-white">تاريخ المباشرة المتوقع (+5 سنوات)</Label>
                                                         <Input
                                                             type="text"
                                                             value={financialData?.leave_end_date || ''}
                                                             readOnly
-                                                            className="bg-white/5 border-white/5 text-white/50 cursor-not-allowed font-mono text-left dir-ltr"
+                                                            className="bg-muted dark:bg-white/5 border-border dark:border-white/5 text-muted-foreground dark:text-white/50 cursor-not-allowed font-mono text-left dir-ltr"
                                                         />
                                                     </div>
                                                 </div>
@@ -2307,6 +2310,11 @@ export const AdminDashboard = () => {
 
                                             <div className="flex justify-end mt-4 pt-4 border-t border-white/10">
                                                 <Button
+                                                    disabled={
+                                                        financialData?.is_five_year_leave === originalFinancialData?.is_five_year_leave &&
+                                                        financialData?.leave_start_date === originalFinancialData?.leave_start_date &&
+                                                        financialData?.leave_end_date === originalFinancialData?.leave_end_date
+                                                    }
                                                     onClick={async () => {
                                                         if (!financialData?.id) return;
                                                         const { error } = await supabase
@@ -2323,9 +2331,16 @@ export const AdminDashboard = () => {
                                                             console.error(error);
                                                         } else {
                                                             toast.success('تم حفظ بيانات الإجازة بنجاح');
+                                                            // Update the original data so the button disables again
+                                                            setOriginalFinancialData({
+                                                                ...originalFinancialData,
+                                                                is_five_year_leave: financialData.is_five_year_leave,
+                                                                leave_start_date: financialData.leave_start_date,
+                                                                leave_end_date: financialData.leave_end_date
+                                                            });
                                                         }
                                                     }}
-                                                    className="bg-orange-600 hover:bg-orange-500 text-white gap-2"
+                                                    className="bg-orange-600 hover:bg-orange-500 text-white gap-2 disabled:opacity-50 disabled:bg-gray-500 disabled:cursor-not-allowed transition-all"
                                                 >
                                                     <Save className="w-4 h-4" />
                                                     حفظ التغييرات
