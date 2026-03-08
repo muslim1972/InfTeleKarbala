@@ -139,11 +139,11 @@ export const AppNotifications = () => {
         // Since we don't have a direct 'recipient_id' in messages, we must find conversations the user is in.
         // Assuming messages table has 'is_read' and we just check conversations.
 
-        // This query fetches conversations for the user and unread messages not from the user
+        // This query fetches conversations for the user
         const { data: conversations, error: convError } = await supabase
-            .from('conversation_participants')
-            .select('conversation_id')
-            .eq('user_id', user.id);
+            .from('conversations')
+            .select('id')
+            .contains('participants', JSON.stringify([user.id]));
 
         if (convError || !conversations?.length) {
             setUnreadMessages([]);
@@ -151,7 +151,7 @@ export const AppNotifications = () => {
             return;
         }
 
-        const convIds = conversations.map(c => c.conversation_id);
+        const convIds = conversations.map(c => c.id);
 
         const { data: unreadMsgData, error: msgError } = await supabase
             .from('messages')
