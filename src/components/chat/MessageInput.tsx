@@ -38,6 +38,7 @@ export function MessageInput({ onSend, value, onChange, disabled }: MessageInput
                     className="w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 text-sm text-gray-900 placeholder:text-gray-500"
                     rows={1}
                     disabled={disabled}
+                    autoFocus
                 />
             </div>
             <button

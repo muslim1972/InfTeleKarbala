@@ -14,8 +14,7 @@ import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
 import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { formatDateTime } from "../utils/formatDate";
-import { SupervisorNotifications } from "../features/requests/components/SupervisorNotifications";
-import { EmployeeNotifications } from "../features/requests/components/EmployeeNotifications";
+import { AppNotifications } from "../components/features/AppNotifications";
 import { SalaryCalculator } from "../components/features/SalaryCalculator";
 
 // Interface for Financial Fields
@@ -382,8 +381,7 @@ export const Dashboard = () => {
 
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true}>
-            <SupervisorNotifications />
-            <EmployeeNotifications />
+            <AppNotifications />
             <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh] mt-6">
 
                 {/* Polls Tab */}

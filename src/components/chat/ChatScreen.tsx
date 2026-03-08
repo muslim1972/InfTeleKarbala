@@ -27,7 +27,6 @@ export function ChatScreen() {
         loading: msgsLoading,
         newMessage,
         setNewMessage,
-        isSending,
         sendMessage,
         selectedMessages,      // New
         toggleSelection,       // New
@@ -87,12 +86,13 @@ export function ChatScreen() {
                 onToggleSelection={toggleSelection}
             />
 
-            {/* Input - Hide when selecting? Optional, but usually kept. */}
+            {/* Input */}
             <MessageInput
+                key={conversationId} // Forces remount and triggers autoFocus on conversation change
                 value={newMessage}
                 onChange={setNewMessage}
                 onSend={sendMessage}
-                disabled={isSending || selectedMessages.length > 0} // Disable input while selecting
+                disabled={selectedMessages.length > 0} // Only disable if selecting messages
             />
         </div>
     );

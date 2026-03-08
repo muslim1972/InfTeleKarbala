@@ -41,7 +41,7 @@ import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal
 import { RequestsTabPermissionsModal } from "../components/admin/RequestsTabPermissionsModal";
 import { ClipboardCheck } from "lucide-react";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
-import { HRLeaveNotifications } from "../features/requests/components/HRLeaveNotifications";
+import { AppNotifications } from "../components/features/AppNotifications";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
 import { getExpectedNominalSalary } from "../utils/salaryScale";
 import { DepartmentSelector } from "../components/admin/DepartmentSelector";
@@ -1486,11 +1486,7 @@ export const AdminDashboard = () => {
 
     return (
         <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
-            {/* Show HR Notifications ONLY for 'hr' admins, not developers or general */}
-            {currentUser?.admin_role === 'hr' && (
-                <HRLeaveNotifications onNavigateToRequests={() => setActiveTab('admin_requests')} />
-            )}
-
+            <AppNotifications />
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
                 <DepartmentsManager theme={theme} />
