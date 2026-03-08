@@ -12,6 +12,33 @@ interface MessageBubbleProps {
     onToggleSelection?: (id: string) => void;
 }
 
+const renderMessageText = (text: string, isMe: boolean) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, i) => {
+        if (part.match(urlRegex)) {
+            return (
+                <a
+                    key={i}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                        "underline break-all transition-colors",
+                        isMe ? "text-emerald-100 hover:text-white font-semibold" : "text-blue-600 hover:text-blue-800 font-semibold"
+                    )}
+                    // Prevents triggering selection on mobile longpress/clicks when clicking a link
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {part}
+                </a>
+            );
+        }
+        return <span key={i}>{part}</span>;
+    });
+};
+
 export function MessageBubble({ message, isSelected, isSelectionMode, onToggleSelection }: MessageBubbleProps) {
     const { user } = useAuth();
     const isMe = message.sender_id === user?.id;
@@ -48,7 +75,9 @@ export function MessageBubble({ message, isSelected, isSelectionMode, onToggleSe
                     isSelected && "ring-2 ring-emerald-500 ring-offset-2" // Ring effect
                 )}
             >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    {renderMessageText(message.text, isMe)}
+                </p>
                 <div className={cn("text-[10px] mt-1 flex items-center gap-1", isMe ? "text-emerald-100/80" : "text-gray-400")}>
                     <span>
                         {format(new Date(message.created_at), 'p', { locale: ar })}
