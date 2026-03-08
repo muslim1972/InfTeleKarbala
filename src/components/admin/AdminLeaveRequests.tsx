@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User, Archive } from 'lucide-react';
 import { DateInput } from '../ui/DateInput';
+import { generateLeavePDF } from '../../utils/pdfGenerator';
 
 interface AdminLeaveRequestsProps {
     employeeId?: string;
@@ -62,6 +63,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     const archiveSearchRef = useRef<HTMLDivElement>(null);
 
     // Print state
+    // @ts-ignore
     const [printingRecord, setPrintingRecord] = useState<LeaveRecord | null>(null);
     const [directorateManager, setDirectorateManager] = useState<{ full_name: string, job_title: string } | null>(null);
 
@@ -258,7 +260,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     const resolveDirectorateManager = async (userId: string) => {
         try {
             const { data: profile } = await supabase.from('profiles').select('department_id').eq('id', userId).single();
-            if (!profile?.department_id) return;
+            if (!profile?.department_id) return 'علي عباس جاسم الصباغ';
 
             let currentDeptId = profile.department_id;
             let lastManagerId: string | null = null;
@@ -278,11 +280,13 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         full_name: mgrProfile.full_name,
                         job_title: 'مدير المديرية'
                     });
+                    return mgrProfile.full_name;
                 }
             }
         } catch (err) {
             console.error("Error resolving directorate manager", err);
         }
+        return 'علي عباس جاسم الصباغ';
     };
 
     // Populate supervisor and employee info for records (used by Search Archive and others)
@@ -361,7 +365,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     };
 
     const handlePrint = async (record: LeaveRecord) => {
-        await resolveDirectorateManager(record.user_id);
+        const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
 
         let balance = 0;
         try {
@@ -375,17 +379,19 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             console.error("Error fetching balance:", e);
         }
 
-        setPrintingRecord({
-            ...record,
-            employee_balance: balance
-        });
+        const formData = {
+            full_name: record.employee_name || '',
+            id: record.id,
+            balance: balance,
+            reason: record.reason || '-',
+            start_date: record.start_date,
+            days: record.days_count,
+            approval_date: new Date(record.created_at).toLocaleDateString('en-GB'),
+            manager_name: defaultManagerName,
+            supervisor_name: record.supervisor?.full_name || ''
+        };
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                window.print();
-                requestAnimationFrame(() => setPrintingRecord(null));
-            });
-        });
+        await generateLeavePDF(formData as any);
     };
 
     return (
