@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, TextAlignment } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { shapeArabicText } from './arabicShaper';
 
@@ -49,7 +49,10 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
         const safeSetText = (fieldName: string, text: string) => {
             try {
                 const field = form.getTextField(fieldName);
-                if (field) field.setText(text);
+                if (field) {
+                    field.setText(text);
+                    field.setAlignment(TextAlignment.Center);
+                }
             } catch (e) {
                 console.warn(`Field ${fieldName} not found in PDF`);
             }
