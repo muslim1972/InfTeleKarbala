@@ -36,9 +36,26 @@ export function useChatState(conversationId: string) {
       toast.error('فشل تحميل الرسائل');
     } else {
       setMessages(data || []);
+
+      // Mark unread messages as read for this user
+      if (user && data && data.length > 0) {
+        const unreadIds = data
+          .filter(m => !m.is_read && m.sender_id !== user.id)
+          .map(m => m.id);
+
+        if (unreadIds.length > 0) {
+          supabase
+            .from('messages')
+            .update({ is_read: true })
+            .in('id', unreadIds)
+            .then(({ error: updateErr }) => {
+              if (updateErr) console.error('Error marking as read:', updateErr);
+            });
+        }
+      }
     }
     setLoading(false);
-  }, [conversationId]);
+  }, [conversationId, user]);
 
   // Subscribe to real-time changes
   useEffect(() => {

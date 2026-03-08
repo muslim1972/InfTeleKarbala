@@ -225,7 +225,8 @@ export const AppNotifications = () => {
 
     const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + chatUnreadCount;
 
-    if (totalNotifications === 0) return null;
+    // Always show the bell so the user knows where notifications will appear
+    // if (totalNotifications === 0) return null;
 
     // Actions
     const handleDismissEmployeeNotification = async (requestId: string) => {
@@ -295,6 +296,16 @@ export const AppNotifications = () => {
 
                         {/* List */}
                         <div className="overflow-y-auto p-4 flex-1 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/50">
+
+                            {totalNotifications === 0 && (
+                                <div className="flex flex-col items-center justify-center p-8 text-center opacity-70">
+                                    <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                                        <Bell size={28} className="text-slate-400 dark:text-slate-500" />
+                                    </div>
+                                    <h4 className="font-bold text-slate-600 dark:text-slate-300 mb-1">لا توجد إشعارات جديدة</h4>
+                                    <p className="text-xs text-slate-500">أنت على إطلاع بكل جديد، استمتع بيومك!</p>
+                                </div>
+                            )}
 
                             {/* Chat Messages Section */}
                             {unreadMessages.length > 0 && (
