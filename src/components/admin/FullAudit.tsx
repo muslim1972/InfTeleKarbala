@@ -219,6 +219,7 @@ export function FullAudit({ onClose }: FullAuditProps) {
 </html>`);
         pw.document.close();
         pw.focus();
+        pw.onafterprint = () => pw.close();
         pw.print();
     };
 

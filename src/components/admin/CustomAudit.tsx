@@ -560,6 +560,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         pw.document.write(buildSingleHTML(fieldLabel));
         pw.document.close();
         pw.focus();
+        pw.onafterprint = () => pw.close();
         pw.print();
     };
 
@@ -626,6 +627,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 </html>`);
         pw.document.close();
         pw.focus();
+        pw.onafterprint = () => pw.close();
         pw.print();
     };
 
