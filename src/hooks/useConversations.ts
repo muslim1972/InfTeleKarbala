@@ -77,9 +77,12 @@ export function useConversations() {
 
         return () => {
             window.removeEventListener('chat_deleted', fetchConversations);
-            supabase.removeChannel(subscription).catch(() => {
-                // Ignore cleanup errors when unmounting fast
-            });
+            // Delay cleanup slightly so WebSocket can finish connecting before closing
+            setTimeout(() => {
+                supabase.removeChannel(subscription).catch(() => {
+                    // Ignore cleanup errors
+                });
+            }, 500);
         };
     }, [user]);
 

@@ -118,9 +118,12 @@ export function useChatState(conversationId: string) {
     // Cleanup
     return () => {
       // Best effort cleanup to avoid "WebSocket closed" noise
-      supabase.removeChannel(channel).catch(() => {
-        // Ignore cleanup errors when unmounting fast
-      });
+      // Delay cleanup slightly so WebSocket can finish connecting before closing
+      setTimeout(() => {
+        supabase.removeChannel(channel).catch(() => {
+          // Ignore cleanup errors when unmounting fast
+        });
+      }, 500);
     };
   }, [conversationId, fetchMessages]);
 
