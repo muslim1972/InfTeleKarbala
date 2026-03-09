@@ -66,6 +66,9 @@ export function useConversations() {
 
         fetchConversations();
 
+        // Custom event for immediate deletion feedback
+        window.addEventListener('chat_deleted', fetchConversations);
+
         // Realtime subscription (simplified)
         const subscription = supabase
             .channel('public:conversations')
@@ -73,7 +76,10 @@ export function useConversations() {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(subscription);
+            window.removeEventListener('chat_deleted', fetchConversations);
+            supabase.removeChannel(subscription).catch(() => {
+                // Ignore cleanup errors when unmounting fast
+            });
         };
     }, [user]);
 

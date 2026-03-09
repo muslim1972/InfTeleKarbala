@@ -30,8 +30,12 @@ export function ChatScreen() {
         if (!window.confirm("هل أنت متأكد من حذف هذه المحادثة بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء.")) return;
 
         try {
-            const { error } = await supabase.from('conversations').delete().eq('id', conversationId);
+            const { error } = await supabase.rpc('delete_chat_conversation', { p_conversation_id: conversationId });
             if (error) throw error;
+
+            // Dispatch event to force refresh the chat list
+            window.dispatchEvent(new CustomEvent('chat_deleted'));
+
             navigate('/chat');
         } catch (error) {
             console.error('Error deleting conversation:', error);
