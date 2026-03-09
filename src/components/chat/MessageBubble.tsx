@@ -7,6 +7,7 @@ import useLongPress from '../../hooks/useLongPress';
 
 interface MessageBubbleProps {
     message: Message;
+    isGroup?: boolean;
     isSelected?: boolean;
     isSelectionMode?: boolean;
     onToggleSelection?: (id: string) => void;
@@ -39,7 +40,7 @@ const renderMessageText = (text: string, isMe: boolean) => {
     });
 };
 
-export function MessageBubble({ message, isSelected, isSelectionMode, onToggleSelection }: MessageBubbleProps) {
+export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, onToggleSelection }: MessageBubbleProps) {
     const { user } = useAuth();
     const isMe = message.sender_id === user?.id;
 
@@ -75,6 +76,12 @@ export function MessageBubble({ message, isSelected, isSelectionMode, onToggleSe
                     isSelected && "ring-2 ring-emerald-500 ring-offset-2" // Ring effect
                 )}
             >
+                {/* Show sender name if it's a group chat and the message is NOT from me */}
+                {isGroup && !isMe && message.sender?.full_name && (
+                    <div className="text-[11px] font-bold text-emerald-600 mb-1">
+                        {message.sender.full_name}
+                    </div>
+                )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                     {renderMessageText(message.text, isMe)}
                 </p>

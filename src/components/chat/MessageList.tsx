@@ -5,11 +5,12 @@ import type { Message } from '../../hooks/useChatState';
 interface MessageListProps {
     messages: Message[];
     loading: boolean;
+    isGroup?: boolean;
     selectedMessages?: string[];
     onToggleSelection?: (id: string) => void;
 }
 
-export function MessageList({ messages, loading, selectedMessages = [], onToggleSelection }: MessageListProps) {
+export function MessageList({ messages, loading, isGroup, selectedMessages = [], onToggleSelection }: MessageListProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -42,6 +43,7 @@ export function MessageList({ messages, loading, selectedMessages = [], onToggle
                 <MessageBubble
                     key={msg.id}
                     message={msg}
+                    isGroup={isGroup}
                     isSelected={selectedMessages.includes(msg.id)}
                     isSelectionMode={selectedMessages.length > 0}
                     onToggleSelection={onToggleSelection}

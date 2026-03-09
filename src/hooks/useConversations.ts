@@ -107,5 +107,30 @@ export function useConversations() {
         }
     };
 
-    return { conversations, loading, createConversation };
+    const createGroupConversation = async (name: string, selectedUserIds: string[]) => {
+        if (!user) return null;
+        try {
+            // Group chat includes the creator and all selected users
+            const participants = [user.id, ...selectedUserIds];
+
+            const { data, error } = await supabase
+                .from('conversations')
+                .insert([{
+                    is_group: true,
+                    name: name,
+                    participants: participants,
+                    updated_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error creating group conversation:', error);
+            return null;
+        }
+    };
+
+    return { conversations, loading, createConversation, createGroupConversation };
 }

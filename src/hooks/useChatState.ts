@@ -12,6 +12,9 @@ export interface Message {
   is_read: boolean;
   created_at: string;
   is_sending?: boolean; // Optimistic UI
+  sender?: {
+    full_name: string;
+  };
 }
 
 export function useChatState(conversationId: string) {
@@ -27,7 +30,7 @@ export function useChatState(conversationId: string) {
     setLoading(true);
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select('*, sender:profiles!messages_sender_id_fkey(full_name)')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
 

@@ -118,6 +118,7 @@ export function ChatScreen() {
             <MessageList
                 messages={messages}
                 loading={msgsLoading}
+                isGroup={details?.is_group}
                 selectedMessages={selectedMessages}
                 onToggleSelection={toggleSelection}
             />
