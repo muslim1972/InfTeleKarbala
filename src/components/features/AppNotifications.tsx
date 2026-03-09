@@ -160,7 +160,7 @@ export const AppNotifications = () => {
             .select('*, sender:profiles!messages_sender_id_fkey(full_name)')
             .in('conversation_id', convIds)
             .neq('sender_id', user.id)
-            .eq('is_read', false)
+            .not('read_by', 'cs', `{${user.id}}`)
             .order('created_at', { ascending: false });
 
         if (msgError) {

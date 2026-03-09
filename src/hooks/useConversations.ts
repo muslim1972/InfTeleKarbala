@@ -17,8 +17,8 @@ export function useConversations() {
             // Supabase has JSONB contains, so we can use that.
             const { data, error } = await supabase
                 .from('conversations')
-                .select('*')
-                .contains('participants', JSON.stringify([user.id])) // or just user.id if array of strings
+                .select('*, participants, deleted_by')
+                .contains('participants', JSON.stringify([user.id]))
                 .order('last_message_at', { ascending: false });
 
             if (error) {
@@ -27,10 +27,13 @@ export function useConversations() {
                 return;
             }
 
+            // Hide conversations deleted by this user
+            const visibleConvs = (data || []).filter(c => !c.deleted_by?.includes(user.id));
+
             // We need to resolve names/avatars for 1-on-1 chats
             // This might be N+1, but for a simple start it's okay. 
             // Optimization: Fetch all needed profiles in one go later.
-            const resolved = await Promise.all(data.map(async (conv: any) => {
+            const resolved = await Promise.all(visibleConvs.map(async (conv: any) => {
                 let name = conv.name;
                 let avatar_url = conv.avatar_url;
 
