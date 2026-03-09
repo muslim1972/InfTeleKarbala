@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, X, CheckCircle, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +24,8 @@ export const AppNotifications = () => {
 
     // Modal state
     const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
+
+    const optimisticallyClearedChats = useRef<Set<string>>(new Set());
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
     const fetchEmployeeNotifications = useCallback(async () => {
@@ -166,10 +168,13 @@ export const AppNotifications = () => {
             return;
         }
 
-        if (unreadMsgData) {
+        if (unreadMsgData && unreadMsgData.length > 0) {
             // Group by conversation so we only show one notification per chat
             const grouped = new Map();
             unreadMsgData.forEach(msg => {
+                // Skip if this chat was optimistically cleared recently
+                if (optimisticallyClearedChats.current.has(msg.conversation_id)) return;
+
                 if (!grouped.has(msg.conversation_id)) {
                     grouped.set(msg.conversation_id, {
                         ...msg,
@@ -183,10 +188,10 @@ export const AppNotifications = () => {
 
             const uniqueMessages = Array.from(grouped.values());
             setUnreadMessages(uniqueMessages);
-
-            // Total unread number for the badge can be total messages or total conversations.
-            // Using total conversations with unread for the badge count is usually cleaner.
             setChatUnreadCount(uniqueMessages.length);
+        } else {
+            setUnreadMessages([]);
+            setChatUnreadCount(0);
         }
 
     }, [user]);
@@ -217,9 +222,33 @@ export const AppNotifications = () => {
             })
             .subscribe();
 
+        // Custom event so if DB realtime doesn't trigger on UPDATE, we still clear the bell
+        const handleChatRead = (e: Event) => {
+            const customEvent = e as CustomEvent<{ conversationId: string }>;
+            if (customEvent.detail?.conversationId) {
+                // Add to optimistically cleared list to suppress stale fetches
+                optimisticallyClearedChats.current.add(customEvent.detail.conversationId);
+                // Remove from list after 5 seconds
+                setTimeout(() => {
+                    optimisticallyClearedChats.current.delete(customEvent.detail.conversationId);
+                }, 5000);
+
+                // Optimistically clear the local unread count
+                setUnreadMessages(prev => {
+                    const updated = prev.filter(m => m.conversation_id !== customEvent.detail.conversationId);
+                    setChatUnreadCount(updated.length);
+                    return updated;
+                });
+            }
+            fetchChatNotifications();
+        };
+
+        window.addEventListener('chat_read', handleChatRead);
+
         return () => {
             leaveChannel.unsubscribe();
             chatChannel.unsubscribe();
+            window.removeEventListener('chat_read', handleChatRead);
         };
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications, fetchChatNotifications]);
 
@@ -252,6 +281,11 @@ export const AppNotifications = () => {
     };
 
     const handleOpenChat = (conversationId: string) => {
+        // Optimistically clear the local unread count
+        const updatedMessages = unreadMessages.filter(m => m.conversation_id !== conversationId);
+        setUnreadMessages(updatedMessages);
+        setChatUnreadCount(updatedMessages.length);
+
         setShowModal(false);
         navigate(`/chat/${conversationId}`);
     };

@@ -45,11 +45,16 @@ export function useChatState(conversationId: string) {
 
         if (unreadIds.length > 0) {
           supabase
-            .from('messages')
-            .update({ is_read: true })
-            .in('id', unreadIds)
+            .rpc('mark_chat_read', { p_conversation_id: conversationId })
             .then(({ error: updateErr }) => {
-              if (updateErr) console.error('Error marking as read:', updateErr);
+              if (updateErr) {
+                console.error('Error marking as read:', updateErr);
+              } else {
+                // Trigger global event immediately, AppNotifications will handle the "immunity"
+                window.dispatchEvent(new CustomEvent('chat_read', {
+                  detail: { conversationId }
+                }));
+              }
             });
         }
       }
@@ -85,6 +90,19 @@ export function useChatState(conversationId: string) {
               if (exists) return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
               return [...prev, newMsg];
             });
+
+            // If the incoming message is from someone else, mark it read immediately because we are viewing the chat
+            if (user && newMsg.sender_id !== user.id && !newMsg.is_read) {
+              supabase
+                .rpc('mark_chat_read', { p_conversation_id: conversationId })
+                .then(({ error: updateErr }) => {
+                  if (!updateErr) {
+                    window.dispatchEvent(new CustomEvent('chat_read', {
+                      detail: { conversationId }
+                    }));
+                  }
+                });
+            }
           } else if (payload.eventType === 'DELETE') {
             const deletedMsg = payload.old as { id: string };
             setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
