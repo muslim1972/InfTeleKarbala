@@ -8,7 +8,7 @@ export function ChatLayout() {
     const isChatOpen = location.pathname.includes('/chat/') && location.pathname !== '/chat';
 
     return (
-        <div className="flex h-screen bg-gray-100 overflow-hidden" dir="rtl">
+        <div className="flex bg-gray-100 overflow-hidden" style={{ height: '100dvh' }} dir="rtl">
             {/* List Panel - Hidden on Mobile if Chat is Open */}
             <div className={cn(
                 "flex-shrink-0 w-full md:w-80 bg-white shadow-xl z-20 transition-transform duration-300 pointer-events-auto",
