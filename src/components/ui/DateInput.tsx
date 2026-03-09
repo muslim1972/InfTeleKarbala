@@ -8,6 +8,8 @@ interface DateInputProps {
     className?: string;
     placeholder?: string;
     disabled?: boolean;
+    min?: string;
+    required?: boolean;
 }
 
 /**
@@ -15,7 +17,7 @@ interface DateInputProps {
  * يخزّن القيمة داخلياً كـ yyyy-mm-dd للتوافق مع قاعدة البيانات
  * نقرة أيقونة التقويم تفتح خيار التاريخ الأصلي
  */
-export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyyy', disabled }: DateInputProps) {
+export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyyy', disabled, min, required }: DateInputProps) {
     const hiddenDateRef = useRef<HTMLInputElement>(null);
 
     // تحويل yyyy-mm-dd → dd/mm/yyyy للعرض
@@ -90,6 +92,7 @@ export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyy
                     className
                 )}
                 disabled={disabled}
+                required={required}
             />
             {/* أيقونة التقويم - تفتح التقويم الأصلي */}
             <button
@@ -112,11 +115,11 @@ export function DateInput({ value, onChange, className, placeholder = 'dd/mm/yyy
             >
                 <Calendar className="w-4 h-4" />
             </button>
-            {/* تقويم مخفي - يصبح تفاعلي فقط عند النقر على الأيقونة */}
             <input
                 ref={hiddenDateRef}
                 type="date"
                 value={value || ''}
+                min={min}
                 onChange={(e) => { handleNativePick(e); e.currentTarget.style.pointerEvents = 'none'; }}
                 onBlur={(e) => { e.currentTarget.style.pointerEvents = 'none'; }}
                 className="absolute left-0 top-0 w-8 h-full opacity-0"

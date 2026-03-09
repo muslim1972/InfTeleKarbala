@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, FileText, AlertCircle, CheckCircle, Clock, Edit2 } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, Clock, Edit2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
 import { Network, UserCheck } from 'lucide-react'; // Import Network icon
 import EditLeaveRequestForm from './EditLeaveRequestForm';
+import { DateInput } from '../../../components/ui/DateInput';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -135,13 +136,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
     fetchManager();
   }, [user]);
 
-  // Calculate end date automatically
+  // Calculate expected return date automatically
   useEffect(() => {
     if (formData.startDate && formData.daysCount > 0) {
       const start = new Date(formData.startDate);
       const end = new Date(start);
-      // Subtract 1 day because the start day counts as the first day
-      end.setDate(start.getDate() + formData.daysCount - 1);
+      // Expected return date is Start Date + Days Count
+      end.setDate(start.getDate() + formData.daysCount);
       setEndDate(end.toISOString().split('T')[0]);
     } else {
       setEndDate('');
@@ -351,17 +352,12 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   تاريخ البداية
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    required
-                    min={today}
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                  />
-                  <Calendar className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
-                </div>
+                <DateInput
+                  value={formData.startDate}
+                  onChange={(dateStr) => setFormData({ ...formData, startDate: dateStr })}
+                  min={today}
+                  required
+                />
               </div>
 
               {/* Days Count */}

@@ -28,7 +28,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
         if (formData.startDate && formData.daysCount > 0) {
             const start = new Date(formData.startDate);
             const end = new Date(start);
-            end.setDate(start.getDate() + formData.daysCount - 1);
+            end.setDate(start.getDate() + formData.daysCount);
             setEndDate(end.toISOString().split('T')[0]);
         } else {
             setEndDate('');

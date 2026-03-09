@@ -375,7 +375,8 @@ export const AppNotifications = () => {
                                     {supervisorRequests.map(req => (
                                         <div
                                             key={req.id}
-                                            className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-amber-200 dark:border-amber-900/50 shadow-sm flex justify-between items-center"
+                                            onClick={() => { setShowModal(false); setSelectedApprovalRequest(req); }}
+                                            className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-amber-200 dark:border-amber-900/50 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex justify-between items-center"
                                         >
                                             <div className="flex-1">
                                                 <h5 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -386,8 +387,7 @@ export const AppNotifications = () => {
                                                 </p>
                                             </div>
                                             <button
-                                                onClick={() => { setShowModal(false); setSelectedApprovalRequest(req); }}
-                                                className="bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ml-2 shrink-0"
+                                                className="bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ml-2 shrink-0 pointer-events-none"
                                             >
                                                 مراجعة
                                             </button>
