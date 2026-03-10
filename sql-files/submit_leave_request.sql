@@ -59,19 +59,33 @@ BEGIN
     END IF;
 
     -- Check expected return date (p_end_date)
+    -- Saturday = rejected, Friday/Holiday = auto-adjust to next working day
     v_day_of_week := EXTRACT(DOW FROM p_end_date);
-    v_month := EXTRACT(MONTH FROM p_end_date);
-    v_day_of_month := EXTRACT(DAY FROM p_end_date);
-
-    IF v_day_of_week IN (5, 6) OR 
-       (v_month = 1 AND v_day_of_month IN (1, 6)) OR
-       (v_month = 3 AND v_day_of_month IN (16, 21)) OR
-       (v_month = 5 AND v_day_of_month = 1) THEN
+    IF v_day_of_week = 6 THEN
         RETURN jsonb_build_object(
             'success', false,
-            'message', 'لا يجوز ان يصادف يوم المباشرة المتوقعة يوم جمعة او سبت او عطلة رسمية.'
+            'message', 'لا يجوز ان يصادف يوم المباشرة المتوقعة يوم سبت. يرجى تعديل عدد الأيام.'
         );
     END IF;
+
+    -- Auto-adjust: skip Fridays and holidays forward
+    LOOP
+        v_day_of_week := EXTRACT(DOW FROM p_end_date);
+        v_month := EXTRACT(MONTH FROM p_end_date);
+        v_day_of_month := EXTRACT(DAY FROM p_end_date);
+
+        IF v_day_of_week = 5 THEN
+            -- Friday → skip to Sunday (+2)
+            p_end_date := p_end_date + 2;
+        ELSIF (v_month = 1 AND v_day_of_month IN (1, 6)) OR
+              (v_month = 3 AND v_day_of_month IN (16, 21)) OR
+              (v_month = 5 AND v_day_of_month = 1) THEN
+            -- Holiday → advance one day
+            p_end_date := p_end_date + 1;
+        ELSE
+            EXIT; -- Valid working day found
+        END IF;
+    END LOOP;
 
     -- 2. Overlap check
     -- Prevent submission if there's any pending or approved request that overlaps in leave_requests
