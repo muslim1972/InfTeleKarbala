@@ -159,10 +159,48 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       setError('لا يمكن أن يكون تاريخ بدء الإجازة في الماضي.');
       return;
     }
-    if (formData.daysCount > 9) {
-      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 9 أيام. للمدد الأطول، يرجى تقديم استمارة طلب إجازة طويلة.');
+    if (formData.daysCount > 10) {
+      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 10 أيام. للمدد الأطول، يرجى تقديم استمارة طلب إجازة طويلة.');
       return;
     }
+
+    // Prohibited days validation (Weekends and Holidays)
+    const isProhibitedDay = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+      const month = date.getMonth() + 1; // 1-indexed
+      const dayOfMonth = date.getDate();
+
+      // Weekends: Friday (5) and Saturday (6)
+      if (day === 5 || day === 6) return { prohibited: true, reason: 'يصادف يوم جمعة أو سبت' };
+
+      // Iraqi Holidays
+      const holidays = [
+        { m: 1, d: 1, name: 'رأس السنة الميلادية' },
+        { m: 1, d: 6, name: 'عيد الجيش العراقي' },
+        { m: 3, d: 16, name: 'ذكرى قصف حلبجة' },
+        { m: 3, d: 21, name: 'عيد نوروز' },
+        { m: 5, d: 1, name: 'عيد العمال العالمي' }
+      ];
+
+      const holiday = holidays.find(h => h.m === month && h.d === dayOfMonth);
+      if (holiday) return { prohibited: true, reason: holiday.name };
+
+      return { prohibited: false };
+    };
+
+    const startCheck = isProhibitedDay(formData.startDate);
+    if (startCheck.prohibited) {
+      setError(`لا يجوز أن يصادف يوم البداية ${startCheck.reason}.`);
+      return;
+    }
+
+    const endCheck = isProhibitedDay(endDate);
+    if (endCheck.prohibited) {
+      setError(`لا يجوز أن يصادف يوم المباشرة المتوقعة ${endCheck.reason}.`);
+      return;
+    }
+
     if (!formData.supervisorId) {
       setError('يرجى اختيار المسؤول المباشر لإرسال الطلب إليه.');
       return;
@@ -368,10 +406,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 <input
                   type="number"
                   min="1"
-                  max="9"
                   required
                   value={formData.daysCount}
-                  onChange={(e) => setFormData({ ...formData, daysCount: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val > 10) {
+                      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 10 أيام.');
+                      return;
+                    }
+                    setError(null);
+                    setFormData({ ...formData, daysCount: val });
+                  }}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 />
               </div>
@@ -433,7 +478,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 <span className="block mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-800/50 dark:text-amber-300 rounded-lg text-sm flex items-start gap-2">
                   <AlertCircle size={18} className="shrink-0 mt-0.5" />
                   <span>
-                    <strong>تنبيه:</strong> رصيدك المتبقي ({leavesBalance} يوم) لا يغطي فترة الإجازة بالكامل. سيتم إرسال الطلب لإدارتك مع إرفاق ملاحظة بـ "الرصيد لا يسمح".
+                    <strong>⚠️ الرصيد غير كافي.</strong> سيتم احتساب ({formData.daysCount - leavesBalance}) أيام منها كإجازة بدون راتب.
+                    <br />
+                    اضغط <strong>نعم، أرسل</strong> في حالة الموافقة أو <strong>تراجع</strong> للإلغاء.
                   </span>
                 </span>
               )}

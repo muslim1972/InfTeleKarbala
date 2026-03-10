@@ -33,10 +33,14 @@ export const SupervisorNotifications = () => {
         if (error) {
             console.error('AdminNotifications: Error fetching:', error);
         } else if (data && data.length > 0) {
-            // THE REAL FIX: Strict Client-Side Filtering
-            // We ONLY want to show notifications for requests that are truly unresolved.
-            // If the main 'status' is 'approved' or 'rejected', it means a final decision was made.
-            let activeRequests = data.filter(req => req.status === 'pending');
+            // THE REAL FIX: Multi-column Pending Check
+            // A request is "pending" if ANY of its process statuses are pending.
+            let activeRequests = data.filter(req =>
+                req.status === 'pending' ||
+                req.leave_status === 'pending' ||
+                req.cancellation_status === 'pending' ||
+                req.cut_status === 'pending'
+            );
 
             // DE-DUPLICATION FIX:
             // Since a request might match multiple OR conditions (e.g. status is pending AND leave_status is pending),

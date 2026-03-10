@@ -12,13 +12,18 @@ export interface LeaveFormData {
     approval_date: string;
     manager_name: string;
     supervisor_name?: string;
+    unpaid_days?: number;
 }
 
-export const generateLeavePDF = async (formData: LeaveFormData) => {
+export const generateLeavePDF = async (formData: LeaveFormData, preOpenedWindow?: Window | null) => {
     try {
         // 1. Fetch template and font
-        console.log("Fetching template...");
-        const templateRes = await fetch('/leave_template.pdf');
+        // Choose template based on unpaid days
+        const templatePath = (formData.unpaid_days && formData.unpaid_days > 0)
+            ? '/new_leave_template.pdf'
+            : '/leave_template.pdf';
+        console.log("Fetching template:", templatePath);
+        const templateRes = await fetch(templatePath);
         if (!templateRes.ok) throw new Error(`Template fetch failed with status: ${templateRes.status}`);
         const existingPdfBytes = await templateRes.arrayBuffer();
 
@@ -54,7 +59,7 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
                     field.setAlignment(TextAlignment.Center);
                 }
             } catch (e) {
-                console.warn(`Field ${fieldName} not found in PDF`);
+                // Field not in template — safe to ignore
             }
         };
 
@@ -76,6 +81,11 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
         const today = new Date().toLocaleDateString('en-GB');
         safeSetText('print_date', today);
 
+        // Fill 'without salary' field if unpaid days exist (new template only)
+        if (formData.unpaid_days && formData.unpaid_days > 0) {
+            safeSetText('without salary', formData.unpaid_days.toString());
+        }
+
         // 4. Update appearances to apply the Arabic font
         const fields = form.getFields();
         fields.forEach(field => {
@@ -91,10 +101,19 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         const pdfUrl = URL.createObjectURL(blob);
-        window.open(pdfUrl, '_blank');
+
+        if (preOpenedWindow && !preOpenedWindow.closed) {
+            // Use the pre-opened window (bypasses popup blocker)
+            preOpenedWindow.location.href = pdfUrl;
+        } else {
+            // Fallback: try opening directly
+            window.open(pdfUrl, '_blank');
+        }
 
     } catch (error: any) {
         console.error("خطأ مفصل في توليد الملف:", error);
+        // Close the pre-opened window on error
+        if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
         alert(`تأكد من وجود ملف leave_template.pdf والخط في مجلد public.\nالخطأ: ${error.message}`);
     }
 };

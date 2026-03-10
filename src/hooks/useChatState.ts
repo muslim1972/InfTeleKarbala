@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -65,11 +65,16 @@ export function useChatState(conversationId: string) {
     setLoading(false);
   }, [conversationId, user]);
 
+  // Stable ref for fetchMessages to avoid recreating the channel on every render
+  const fetchMessagesRef = useRef(fetchMessages);
+  fetchMessagesRef.current = fetchMessages;
+
   // Subscribe to real-time changes
   useEffect(() => {
     if (!conversationId) return;
 
-    fetchMessages();
+    // Use the ref so this effect only depends on conversationId
+    fetchMessagesRef.current();
 
     // Create channel
     const channel = supabase.channel(`chat:${conversationId}`);
@@ -142,10 +147,9 @@ export function useChatState(conversationId: string) {
 
     // Cleanup
     return () => {
-      // Remove channel immediately; ignore "WebSocket closed" noise in Strict Mode
       supabase.removeChannel(channel).catch(() => { });
     };
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, user]);
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();

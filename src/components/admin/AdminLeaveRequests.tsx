@@ -33,6 +33,7 @@ interface LeaveRecord {
         job_title?: string;
         engineering_allowance?: number;
     } | null;
+    unpaid_days?: number;
 }
 
 export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveRequestsProps) => {
@@ -140,7 +141,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days')
                 .eq('status', 'approved')
                 .eq('is_archived', false) // Only fetch unarchived for the pending queue
                 .order('created_at', { ascending: false });
@@ -365,6 +366,22 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     };
 
     const handlePrint = async (record: LeaveRecord) => {
+        // Pre-open window SYNCHRONOUSLY to bypass popup blocker
+        const pdfWindow = window.open('about:blank', '_blank');
+        // Show loading page while PDF is being generated
+        if (pdfWindow) {
+            pdfWindow.document.write(`
+                <html dir="rtl"><head><title>جاري التحضير...</title></head>
+                <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:Arial,sans-serif;background:#f8fafc">
+                    <div style="text-align:center">
+                        <div style="width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px"></div>
+                        <p style="color:#475569;font-size:16px;font-weight:bold">جاري تحضير استمارة الإجازة...</p>
+                    </div>
+                    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+                </body></html>
+            `);
+            pdfWindow.document.close();
+        }
         const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
 
         let balance = 0;
@@ -387,11 +404,14 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             start_date: record.start_date,
             days: record.days_count,
             approval_date: new Date(record.created_at).toLocaleDateString('en-GB'),
-            manager_name: defaultManagerName,
+            manager_name: record.supervisor?.full_name || defaultManagerName,
             supervisor_name: record.supervisor?.full_name || ''
         };
 
-        await generateLeavePDF(formData as any);
+        await generateLeavePDF({
+            ...formData,
+            unpaid_days: record.unpaid_days || 0
+        } as any, pdfWindow);
     };
 
     return (
@@ -662,6 +682,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                     <div className="space-y-1 text-sm">
                                         <p>من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span></p>
                                         <p className="text-gray-500">المدة: <span className="font-bold">{record.days_count} يوم</span> — المسؤول: <span className="font-bold">{record.supervisor?.full_name || '-'}</span></p>
+                                        {(record.unpaid_days ?? 0) > 0 && (
+                                            <p className="text-amber-600 dark:text-amber-400 font-bold text-xs mt-1">⚠️ ملاحظة: منها ({record.unpaid_days}) أيام كإجازة بدون راتب</p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="mt-4 flex flex-col gap-2">

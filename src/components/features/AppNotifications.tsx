@@ -77,7 +77,14 @@ export const AppNotifications = () => {
         if (error) {
             console.error('AppNotifications: Error fetching supervisor requests:', error);
         } else if (data && data.length > 0) {
-            let activeRequests = data.filter(req => req.status === 'pending');
+            // THE REAL FIX: Multi-column Pending Check
+            // A request is "pending" if ANY of its process statuses are pending.
+            let activeRequests = data.filter(req =>
+                req.status === 'pending' ||
+                req.leave_status === 'pending' ||
+                req.cancellation_status === 'pending' ||
+                req.cut_status === 'pending'
+            );
             const uniqueMap = new Map();
             activeRequests.forEach(req => { if (!uniqueMap.has(req.id)) uniqueMap.set(req.id, req); });
             activeRequests = Array.from(uniqueMap.values());
@@ -383,8 +390,15 @@ export const AppNotifications = () => {
                                                     {req.profiles?.full_name || 'موظف'}
                                                 </h5>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                                    طالب بإجازة {req.leave_type} لمدة {req.days_count} يوم
+                                                    {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? 'طالب بإلغاء إجازته' :
+                                                        req.cut_status === 'pending' || req.modification_type === 'cut' ? 'طالب بقطع إجازته والعودة للعمل' :
+                                                            `طالب بإجازة ${req.leave_type || 'اعتادية'} لمدة ${req.days_count} يوم`}
                                                 </p>
+                                                {(req.unpaid_days ?? 0) > 0 && (
+                                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+                                                        ⚠️ منها ({req.unpaid_days}) أيام بدون راتب
+                                                    </p>
+                                                )}
                                             </div>
                                             <button
                                                 className="bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ml-2 shrink-0 pointer-events-none"

@@ -12,6 +12,7 @@ interface LeaveRequest {
     status: string;
     created_at: string;
     modification_type?: string;
+    unpaid_days?: number;
     cut_date?: string;
     profiles?: {
         full_name: string;
@@ -102,7 +103,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{request.profiles?.full_name || 'مستخدم'}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">طلب إجازة جديد</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {request.modification_type === 'canceled' ? 'طلب إلغاء إجازة' :
+                                request.modification_type === 'cut' ? 'طلب قطع إجازة' :
+                                    'طلب إجازة جديد'}
+                        </p>
                     </div>
                     <button onClick={onClose} className="mr-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                         <X size={24} />
@@ -137,6 +142,16 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                             {request.reason}
                         </p>
                     </div>
+
+                    {/* Unpaid days note */}
+                    {(request.unpaid_days ?? 0) > 0 && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm flex items-start gap-2 text-amber-800 dark:text-amber-300">
+                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                            <span>
+                                <strong>ملاحظة:</strong> منها ({request.unpaid_days}) أيام كإجازة بدون راتب
+                            </span>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm flex items-center gap-2">
