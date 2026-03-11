@@ -371,17 +371,38 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         // Show loading page while PDF is being generated
         if (pdfWindow) {
             pdfWindow.document.write(`
-                <html dir="rtl"><head>
+                <html dir="rtl">
+                <head>
                     <title>جاري التحضير...</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                    <style>
+                        body { display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
+                        .container { text-align: center; padding: 20px; }
+                        .spinner {
+                            width: clamp(50px, 12vw, 80px);
+                            height: clamp(50px, 12vw, 80px);
+                            border: clamp(5px, 1.5vw, 8px) solid #e2e8f0;
+                            border-top-color: #3b82f6;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                            margin: 0 auto 24px auto;
+                        }
+                        .text {
+                            color: #475569;
+                            font-size: clamp(20px, 6vw, 36px);
+                            font-weight: bold;
+                            margin: 0;
+                        }
+                        @keyframes spin { to { transform: rotate(360deg) } }
+                    </style>
                 </head>
-                <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:Arial,sans-serif;background:#f8fafc">
-                    <div style="text-align:center">
-                        <div style="width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px"></div>
-                        <p style="color:#475569;font-size:16px;font-weight:bold">جاري تحضير استمارة الإجازة...</p>
+                <body>
+                    <div class="container">
+                        <div class="spinner"></div>
+                        <p class="text">جاري تحضير استمارة الإجازة...</p>
                     </div>
-                    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-                </body></html>
+                </body>
+                </html>
             `);
             pdfWindow.document.close();
         }
