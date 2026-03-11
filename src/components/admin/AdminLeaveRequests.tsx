@@ -376,24 +376,27 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 <head>
                     <meta charset="utf-8">
                     <title>جاري التحضير...</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <style>
                         body { display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
                         .container { text-align: center; padding: 20px; }
                         .spinner {
-                            width: 80px;
-                            height: 80px;
-                            border: 8px solid #e2e8f0;
+                            width: 15vmin;
+                            height: 15vmin;
+                            min-width: 40px;
+                            min-height: 40px;
+                            border: 1vmin solid #e2e8f0;
                             border-top-color: #3b82f6;
                             border-radius: 50%;
                             animation: spin 1s linear infinite;
-                            margin: 0 auto 24px auto;
+                            margin: 0 auto 3vmin auto;
                         }
                         .text {
                             color: #475569;
-                            font-size: 28px;
+                            font-size: 5vmin;
                             font-weight: bold;
                             margin: 0;
+                            white-space: nowrap;
                         }
                         @keyframes spin { to { transform: rotate(360deg) } }
                     </style>
