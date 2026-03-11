@@ -34,6 +34,7 @@ interface LeaveRecord {
         engineering_allowance?: number;
     } | null;
     unpaid_days?: number;
+    cancellation_status?: string;
 }
 
 export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveRequestsProps) => {
@@ -142,7 +143,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status')
                 .eq('status', 'approved')
                 .eq('is_archived', false) // Only fetch unarchived for the pending queue
                 .order('created_at', { ascending: false });
@@ -370,6 +371,25 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         setIsPrintingPdf(true);
 
         try {
+            // Real-time guard: Check if the leave was cancelled by the employee right before printing
+            const { data: latestRecord, error: checkError } = await supabase
+                .from('leave_requests')
+                .select('cancellation_status')
+                .eq('id', record.id)
+                .single();
+
+            if (checkError) {
+                console.error("Error checking latest status:", checkError);
+                throw new Error("فشل في التحقق من حالة الإجازة");
+            }
+
+            if (latestRecord && latestRecord.cancellation_status === 'approved') {
+                alert('لقد تم الغاء الاجازة من قبل الموظف واعتمدها المسؤول');
+                setIsPrintingPdf(false);
+                fetchAllApprovedRequests(); // Refresh the list
+                return; // Stop printing
+            }
+
             const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
 
             let balance = 0;
@@ -670,7 +690,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                                 )}
                                             </div>
                                         </div>
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-green-500/30">معتمد</span>
+                                        {record.cancellation_status === 'approved' ? (
+                                            <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-rose-500/30">إجازة ملغاة</span>
+                                        ) : (
+                                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-green-500/30">معتمد</span>
+                                        )}
                                     </div>
                                     <div className="space-y-1 text-sm">
                                         <p>من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span></p>
@@ -681,12 +705,14 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                     </div>
                                 </div>
                                 <div className="mt-4 flex flex-col gap-2">
-                                    <button
-                                        onClick={() => handlePrint(record)}
-                                        className="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
-                                    >
-                                        <Printer size={16} /> طباعة استمارة الإجازة PDF
-                                    </button>
+                                    {record.cancellation_status !== 'approved' && (
+                                        <button
+                                            onClick={() => handlePrint(record)}
+                                            className="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
+                                        >
+                                            <Printer size={16} /> طباعة استمارة الإجازة PDF
+                                        </button>
+                                    )}
                                     <button
                                         onClick={async () => {
                                             if (window.confirm('هل أنت متأكد من حفظ (أرشفة) هذه الإجازة لتختفي من قائمة "بانتظار الطباعة"؟')) {
