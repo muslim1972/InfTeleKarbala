@@ -90,12 +90,20 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
 
         // 4. Update appearances to apply the Arabic font (now handled in safeSetText natively)
 
-        // 5. Generate and return PDF URL
+        // 5. Generate PDF
+        // Return BOTH blob URL (for modern browsers) and Base64 Data URL (for older Android 7/9 webviews)
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-        const pdfUrl = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Android 7 and 9 WebViews famously fail to open blob:// URLs via window.open, returning blank screens.
+        // Base64 Data URIs work universally, though they are slightly heavier.
+        const base64String = await pdfDoc.saveAsBase64({ dataUri: true });
 
-        return pdfUrl;
+        return {
+            blobUrl,
+            base64Url: base64String
+        };
 
     } catch (error: any) {
         console.error("خطأ مفصل في توليد الملف:", error);
