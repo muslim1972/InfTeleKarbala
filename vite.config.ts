@@ -20,10 +20,11 @@ export default defineConfig({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-icons': ['lucide-react'],
           'vendor-utils': ['localforage', 'react-hot-toast'],
+          'vendor-pdf': ['pdf-lib', '@pdf-lib/fontkit'], // فصل مكاتب الـ PDF
         }
       }
     },
-    // تقليل تحذيرات الحجم
-    chunkSizeWarningLimit: 600,
+    // تقليل تحذيرات الحجم لأن مكتبات الـ PDF ثقيلة طبيعياً
+    chunkSizeWarningLimit: 2500,
   }
 })

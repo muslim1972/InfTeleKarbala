@@ -366,55 +366,56 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     };
 
     const handlePrint = async (record: LeaveRecord) => {
+        // Create a proper HTML document Blob instead of using about:blank
+        // Android 15 WebViews ignore viewport meta tags on about:blank, but respect them on real URLs (even Blob URLs)
+        const loadingHtml = `
+            <!DOCTYPE html>
+            <html dir="rtl">
+            <head>
+                <meta charset="utf-8">
+                <title>جاري التحضير...</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <style>
+                    html, body { 
+                        margin: 0; padding: 0; width: 100%; height: 100%; 
+                        background: #f8fafc; font-family: system-ui, -apple-system, sans-serif; 
+                    }
+                    .wrapper { 
+                        position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+                        display: flex; flex-direction: column; align-items: center; justify-content: center; 
+                    }
+                    .spinner {
+                        width: clamp(60px, 15vw, 100px);
+                        height: clamp(60px, 15vw, 100px);
+                        border: clamp(6px, 1.5vw, 10px) solid #e2e8f0;
+                        border-top-color: #3b82f6;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin-bottom: 24px;
+                    }
+                    .text {
+                        color: #475569;
+                        font-size: clamp(24px, 6vw, 40px);
+                        font-weight: bold;
+                        margin: 0;
+                        text-align: center;
+                    }
+                    @keyframes spin { to { transform: rotate(360deg) } }
+                </style>
+            </head>
+            <body>
+                <div class="wrapper">
+                    <div class="spinner"></div>
+                    <p class="text">جاري تحضير استمارة الإجازة...</p>
+                </div>
+            </body>
+            </html>
+        `;
+        const blob = new Blob([loadingHtml], { type: 'text/html' });
+        const loadingUrl = URL.createObjectURL(blob);
+
         // Pre-open window SYNCHRONOUSLY to bypass popup blocker
-        const pdfWindow = window.open('about:blank', '_blank');
-        // Show loading page while PDF is being generated
-        if (pdfWindow) {
-            pdfWindow.document.write(`
-                <!DOCTYPE html>
-                <html dir="rtl">
-                <head>
-                    <meta charset="utf-8">
-                    <title>جاري التحضير...</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                    <style>
-                        html, body { 
-                            margin: 0; padding: 0; width: 100%; height: 100%; 
-                            background: #f8fafc; font-family: system-ui, -apple-system, sans-serif; 
-                        }
-                        .wrapper { 
-                            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
-                            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-                        }
-                        .spinner {
-                            width: clamp(60px, 15vw, 100px);
-                            height: clamp(60px, 15vw, 100px);
-                            border: clamp(6px, 1.5vw, 10px) solid #e2e8f0;
-                            border-top-color: #3b82f6;
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                            margin-bottom: 24px;
-                        }
-                        .text {
-                            color: #475569;
-                            font-size: clamp(24px, 6vw, 40px);
-                            font-weight: bold;
-                            margin: 0;
-                            text-align: center;
-                        }
-                        @keyframes spin { to { transform: rotate(360deg) } }
-                    </style>
-                </head>
-                <body>
-                    <div class="wrapper">
-                        <div class="spinner"></div>
-                        <p class="text">جاري تحضير استمارة الإجازة...</p>
-                    </div>
-                </body>
-                </html>
-            `);
-            pdfWindow.document.close();
-        }
+        const pdfWindow = window.open(loadingUrl, '_blank');
         const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
 
         let balance = 0;
