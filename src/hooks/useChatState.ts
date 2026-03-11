@@ -9,6 +9,7 @@ export interface Message {
   conversation_id: string;
   sender_id: string;
   text: string;
+  audio_url?: string;
   read_by?: string[];
   created_at: string;
   is_sending?: boolean; // Optimistic UI
@@ -205,6 +206,87 @@ export function useChatState(conversationId: string) {
     }
   };
 
+  // Voice Message Sending
+  const sendVoiceMessage = async (audioBlob: Blob) => {
+    if (!user || !conversationId) return;
+    setIsSending(true);
+
+    const optimisticId = uuidv4();
+    const ext = audioBlob.type.includes('webm') ? 'webm' : 'mp4';
+    const filePath = `${user.id}/${optimisticId}.${ext}`;
+
+    // Optimistic message
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      text: '🎤 رسالة صوتية',
+      created_at: new Date().toISOString(),
+      is_sending: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      // 1. Upload to storage
+      console.log(`Uploading voice: ${filePath}, size: ${audioBlob.size}, type: ${audioBlob.type}`);
+      const { error: uploadError } = await supabase.storage
+        .from('voice-messages')
+        .upload(filePath, audioBlob, {
+          contentType: audioBlob.type,
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get public URL
+      const { data: urlData } = supabase.storage
+        .from('voice-messages')
+        .getPublicUrl(filePath);
+
+      const audioUrl = urlData.publicUrl;
+      console.log('Voice URL:', audioUrl);
+
+      // 3. Insert message with audio_url
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          id: optimisticId,
+          conversation_id: conversationId,
+          sender_id: user.id,
+          text: '🎤 رسالة صوتية',
+          audio_url: audioUrl,
+        });
+
+      if (insertError) throw insertError;
+
+      // 4. Immediately update the optimistic message with audio_url so the player renders
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticId
+          ? { ...m, audio_url: audioUrl, is_sending: false }
+          : m
+      ));
+
+      // 5. Update conversation
+      await supabase
+        .from('conversations')
+        .update({
+          last_message: '🎤 رسالة صوتية',
+          last_message_at: new Date().toISOString(),
+          deleted_by: [],
+        })
+        .eq('id', conversationId);
+
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      toast.error('فشل إرسال الرسالة الصوتية');
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      // Cleanup uploaded file on failure
+      supabase.storage.from('voice-messages').remove([filePath]).catch(() => {});
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   // Selection Logic
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
 
@@ -249,6 +331,7 @@ export function useChatState(conversationId: string) {
     setNewMessage,
     isSending,
     sendMessage,
+    sendVoiceMessage,
     selectedMessages,
     toggleSelection,
     clearSelection,

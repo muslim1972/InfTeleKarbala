@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import type { Message } from '../../hooks/useChatState';
 import { useAuth } from '../../context/AuthContext';
 import useLongPress from '../../hooks/useLongPress';
+import { AudioPlayer } from './AudioPlayer';
 
 interface MessageBubbleProps {
     message: Message;
@@ -43,6 +44,7 @@ const renderMessageText = (text: string, isMe: boolean) => {
 export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, onToggleSelection }: MessageBubbleProps) {
     const { user } = useAuth();
     const isMe = message.sender_id === user?.id;
+    const isVoice = !!message.audio_url;
 
     const onLongPress = () => {
         if (onToggleSelection) {
@@ -82,9 +84,16 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
                         {message.sender.full_name}
                     </div>
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                    {renderMessageText(message.text, isMe)}
-                </p>
+
+                {/* Voice Message */}
+                {isVoice && message.audio_url ? (
+                    <AudioPlayer src={message.audio_url} isMe={isMe} />
+                ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {renderMessageText(message.text, isMe)}
+                    </p>
+                )}
+
                 <div className={cn("text-[10px] mt-1 flex items-center gap-1", isMe ? "text-emerald-100/80" : "text-gray-400")}>
                     <span>
                         {format(new Date(message.created_at), 'p', { locale: ar })}

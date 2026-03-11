@@ -49,10 +49,11 @@ export function ChatScreen() {
         newMessage,
         setNewMessage,
         sendMessage,
-        selectedMessages,      // New
-        toggleSelection,       // New
-        clearSelection,        // New
-        deleteMessages         // New
+        sendVoiceMessage,
+        selectedMessages,
+        toggleSelection,
+        clearSelection,
+        deleteMessages
     } = useChatState(conversationId || '');
 
     const { details, loading: detailsLoading } = useConversationDetails(conversationId || '');
@@ -125,11 +126,12 @@ export function ChatScreen() {
 
             {/* Input */}
             <MessageInput
-                key={conversationId} // Forces remount and triggers autoFocus on conversation change
+                key={conversationId}
                 value={newMessage}
                 onChange={setNewMessage}
                 onSend={sendMessage}
-                disabled={selectedMessages.length > 0} // Only disable if selecting messages
+                onSendVoice={sendVoiceMessage}
+                disabled={selectedMessages.length > 0}
             />
         </div>
     );

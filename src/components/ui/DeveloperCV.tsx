@@ -11,23 +11,29 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
     return (
         <AnimatePresence>
             {isOpen && (
+                <>
+                {/* Fixed Backdrop */}
+                <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl" onClick={onClose} />
+
+                {/* Fixed Close Button - separate layer, not affected by scroll */}
+                <motion.button
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={onClose}
+                    className="fixed top-4 right-4 z-[120] p-3 bg-white/10 hover:bg-red-500/20 text-white rounded-full backdrop-blur-md border border-white/20 transition-all shadow-xl"
+                >
+                    <X size={24} />
+                </motion.button>
+
+                {/* Scrollable Content Layer */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-950/95 backdrop-blur-2xl p-4 md:p-8 overflow-y-auto pt-20"
+                    className="fixed inset-0 z-[110] flex items-start justify-center p-4 md:p-8 overflow-y-auto pt-20"
                 >
-                    {/* Close Button */}
-                    <motion.button
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        whileHover={{ scale: 1.1, rotate: 90 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={onClose}
-                        className="fixed top-4 right-4 z-[120] p-3 bg-white/10 hover:bg-red-500/20 text-white rounded-full backdrop-blur-md border border-white/20 transition-all shadow-xl"
-                    >
-                        <X size={24} />
-                    </motion.button>
 
                     {/* Main Container */}
                     <motion.div
@@ -291,6 +297,7 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                         </div>
                     </motion.div>
                 </motion.div>
+                </>
             )}
         </AnimatePresence>
     );
