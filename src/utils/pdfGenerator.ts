@@ -57,6 +57,8 @@ export const generateLeavePDF = async (formData: LeaveFormData, preOpenedWindow?
                 if (field) {
                     field.setText(text);
                     field.setAlignment(TextAlignment.Center);
+                    // Explicitly apply the Arabic font to the field to fix Vercel WinAnsi encode error
+                    field.updateAppearances(arabicFont);
                 }
             } catch (e) {
                 // Field not in template — safe to ignore
@@ -86,16 +88,7 @@ export const generateLeavePDF = async (formData: LeaveFormData, preOpenedWindow?
             safeSetText('without salary', formData.unpaid_days.toString());
         }
 
-        // 4. Update appearances to apply the Arabic font
-        const fields = form.getFields();
-        fields.forEach(field => {
-            try {
-                if (field.constructor.name.includes('TextField')) {
-                    // @ts-ignore: updateAppearances is missing in type definition for TextField sometimes
-                    field.updateAppearances(arabicFont);
-                }
-            } catch (e) { }
-        });
+        // 4. Update appearances to apply the Arabic font (now handled in safeSetText natively)
 
         // 5. Generate and open PDF
         const pdfBytes = await pdfDoc.save();
