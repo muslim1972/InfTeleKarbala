@@ -15,7 +15,7 @@ export interface LeaveFormData {
     unpaid_days?: number;
 }
 
-export const generateLeavePDF = async (formData: LeaveFormData, preOpenedWindow?: Window | null) => {
+export const generateLeavePDF = async (formData: LeaveFormData) => {
     try {
         // 1. Fetch template and font
         // Choose template based on unpaid days
@@ -90,23 +90,16 @@ export const generateLeavePDF = async (formData: LeaveFormData, preOpenedWindow?
 
         // 4. Update appearances to apply the Arabic font (now handled in safeSetText natively)
 
-        // 5. Generate and open PDF
+        // 5. Generate and return PDF URL
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         const pdfUrl = URL.createObjectURL(blob);
 
-        if (preOpenedWindow && !preOpenedWindow.closed) {
-            // Use the pre-opened window (bypasses popup blocker)
-            preOpenedWindow.location.href = pdfUrl;
-        } else {
-            // Fallback: try opening directly
-            window.open(pdfUrl, '_blank');
-        }
+        return pdfUrl;
 
     } catch (error: any) {
         console.error("خطأ مفصل في توليد الملف:", error);
-        // Close the pre-opened window on error
-        if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
         alert(`تأكد من وجود ملف leave_template.pdf والخط في مجلد public.\nالخطأ: ${error.message}`);
+        throw error;
     }
 };

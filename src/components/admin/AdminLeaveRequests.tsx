@@ -67,6 +67,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     // @ts-ignore
     const [printingRecord, setPrintingRecord] = useState<LeaveRecord | null>(null);
     const [directorateManager, setDirectorateManager] = useState<{ full_name: string, job_title: string } | null>(null);
+    const [isPrintingPdf, setIsPrintingPdf] = useState(false);
+    const [pdfReadyUrl, setPdfReadyUrl] = useState<string | null>(null);
 
     // Fetch all approved requests for all employees
     useEffect(() => {
@@ -366,69 +368,19 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     };
 
     const handlePrint = async (record: LeaveRecord) => {
-        // Create a proper HTML document Blob instead of using about:blank
-        // Android 15 WebViews ignore viewport meta tags on about:blank, but respect them on real URLs (even Blob URLs)
-        const loadingHtml = `
-            <!DOCTYPE html>
-            <html dir="rtl">
-            <head>
-                <meta charset="utf-8">
-                <title>جاري التحضير...</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <style>
-                    html, body { 
-                        margin: 0; padding: 0; width: 100%; height: 100%; 
-                        background: #f8fafc; font-family: system-ui, -apple-system, sans-serif; 
-                    }
-                    .wrapper { 
-                        position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
-                        display: flex; flex-direction: column; align-items: center; justify-content: center; 
-                    }
-                    .spinner {
-                        width: clamp(60px, 15vw, 100px);
-                        height: clamp(60px, 15vw, 100px);
-                        border: clamp(6px, 1.5vw, 10px) solid #e2e8f0;
-                        border-top-color: #3b82f6;
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                        margin-bottom: 24px;
-                    }
-                    .text {
-                        color: #475569;
-                        font-size: clamp(24px, 6vw, 40px);
-                        font-weight: bold;
-                        margin: 0;
-                        text-align: center;
-                    }
-                    @keyframes spin { to { transform: rotate(360deg) } }
-                </style>
-            </head>
-            <body>
-                <div class="wrapper">
-                    <div class="spinner"></div>
-                    <p class="text">جاري تحضير استمارة الإجازة...</p>
-                </div>
-            </body>
-            </html>
-        `;
-        const blob = new Blob([loadingHtml], { type: 'text/html' });
-        const loadingUrl = URL.createObjectURL(blob);
+        setIsPrintingPdf(true);
+        setPdfReadyUrl(null);
 
-        // Pre-open window SYNCHRONOUSLY to bypass popup blocker
-        const pdfWindow = window.open(loadingUrl, '_blank');
-        const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
-
-        let balance = 0;
         try {
+            const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
+
+            let balance = 0;
             const { data } = await supabase
                 .from('financial_records')
                 .select('remaining_leaves_balance')
                 .eq('user_id', record.user_id)
                 .single();
             if (data) balance = data.remaining_leaves_balance || 0;
-        } catch (e) {
-            console.error("Error fetching balance:", e);
-        }
 
         const formData = {
             full_name: record.employee_name || '',
@@ -442,11 +394,19 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             supervisor_name: record.supervisor?.full_name || ''
         };
 
-        await generateLeavePDF({
+        const url = await generateLeavePDF({
             ...formData,
             unpaid_days: record.unpaid_days || 0
-        } as any, pdfWindow);
-    };
+        } as any);
+
+        setPdfReadyUrl(url);
+
+    } catch (error) {
+        console.error("Error in print flow:", error);
+        setIsPrintingPdf(false);
+        alert('حدث خطأ أثناء تحضير ملف الإجازة.');
+    }
+};
 
     return (
         <div className="space-y-6">
@@ -940,6 +900,46 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                     </div>
                 )}
             </div>
+
+            {/* Modal for PDF Generation overlay */}
+            {isPrintingPdf && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center flex flex-col items-center justify-center p-8">
+                        {!pdfReadyUrl ? (
+                            <>
+                                <div className="w-16 h-16 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin mb-6"></div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-2">جاري تحضير الاستمارة...</h3>
+                                <p className="text-slate-500">يرجى الانتظار بينما نقوم بإنشاء ملف الـ PDF.</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-4">تم تجهيز الاستمارة!</h3>
+                                <div className="flex flex-col gap-3 w-full">
+                                    <button 
+                                        onClick={() => window.open(pdfReadyUrl, '_blank')}
+                                        className="w-full bg-brand-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/30 flex items-center justify-center gap-2"
+                                    >
+                                        <Printer size={20} />
+                                        <span>عرض وطباعة الاستمارة</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            setIsPrintingPdf(false);
+                                            setPdfReadyUrl(null);
+                                        }}
+                                        className="w-full bg-slate-100 text-slate-700 font-bold py-3 px-4 rounded-xl hover:bg-slate-200 transition-colors"
+                                    >
+                                        إغلاق
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
