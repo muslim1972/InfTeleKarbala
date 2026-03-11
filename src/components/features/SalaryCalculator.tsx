@@ -40,7 +40,10 @@ export function SalaryCalculator() {
             case 'secondary': certPct = 25; break;
             case 'intermediate':
             case 'primary':
-            case 'illiterate': certPct = 15; break;
+            case 'illiterate': 
+                certPct = 15; 
+                break;
+            default: certPct = 0;
         }
         const certAmount = (nominal * certPct) / 100;
 
@@ -55,7 +58,6 @@ export function SalaryCalculator() {
         const posAmount = (nominal * posPct) / 100;
 
         // D. Risk Allowance %
-        // Base 30%, 50% for grades 8, 9, 10
         const isLowGrade = ['8', '9', '10'].includes(grade);
         const riskPct = isLowGrade ? 50 : 30;
         const riskAmount = (nominal * riskPct) / 100;
@@ -66,18 +68,18 @@ export function SalaryCalculator() {
 
         const socialSecurityAmount = Math.round(nominal * 0.0025);
 
-        // F. Marital & Children (Fixed per request)
+        // F. Marital & Children
         const maritalVal = isMarried ? maritalAllowance : 0;
         const childrenVal = hasChildren ? (childrenCount * CHILD_FIXED_AMOUNT) : 0;
 
-        // Total Gross
+        // Total Gross Calculation
         const totalAllowances = certAmount + posAmount + riskAmount + engAmount + maritalVal + childrenVal + transportAllowance;
         const gross = nominal + totalAllowances;
 
-        // G. General Deduction (10% from NOMINAL as per user correction)
+        // G. General Deduction (10% from NOMINAL)
         const generalDeductionVal = nominal * 0.1;
 
-        // Total Net
+        // Total Net Calculation
         const totalDeductions = generalDeductionVal + socialSecurityAmount + loanDeduction + executionDeduction + taxDeduction;
         const net = gross - totalDeductions;
 
@@ -150,13 +152,13 @@ export function SalaryCalculator() {
                                 onChange={(e) => setCertificate(e.target.value)}
                                 className="flex-1 p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-brand-green/50 outline-none transition-all font-bold"
                             >
-                                <option value="phd">دكتوراه (150%)</option>
-                                <option value="master">ماجستير (125%)</option>
-                                <option value="diploma_high">دبلوم عالي (55%)</option>
-                                <option value="bachelor">بكلوريوس (45%)</option>
-                                <option value="diploma">دبلوم / معهد (35%)</option>
-                                <option value="secondary">اعدادية (25%)</option>
                                 <option value="intermediate">متوسطة وما دون (15%)</option>
+                                <option value="secondary">اعدادية (25%)</option>
+                                <option value="diploma">دبلوم / معهد (35%)</option>
+                                <option value="bachelor">بكلوريوس (45%)</option>
+                                <option value="diploma_high">دبلوم عالي (55%)</option>
+                                <option value="master">ماجستير (125%)</option>
+                                <option value="phd">دكتوراه (150%)</option>
                             </select>
                             <label className="flex items-center gap-2 px-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl cursor-pointer">
                                 <input

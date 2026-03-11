@@ -205,30 +205,38 @@ export const Dashboard = () => {
                     if (financialResult.data) {
                         const data = financialResult.data;
 
-                        // Calculate Totals locally to bypass potential DB corruption or missing fields
-                        const totalAllowances = (
-                            (data.certificate_allowance || 0) +
-                            (data.position_allowance || 0) +
-                            (data.engineering_allowance || 0) +
-                            (data.risk_allowance || 0) +
-                            (data.legal_allowance || 0) +
-                            (data.additional_50_percent_allowance || 0) +
-                            (data.transport_allowance || 0) +
-                            (data.marital_allowance || 0) +
-                            (data.children_allowance || 0)
-                        );
+                        // Helper to safely parse numbers even if they come as formatted strings
+                        const parseMoney = (val: any) => {
+                            if (typeof val === 'number') return val;
+                            if (!val) return 0;
+                            const clean = String(val).replace(/,/g, '').replace(/[^\d.]/g, '');
+                            const num = parseFloat(clean);
+                            return isNaN(num) ? 0 : num;
+                        };
 
-                        const totalDeductions = (
-                            (data.tax_deduction_amount || 0) +
-                            (data.loan_deduction || 0) +
-                            (data.execution_deduction || 0) +
-                            (data.retirement_deduction || 0) +
-                            (data.school_stamp_deduction || 0) +
-                            (data.social_security_deduction || 0) +
-                            (data.other_deductions || 0)
-                        );
+                        const certAllow = parseMoney(data.certificate_allowance);
+                        const posAllow = parseMoney(data.position_allowance);
+                        const engAllow = parseMoney(data.engineering_allowance);
+                        const riskAllow = parseMoney(data.risk_allowance);
+                        const legalAllow = parseMoney(data.legal_allowance);
+                        const add50Allow = parseMoney(data.additional_50_percent_allowance);
+                        const transAllow = parseMoney(data.transport_allowance);
+                        const maritalAllow = parseMoney(data.marital_allowance);
+                        const childAllow = parseMoney(data.children_allowance);
 
-                        const nominalSalary = data.nominal_salary || 0;
+                        const totalAllowances = certAllow + posAllow + engAllow + riskAllow + legalAllow + add50Allow + transAllow + maritalAllow + childAllow;
+
+                        const taxDeduct = parseMoney(data.tax_deduction_amount);
+                        const loanDeduct = parseMoney(data.loan_deduction);
+                        const execDeduct = parseMoney(data.execution_deduction);
+                        const retireDeduct = parseMoney(data.retirement_deduction);
+                        const schoolDeduct = parseMoney(data.school_stamp_deduction);
+                        const socialDeduct = parseMoney(data.social_security_deduction);
+                        const otherDeduct = parseMoney(data.other_deductions);
+
+                        const totalDeductions = taxDeduct + loanDeduct + execDeduct + retireDeduct + schoolDeduct + socialDeduct + otherDeduct;
+
+                        const nominalSalary = parseMoney(data.nominal_salary);
                         const grossSalary = nominalSalary + totalAllowances;
                         const netSalary = grossSalary - totalDeductions;
 
