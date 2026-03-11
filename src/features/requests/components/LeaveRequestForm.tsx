@@ -44,6 +44,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [archiveRecords, setArchiveRecords] = useState<any[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isFormExpanded, setIsFormExpanded] = useState(false);
 
   const handleArchiveSearch = async () => {
     if (!user) return;
@@ -366,86 +367,108 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 pb-8">
+    <div className="space-y-4">
       {/* Latest Request banner */}
       {latestRequest && (
-        <div className={`m-6 p-4 rounded-xl border flex items-center justify-between ${canModifyLatest ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-gray-50 border-gray-200 dark:bg-slate-800 dark:border-slate-700'}`}>
+        <div className={`p-4 rounded-2xl border flex items-center justify-between backdrop-blur-sm transition-all duration-300 ${canModifyLatest ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200/60 dark:from-indigo-900/20 dark:to-purple-900/20 dark:border-indigo-800/50' : 'bg-gray-50/80 border-gray-200/60 dark:bg-slate-800/50 dark:border-slate-700/50'}`}>
           <div>
-            <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1">
+            <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
+              <Clock size={14} className="text-indigo-500" />
               أحدث طلب إجازة
-              {latestRequest.modification_type === 'canceled' && <span className="text-red-500 font-bold mx-2">(ملغي)</span>}
+              {latestRequest.modification_type === 'canceled' && <span className="text-red-500 font-bold text-xs bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-full">ملغي</span>}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               من {latestRequest.start_date} إلى {latestRequest.end_date}
-              ({latestRequest.status === 'pending' ? 'قيد الانتظار' : latestRequest.status === 'approved' ? 'موافق عليه' : 'مرفوض'})
+              <span className={`mx-2 px-2 py-0.5 rounded-full text-xs font-bold ${latestRequest.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : latestRequest.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
+                {latestRequest.status === 'pending' ? 'قيد الانتظار' : latestRequest.status === 'approved' ? 'موافق عليه' : 'مرفوض'}
+              </span>
             </p>
           </div>
           {canModifyLatest && (
             <button
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
             >
-              <Edit2 size={16} />
-              تعديل الطلب
+              <Edit2 size={14} />
+              تعديل
             </button>
           )}
         </div>
       )}
 
-      {/* Balance Info Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white rounded-t-2xl">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-lg font-bold opacity-90 mb-1">رصيد الإجازات المتبقي</h3>
-            <div className="text-3xl font-extrabold flex items-baseline gap-2">
-              {isLoading ? (
-                <span className="animate-pulse opacity-70">...</span>
-              ) : (
-                <span>{leavesBalance !== undefined ? leavesBalance : '-'}</span>
-              )}
-              <span className="text-sm font-normal opacity-75">يوم</span>
+      {/* Compact Balance Card */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 text-white rounded-2xl shadow-lg shadow-indigo-500/20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvc3ZnPg==')] opacity-50"></div>
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <CalendarCheck size={22} className="text-white" />
             </div>
-            {expiryDate && (
-              <p className="text-xs mt-2 opacity-80 flex items-center gap-1">
-                <Clock size={12} />
-                محسوب لغاية: {expiryDate}
-              </p>
-            )}
+            <div>
+              <h3 className="text-sm font-bold opacity-90">رصيد الإجازات</h3>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold">
+                  {isLoading ? '...' : (leavesBalance !== undefined ? leavesBalance : '-')}
+                </span>
+                <span className="text-xs font-normal opacity-75">يوم</span>
+              </div>
+            </div>
           </div>
-          <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-            <CalendarCheck size={24} className="text-white" />
-          </div>
+          {expiryDate && (
+            <div className="text-xs opacity-70 flex items-center gap-1 bg-white/10 px-3 py-1.5 rounded-lg">
+              <Clock size={11} />
+              لغاية: {expiryDate}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Form Section */}
-      <div className="p-6">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
-          <FileText className="text-blue-600" size={24} />
-          نموذج طلب إجازة
-        </h2>
+      {/* Form Section - Collapsible */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsFormExpanded(!isFormExpanded)}
+          className="w-full flex items-center justify-between p-5 focus:outline-none hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <FileText size={18} />
+            </div>
+            <div className="text-right">
+              <h2 className="text-base font-bold text-gray-800 dark:text-white">نموذج طلب إجازة</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">تقديم طلب إجازة جديد</p>
+            </div>
+          </div>
+          <div className={`p-2 rounded-full transition-all duration-300 ${isFormExpanded ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'bg-gray-100 dark:bg-slate-700 text-gray-500'}`}>
+            {isFormExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+        </button>
+
+        {isFormExpanded && (
+          <div className="px-5 pb-6 animate-in slide-in-from-top-2 duration-200">
+            <div className="border-t border-gray-100 dark:border-slate-700 pt-5">
 
         {success ? (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center animate-fade-in-up">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center">
+            <div className="w-14 h-14 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={28} className="text-green-600 dark:text-green-400" />
             </div>
             <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم الإرسال بنجاح</h3>
-            <p className="text-green-600 dark:text-green-400 mb-6">
+            <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
               تم إرسال الطلب إلى المسؤول المباشر للموافقة. ستصلك الإجابة قريباً.
             </p>
             <button
               onClick={() => setSuccess(false)}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition shadow-lg shadow-green-500/20"
+              className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20"
             >
               تقديم طلب جديد
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
 
             {/* Automatic Routing Info */}
-            <div className={`p-4 rounded-xl border mb-4 flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
+            <div className={`p-4 rounded-xl border flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
               <div className="flex-1">
                 <span className={`block text-sm font-bold mb-1 ${managerInfo ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
                   توجيه الطلب تلقائياً إلى:
@@ -473,7 +496,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
               <Network className={`w-10 h-10 \${managerInfo ? 'text-blue-200 dark:text-blue-800' : 'text-red-200 dark:text-red-800/50'}`} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Start Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -544,11 +567,15 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب للمسؤول'}
             </button>
           </form>
+        )}
+
+            </div>
+          </div>
         )}
       </div>
 
@@ -615,22 +642,22 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       )}
 
       {/* Personal Archive Section (Collapsible) */}
-      <div className="mt-8 border-t border-gray-100 dark:border-slate-700 pt-8 px-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
           <button
               onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
-              className="w-full flex items-center justify-between focus:outline-none print:hidden"
+              className="w-full flex items-center justify-between p-5 focus:outline-none hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors print:hidden"
           >
               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
-                      <List size={20} />
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+                      <List size={18} />
                   </div>
                   <div className="text-right">
-                      <h2 className="text-lg font-bold">قائمة إجازاتك</h2>
-                      <p className="text-sm text-gray-500">ابحث عن إجازاتك السابقة واطبعها كقائمة</p>
+                      <h2 className="text-base font-bold text-gray-800 dark:text-white">قائمة إجازاتك</h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">ابحث عن إجازاتك السابقة واطبعها كقائمة</p>
                   </div>
               </div>
-              <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
-                  {isArchiveExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              <div className={`p-2 rounded-full transition-all duration-300 ${isArchiveExpanded ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-gray-100 dark:bg-slate-700 text-gray-500'}`}>
+                  {isArchiveExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </div>
           </button>
 
