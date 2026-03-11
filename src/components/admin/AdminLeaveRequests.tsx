@@ -376,33 +376,37 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 <head>
                     <meta charset="utf-8">
                     <title>جاري التحضير...</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                     <style>
-                        body { display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
-                        .container { text-align: center; padding: 20px; }
+                        html, body { 
+                            margin: 0; padding: 0; width: 100%; height: 100%; 
+                            background: #f8fafc; font-family: system-ui, -apple-system, sans-serif; 
+                        }
+                        .wrapper { 
+                            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+                            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+                        }
                         .spinner {
-                            width: 15vmin;
-                            height: 15vmin;
-                            min-width: 40px;
-                            min-height: 40px;
-                            border: 1vmin solid #e2e8f0;
+                            width: clamp(60px, 15vw, 100px);
+                            height: clamp(60px, 15vw, 100px);
+                            border: clamp(6px, 1.5vw, 10px) solid #e2e8f0;
                             border-top-color: #3b82f6;
                             border-radius: 50%;
                             animation: spin 1s linear infinite;
-                            margin: 0 auto 3vmin auto;
+                            margin-bottom: 24px;
                         }
                         .text {
                             color: #475569;
-                            font-size: 5vmin;
+                            font-size: clamp(24px, 6vw, 40px);
                             font-weight: bold;
                             margin: 0;
-                            white-space: nowrap;
+                            text-align: center;
                         }
                         @keyframes spin { to { transform: rotate(360deg) } }
                     </style>
                 </head>
                 <body>
-                    <div class="container">
+                    <div class="wrapper">
                         <div class="spinner"></div>
                         <p class="text">جاري تحضير استمارة الإجازة...</p>
                     </div>
