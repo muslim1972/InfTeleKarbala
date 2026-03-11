@@ -371,17 +371,19 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         // Show loading page while PDF is being generated
         if (pdfWindow) {
             pdfWindow.document.write(`
+                <!DOCTYPE html>
                 <html dir="rtl">
                 <head>
+                    <meta charset="utf-8">
                     <title>جاري التحضير...</title>
                     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                     <style>
                         body { display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
                         .container { text-align: center; padding: 20px; }
                         .spinner {
-                            width: clamp(50px, 12vw, 80px);
-                            height: clamp(50px, 12vw, 80px);
-                            border: clamp(5px, 1.5vw, 8px) solid #e2e8f0;
+                            width: 80px;
+                            height: 80px;
+                            border: 8px solid #e2e8f0;
                             border-top-color: #3b82f6;
                             border-radius: 50%;
                             animation: spin 1s linear infinite;
@@ -389,7 +391,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                         }
                         .text {
                             color: #475569;
-                            font-size: clamp(20px, 6vw, 36px);
+                            font-size: 28px;
                             font-weight: bold;
                             margin: 0;
                         }
