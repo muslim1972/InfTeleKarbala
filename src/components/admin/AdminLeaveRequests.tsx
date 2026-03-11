@@ -939,30 +939,53 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                 </>
                             ) : (
                                 <>
-                                    <div 
+                                    <a 
+                                        href={pdfUrls.blobUrl}
+                                        download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
                                         className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 cursor-pointer hover:bg-green-200 transition-colors"
-                                        onClick={() => window.open(pdfUrls.blobUrl, '_blank')}
+                                        onClick={() => {
+                                            setTimeout(() => {
+                                                setIsPrintingPdf(false);
+                                                setPdfUrls(null);
+                                            }, 300);
+                                        }}
                                     >
                                         <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                                    </div>
+                                    </a>
                                     <h3 className="text-xl font-bold text-slate-800 mb-4">تم تجهيز الاستمارة!</h3>
                                     
                                     <div className="flex flex-col gap-3 w-full mt-2">
-                                        <button 
-                                            onClick={() => window.open(pdfUrls.blobUrl, '_blank')}
-                                            className="w-full bg-brand-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/30 flex items-center justify-center gap-2"
+                                        <a 
+                                            href={pdfUrls.blobUrl}
+                                            download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
+                                            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+                                            className="w-full font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                                            onClick={() => {
+                                                setTimeout(() => {
+                                                    setIsPrintingPdf(false);
+                                                    setPdfUrls(null);
+                                                }, 300);
+                                            }}
                                         >
                                             <Printer size={20} />
                                             <span>عرض وطباعة الاستمارة</span>
-                                        </button>
+                                        </a>
                                         
                                         {/* Fallback for Android 7/9 */}
-                                        <button 
-                                            onClick={() => window.open(pdfUrls.base64Url, '_blank')}
-                                            className="w-full bg-amber-100 text-amber-800 font-bold py-3 px-4 rounded-xl hover:bg-amber-200 transition-colors flex items-center justify-center gap-2 text-sm"
+                                        <a 
+                                            href={pdfUrls.base64Url}
+                                            download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
+                                            className="w-full bg-amber-100 text-amber-800 font-bold py-3 px-4 rounded-xl hover:bg-amber-200 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer"
+                                            onClick={() => {
+                                                setTimeout(() => {
+                                                    setIsPrintingPdf(false);
+                                                    setPdfUrls(null);
+                                                }, 300);
+                                            }}
                                         >
+                                            <Printer size={16} />
                                             <span>طباعة (هواتف أندرويد القديمة)</span>
-                                        </button>
+                                        </a>
 
                                         <button 
                                             onClick={() => {
