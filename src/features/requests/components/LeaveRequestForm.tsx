@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Clock, Edit2 } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, ChevronUp, Printer, List, Network, UserCheck } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
-import { Network, UserCheck } from 'lucide-react'; // Import Network icon
 import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
 
@@ -37,6 +36,69 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   // Latest request logic
   const [latestRequest, setLatestRequest] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Personal Archive State
+  const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
+  const [archiveStartDate, setArchiveStartDate] = useState('');
+  const [archiveEndDate, setArchiveEndDate] = useState('');
+  const [isLoadingArchive, setIsLoadingArchive] = useState(false);
+  const [archiveRecords, setArchiveRecords] = useState<any[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const handleArchiveSearch = async () => {
+    if (!user) return;
+    setIsLoadingArchive(true);
+    setHasSearched(true);
+
+    try {
+      let query = supabase
+        .from('leave_requests')
+        .select(`
+          id, start_date, end_date, days_count, status, cancellation_status, created_at, unpaid_days,
+          leave_history(new_balance, action_type)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'approved'); // Only show approved ones for printing
+
+      if (archiveStartDate) query = query.gte('start_date', archiveStartDate);
+      if (archiveEndDate) query = query.lte('end_date', archiveEndDate);
+      query = query.order('start_date', { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setArchiveRecords(data || []);
+    } catch (err) {
+      console.error("Error fetching personal archive", err);
+    } finally {
+      setIsLoadingArchive(false);
+    }
+  };
+
+  const handlePrintList = async () => {
+    try {
+      setIsLoadingArchive(true);
+      const { generateArchiveListPDF } = await import('../../../utils/pdfListGenerator');
+      const pdfBlobUrl = await generateArchiveListPDF(
+          user?.full_name || 'غير معروف',
+          archiveStartDate,
+          archiveEndDate
+      );
+      
+      // Use a temporary download link instead of window.open to avoid popup blocker
+      const link = document.createElement('a');
+      link.href = pdfBlobUrl as unknown as string;
+      link.download = `قائمة_اجازات_${user?.full_name || 'موظف'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e: any) {
+      console.error('PDF generation error:', e);
+      alert(`حدث خطأ أثناء إنشاء ملف PDF: ${e?.message || 'خطأ غير معروف'}`);
+    } finally {
+      setIsLoadingArchive(false);
+    }
+  };
 
   const fetchLatestRequest = async () => {
     if (!user) return;
@@ -552,6 +614,127 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
+      {/* Personal Archive Section (Collapsible) */}
+      <div className="mt-8 border-t border-gray-100 dark:border-slate-700 pt-8 px-6">
+          <button
+              onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
+              className="w-full flex items-center justify-between focus:outline-none print:hidden"
+          >
+              <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
+                      <List size={20} />
+                  </div>
+                  <div className="text-right">
+                      <h2 className="text-lg font-bold">قائمة إجازاتك</h2>
+                      <p className="text-sm text-gray-500">ابحث عن إجازاتك السابقة واطبعها كقائمة</p>
+                  </div>
+              </div>
+              <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
+                  {isArchiveExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </div>
+          </button>
+
+          {(isArchiveExpanded || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && (
+              <div className="mt-6 animate-in slide-in-from-top-4 duration-300">
+                  {/* Date Filters + Search Button */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700 print:hidden">
+                      <div>
+                          <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">من تاريخ</label>
+                          <input
+                              type="date"
+                              value={archiveStartDate}
+                              onChange={e => setArchiveStartDate(e.target.value)}
+                              className="w-full text-sm border-gray-200 dark:border-slate-600 rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 outline-none transition"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">إلى تاريخ</label>
+                          <input
+                              type="date"
+                              value={archiveEndDate}
+                              onChange={e => setArchiveEndDate(e.target.value)}
+                              className="w-full text-sm border-gray-200 dark:border-slate-600 rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 outline-none transition"
+                          />
+                      </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 mb-8 print:hidden">
+                      <button
+                          type="button"
+                          onClick={handleArchiveSearch}
+                          disabled={isLoadingArchive}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold transition shadow-md shadow-blue-500/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                      >
+                          {isLoadingArchive ? <AlertCircle size={18} className="animate-spin" /> : <Search size={18} />}
+                          بحث
+                      </button>
+                      <button
+                          type="button"
+                          onClick={handlePrintList}
+                          disabled={archiveRecords.length === 0}
+                          className="flex-1 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold transition shadow-md disabled:opacity-50 flex justify-center items-center gap-2"
+                      >
+                          <Printer size={18} /> طباعة القائمة
+                      </button>
+                  </div>
+
+                  {/* Archive Table Preview */}
+                  <div className="archive-preview-section mt-4">
+                      {hasSearched && archiveRecords.length === 0 && !isLoadingArchive ? (
+                          <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
+                              لا توجد إجازات بهذه المعايير
+                          </div>
+                      ) : null}
+
+                      {archiveRecords.length > 0 && (
+                          <div className="overflow-x-hidden w-full">
+                              <table id="archive-table" className="w-full text-sm text-right text-black border-2 border-black" style={{ tableLayout: 'fixed' }}>
+                                  <thead className="text-sm text-black font-bold uppercase bg-gray-100 border-b-2 border-black">
+                                      <tr>
+                                          <th scope="col" className="px-2 py-3 border-l-2 border-black text-center" style={{ width: '18%' }}>تاريخ البداية</th>
+                                          <th scope="col" className="px-2 py-3 border-l-2 border-black text-center" style={{ width: '18%' }}>تاريخ النهاية</th>
+                                          <th scope="col" className="px-2 py-3 border-l-2 border-black text-center" style={{ width: '13%' }}>عدد الأيام</th>
+                                          <th scope="col" className="px-2 py-3 border-l-2 border-black text-center" style={{ width: '13%' }}>بدون راتب</th>
+                                          <th scope="col" className="px-2 py-3 border-l-2 border-black text-center" style={{ width: '15%' }}>الحالة</th>
+                                          <th scope="col" className="px-2 py-3 text-center" style={{ width: '23%' }}>الرصيد المتبقي (وقتها)</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {archiveRecords.map((record) => {
+                                          const isCancelled = record.cancellation_status === 'approved';
+                                          // Find the balance at the exact time of approval
+                                          const approvalHistory = record.leave_history?.find((h: any) => h.action_type === 'leave_approved');
+                                          const historicBalance = approvalHistory?.new_balance ?? '-';
+
+                                          return (
+                                              <tr key={record.id} className="bg-white border-b-2 border-black hover:bg-gray-50">
+                                                  <td className="px-2 py-4 font-mono dir-ltr text-center font-bold border-l-2 border-black text-black">{record.start_date}</td>
+                                                  <td className="px-2 py-4 font-mono dir-ltr text-center font-bold border-l-2 border-black text-black">{record.end_date}</td>
+                                                  <td className="px-2 py-4 font-bold border-l-2 border-black text-center text-black text-lg">{record.days_count}</td>
+                                                  <td className="px-2 py-4 border-l-2 border-black text-center text-black font-bold">
+                                                      {record.unpaid_days > 0 ? <span className="text-black font-bold">{record.unpaid_days}</span> : '0'}
+                                                  </td>
+                                                  <td className="px-2 py-4 border-l-2 border-black text-center">
+                                                      {isCancelled ? (
+                                                          <span className="text-black font-bold">ملغاة</span>
+                                                      ) : (
+                                                          <span className="text-black font-bold">معتمد</span>
+                                                      )}
+                                                  </td>
+                                                  <td className="px-2 py-4 text-center font-bold text-black text-lg">
+                                                      {historicBalance}
+                                                  </td>
+                                              </tr>
+                                          );
+                                      })}
+                                  </tbody>
+                              </table>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          )}
+      </div>
     </div>
   );
 };
