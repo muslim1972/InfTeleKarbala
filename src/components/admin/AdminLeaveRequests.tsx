@@ -393,12 +393,27 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
 
             let balance = 0;
-            const { data } = await supabase
-                .from('financial_records')
-                .select('remaining_leaves_balance')
-                .eq('user_id', record.user_id)
+            // 1. Try to fetch the balance exactly at the time the leave was approved
+            const { data: historyData, error: historyError } = await supabase
+                .from('leave_history')
+                .select('new_balance')
+                .eq('leave_request_id', record.id)
+                .eq('action_type', 'leave_approved')
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .single();
-            if (data) balance = data.remaining_leaves_balance || 0;
+
+            if (!historyError && historyData && historyData.new_balance !== null) {
+                balance = historyData.new_balance;
+            } else {
+                // 2. Fallback to current live balance for very old records
+                const { data: finData } = await supabase
+                    .from('financial_records')
+                    .select('remaining_leaves_balance')
+                    .eq('user_id', record.user_id)
+                    .single();
+                if (finData) balance = finData.remaining_leaves_balance || 0;
+            }
 
         const formData = {
             full_name: record.employee_name || '',
