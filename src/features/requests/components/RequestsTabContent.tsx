@@ -9,10 +9,10 @@ export const RequestsTabContent = () => {
     const requestTypes = [
         {
             id: 'leave',
-            title: 'طلب إجازة',
+            title: 'الإجازات',
             description: 'تقديم طلب إجازة جديد ومتابعة حالته',
-            icon: <CalendarCheck size={40} className="text-white" />,
-            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+            icon: <CalendarCheck size={40} className="text-white drop-shadow-md" />,
+            color: 'bg-gradient-to-br from-blue-500 to-indigo-600',
             onClick: () => setView('leave_form')
         },
         // Future types can be added here
@@ -27,23 +27,28 @@ export const RequestsTabContent = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-6"
                     >
                         {requestTypes.map((type) => (
                             <div
                                 key={type.id}
                                 onClick={type.onClick}
-                                className={`relative overflow-hidden rounded-2xl shadow-lg cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group ${type.color}`}
+                                className={`relative overflow-hidden rounded-3xl cursor-pointer group flex items-center gap-6 p-6 ${type.color} shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-1`}
                             >
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/20 transition-all"></div>
-                                <div className="p-6 flex items-center justify-between relative z-10">
-                                    <div className="text-white">
-                                        <h3 className="text-xl font-bold mb-1">{type.title}</h3>
-                                        <p className="text-white/80 text-sm">{type.description}</p>
-                                    </div>
-                                    <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
-                                        {type.icon}
-                                    </div>
+                                {/* Background pattern */}
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvc3ZnPg==')] opacity-50"></div>
+                                
+                                <div className={`w-20 h-20 shrink-0 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 z-10 border border-white/20 shadow-inner`}>
+                                    {type.icon}
+                                </div>
+                                
+                                <div className="z-10">
+                                    <h3 className="text-2xl font-bold text-white mb-1 tracking-wide">
+                                        {type.title}
+                                    </h3>
+                                    <p className="text-blue-100/90 text-sm leading-relaxed">
+                                        {type.description}
+                                    </p>
                                 </div>
                             </div>
                         ))}

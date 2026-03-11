@@ -64,6 +64,8 @@ export function SalaryCalculator() {
         const engPct = isEngineer ? 35 : 0;
         const engAmount = (nominal * engPct) / 100;
 
+        const socialSecurityAmount = Math.round(nominal * 0.0025);
+
         // F. Marital & Children (Fixed per request)
         const maritalVal = isMarried ? maritalAllowance : 0;
         const childrenVal = hasChildren ? (childrenCount * CHILD_FIXED_AMOUNT) : 0;
@@ -76,7 +78,7 @@ export function SalaryCalculator() {
         const generalDeductionVal = nominal * 0.1;
 
         // Total Net
-        const totalDeductions = generalDeductionVal + loanDeduction + executionDeduction + taxDeduction;
+        const totalDeductions = generalDeductionVal + socialSecurityAmount + loanDeduction + executionDeduction + taxDeduction;
         const net = gross - totalDeductions;
 
         return {
@@ -90,6 +92,7 @@ export function SalaryCalculator() {
             transportAllowance,
             gross,
             generalDeductionVal,
+            socialSecurityAmount,
             totalDeductions,
             net
         };
@@ -187,10 +190,14 @@ export function SalaryCalculator() {
                         <select
                             value={transportAllowance}
                             onChange={(e) => setTransportAllowance(Number(e.target.value))}
-                            className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-brand-green/50 outline-none transition-all font-bold"
+                            className="w-full p-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
                         >
+                            <option value={0}>بلا</option>
                             <option value={20000}>20,000 د.ع</option>
                             <option value={30000}>30,000 د.ع</option>
+                            <option value={40000}>40,000 د.ع</option>
+                            <option value={50000}>50,000 د.ع</option>
+                            <option value={60000}>60,000 د.ع</option>
                         </select>
                     </div>
                 </div>
@@ -305,6 +312,7 @@ export function SalaryCalculator() {
                                 <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/20 pb-1">تفاصيل الاستقطاعات</h5>
                                 {[
                                     { label: 'استقطاع عام (10% من الاسمي)', val: results.generalDeductionVal, color: 'text-rose-500' },
+                                    { label: 'استقطاع الحماية (0.25%)', val: results.socialSecurityAmount, color: 'text-rose-500' },
                                     { label: 'استقطاع القرض البنكي', val: loanDeduction, color: 'text-rose-500' },
                                     { label: 'استقطاع الـتـنـفـيـذ', val: executionDeduction, color: 'text-rose-500' },
                                     { label: 'الاستـقـطاع الضريبي', val: taxDeduction, color: 'text-rose-500' },

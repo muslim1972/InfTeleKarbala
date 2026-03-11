@@ -205,8 +205,7 @@ export const Dashboard = () => {
                     if (financialResult.data) {
                         const data = financialResult.data;
 
-                        // حساب الإجماليات من البيانات المستوردة لضمان الاتساق
-                        // Total Allowances = Sum of all individual allowances
+                        // Calculate Totals locally to bypass potential DB corruption or missing fields
                         const totalAllowances = (
                             (data.certificate_allowance || 0) +
                             (data.position_allowance || 0) +
@@ -219,18 +218,26 @@ export const Dashboard = () => {
                             (data.children_allowance || 0)
                         );
 
-                        // Gross Salary = Net + Total Deductions (reversed from accounting logic)
-                        // Or Normal + Total Allowances
-                        // We use Net + Deductions as it's the "earned" amount before cuts
-                        const totalDeductions = data.total_deductions || 0;
-                        const netSalary = data.net_salary || 0;
-                        const grossSalary = netSalary + totalDeductions;
+                        const totalDeductions = (
+                            (data.tax_deduction_amount || 0) +
+                            (data.loan_deduction || 0) +
+                            (data.execution_deduction || 0) +
+                            (data.retirement_deduction || 0) +
+                            (data.school_stamp_deduction || 0) +
+                            (data.social_security_deduction || 0) +
+                            (data.other_deductions || 0)
+                        );
+
+                        const nominalSalary = data.nominal_salary || 0;
+                        const grossSalary = nominalSalary + totalAllowances;
+                        const netSalary = grossSalary - totalDeductions;
 
                         setFinancialData({
                             ...data,
                             total_allowances: totalAllowances,
                             gross_salary: grossSalary,
-                            total_deductions: totalDeductions // Ensure it's set
+                            total_deductions: totalDeductions,
+                            net_salary: netSalary
                         });
                     } else {
                         setFinancialData({
@@ -400,11 +407,11 @@ export const Dashboard = () => {
                     ) : financialData ? (
                         <div className="space-y-4 pb-20">
                             {/* Audit Banner for User (Time Only) */}
-                            {financialData?.last_modified_at && (
-                                <div className="bg-muted/50 border border-border rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
-                                    <span className="text-muted-foreground text-xs font-bold">آخر تحديث للبيانات المالية:</span>
-                                    <div className="text-brand-green font-bold text-sm font-mono tracking-wider dir-ltr">
-                                        {formatDateTime(financialData.last_modified_at)}
+                            {financialData?.updated_at && (
+                                <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
+                                    <span className="text-brand-green font-bold text-sm">تم مطابقة القيود مع شعبة المالية بتأريخ:</span>
+                                    <div className="text-gray-900 dark:text-white font-bold text-sm font-mono tracking-wider dir-ltr">
+                                        {formatDateTime(financialData.updated_at)}
                                     </div>
                                 </div>
                             )}
