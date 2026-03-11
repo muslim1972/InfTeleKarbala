@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User, Archive, X } from 'lucide-react';
+import { Search, Loader2, ChevronDown, ChevronUp, Printer, CheckCircle, User, Archive } from 'lucide-react';
 import { DateInput } from '../ui/DateInput';
 import { generateLeavePDF } from '../../utils/pdfGenerator';
 
@@ -68,7 +68,6 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
     const [printingRecord, setPrintingRecord] = useState<LeaveRecord | null>(null);
     const [directorateManager, setDirectorateManager] = useState<{ full_name: string, job_title: string } | null>(null);
     const [isPrintingPdf, setIsPrintingPdf] = useState(false);
-    const [pdfUrls, setPdfUrls] = useState<{ blobUrl: string, base64Url: string } | null>(null);
 
     // Fetch all approved requests for all employees
     useEffect(() => {
@@ -369,7 +368,6 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
     const handlePrint = async (record: LeaveRecord) => {
         setIsPrintingPdf(true);
-        setPdfUrls(null);
 
         try {
             const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
@@ -394,12 +392,13 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             supervisor_name: record.supervisor?.full_name || ''
         };
 
-        const result = await generateLeavePDF({
+        const url = await generateLeavePDF({
             ...formData,
             unpaid_days: record.unpaid_days || 0
         } as any);
 
-        setPdfUrls(result);
+        window.open(url, '_blank');
+        setIsPrintingPdf(false);
 
     } catch (error) {
         console.error("Error in print flow:", error);
@@ -903,103 +902,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
 
             {/* Modal for PDF Generation overlay */}
             {isPrintingPdf && (
-                <div 
-                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                    onClick={() => {
-                        // Only allow closing if it's ready, to prevent interrupting generation
-                        if (pdfUrls) {
-                            setIsPrintingPdf(false);
-                            setPdfUrls(null);
-                        }
-                    }}
-                >
-                    <div 
-                        className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center flex flex-col items-center justify-center relative"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Close Button (X) */}
-                        {pdfUrls && (
-                            <button 
-                                onClick={() => {
-                                    setIsPrintingPdf(false);
-                                    setPdfUrls(null);
-                                }}
-                                className="absolute top-4 left-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        )}
-
-                        <div className="p-8 w-full flex flex-col items-center">
-                            {!pdfUrls ? (
-                                <>
-                                    <div className="w-16 h-16 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin mb-6"></div>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-2">جاري تحضير الاستمارة...</h3>
-                                    <p className="text-slate-500">يرجى الانتظار بينما نقوم بإنشاء ملف الـ PDF.</p>
-                                </>
-                            ) : (
-                                <>
-                                    <a 
-                                        href={pdfUrls.blobUrl}
-                                        download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
-                                        className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 cursor-pointer hover:bg-green-200 transition-colors"
-                                        onClick={() => {
-                                            setTimeout(() => {
-                                                setIsPrintingPdf(false);
-                                                setPdfUrls(null);
-                                            }, 300);
-                                        }}
-                                    >
-                                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                                    </a>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">تم تجهيز الاستمارة!</h3>
-                                    
-                                    <div className="flex flex-col gap-3 w-full mt-2">
-                                        <a 
-                                            href={pdfUrls.blobUrl}
-                                            download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
-                                            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
-                                            className="w-full font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-                                            onClick={() => {
-                                                setTimeout(() => {
-                                                    setIsPrintingPdf(false);
-                                                    setPdfUrls(null);
-                                                }, 300);
-                                            }}
-                                        >
-                                            <Printer size={20} />
-                                            <span>عرض وطباعة الاستمارة</span>
-                                        </a>
-                                        
-                                        {/* Fallback for Android 7/9 */}
-                                        <a 
-                                            href={pdfUrls.base64Url}
-                                            download={`استمارة_إجازة_${employeeName || 'موظف'}.pdf`}
-                                            className="w-full bg-amber-100 text-amber-800 font-bold py-3 px-4 rounded-xl hover:bg-amber-200 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer"
-                                            onClick={() => {
-                                                setTimeout(() => {
-                                                    setIsPrintingPdf(false);
-                                                    setPdfUrls(null);
-                                                }, 300);
-                                            }}
-                                        >
-                                            <Printer size={16} />
-                                            <span>طباعة (هواتف أندرويد القديمة)</span>
-                                        </a>
-
-                                        <button 
-                                            onClick={() => {
-                                                setIsPrintingPdf(false);
-                                                setPdfUrls(null);
-                                            }}
-                                            className="w-full bg-slate-100 text-slate-700 font-bold py-3 px-4 rounded-xl hover:bg-slate-200 transition-colors mt-2"
-                                        >
-                                            إغلاق
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center flex flex-col items-center justify-center p-8">
+                        <div className="w-16 h-16 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin mb-6"></div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">جاري تحضير الاستمارة...</h3>
+                        <p className="text-slate-500">يرجى الانتظار بينما نقوم بإنشاء ملف الـ PDF.</p>
                     </div>
                 </div>
             )}
