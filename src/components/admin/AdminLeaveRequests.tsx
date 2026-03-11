@@ -371,7 +371,10 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         // Show loading page while PDF is being generated
         if (pdfWindow) {
             pdfWindow.document.write(`
-                <html dir="rtl"><head><title>جاري التحضير...</title></head>
+                <html dir="rtl"><head>
+                    <title>جاري التحضير...</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
                 <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:Arial,sans-serif;background:#f8fafc">
                     <div style="text-align:center">
                         <div style="width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px"></div>
