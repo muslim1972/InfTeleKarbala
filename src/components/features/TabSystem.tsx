@@ -3,11 +3,11 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen, Music } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training') => void;
+    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -22,6 +22,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'training', label: 'التدريب الصيفي', icon: BookOpen },
+        { id: 'audio', label: 'واحة النغم', icon: Music },
     ] as const;
 
     const tabs = baseTabs.filter(tab => {

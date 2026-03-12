@@ -16,6 +16,7 @@ import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { formatDateTime } from "../utils/formatDate";
 import { AppNotifications } from "../components/features/AppNotifications";
 import { SalaryCalculator } from "../components/features/SalaryCalculator";
+import { AudioHub } from "../components/features/AudioHub";
 
 // Interface for Financial Fields
 interface FinancialField {
@@ -47,7 +48,7 @@ const itemVariants = {
 
 export const Dashboard = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training'>('financial');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio'>('financial');
 
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
@@ -406,6 +407,8 @@ export const Dashboard = () => {
                     <RequestsTabContent />
                 ) : activeTab === 'training' ? (
                     <TrainingTabContent />
+                ) : activeTab === 'audio' ? (
+                    <AudioHub />
                 ) : activeTab === 'financial' ? (
                     /* Financial Tab */
                     loading ? (

@@ -5,6 +5,24 @@ import packageJson from './package.json'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      // وسيط Deezer API - لتجاوز CORS
+      '/deezer-api': {
+        target: 'https://api.deezer.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/deezer-api/, ''),
+        secure: true,
+      },
+      // وسيط البحث في يوتيوب - لتسهيل الاكتشاف التلقائي
+      '/youtube-search': {
+        target: 'https://www.youtube.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/youtube-search/, ''),
+        secure: true,
+      },
+    },
+  },
   define: {
     // تعريف رقم النسخة ليكون متاحاً في التطبيق
     __APP_VERSION__: JSON.stringify(packageJson.version),
