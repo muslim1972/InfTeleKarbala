@@ -8,9 +8,17 @@ interface MessageListProps {
     isGroup?: boolean;
     selectedMessages?: string[];
     onToggleSelection?: (id: string) => void;
+    onToggleReaction?: (messageId: string, emoji: string) => void;
 }
 
-export function MessageList({ messages, loading, isGroup, selectedMessages = [], onToggleSelection }: MessageListProps) {
+export function MessageList({ 
+    messages, 
+    loading, 
+    isGroup, 
+    selectedMessages = [], 
+    onToggleSelection,
+    onToggleReaction 
+}: MessageListProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -81,6 +89,7 @@ export function MessageList({ messages, loading, isGroup, selectedMessages = [],
                     isSelected={selectedMessages.includes(msg.id)}
                     isSelectionMode={selectedMessages.length > 0}
                     onToggleSelection={onToggleSelection}
+                    onToggleReaction={onToggleReaction}
                 />
             ))}
             <div ref={bottomRef} />

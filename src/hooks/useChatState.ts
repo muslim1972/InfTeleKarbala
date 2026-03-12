@@ -11,6 +11,7 @@ export interface Message {
   text: string;
   audio_url?: string;
   read_by?: string[];
+  reactions?: Record<string, string>; // { user_id: emoji }
   created_at: string;
   is_sending?: boolean; // Optimistic UI
   sender?: {
@@ -134,6 +135,9 @@ export function useChatState(conversationId: string) {
                   }
                 });
             }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMsg = payload.new as Message;
+            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
           } else if (payload.eventType === 'DELETE') {
             const deletedMsg = payload.old as { id: string };
             setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
@@ -324,6 +328,37 @@ export function useChatState(conversationId: string) {
     }
   };
 
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    // Optimistic Update
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        const reactions = { ...(m.reactions || {}) };
+        if (reactions[user.id] === emoji) {
+          delete reactions[user.id];
+        } else {
+          reactions[user.id] = emoji;
+        }
+        return { ...m, reactions };
+      }
+      return m;
+    }));
+
+    try {
+      const { error } = await supabase.rpc('rpc_toggle_message_reaction', {
+        p_message_id: messageId,
+        p_emoji: emoji
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      toast.error('فشل تحديث التفاعل');
+      // Refetch messages to get clean state on failure
+      fetchMessages();
+    }
+  };
+
   return {
     messages,
     loading,
@@ -335,6 +370,7 @@ export function useChatState(conversationId: string) {
     selectedMessages,
     toggleSelection,
     clearSelection,
-    deleteMessages
+    deleteMessages,
+    toggleReaction
   };
 }

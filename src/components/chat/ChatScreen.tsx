@@ -57,7 +57,8 @@ export function ChatScreen() {
         selectedMessages,
         toggleSelection,
         clearSelection,
-        deleteMessages
+        deleteMessages,
+        toggleReaction
     } = useChatState(conversationId || '');
 
     const { details, loading: detailsLoading } = useConversationDetails(conversationId || '');
@@ -259,6 +260,7 @@ export function ChatScreen() {
                 isGroup={details?.is_group}
                 selectedMessages={selectedMessages}
                 onToggleSelection={toggleSelection}
+                onToggleReaction={toggleReaction}
             />
 
             {/* Input */}

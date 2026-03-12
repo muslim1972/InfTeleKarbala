@@ -1,3 +1,4 @@
+import React from 'react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
@@ -13,7 +14,10 @@ interface MessageBubbleProps {
     isSelected?: boolean;
     isSelectionMode?: boolean;
     onToggleSelection?: (id: string) => void;
+    onToggleReaction?: (messageId: string, emoji: string) => void;
 }
+
+const REACTION_EMOJIS = ['❤️', '👍', '🌹', '😂', '😢'];
 
 const renderMessageText = (text: string, isMe: boolean, textColorMe: string, textColorOther: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -42,13 +46,17 @@ const renderMessageText = (text: string, isMe: boolean, textColorMe: string, tex
     });
 };
 
-export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, onToggleSelection }: MessageBubbleProps) {
+export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction }: MessageBubbleProps) {
     const { user } = useAuth();
     const { settings } = useChatSettings();
+    const [showReactions, setShowReactions] = React.useState(false);
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
 
     const onLongPress = () => {
+        if (!isSelectionMode) {
+            setShowReactions(true);
+        }
         if (onToggleSelection) {
             onToggleSelection(message.id);
         }
@@ -128,6 +136,49 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
                         </span>
                     )}
                 </div>
+
+                {/* Reaction Picker Popover */}
+                {showReactions && (
+                    <div 
+                        className={cn(
+                            "absolute -top-12 z-[20] flex items-center gap-1 bg-white/95 backdrop-blur-md p-1.5 rounded-full shadow-xl border border-gray-100 animate-in fade-in zoom-in duration-200",
+                            isMe ? "left-0" : "right-0"
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {REACTION_EMOJIS.map(emoji => (
+                            <button
+                                key={emoji}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleReaction?.(message.id, emoji);
+                                    setShowReactions(false);
+                                }}
+                                className="hover:scale-150 active:scale-95 transition-transform px-1.5 text-xl"
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Reactions Display */}
+                {message.reactions && Object.keys(message.reactions).length > 0 && (
+                    <div 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowReactions(true);
+                        }}
+                        className={cn(
+                            "absolute -bottom-3 flex items-center gap-0.5 bg-white rounded-full px-2 py-0.5 shadow-md border border-gray-100 text-[12px] cursor-pointer hover:bg-gray-50 transition-colors z-[5]",
+                            isMe ? "left-0" : "right-0"
+                        )}
+                    >
+                        {Object.values(message.reactions).map((emoji, idx) => (
+                            <span key={idx} className="leading-none">{emoji}</span>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
