@@ -53,6 +53,13 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
 
+    // Close reactions if message is deselected
+    React.useEffect(() => {
+        if (!isSelected) {
+            setShowReactions(false);
+        }
+    }, [isSelected]);
+
     const onLongPress = () => {
         if (!isSelectionMode) {
             setShowReactions(true);
@@ -141,8 +148,8 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
                 {showReactions && (
                     <div 
                         className={cn(
-                            "absolute -top-12 z-[20] flex items-center gap-1 bg-white/95 backdrop-blur-md p-1.5 rounded-full shadow-xl border border-gray-100 animate-in fade-in zoom-in duration-200",
-                            isMe ? "left-0" : "right-0"
+                            "absolute -top-16 z-[50] flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-2 rounded-full shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200",
+                            isMe ? "right-0" : "left-0"
                         )}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -170,8 +177,8 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
                             setShowReactions(true);
                         }}
                         className={cn(
-                            "absolute -bottom-3 flex items-center gap-0.5 bg-white rounded-full px-2 py-0.5 shadow-md border border-gray-100 text-[12px] cursor-pointer hover:bg-gray-50 transition-colors z-[5]",
-                            isMe ? "left-0" : "right-0"
+                            "absolute -bottom-3 flex items-center gap-0.5 bg-white rounded-full px-2 py-0.5 shadow-md border border-gray-100 text-[12px] cursor-pointer hover:bg-gray-50 transition-all z-[5] hover:scale-105",
+                            isMe ? "right-2" : "left-2"
                         )}
                     >
                         {Object.values(message.reactions).map((emoji, idx) => (

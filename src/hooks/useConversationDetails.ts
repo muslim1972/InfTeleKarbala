@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
+export interface ParticipantProfile {
+  id: string;
+  full_name: string;
+  avatar?: string;
+}
+
 export interface ConversationDetails {
   id: string;
   name: string;
   avatar_url?: string;
   is_group: boolean;
   participants: string[];
+  member_profiles?: ParticipantProfile[];
 }
 
 export function useConversationDetails(conversationId: string) {
@@ -34,6 +41,7 @@ export function useConversationDetails(conversationId: string) {
 
       let name = conv.name;
       let avatar_url = conv.avatar_url;
+      let member_profiles: ParticipantProfile[] = [];
 
       // If it's a 1-on-1 chat, get the other user's name/avatar
       if (!conv.is_group && conv.participants) {
@@ -41,7 +49,7 @@ export function useConversationDetails(conversationId: string) {
         if (otherUserId) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, avatar')
+            .select('id, full_name, avatar')
             .eq('id', otherUserId)
             .single();
 
@@ -50,6 +58,20 @@ export function useConversationDetails(conversationId: string) {
             avatar_url = profile.avatar;
           }
         }
+      } else if (conv.is_group && conv.participants && conv.participants.length > 0) {
+        // Fetch all participants for group chat
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar')
+          .in('id', conv.participants);
+        
+        if (profiles) {
+          member_profiles = profiles.map(p => ({
+            id: p.id,
+            full_name: p.full_name || 'مستخدم',
+            avatar: p.avatar
+          }));
+        }
       }
 
       setDetails({
@@ -57,7 +79,8 @@ export function useConversationDetails(conversationId: string) {
         name: name || 'محادثة',
         avatar_url,
         is_group: conv.is_group,
-        participants: conv.participants
+        participants: conv.participants,
+        member_profiles: conv.is_group ? member_profiles : undefined
       });
       setLoading(false);
     }

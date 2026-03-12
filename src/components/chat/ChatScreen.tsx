@@ -27,6 +27,7 @@ export function ChatScreen() {
     const navigate = useNavigate();
     const [showMenu, setShowMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [showParticipants, setShowParticipants] = useState(false);
     const { settings, updateSettings, resetSettings } = useChatSettings();
 
     const handleDeleteConversation = async () => {
@@ -98,15 +99,69 @@ export function ChatScreen() {
                             <ArrowRight className="w-5 h-5 text-gray-600" />
                         </button>
 
-                        <div className="flex items-center gap-3">
+                        <div 
+                            className={cn(
+                                "flex items-center gap-3",
+                                details?.is_group && "cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                            )}
+                            onClick={() => details?.is_group && setShowParticipants(!showParticipants)}
+                        >
                             <SimpleAvatar src={details?.avatar_url} fallback={details?.name || 'User'} />
                             <div>
                                 <h2 className="font-semibold text-gray-800 text-sm">
                                     {detailsLoading ? 'جاري التحميل...' : details?.name}
                                 </h2>
-                                {details?.is_group && <span className="text-xs text-gray-500">مجموعة</span>}
+                                {details?.is_group && (
+                                    <span className="text-xs text-emerald-600 font-medium">
+                                        {details.member_profiles?.length || 0} أعضاء • اضغط للتفاصيل
+                                    </span>
+                                )}
                             </div>
                         </div>
+
+                        {/* Group Participants List Dropdown */}
+                        {showParticipants && details?.is_group && (
+                            <>
+                                <div 
+                                    className="fixed inset-0 z-[15]" 
+                                    onClick={() => setShowParticipants(false)} 
+                                />
+                                <div 
+                                    className="absolute top-16 right-4 left-4 md:right-auto md:left-auto md:w-64 bg-white rounded-xl shadow-2xl border border-gray-100 z-[20] animate-in fade-in slide-in-from-top-2 duration-200"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="p-3 border-b bg-gray-50 rounded-t-xl flex items-center justify-between">
+                                        <h3 className="font-bold text-gray-800 text-sm">أعضاء المجموعة</h3>
+                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                            {details.member_profiles?.length || 0}
+                                        </span>
+                                    </div>
+                                    <div className="max-h-[300px] overflow-y-auto p-2 scrollbar-none">
+                                        {details.member_profiles?.map((profile) => (
+                                            <div key={profile.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors group">
+                                                <SimpleAvatar src={profile.avatar} fallback={profile.full_name} />
+                                                <span className="text-sm text-gray-700 font-medium group-hover:text-emerald-700 transition-colors">
+                                                    {profile.full_name}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="p-2 border-t">
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setShowParticipants(false);
+                                            }}
+                                            className="w-full py-2 text-sm text-emerald-600 font-bold hover:bg-emerald-50 rounded-lg transition-all active:scale-95"
+                                        >
+                                            إغلاق النافذة
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-1 relative">
