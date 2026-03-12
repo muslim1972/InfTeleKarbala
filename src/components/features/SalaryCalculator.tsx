@@ -146,11 +146,11 @@ export function SalaryCalculator() {
 
                     <div className="space-y-4">
                         <label className="block text-xs font-bold text-zinc-500 mr-1">الشهادة الدراسية</label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             <select
                                 value={certificate}
                                 onChange={(e) => setCertificate(e.target.value)}
-                                className="flex-1 p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-brand-green/50 outline-none transition-all font-bold"
+                                className="flex-1 min-w-[180px] p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-brand-green/50 outline-none transition-all font-bold"
                             >
                                 <option value="intermediate">متوسطة وما دون (15%)</option>
                                 <option value="secondary">اعدادية (25%)</option>
@@ -160,14 +160,14 @@ export function SalaryCalculator() {
                                 <option value="master">ماجستير (125%)</option>
                                 <option value="phd">دكتوراه (150%)</option>
                             </select>
-                            <label className="flex items-center gap-2 px-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl cursor-pointer">
+                            <label className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl cursor-pointer min-w-fit transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/30">
                                 <input
                                     type="checkbox"
                                     checked={isEngineer}
                                     onChange={(e) => setIsEngineer(e.target.checked)}
-                                    className="w-4 h-4 text-blue-600 rounded"
+                                    className="w-5 h-5 text-blue-600 rounded border-blue-300 focus:ring-blue-500"
                                 />
-                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">مهندس</span>
+                                <span className="text-sm font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap">مهندس</span>
                             </label>
                         </div>
                     </div>
