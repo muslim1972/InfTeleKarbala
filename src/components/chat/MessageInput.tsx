@@ -85,13 +85,17 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
                     {/* Live Waveform */}
                     <div className="flex-1 flex items-center gap-[2px] h-8 px-2 overflow-hidden">
                         {waveformData.length > 0
-                            ? waveformData.map((v, i) => (
-                                <div
-                                    key={i}
-                                    className="w-[3px] rounded-full bg-red-400 transition-all duration-75"
-                                    style={{ height: `${Math.max(3, v * 28)}px` }}
-                                />
-                            ))
+                            ? waveformData.map((v, i) => {
+                                // amplify the normalized value so quiet sounds register visibly
+                                const height = Math.max(3, v * 100); // adjust multiplier for sensitivity
+                                return (
+                                    <div
+                                        key={i}
+                                        className="w-[3px] rounded-full bg-red-400 transition-all duration-100 ease-out"
+                                        style={{ height: `${height}px` }}
+                                    />
+                                );
+                            })
                             : Array.from({ length: 32 }).map((_, i) => (
                                 <div
                                     key={i}

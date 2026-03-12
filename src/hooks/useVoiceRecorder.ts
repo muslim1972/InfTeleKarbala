@@ -58,7 +58,10 @@ export function useVoiceRecorder() {
     const waveform: number[] = [];
     for (let i = 0; i < samples; i++) {
       const value = dataArray[i * step];
-      waveform.push(Math.abs(value - 128) / 128);
+      // normalize to [0,1]
+      const norm = Math.abs(value - 128) / 128;
+      // optionally boost quiet signals with a sqrt curve
+      waveform.push(Math.sqrt(norm));
     }
 
     setState(prev => ({ ...prev, waveformData: waveform }));
