@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Loader2, LogIn, User, Eye, EyeOff } from "lucide-react";
+import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { AppFooter } from "../components/layout/AppFooter";
 
 export const Login = () => {
@@ -10,7 +10,18 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { login, loginAsVisitor } = useAuth();
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotResult, setForgotResult] = useState<{ 
+    success: boolean; 
+    supervisor_name?: string; 
+    action_required?: string; 
+    action_completed?: string; 
+    error?: string 
+  } | null>(null);
+
+  const { login, loginAsVisitor, forgotPassword } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +34,18 @@ export const Login = () => {
       setError(result.error || "خطأ في الدخول");
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent, confirm: boolean = false) => {
+    e?.preventDefault();
+    if (!forgotUsername.trim()) return;
+
+    setForgotLoading(true);
+    if (!confirm) setForgotResult(null);
+
+    const result = await forgotPassword(forgotUsername, confirm);
+    setForgotResult(result);
+    setForgotLoading(false);
   };
 
   return (
@@ -61,7 +84,8 @@ export const Login = () => {
             <input
               type="text"
               required
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right backdrop-blur-sm shadow-inner"
+              autoComplete="username"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right backdrop-blur-sm shadow-inner text-lg"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -74,7 +98,8 @@ export const Login = () => {
                 type={showPassword ? "text" : "password"}
                 required
                 maxLength={6}
-                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner"
+                autoComplete="current-password"
+                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner text-xl"
                 placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -86,6 +111,19 @@ export const Login = () => {
                 title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="text-right px-1 mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotUsername(username);
+                  setForgotResult(null);
+                  setShowForgotModal(true);
+                }}
+                className="text-white/60 hover:text-brand-green text-xs font-bold transition-colors underline decoration-white/20 underline-offset-4"
+              >
+                نسيت كلمة المرور؟
               </button>
             </div>
           </div>
@@ -100,7 +138,7 @@ export const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-brand-green-dark to-brand-green hover:from-brand-green hover:to-brand-green-light text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] active:scale-[0.98] border border-white/10"
+              className="w-full bg-gradient-to-r from-green-600 to-brand-green hover:from-brand-green hover:to-green-400 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] active:scale-[0.98] border border-white/10"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
                 <span>تسجيل الدخول</span>
@@ -121,7 +159,142 @@ export const Login = () => {
         </form>
       </div>
 
-      {/* Footer / Copyright */}
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 text-right">
+            {!forgotResult ? (
+              <>
+                <h3 className="text-2xl font-bold text-white mb-4 font-tajawal">نسيت كلمة المرور؟</h3>
+                <p className="text-white/60 text-sm mb-6 leading-relaxed">
+                  أدخل اسم المستخدم الخاص بك للتحقق من هويتك وإرسال كلمة مرور مؤقتة للمسؤول المباشر.
+                </p>
+                <form onSubmit={(e) => handleForgotPassword(e)} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-white/90 text-xs font-bold px-1">اسم المستخدم</label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-4 text-white placeholder:text-white/20 focus:outline-none focus:border-brand-green focus:bg-white/10 transition-all text-right text-lg"
+                      value={forgotUsername}
+                      onChange={(e) => setForgotUsername(e.target.value)}
+                      placeholder="أدخل اسم المستخدم"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={forgotLoading || !forgotUsername.trim()}
+                      className="flex-1 bg-brand-green hover:bg-green-600 text-white font-bold py-4 rounded-2xl transition-all disabled:opacity-50 active:scale-[0.98] shadow-lg shadow-brand-green/20"
+                    >
+                      {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "تحقق من الحساب"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="px-6 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] border border-white/5"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : forgotResult.success && forgotResult.action_required === 'confirm' ? (
+              <div className="space-y-6">
+                <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto ring-4 ring-blue-500/10 mb-4">
+                  <User className="text-blue-400 w-8 h-8" />
+                </div>
+                <div className="bg-white/5 rounded-3xl p-6 border border-white/10 space-y-4">
+                   <p className="text-white/90 text-lg leading-relaxed text-center font-tajawal">
+                    سيتم إرسال كلمة سر مؤقتة إلى المسوؤل المباشر:
+                    <br />
+                    <span className="text-blue-400 font-extrabold text-2xl block mt-3 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                      {forgotResult.supervisor_name}
+                    </span>
+                  </p>
+                  <p className="text-white/60 text-sm text-center">
+                    هل ترغب في متابعة العملية؟
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={(e) => handleForgotPassword(e as any, true)}
+                    disabled={forgotLoading}
+                    className="flex-1 bg-brand-green hover:bg-green-600 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-brand-green/20 flex items-center justify-center"
+                  >
+                    {forgotLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "نعم، أرسل الكلمة"}
+                  </button>
+                  <button
+                    onClick={() => setForgotResult(null)}
+                    disabled={forgotLoading}
+                    className="px-6 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] border border-white/5"
+                  >
+                    رجوع
+                  </button>
+                </div>
+              </div>
+            ) : forgotResult.success && forgotResult.action_completed === 'generated' ? (
+              <div className="space-y-6">
+                <div className="w-20 h-20 bg-brand-green/20 rounded-full flex items-center justify-center mx-auto ring-4 ring-brand-green/10">
+                  <CheckCircle className="text-brand-green w-10 h-10" />
+                </div>
+                <div className="text-center space-y-4">
+                  <h3 className="text-2xl font-bold text-white font-tajawal">تم الإرسال بنجاح</h3>
+                  <div className="bg-white/5 rounded-3xl p-6 border border-white/10 space-y-3">
+                    <p className="text-white/90 text-lg leading-relaxed">
+                      تم إرسال كلمة السر المؤقتة للمسؤول:
+                      <br />
+                      <span className="text-brand-green font-extrabold text-xl block mt-2">
+                        {forgotResult.supervisor_name}
+                      </span>
+                    </p>
+                    <div className="h-px bg-white/10 w-1/2 mx-auto my-3" />
+                    <p className="text-white/60 text-sm">
+                      يرجى التواصل معه لاستلامها.
+                    </p>
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-4">
+                      <p className="text-amber-200 text-xs font-bold leading-relaxed">
+                        ملاحة: يجب تغيير كلمة المرور فور دخولك للتطبيق.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowForgotModal(false)}
+                  className="w-full bg-white hover:bg-gray-100 text-slate-900 font-extrabold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-xl text-lg"
+                >
+                  موافق
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto ring-4 ring-red-500/10">
+                  <AlertCircle className="text-red-500 w-10 h-10" />
+                </div>
+                <div className="text-center space-y-3">
+                  <h3 className="text-2xl font-bold text-white font-tajawal">عذراً، تعذر التحقق</h3>
+                  <div className="bg-white/5 rounded-[2rem] p-6 border border-white/10">
+                    <p className="text-red-200 text-lg font-bold">
+                      {forgotResult?.error === 'user_not_found' ? "اسم المستخدم غير موجود" : "حدث خطأ غير متوقع"}
+                    </p>
+                    <p className="text-white/40 text-sm mt-3">
+                      يرجى المحاولة مجدداً.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setForgotResult(null)}
+                  className="w-full bg-white hover:bg-gray-100 text-slate-900 font-extrabold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-xl text-lg"
+                >
+                  حاول مرة أخرى
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="absolute bottom-0 left-0 right-0 z-20">
         <AppFooter />
       </div>

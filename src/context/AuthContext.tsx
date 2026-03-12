@@ -24,6 +24,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
+  forgotPassword: (username: string, confirm?: boolean) => Promise<{ success: boolean; supervisor_name?: string; action_required?: string; action_completed?: string; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -35,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: async () => ({ success: false }),
   changePassword: async () => ({ success: false }),
   uploadAvatar: async () => ({ success: false }),
+  forgotPassword: async () => ({ success: false }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -321,8 +323,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const forgotPassword = async (username: string, confirm: boolean = false) => {
+    try {
+      const { data, error } = await supabase.rpc('rpc_handle_forgot_password', {
+        p_username: username,
+        p_confirm: confirm
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        return { success: false, error: data.error };
+      }
+
+      return { 
+        success: true, 
+        supervisor_name: data.supervisor_name,
+        action_required: data.action_required,
+        action_completed: data.action_completed
+      };
+    } catch (err: any) {
+      console.error("Forgot Password Error:", err);
+      return { success: false, error: err.message || 'حدث خطأ غير متوقع' };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

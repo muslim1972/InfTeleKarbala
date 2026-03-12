@@ -15,10 +15,12 @@ export const AppNotifications = () => {
     const [supervisorPendingCount, setSupervisorPendingCount] = useState(0);
     const [hrPendingCount, setHrPendingCount] = useState(0);
     const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [systemNotificationsCount, setSystemNotificationsCount] = useState(0);
 
     // Data lists
     const [employeeRequests, setEmployeeRequests] = useState<any[]>([]);
     const [supervisorRequests, setSupervisorRequests] = useState<any[]>([]);
+    const [systemNotifications, setSystemNotifications] = useState<any[]>([]);
     // Removed hrRequests as we only use the count for the UI link.
     const [unreadMessages, setUnreadMessages] = useState<any[]>([]);
 
@@ -144,10 +146,6 @@ export const AppNotifications = () => {
     const fetchChatNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        // Find messages addressed to this user (not sent by them) that are unread
-        // Since we don't have a direct 'recipient_id' in messages, we must find conversations the user is in.
-        // Assuming messages table has 'is_read' and we just check conversations.
-
         // This query fetches conversations for the user
         const { data: conversations, error: convError } = await supabase
             .from('conversations')
@@ -176,17 +174,11 @@ export const AppNotifications = () => {
         }
 
         if (unreadMsgData && unreadMsgData.length > 0) {
-            // Group by conversation so we only show one notification per chat
             const grouped = new Map();
             unreadMsgData.forEach(msg => {
-                // Skip if this chat was optimistically cleared recently
                 if (optimisticallyClearedChats.current.has(msg.conversation_id)) return;
-
                 if (!grouped.has(msg.conversation_id)) {
-                    grouped.set(msg.conversation_id, {
-                        ...msg,
-                        unread_count: 1
-                    });
+                    grouped.set(msg.conversation_id, { ...msg, unread_count: 1 });
                 } else {
                     const existing = grouped.get(msg.conversation_id);
                     existing.unread_count += 1;
@@ -200,7 +192,24 @@ export const AppNotifications = () => {
             setUnreadMessages([]);
             setChatUnreadCount(0);
         }
+    }, [user]);
 
+    const fetchSystemNotifications = useCallback(async () => {
+        if (!user || user.id === 'visitor-id') return;
+
+        const { data, count, error } = await supabase
+            .from('system_notifications')
+            .select('*', { count: 'exact' })
+            .eq('recipient_id', user.id)
+            .eq('is_read', false)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('AppNotifications: Error fetching system notifications:', error);
+        } else {
+            setSystemNotifications(data || []);
+            setSystemNotificationsCount(count || 0);
+        }
     }, [user]);
 
     // Initial Fetch & Realtime Subscription
@@ -212,7 +221,8 @@ export const AppNotifications = () => {
             fetchEmployeeNotifications(),
             fetchSupervisorNotifications(),
             fetchHRNotifications(),
-            fetchChatNotifications()
+            fetchChatNotifications(),
+            fetchSystemNotifications()
         ]);
 
         const leaveChannel = supabase.channel('unified_leave_changes')
@@ -226,6 +236,12 @@ export const AppNotifications = () => {
         const chatChannel = supabase.channel('unified_chat_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
                 fetchChatNotifications();
+            })
+            .subscribe();
+
+        supabase.channel('system_notifications_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'system_notifications', filter: `recipient_id=eq.${user.id}` }, () => {
+                fetchSystemNotifications();
             })
             .subscribe();
 
@@ -259,12 +275,22 @@ export const AppNotifications = () => {
         };
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications, fetchChatNotifications]);
 
-    const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + chatUnreadCount;
+    const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + chatUnreadCount + systemNotificationsCount;
 
     // Always show the bell so the user knows where notifications will appear
     // if (totalNotifications === 0) return null;
 
     // Actions
+    const handleMarkSystemNotificationRead = async (id: string) => {
+        try {
+            const { error } = await supabase.from('system_notifications').update({ is_read: true }).eq('id', id);
+            if (error) throw error;
+            const updated = systemNotifications.filter(n => n.id !== id);
+            setSystemNotifications(updated);
+            setSystemNotificationsCount(updated.length);
+        } catch (err) { }
+    };
+
     const handleDismissEmployeeNotification = async (requestId: string) => {
         try {
             const { error } = await supabase.from('leave_requests').update({ is_read_by_employee: true }).eq('id', requestId);
@@ -370,6 +396,40 @@ export const AppNotifications = () => {
                                                     انقر لفتح المحادثة والرد الآن
                                                 </p>
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* System Notifications Section */}
+                            {systemNotifications.length > 0 && (
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">تنبيهات النظام</h4>
+                                    {systemNotifications.map(notification => (
+                                        <div
+                                            key={notification.id}
+                                            className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-indigo-200 dark:border-indigo-900/50 shadow-sm flex flex-col gap-2"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2 rounded-full shrink-0">
+                                                    <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h5 className="font-bold text-sm text-slate-900 dark:text-white">
+                                                        {notification.title}
+                                                    </h5>
+                                                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap">
+                                                        {notification.content}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                className="w-full mt-1 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
+                                            >
+                                                <CheckCircle size={14} className="text-slate-400" />
+                                                علم (إخفاء)
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
