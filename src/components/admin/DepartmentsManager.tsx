@@ -279,7 +279,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
         return (
             <div key={dept.id} className="w-full relative">
-                <div className={`flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-100 dark:border-white/5 rounded-xl shadow-sm transition-all hover:shadow-md ${theme === 'light' ? 'bg-white' : 'bg-slate-800'}`}>
+                <div className={`flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-100 dark:border-white/10 rounded-xl shadow-sm transition-all hover:shadow-md backdrop-blur-sm ${theme === 'light' ? 'bg-white/70' : 'bg-slate-800/60'}`}>
                     <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
                             <Network className="w-5 h-5" />
@@ -444,8 +444,8 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto items-start">
 
             {/* Tree Section (Main View) */}
-            <div className={`lg:col-span-2 rounded-2xl border shadow-sm overflow-hidden \${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'}`}>
-                <div className={`p-4 border-b flex items-center justify-between \${theme === 'light' ? 'bg-gray-50/80 border-gray-200' : 'bg-white/5 border-white/10'}`}>
+            <div className={`lg:col-span-2 rounded-2xl border shadow-sm overflow-hidden backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
+                <div className={`p-4 border-b flex items-center justify-between ${theme === 'light' ? 'bg-gray-50/50 border-gray-200' : 'bg-white/5 border-white/10'}`}>
                     <div>
                         <h3 className={`font-bold text-lg \${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>شجرة الهيكلية الإدارية</h3>
                         <p className={`text-xs mt-1 \${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -472,7 +472,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
             </div>
 
             {/* Form Section (Sidebar) */}
-            <div className={`lg:col-span-1 lg:sticky lg:top-6 p-6 rounded-2xl border shadow-sm \${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'}`}>
+            <div className={`lg:col-span-1 lg:sticky lg:top-6 p-6 rounded-2xl border shadow-sm backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
                 <div className="flex items-center gap-3 mb-6">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center \${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
                         <Network className="w-5 h-5" />

@@ -575,7 +575,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             )}
 
             {/* 1. Pending HR Cut Approvals */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -666,7 +666,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             </div>
 
             {/* 2. Approved Requests — All Employees */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-2 h-full bg-green-500"></div>
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -755,7 +755,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
             </div>
 
             {/* 2. Archive / Search Section (Collapsible) — with built-in employee search */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 transition-all">
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 transition-all">
                 <button
                     onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
                     className="w-full flex items-center justify-between focus:outline-none"

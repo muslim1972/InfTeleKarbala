@@ -397,7 +397,7 @@ export const Dashboard = () => {
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true}>
             <AppNotifications />
-            <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh] mt-6">
+            <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh] mt-6 bg-transparent">
 
                 {/* Polls Tab */}
                 {activeTab === 'polls' ? (

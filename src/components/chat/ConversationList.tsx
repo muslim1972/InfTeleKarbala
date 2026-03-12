@@ -83,7 +83,17 @@ export const ConversationList = () => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div
+                className="flex-1 overflow-y-auto relative"
+                style={{
+                    backgroundImage: 'url(/icon-512.png)',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    backgroundSize: '420px',
+                }}
+            >
+                <div className="absolute inset-0 bg-white/90 pointer-events-none" />
+                <div className="relative z-[1]">
                 {loading ? (
                     <div className="p-4 text-center text-gray-400">جاري التحميل...</div>
                 ) : filteredConversations.length === 0 ? (
@@ -127,6 +137,7 @@ export const ConversationList = () => {
                         </div>
                     ))
                 )}
+                </div>
             </div>
 
             {/* New Chat Modal Overlay */}

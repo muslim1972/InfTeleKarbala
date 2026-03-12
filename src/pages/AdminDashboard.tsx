@@ -1485,7 +1485,7 @@ export const AdminDashboard = () => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className={`relative min-h-screen ${theme === 'light' ? 'bg-white' : 'bg-zinc-950/30'}`}>
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className="relative min-h-screen bg-transparent">
             <AppNotifications />
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
