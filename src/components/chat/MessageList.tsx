@@ -22,7 +22,7 @@ export function MessageList({ messages, loading, isGroup, selectedMessages = [],
             <div
                 className="flex-1 flex flex-col items-center justify-center p-4 text-center relative"
                 style={{
-                    backgroundImage: 'url(/icon-512.png)',
+                    backgroundImage: 'url(/watermark-512.png)',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
                     backgroundSize: '420px',
@@ -41,7 +41,7 @@ export function MessageList({ messages, loading, isGroup, selectedMessages = [],
             <div
                 className="flex-1 flex flex-col items-center justify-center p-4 text-center relative"
                 style={{
-                    backgroundImage: 'url(/icon-512.png)',
+                    backgroundImage: 'url(/watermark-512.png)',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
                     backgroundSize: '420px',
@@ -63,7 +63,7 @@ export function MessageList({ messages, loading, isGroup, selectedMessages = [],
         <div
             className="flex-1 overflow-y-auto p-4 space-y-2 relative"
             style={{
-                backgroundImage: 'url(/icon-512.png)',
+                backgroundImage: 'url(/watermark-512.png)',
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'center',
                 backgroundSize: '420px',

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
+import { ChatSettingsProvider } from './context/ChatSettingsContext';
 
 // إنشاء عميل react-query مع إعدادات محسنة
 const queryClient = new QueryClient({
@@ -22,9 +23,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <ChatSettingsProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ChatSettingsProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

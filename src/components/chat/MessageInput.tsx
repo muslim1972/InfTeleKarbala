@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Send, Mic, X, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
+import { useChatSettings } from '../../hooks/useChatSettings';
 
 interface MessageInputProps {
     onSend: (e?: React.FormEvent) => void;
@@ -12,6 +13,7 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }: MessageInputProps) {
+    const { settings } = useChatSettings();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [isSendingVoice, setIsSendingVoice] = useState(false);
 
@@ -32,11 +34,8 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
         }
     }, [value]);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            onSend();
-        }
+    const handleKeyDown = () => {
+        // Removed Enter-to-send logic to support new lines on mobile
     };
 
     const handleMicClick = async () => {
@@ -140,7 +139,14 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
                     onChange={(e) => onChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="اكتب رسالة..."
-                    className="w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 text-sm text-gray-900 placeholder:text-gray-500"
+                    className={cn(
+                        "w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 text-gray-900 placeholder:text-gray-500 transition-all",
+                        settings.fontSize === 'sm' && "text-[12px]",
+                        settings.fontSize === 'md' && "text-[14px]",
+                        settings.fontSize === 'lg' && "text-[18px]",
+                        settings.fontSize === 'xl' && "text-[24px]",
+                        settings.isBold && "font-extrabold"
+                    )}
                     rows={1}
                     disabled={disabled}
                     autoFocus
