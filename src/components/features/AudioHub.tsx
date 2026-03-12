@@ -123,7 +123,14 @@ export const AudioHub = () => {
                     height: '1',
                     width: '1',
                     videoId: videoId,
-                    playerVars: { autoplay: 1, controls: 0, modestbranding: 1 },
+                    playerVars: { 
+                        autoplay: 1, 
+                        controls: 0, 
+                        modestbranding: 1, 
+                        enablejsapi: 1,
+                        origin: window.location.origin,
+                        widget_referrer: window.location.origin
+                    },
                     events: {
                         onReady: (e: any) => {
                             e.target.setVolume(volume * 100);
@@ -238,15 +245,24 @@ export const AudioHub = () => {
         }
     };
 
-    const togglePlay = () => {
+    const togglePlay = async () => {
         if (currentTrack?.type === 'youtube' && ytPlayer.current) {
             if (isPlaying) ytPlayer.current.pauseVideo(); else ytPlayer.current.playVideo();
             setIsPlaying(!isPlaying);
             return;
         }
-        if (audioRef.current) {
-            if (isPlaying) audioRef.current.pause(); else audioRef.current.play();
-            setIsPlaying(!isPlaying);
+        if (audioRef.current && audioRef.current.src && audioRef.current.src !== window.location.href) {
+            try {
+                if (isPlaying) audioRef.current.pause(); 
+                else {
+                    // Reset if ended to allow re-play
+                    if (audioRef.current.ended) audioRef.current.currentTime = 0;
+                    await audioRef.current.play();
+                }
+                setIsPlaying(!isPlaying);
+            } catch (err) {
+                console.warn("Audio playback issue:", err);
+            }
         }
     };
 
@@ -272,10 +288,14 @@ export const AudioHub = () => {
     useEffect(() => {
         if (currentTrack?.type !== 'youtube') return;
         const interval = setInterval(() => {
-            if (ytPlayer.current?.getCurrentTime && ytPlayer.current?.getDuration) {
-                const curr = ytPlayer.current.getCurrentTime();
-                const dur = ytPlayer.current.getDuration();
-                if (dur > 0) setProgress((curr / dur) * 100);
+            try {
+                if (ytPlayer.current && typeof ytPlayer.current.getCurrentTime === 'function' && typeof ytPlayer.current.getDuration === 'function') {
+                    const curr = ytPlayer.current.getCurrentTime();
+                    const dur = ytPlayer.current.getDuration();
+                    if (dur > 0) setProgress((curr / dur) * 100);
+                }
+            } catch (e) {
+                // Silent catch for YT internal errors during transitions
             }
         }, 500);
         return () => clearInterval(interval);

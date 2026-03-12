@@ -407,7 +407,7 @@ export const Dashboard = () => {
                     <RequestsTabContent />
                 ) : activeTab === 'training' ? (
                     <TrainingTabContent />
-                ) : activeTab === 'audio' ? (
+                ) : (activeTab === 'audio' && user?.job_number === '103130486') ? (
                     <AudioHub />
                 ) : activeTab === 'financial' ? (
                     /* Financial Tab */
@@ -792,6 +792,7 @@ export const Dashboard = () => {
                                 </div>
                             </AccordionSection>
                         </motion.div>
+
 
                         {/* Spacer for scroll */}
                         <div className="h-20"></div>
