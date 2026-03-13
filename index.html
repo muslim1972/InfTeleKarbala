@@ -18,6 +18,10 @@
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function (OneSignal) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('OneSignal: Skipping init on localhost');
+        return;
+      }
       await OneSignal.init({
         appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
       });

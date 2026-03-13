@@ -2,6 +2,22 @@ import { useState } from 'react';
 import { User, Check, X, Calendar, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
+async function sendPushNotification(recipientId: string, title: string, message: string) {
+    try {
+        await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipientId,
+                title,
+                message,
+            })
+        });
+    } catch (error) {
+        console.error('Failed to send push notification:', error);
+    }
+}
+
 interface LeaveRequest {
     id: string;
     user_id: string;
@@ -63,6 +79,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
 
             onProcessed();
             onClose();
+
+            // Send Push Notification to Employee
+            const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
+            const message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
+            sendPushNotification(request.user_id, "تحديث طلب الإجازة", message);
         } catch (err: any) {
             console.error('Error processing request:', err);
             setError(err.message || 'حدث خطأ أثناء معالجة الطلب');

@@ -1,6 +1,23 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { initOneSignal, logoutOneSignal } from "../lib/onesignal";
+
+async function sendPushNotification(recipientId: string, title: string, message: string) {
+    try {
+        await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipientId,
+                title,
+                message,
+            })
+        });
+    } catch (error) {
+        console.error('Failed to send push notification:', error);
+    }
+}
 
 export interface AppUser {
   id: string;
@@ -105,6 +122,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               can_view_requests: profile.can_view_requests
             };
             setUser(appUser);
+            if (profile) {
+              initOneSignal(profile.id);
+            }
             logVisit(appUser);
           }
         }
@@ -190,6 +210,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       setUser(appUser);
+      initOneSignal(appUser.id);
       sessionStorage.removeItem('session_logged');
       logVisit(appUser);
 
@@ -216,6 +237,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    logoutOneSignal();
     setUser(null);
     sessionStorage.removeItem("visitor_user");
     sessionStorage.removeItem("session_logged");
@@ -334,6 +356,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!data.success) {
         return { success: false, error: data.error };
+      }
+
+      return { 
+        success: true, 
+        supervisor_name: data.supervisor_name,
+        action_required: data.action_required,
+        action_completed: data.action_completed
+      };
+
+      if (data.action_completed === 'generated' && data.supervisor_id) {
+          sendPushNotification(
+              data.supervisor_id, 
+              "طلب كلمة مرور مؤقتة", 
+              `قام الموظف (${username}) بطلب إعادة تعيين كلمة المرور.`
+          );
       }
 
       return { 

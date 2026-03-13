@@ -4,6 +4,27 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Sends a push notification via our serverless relay
+ */
+async function sendPushNotification(recipientId: string, title: string, message: string, conversationId: string) {
+    try {
+        await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipientId,
+                title,
+                message,
+                url: `${window.location.origin}/chat/${conversationId}`,
+                data: { conversationId }
+            })
+        });
+    } catch (error) {
+        console.error('Failed to send push notification:', error);
+    }
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -199,6 +220,20 @@ export function useChatState(conversationId: string) {
         })
         .eq('id', conversationId);
 
+      // 4. Send Push Notification to recipients
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (convData?.participants) {
+        const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+        for (const recipientId of recipients) {
+            sendPushNotification(recipientId, user.full_name, text, conversationId);
+        }
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('فشل إرسال الرسالة');
@@ -279,6 +314,20 @@ export function useChatState(conversationId: string) {
           deleted_by: [],
         })
         .eq('id', conversationId);
+
+      // 6. Send Push Notification to recipients
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (convData?.participants) {
+        const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+        for (const recipientId of recipients) {
+            sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
+        }
+      }
 
     } catch (error) {
       console.error('Error sending voice message:', error);

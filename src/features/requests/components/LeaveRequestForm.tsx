@@ -3,6 +3,22 @@ import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, 
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
+
+async function sendPushNotification(recipientId: string, title: string, message: string) {
+    try {
+        await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipientId,
+                title,
+                message,
+            })
+        });
+    } catch (error) {
+        console.error('Failed to send push notification:', error);
+    }
+}
 import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
 
@@ -327,6 +343,15 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
       setSuccess(true);
       setShowConfirmModal(false);
+
+      // Notify Supervisor
+      if (formData.supervisorId) {
+        sendPushNotification(
+            formData.supervisorId, 
+            "طلب إجازة جديد", 
+            `قام الموظف ${user?.full_name} بتقديم طلب إجازة جديد (${formData.startDate})`
+        );
+      }
 
       // Update the cache immediately so user sees the new balance
       await invalidateCache();

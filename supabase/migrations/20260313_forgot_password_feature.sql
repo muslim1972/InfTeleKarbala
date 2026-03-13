@@ -145,6 +145,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success', true, 
         'supervisor_name', v_supervisor_name,
+        'supervisor_id', v_supervisor_id,
         'action_completed', 'generated'
     );
 
