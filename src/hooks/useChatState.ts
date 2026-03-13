@@ -218,7 +218,7 @@ export function useChatState(conversationId: string) {
 
       if (error) throw error;
 
-      // Update conversation last_message and clear deleted_by so it revives for others
+      // 3. Update conversation last_message and clear deleted_by so it revives for others
       await supabase
         .from('conversations')
         .update({
@@ -228,19 +228,28 @@ export function useChatState(conversationId: string) {
         })
         .eq('id', conversationId);
 
-      // 4. Send Push Notification to recipients
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('participants')
-        .eq('id', conversationId)
-        .single();
+      // 4. IMPORTANT: Clear sending state IMMEDIATELY so UI is responsive
+      setIsSending(false);
 
-      if (convData?.participants) {
-        const recipients = (convData.participants as string[]).filter(id => id !== user.id);
-        for (const recipientId of recipients) {
-            sendPushNotification(recipientId, user.full_name, text, conversationId);
+      // 5. Send Push Notification to recipients (Fire and forget in background)
+      (async () => {
+        try {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .select('participants')
+            .eq('id', conversationId)
+            .single();
+
+          if (convData?.participants) {
+            const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+            recipients.forEach(recipientId => {
+              sendPushNotification(recipientId, user.full_name, text, conversationId);
+            });
+          }
+        } catch (err) {
+          console.error('Background notification error:', err);
         }
-      }
+      })();
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -248,8 +257,7 @@ export function useChatState(conversationId: string) {
       // Remove optimistic message on failure
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       setNewMessage(text); // Restore text
-    } finally {
-      setIsSending(false);
+      setIsSending(false); // Ensure cleared
     }
   };
 
