@@ -39,8 +39,8 @@ export default async function handler(req, res) {
         ios_badgeType: "Increase",
         ios_badgeCount: 1,
         ttl: 3600, // 1 hour time to live
-        android_group: conversationId || "chat",
-        thread_id: conversationId || "chat"
+        android_group: data?.conversationId || "chat",
+        thread_id: data?.conversationId || "chat"
       })
     });
 
