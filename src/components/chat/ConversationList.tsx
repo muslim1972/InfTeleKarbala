@@ -21,18 +21,8 @@ export const ConversationList = () => {
 
     const startConversation = async (partnerId: string) => {
         try {
-            // Check if conversation exists (individual only)
-            const existingConv = conversations.find((c: any) =>
-                !c.is_group &&
-                c.participants.some((p: any) => p.user_id === partnerId)
-            );
-
-            if (existingConv) {
-                setShowNewChatModal(false);
-                navigate(`/chat/${existingConv.id}`);
-                return;
-            }
-
+            // The check for existing conversations is now handled centrally
+            // inside the createConversation function in useConversations.ts
             const newConv = await createConversation(partnerId);
             if (!newConv) return;
 

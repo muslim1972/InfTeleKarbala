@@ -89,6 +89,58 @@ export function useConversations() {
     const createConversation = async (partnerId: string) => {
         if (!user) return null;
         try {
+            // 1. Get the job_number of the partner
+            const { data: partnerProfile } = await supabase
+                .from('profiles')
+                .select('job_number')
+                .eq('id', partnerId)
+                .single();
+
+            const jobNumber = partnerProfile?.job_number;
+
+            if (jobNumber) {
+                // 2. Find all account IDs (UUIDs) that share this job_number
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('job_number', jobNumber);
+
+                const partnerUuids = profiles?.map(p => p.id) || [partnerId];
+
+                // 3. Search for any existing 1-on-1 chat with *any* of these account IDs
+                // Note: We use a loop or a smarter query if possible, but for 2-3 IDs a simple check is fine.
+                const { data: existingConvs } = await supabase
+                    .from('conversations')
+                    .select('*')
+                    .eq('is_group', false)
+                    .contains('participants', [user.id]);
+
+                if (existingConvs) {
+                    const existing = existingConvs.find(c => 
+                        c.participants.length === 2 && 
+                        c.participants.some((pId: string) => partnerUuids.includes(pId))
+                    );
+
+                    if (existing) {
+                        console.log('Found existing conversation via job_number:', existing.id);
+                        return existing;
+                    }
+                }
+            } else {
+                // Fallback to simple ID check if no job_number
+                const { data: existing } = await supabase
+                    .from('conversations')
+                    .select('*')
+                    .eq('is_group', false)
+                    .contains('participants', [user.id])
+                    .contains('participants', [partnerId])
+                    .limit(1)
+                    .maybeSingle();
+
+                if (existing) return existing;
+            }
+
+            // 4. If not found, create a new one using the provided partnerId
             const { data, error } = await supabase
                 .from('conversations')
                 .insert([{
