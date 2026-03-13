@@ -108,21 +108,29 @@ export function useConversations() {
                 const partnerUuids = profiles?.map(p => p.id) || [partnerId];
 
                 // 3. Search for any existing 1-on-1 chat with *any* of these account IDs
-                // Note: We use a loop or a smarter query if possible, but for 2-3 IDs a simple check is fine.
+                // Use JSON.stringify for JSONB 'contains' queries in Supabase JS client
                 const { data: existingConvs } = await supabase
                     .from('conversations')
                     .select('*')
                     .eq('is_group', false)
-                    .contains('participants', [user.id]);
+                    .contains('participants', JSON.stringify([user.id]));
 
                 if (existingConvs) {
-                    const existing = existingConvs.find(c => 
-                        c.participants.length === 2 && 
-                        c.participants.some((pId: string) => partnerUuids.includes(pId))
-                    );
+                    // Filter in memory to ensure it's exactly a 2-person chat
+                    // and includes the user and ONE of the partner's possible UUIDs
+                    const existing = existingConvs.find(c => {
+                        const parts = c.participants || [];
+                        if (parts.length !== 2) return false;
+                        
+                        // Extract IDs in case they were stored as strings or objects
+                        const partUuids = parts.map((p: any) => typeof p === 'string' ? p : p.user_id);
+                        
+                        return partUuids.includes(user.id) && 
+                               partUuids.some((pId: string) => partnerUuids.includes(pId));
+                    });
 
                     if (existing) {
-                        console.log('Found existing conversation via job_number:', existing.id);
+                        console.log('Found existing conversation via job_number match:', existing.id);
                         return existing;
                     }
                 }
@@ -132,8 +140,8 @@ export function useConversations() {
                     .from('conversations')
                     .select('*')
                     .eq('is_group', false)
-                    .contains('participants', [user.id])
-                    .contains('participants', [partnerId])
+                    .contains('participants', JSON.stringify([user.id]))
+                    .contains('participants', JSON.stringify([partnerId]))
                     .limit(1)
                     .maybeSingle();
 
