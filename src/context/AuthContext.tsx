@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { initOneSignal, logoutOneSignal } from "../lib/onesignal";
 
 async function sendPushNotification(recipientId: string, title: string, message: string) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return;
+    }
     try {
         await fetch('/api/notify', {
             method: 'POST',

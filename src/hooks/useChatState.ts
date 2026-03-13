@@ -8,6 +8,11 @@ import { v4 as uuidv4 } from 'uuid';
  * Sends a push notification via our serverless relay
  */
 async function sendPushNotification(recipientId: string, title: string, message: string, conversationId: string) {
+    // Skip on localhost to avoid 404 errors as the API relay is only on Vercel
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('Skipping push notification on localhost');
+        return;
+    }
     try {
         await fetch('/api/notify', {
             method: 'POST',
@@ -173,7 +178,10 @@ export function useChatState(conversationId: string) {
 
     // Cleanup
     return () => {
-      supabase.removeChannel(channel).catch(() => { });
+      // Small check to ensure we only remove if it's not already closed
+      if (channel) {
+        supabase.removeChannel(channel).catch(() => { });
+      }
     };
   }, [conversationId, user]);
 

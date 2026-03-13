@@ -5,6 +5,9 @@ import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
 
 async function sendPushNotification(recipientId: string, title: string, message: string) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return;
+    }
     try {
         await fetch('/api/notify', {
             method: 'POST',

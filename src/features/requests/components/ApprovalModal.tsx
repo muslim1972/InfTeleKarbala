@@ -3,6 +3,9 @@ import { User, Check, X, Calendar, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
 async function sendPushNotification(recipientId: string, title: string, message: string) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return;
+    }
     try {
         await fetch('/api/notify', {
             method: 'POST',
