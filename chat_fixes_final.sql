@@ -29,10 +29,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-    -- Instead of DELETING the row, we just mark it as deleted for the calling user
-    UPDATE conversations 
-    SET deleted_by = array_append(COALESCE(deleted_by, '{}'::uuid[]), auth.uid()) 
-    WHERE id = p_conversation_id
-    AND NOT (auth.uid() = ANY(COALESCE(deleted_by, '{}'::uuid[])));
+    -- الحذف النهائي للمحادثة والرسائل (بسبب CASCADE)
+    DELETE FROM public.conversations 
+    WHERE id = p_conversation_id;
 END;
 $$;

@@ -223,8 +223,8 @@ export function useChatState(conversationId: string) {
         .from('conversations')
         .update({
           last_message: text,
-          last_message_at: new Date().toISOString(),
-          deleted_by: []
+          last_message_at: new Date().toISOString()
+          // Removed deleted_by: [] to ensure chats don't reappear after deletion
         })
         .eq('id', conversationId);
 

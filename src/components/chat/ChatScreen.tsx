@@ -94,10 +94,14 @@ export function ChatScreen() {
                     onDelete={deleteMessages}
                 />
             ) : (
-                <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-10 transition-all">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
-                            <ArrowRight className="w-5 h-5 text-gray-600" />
+                <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-[60] sticky top-0 transition-all">
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => navigate('/chat')} 
+                            className="p-3 -mr-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95"
+                            title="الرجوع للقائمة"
+                        >
+                            <ArrowRight className="w-6 h-6 text-gray-700" />
                         </button>
 
                         <div 
@@ -293,8 +297,8 @@ export function ChatScreen() {
 
                         {showMenu && (
                             <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
-                                <div className="absolute left-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden transform origin-top-left transition-all">
+                                <div className="fixed inset-0 z-[70]" onClick={() => setShowMenu(false)}></div>
+                                <div className="absolute left-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-[80] overflow-hidden transform origin-top-left transition-all">
                                     <button
                                         onClick={handleDeleteConversation}
                                         className="w-full text-right px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"

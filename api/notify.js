@@ -37,7 +37,10 @@ export default async function handler(req, res) {
         priority: 10, // High priority for Android
         android_visibility: 1, // Public
         ios_badgeType: "Increase",
-        ios_badgeCount: 1
+        ios_badgeCount: 1,
+        ttl: 3600, // 1 hour time to live
+        android_group: conversationId || "chat",
+        thread_id: conversationId || "chat"
       })
     });
 
