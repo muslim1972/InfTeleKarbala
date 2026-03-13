@@ -187,7 +187,7 @@ export function useChatState(conversationId: string) {
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!newMessage.trim() || !user || !conversationId) return;
+    if (isSending || !newMessage.trim() || !user || !conversationId) return;
 
     const text = newMessage.trim();
     setNewMessage('');
@@ -263,7 +263,7 @@ export function useChatState(conversationId: string) {
 
   // Voice Message Sending
   const sendVoiceMessage = async (audioBlob: Blob) => {
-    if (!user || !conversationId) return;
+    if (isSending || !user || !conversationId) return;
     setIsSending(true);
 
     const optimisticId = uuidv4();

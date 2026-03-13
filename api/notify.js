@@ -31,9 +31,13 @@ export default async function handler(req, res) {
         headings: { en: title || "New Notification", ar: title || "تنبيه جديد" },
         url: url || null,
         data: data || {},
-        // Ensure sound is active
+        // Ensure sound and priority are high
         android_sound: "notification",
-        ios_sound: "notification.wav"
+        ios_sound: "notification.wav",
+        priority: 10, // High priority for Android
+        android_visibility: 1, // Public
+        ios_badgeType: "Increase",
+        ios_badgeCount: 1
       })
     });
 

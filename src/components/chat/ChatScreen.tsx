@@ -53,6 +53,7 @@ export function ChatScreen() {
         loading: msgsLoading,
         newMessage,
         setNewMessage,
+        isSending,
         sendMessage,
         sendVoiceMessage,
         selectedMessages,
@@ -325,7 +326,7 @@ export function ChatScreen() {
                 onChange={setNewMessage}
                 onSend={sendMessage}
                 onSendVoice={sendVoiceMessage}
-                disabled={selectedMessages.length > 0}
+                disabled={selectedMessages.length > 0 || isSending}
             />
         </div>
     );
