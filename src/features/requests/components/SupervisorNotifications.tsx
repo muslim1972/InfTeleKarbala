@@ -116,7 +116,7 @@ export const SupervisorNotifications = () => {
             .subscribe();
 
         return () => {
-            subscription.unsubscribe();
+            supabase.removeChannel(subscription).catch(() => {});
         };
     }, [user]);
 

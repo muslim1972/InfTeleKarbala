@@ -239,7 +239,7 @@ export const AppNotifications = () => {
             })
             .subscribe();
 
-        supabase.channel('system_notifications_changes')
+        const systemChannel = supabase.channel('system_notifications_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'system_notifications', filter: `recipient_id=eq.${user.id}` }, () => {
                 fetchSystemNotifications();
             })
@@ -269,8 +269,9 @@ export const AppNotifications = () => {
         window.addEventListener('chat_read', handleChatRead);
 
         return () => {
-            leaveChannel.unsubscribe();
-            chatChannel.unsubscribe();
+            supabase.removeChannel(leaveChannel).catch(() => {});
+            supabase.removeChannel(chatChannel).catch(() => {});
+            supabase.removeChannel(systemChannel).catch(() => {});
             window.removeEventListener('chat_read', handleChatRead);
         };
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications, fetchChatNotifications]);

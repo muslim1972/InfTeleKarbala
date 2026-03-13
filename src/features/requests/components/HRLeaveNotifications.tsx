@@ -51,7 +51,7 @@ export const HRLeaveNotifications = ({ onNavigateToRequests }: HRLeaveNotificati
             .subscribe();
 
         return () => {
-            subscription.unsubscribe();
+            supabase.removeChannel(subscription).catch(() => {});
         };
     }, [user]);
 
