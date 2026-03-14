@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useConversations } from '../../hooks/useConversations';
+import { useChat } from '../../context/ChatContext';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -8,7 +8,7 @@ import { Plus, ArrowRight } from 'lucide-react';
 import { NewChatModal } from './NewChatModal';
 
 export const ConversationList = () => {
-    const { conversations, loading, createConversation, createGroupConversation } = useConversations();
+    const { conversations, loading, createConversation, createGroupConversation } = useChat();
     const { conversationId } = useParams();
     const navigate = useNavigate();
 

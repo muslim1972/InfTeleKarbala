@@ -1,33 +1,40 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, X, CheckCircle, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 import { useNavigate } from 'react-router-dom';
+import { useChat } from '../../context/ChatContext';
 
 export const AppNotifications = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
+    const { conversations, totalUnreadCount: chatUnreadCount } = useChat();
+
+    // Derive unread messages for the bell dropdown
+    const unreadMessages = conversations
+        .filter(c => (c.unread_count ?? 0) > 0)
+        .map(c => ({
+            id: c.id,
+            conversation_id: c.id,
+            unread_count: c.unread_count ?? 0,
+            sender: { full_name: c.name }
+        }));
 
     // Badge Counts
     const [employeeUnreadCount, setEmployeeUnreadCount] = useState(0);
     const [supervisorPendingCount, setSupervisorPendingCount] = useState(0);
     const [hrPendingCount, setHrPendingCount] = useState(0);
-    const [chatUnreadCount, setChatUnreadCount] = useState(0);
     const [systemNotificationsCount, setSystemNotificationsCount] = useState(0);
 
     // Data lists
     const [employeeRequests, setEmployeeRequests] = useState<any[]>([]);
     const [supervisorRequests, setSupervisorRequests] = useState<any[]>([]);
     const [systemNotifications, setSystemNotifications] = useState<any[]>([]);
-    // Removed hrRequests as we only use the count for the UI link.
-    const [unreadMessages, setUnreadMessages] = useState<any[]>([]);
 
     // Modal state
     const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
-
-    const optimisticallyClearedChats = useRef<Set<string>>(new Set());
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
     const fetchEmployeeNotifications = useCallback(async () => {
@@ -79,8 +86,6 @@ export const AppNotifications = () => {
         if (error) {
             console.error('AppNotifications: Error fetching supervisor requests:', error);
         } else if (data && data.length > 0) {
-            // THE REAL FIX: Multi-column Pending Check
-            // A request is "pending" if ANY of its process statuses are pending.
             let activeRequests = data.filter(req =>
                 req.status === 'pending' ||
                 req.leave_status === 'pending' ||
@@ -121,7 +126,6 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        // Only fetch if user is HR or developer or Muslim Aqeel
         const isAllowedRole = user.admin_role === 'developer' ||
             user.admin_role === 'hr' ||
             user.full_name?.includes('مسلم عقيل') ||
@@ -137,60 +141,8 @@ export const AppNotifications = () => {
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
         } else {
-            // Uniquify IDs to prevent duplicate counting and over-rendering from OR clauses
             const uniqueIds = new Set(data?.map(r => r.id));
             setHrPendingCount(uniqueIds.size || 0);
-        }
-    }, [user]);
-
-    const fetchChatNotifications = useCallback(async () => {
-        if (!user || user.id === 'visitor-id') return;
-
-        // This query fetches conversations for the user
-        const { data: conversations, error: convError } = await supabase
-            .from('conversations')
-            .select('id')
-            .contains('participants', JSON.stringify([user.id]));
-
-        if (convError || !conversations?.length) {
-            setUnreadMessages([]);
-            setChatUnreadCount(0);
-            return;
-        }
-
-        const convIds = conversations.map(c => c.id);
-
-        const { data: unreadMsgData, error: msgError } = await supabase
-            .from('messages')
-            .select('*, sender:profiles!messages_sender_id_fkey(full_name)')
-            .in('conversation_id', convIds)
-            .neq('sender_id', user.id)
-            .not('read_by', 'cs', `{${user.id}}`)
-            .order('created_at', { ascending: false });
-
-        if (msgError) {
-            console.error('AppNotifications: Error fetching chat:', msgError);
-            return;
-        }
-
-        if (unreadMsgData && unreadMsgData.length > 0) {
-            const grouped = new Map();
-            unreadMsgData.forEach(msg => {
-                if (optimisticallyClearedChats.current.has(msg.conversation_id)) return;
-                if (!grouped.has(msg.conversation_id)) {
-                    grouped.set(msg.conversation_id, { ...msg, unread_count: 1 });
-                } else {
-                    const existing = grouped.get(msg.conversation_id);
-                    existing.unread_count += 1;
-                }
-            });
-
-            const uniqueMessages = Array.from(grouped.values());
-            setUnreadMessages(uniqueMessages);
-            setChatUnreadCount(uniqueMessages.length);
-        } else {
-            setUnreadMessages([]);
-            setChatUnreadCount(0);
         }
     }, [user]);
 
@@ -216,12 +168,10 @@ export const AppNotifications = () => {
     useEffect(() => {
         if (!user || user.id === 'visitor-id') return;
 
-        // Vercel Best Practice (async-parallel): Parallel data fetching
         Promise.all([
             fetchEmployeeNotifications(),
             fetchSupervisorNotifications(),
             fetchHRNotifications(),
-            fetchChatNotifications(),
             fetchSystemNotifications()
         ]);
 
@@ -233,48 +183,17 @@ export const AppNotifications = () => {
             })
             .subscribe();
 
-        const chatChannel = supabase.channel('unified_chat_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-                fetchChatNotifications();
-            })
-            .subscribe();
-
         const systemChannel = supabase.channel('system_notifications_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'system_notifications', filter: `recipient_id=eq.${user.id}` }, () => {
                 fetchSystemNotifications();
             })
             .subscribe();
 
-        // Custom event so if DB realtime doesn't trigger on UPDATE, we still clear the bell
-        const handleChatRead = (e: Event) => {
-            const customEvent = e as CustomEvent<{ conversationId: string }>;
-            if (customEvent.detail?.conversationId) {
-                // Add to optimistically cleared list to suppress stale fetches
-                optimisticallyClearedChats.current.add(customEvent.detail.conversationId);
-                // Remove from list after 5 seconds
-                setTimeout(() => {
-                    optimisticallyClearedChats.current.delete(customEvent.detail.conversationId);
-                }, 5000);
-
-                // Optimistically clear the local unread count
-                setUnreadMessages(prev => {
-                    const updated = prev.filter(m => m.conversation_id !== customEvent.detail.conversationId);
-                    setChatUnreadCount(updated.length);
-                    return updated;
-                });
-            }
-            fetchChatNotifications();
-        };
-
-        window.addEventListener('chat_read', handleChatRead);
-
         return () => {
             supabase.removeChannel(leaveChannel).catch(() => {});
-            supabase.removeChannel(chatChannel).catch(() => {});
             supabase.removeChannel(systemChannel).catch(() => {});
-            window.removeEventListener('chat_read', handleChatRead);
         };
-    }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications, fetchChatNotifications]);
+    }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications]);
 
     const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + chatUnreadCount + systemNotificationsCount;
 
@@ -315,10 +234,10 @@ export const AppNotifications = () => {
     };
 
     const handleOpenChat = (conversationId: string) => {
-        // Optimistically clear the local unread count
-        const updatedMessages = unreadMessages.filter(m => m.conversation_id !== conversationId);
-        setUnreadMessages(updatedMessages);
-        setChatUnreadCount(updatedMessages.length);
+        // Dispatch local event so ChatContext handles optimistic update
+        window.dispatchEvent(new CustomEvent('chat_read', {
+            detail: { conversationId }
+        }));
 
         setShowModal(false);
         navigate(`/chat/${conversationId}`);

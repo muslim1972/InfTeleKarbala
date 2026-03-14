@@ -77,21 +77,25 @@ const AppContent = () => {
 
 const ChatLayout = lazy(() => import("./components/chat/ChatLayout").then(m => ({ default: m.ChatLayout })));
 
+import { ChatProvider } from "./context/ChatContext";
+
 function App() {
   return (
     <div dir="rtl">
       <AuthProvider>
-        <Toaster position="top-center" reverseOrder={false} />
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            <Route path="/chat" element={<ChatLayout />}>
-              <Route path=":conversationId" element={null} />
-            </Route>
-            <Route path="/requests/leave" element={<LeaveRequestPage />} />
-            <Route path="/requests" element={<RequestsPage />} />
-            <Route path="/*" element={<AppContent />} />
-          </Routes>
-        </Suspense>
+        <ChatProvider>
+          <Toaster position="top-center" reverseOrder={false} />
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              <Route path="/chat" element={<ChatLayout />}>
+                <Route path=":conversationId" element={null} />
+              </Route>
+              <Route path="/requests/leave" element={<LeaveRequestPage />} />
+              <Route path="/requests" element={<RequestsPage />} />
+              <Route path="/*" element={<AppContent />} />
+            </Routes>
+          </Suspense>
+        </ChatProvider>
       </AuthProvider>
     </div>
   );

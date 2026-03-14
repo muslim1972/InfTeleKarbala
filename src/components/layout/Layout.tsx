@@ -4,7 +4,7 @@ import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
 import DeveloperCV from "../ui/DeveloperCV";
-import { useConversations } from "../../hooks/useConversations";
+import { useChat } from "../../context/ChatContext";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -17,7 +17,7 @@ interface LayoutProps {
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
     const navigate = useNavigate();
     const [isCVOpen, setIsCVOpen] = useState(false);
-    const { totalUnreadCount } = useConversations();
+    const { totalUnreadCount } = useChat();
 
     return (
         <div className="min-h-screen w-full relative bg-background text-foreground font-tajawal transition-colors duration-300">
