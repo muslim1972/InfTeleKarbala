@@ -46,7 +46,7 @@ const renderMessageText = (text: string, isMe: boolean, textColorMe: string, tex
     });
 };
 
-export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction }: MessageBubbleProps) {
+export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction }: MessageBubbleProps) => {
     const { user } = useAuth();
     const { settings } = useChatSettings();
     const [showReactions, setShowReactions] = React.useState(false);
@@ -131,16 +131,31 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
                 )}
 
                 <div 
-                    className={cn("text-[10px] mt-1 flex items-center gap-1 opacity-70")}
+                    className={cn("text-[10px] mt-1 flex items-center gap-1.5 opacity-80")}
                     style={{ color: isMe ? settings.textColorMe : settings.textColorOther }}
                 >
                     <span>
                         {format(new Date(message.created_at), 'p', { locale: ar })}
                     </span>
                     {isMe && (
-                        <span>
-                            {message.is_sending ? '🕒' : '✓'}
-                        </span>
+                        <div className="flex items-center">
+                            {message.is_sending ? (
+                                <div 
+                                    className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_5px_rgba(251,191,36,0.5)]" 
+                                    title="جاري الإرسال"
+                                />
+                            ) : (message.read_by && message.read_by.filter(id => id !== user?.id).length > 0) ? (
+                                <div 
+                                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" 
+                                    title="تمت القراءة"
+                                />
+                            ) : (
+                                <div 
+                                    className="w-2 h-2 rounded-full bg-white border border-gray-200 shadow-sm" 
+                                    title="تم التسليم"
+                                />
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -189,4 +204,4 @@ export function MessageBubble({ message, isGroup, isSelected, isSelectionMode, o
             </div>
         </div>
     );
-}
+});
