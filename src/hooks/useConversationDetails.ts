@@ -15,6 +15,7 @@ export interface ConversationDetails {
   is_group: boolean;
   participants: string[];
   member_profiles?: ParticipantProfile[];
+  unread_count?: number;
 }
 
 export function useConversationDetails(conversationId: string) {

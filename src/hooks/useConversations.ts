@@ -196,5 +196,7 @@ export function useConversations() {
         }
     };
 
-    return { conversations, loading, createConversation, createGroupConversation };
+    const totalUnreadCount = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+
+    return { conversations, loading, totalUnreadCount, createConversation, createGroupConversation };
 }
