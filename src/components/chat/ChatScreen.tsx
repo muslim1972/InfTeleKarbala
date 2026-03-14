@@ -4,9 +4,8 @@ import { useChatState } from '../../hooks/useChatState';
 import { useConversationDetails } from '../../hooks/useConversationDetails';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { ArrowRight, MoreVertical, Trash2, Palette, Check, RotateCcw } from 'lucide-react';
+import { ArrowRight, Palette, Check, RotateCcw } from 'lucide-react';
 import { SelectionHeader } from './SelectionHeader';
-import { supabase } from '../../lib/supabase';
 import { useChatSettings, type FontSize } from '../../hooks/useChatSettings';
 import { cn } from '../../lib/utils';
 
@@ -25,28 +24,10 @@ function SimpleAvatar({ src, fallback }: { src?: string, fallback: string }) {
 export function ChatScreen() {
     const { conversationId } = useParams<{ conversationId: string }>();
     const navigate = useNavigate();
-    const [showMenu, setShowMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showParticipants, setShowParticipants] = useState(false);
     const { settings, updateSettings, resetSettings } = useChatSettings();
 
-    const handleDeleteConversation = async () => {
-        if (!conversationId) return;
-        if (!window.confirm("هل أنت متأكد من حذف هذه المحادثة بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء.")) return;
-
-        try {
-            const { error } = await supabase.rpc('delete_chat_conversation', { p_conversation_id: conversationId });
-            if (error) throw error;
-
-            // Dispatch event to force refresh the chat list
-            window.dispatchEvent(new CustomEvent('chat_deleted'));
-
-            navigate('/chat');
-        } catch (error) {
-            console.error('Error deleting conversation:', error);
-            alert("حدث خطأ أثناء محاولة الحذف");
-        }
-    };
 
     const {
         messages,
@@ -182,13 +163,6 @@ export function ChatScreen() {
                             <Palette className="w-5 h-5" />
                         </button>
 
-                        <button
-                            onClick={() => setShowMenu(!showMenu)}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                            <MoreVertical className="w-5 h-5 text-gray-600" />
-                        </button>
-
                         {/* Settings Popover */}
                         {showSettings && (
                             <>
@@ -291,21 +265,6 @@ export function ChatScreen() {
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
-
-                        {showMenu && (
-                            <>
-                                <div className="fixed inset-0 z-[70]" onClick={() => setShowMenu(false)}></div>
-                                <div className="absolute left-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-[80] overflow-hidden transform origin-top-left transition-all">
-                                    <button
-                                        onClick={handleDeleteConversation}
-                                        className="w-full text-right px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                        حذف المحادثة
-                                    </button>
                                 </div>
                             </>
                         )}

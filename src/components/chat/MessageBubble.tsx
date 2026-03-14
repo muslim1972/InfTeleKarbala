@@ -75,7 +75,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
         }
     };
 
-    const longPressEvent = useLongPress(onLongPress, onClick, { delay: 500 });
+    const longPressEvent = useLongPress(onLongPress, onClick, { delay: 800 });
 
     const fontSizesMap = {
         sm: 'text-xs',

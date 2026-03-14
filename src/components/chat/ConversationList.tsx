@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useChat } from '../../context/ChatContext';
-import { cn } from '../../lib/utils';
-import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus, ArrowRight, Trash2, X } from 'lucide-react';
 import { NewChatModal } from './NewChatModal';
+import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
+import { ConversationItem } from './ConversationItem';
 
 export const ConversationList = () => {
     const { conversations, loading, createConversation, createGroupConversation } = useChat();
     const { conversationId } = useParams();
     const navigate = useNavigate();
 
+    // Selection State
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    
     // Modal State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
 
@@ -47,6 +50,47 @@ export const ConversationList = () => {
         }
     };
 
+    const toggleSelection = (id: string) => {
+        setSelectedIds(prev => 
+            prev.includes(id) 
+                ? [] 
+                : [id]
+        );
+    };
+
+    const clearSelection = () => setSelectedIds([]);
+
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return;
+        
+        const confirmMsg = "هل أنت متأكد من حذف هذه المحادثة؟";
+            
+        if (!window.confirm(confirmMsg)) return;
+
+        const loadingToast = toast.loading('جاري الحذف...');
+        try {
+            for (const id of selectedIds) {
+                const { error } = await supabase.rpc('delete_chat_conversation', { p_conversation_id: id });
+                if (error) throw error;
+            }
+            
+            toast.success('تم حذف المحادثات بنجاح', { id: loadingToast });
+            clearSelection();
+            
+            // If the currently open chat was deleted, navigate back to /chat
+            if (conversationId && selectedIds.includes(conversationId)) {
+                navigate('/chat');
+            }
+            
+            // Dispatch event to refresh the list
+            window.dispatchEvent(new CustomEvent('chat_deleted'));
+            
+        } catch (error) {
+            console.error('Error deleting conversations:', error);
+            toast.error('حدث خطأ أثناء الحذف', { id: loadingToast });
+        }
+    };
+
     // Unified View: Show all conversations EXCEPT Supervisors Group
     // User requested to remove Supervisors Group from this list
     const filteredConversations = conversations.filter((c: any) =>
@@ -56,21 +100,44 @@ export const ConversationList = () => {
 
     return (
         <div className="w-full md:w-80 border-l bg-white flex flex-col h-full relative">
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/')}
-                        className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                        title="العودة للخلف"
-                    >
-                        <ArrowRight className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <h2 className="font-bold text-lg text-gray-800">المحادثات</h2>
-                </div>
-                {/* New Chat Button - Available to everyone */}
-                <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
-                    <Plus className="w-5 h-5" />
-                </button>
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50 min-h-[64px]">
+                {selectedIds.length > 0 ? (
+                    <>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={clearSelection}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
+                                title="إلغاء التحديد"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                            <span className="font-bold text-gray-800">حذف المحادثة؟</span>
+                        </div>
+                        <button 
+                            onClick={handleDeleteSelected}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-full transition-colors" 
+                            title="حذف المحدد"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => navigate('/')}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                                title="العودة للخلف"
+                            >
+                                <ArrowRight className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <h2 className="font-bold text-lg text-gray-800">المحادثات</h2>
+                        </div>
+                        <button onClick={handleCreateChat} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-full transition-colors" title="محادثة جديدة">
+                            <Plus className="w-5 h-5" />
+                        </button>
+                    </>
+                )}
             </div>
 
             <div
@@ -94,50 +161,13 @@ export const ConversationList = () => {
                     </div>
                 ) : (
                     filteredConversations.map((conv: any) => (
-                        <div
+                        <ConversationItem
                             key={conv.id}
-                            onClick={() => navigate(`/chat/${conv.id}`)}
-                            className={cn(
-                                "p-3 border-b cursor-pointer hover:bg-emerald-50/50 transition-colors flex items-center gap-3",
-                                conversationId === conv.id ? "bg-emerald-50 border-r-4 border-r-emerald-600" : ""
-                            )}
-                        >
-                            <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                                {conv.avatar_url ? (
-                                    <img src={conv.avatar_url} alt={conv.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold text-lg bg-gray-100">
-                                        {conv.name?.[0]}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 min-w-0 text-right">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-gray-900 truncate mb-0.5">{conv.name}</h3>
-                                        <p className={cn(
-                                            "text-sm truncate",
-                                            conv.unread_count > 0 ? "text-gray-900 font-bold" : "text-gray-500 font-light"
-                                        )}>
-                                            {conv.last_message || 'مرفق'}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex flex-col items-end gap-2 pr-2 shrink-0">
-                                        {conv.last_message_at && (
-                                            <span className="text-[10px] text-gray-400 tabular-nums">
-                                                {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ar })}
-                                            </span>
-                                        )}
-                                        {conv.unread_count > 0 && (
-                                            <div className="bg-blue-600 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center shadow-md animate-in zoom-in duration-300">
-                                                {conv.unread_count}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                            conv={conv}
+                            isSelected={selectedIds.includes(conv.id)}
+                            hasSelection={selectedIds.length > 0}
+                            onToggle={toggleSelection}
+                        />
                     ))
                 )}
                 </div>
