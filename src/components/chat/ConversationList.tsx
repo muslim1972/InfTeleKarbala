@@ -63,7 +63,12 @@ export const ConversationList = () => {
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
         
-        const confirmMsg = "هل أنت متأكد من حذف هذه المحادثة؟";
+        const selectedConv = filteredConversations.find(c => selectedIds.includes(c.id));
+        const isGroup = selectedConv?.is_group;
+        
+        const confirmMsg = isGroup 
+            ? "هل أنت متأكد من مغادرة هذه المجموعة؟" 
+            : "هل أنت متأكد من حذف هذه المحادثة؟";
             
         if (!window.confirm(confirmMsg)) return;
 
@@ -111,7 +116,11 @@ export const ConversationList = () => {
                             >
                                 <X className="w-5 h-5" />
                             </button>
-                            <span className="font-bold text-gray-800">حذف المحادثة؟</span>
+                            <span className="font-bold text-gray-800">
+                                {filteredConversations.find(c => selectedIds.includes(c.id))?.is_group 
+                                    ? "مغادرة المجموعة؟" 
+                                    : "حذف المحادثة؟"}
+                            </span>
                         </div>
                         <button 
                             onClick={handleDeleteSelected}
