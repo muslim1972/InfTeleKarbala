@@ -34,16 +34,6 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
         }
     }, [value]);
 
-    // Refocus when disabled changes from true to false (message sent)
-    useEffect(() => {
-        if (!disabled && textareaRef.current) {
-            // Small timeout to ensure the element is focusable after re-enable
-            const timer = setTimeout(() => {
-                textareaRef.current?.focus();
-            }, 50);
-            return () => clearTimeout(timer);
-        }
-    }, [disabled]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -177,10 +167,11 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
                         settings.fontSize === 'md' && "text-[14px]",
                         settings.fontSize === 'lg' && "text-[18px]",
                         settings.fontSize === 'xl' && "text-[24px]",
-                        settings.isBold && "font-extrabold"
+                        settings.isBold && "font-extrabold",
+                        disabled && "opacity-60"
                     )}
                     rows={1}
-                    disabled={disabled}
+                    readOnly={disabled}
                     autoFocus
                 />
             </div>
