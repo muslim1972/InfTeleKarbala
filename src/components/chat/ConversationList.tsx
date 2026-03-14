@@ -112,17 +112,30 @@ export const ConversationList = () => {
                                 )}
                             </div>
                             <div className="flex-1 min-w-0 text-right">
-                                <div className="flex justify-between items-baseline mb-1">
-                                    <h3 className="font-semibold text-gray-900 truncate">{conv.name}</h3>
-                                    {conv.last_message_at && (
-                                        <span className="text-[10px] text-gray-400 flex-shrink-0">
-                                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ar })}
-                                        </span>
-                                    )}
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold text-gray-900 truncate mb-0.5">{conv.name}</h3>
+                                        <p className={cn(
+                                            "text-sm truncate",
+                                            conv.unread_count > 0 ? "text-gray-900 font-bold" : "text-gray-500 font-light"
+                                        )}>
+                                            {conv.last_message || 'مرفق'}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-2 pr-2 shrink-0">
+                                        {conv.last_message_at && (
+                                            <span className="text-[10px] text-gray-400 tabular-nums">
+                                                {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ar })}
+                                            </span>
+                                        )}
+                                        {conv.unread_count > 0 && (
+                                            <div className="bg-blue-600 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center shadow-md animate-in zoom-in duration-300">
+                                                {conv.unread_count}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-500 truncate font-light">
-                                    {conv.last_message || 'مرفق'}
-                                </p>
                             </div>
                         </div>
                     ))

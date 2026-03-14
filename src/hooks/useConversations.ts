@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { ConversationDetails } from './useConversationDetails';
@@ -8,47 +8,62 @@ export function useConversations() {
     const [conversations, setConversations] = useState<ConversationDetails[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchConversations() {
-            if (!user) return;
-            setLoading(true);
+    const fetchConversations = useCallback(async (isInitial = false) => {
+        if (!user) return;
+        if (isInitial) setLoading(true);
 
-            // complex query to get conversations user is part of
-            // Supabase has JSONB contains, so we can use that.
-            const { data, error } = await supabase
+        try {
+            // 1. Fetch conversations
+            const { data: convs, error: convError } = await supabase
                 .from('conversations')
                 .select('*, participants, deleted_by')
                 .contains('participants', JSON.stringify([user.id]))
                 .order('last_message_at', { ascending: false });
 
-            if (error) {
-                console.error('Error fetching conversations:', error);
-                setLoading(false);
-                return;
+            if (convError) throw convError;
+
+            const visibleConvs = (convs || []).filter(c => !c.deleted_by?.includes(user.id));
+
+            // 2. Resolve unread counts in bulk
+            const convIds = visibleConvs.map(c => c.id);
+            const { data: unreadData } = await supabase
+                .from('messages')
+                .select('conversation_id')
+                .in('conversation_id', convIds)
+                .neq('sender_id', user.id)
+                .not('read_by', 'cs', `{${user.id}}`);
+
+            const unreadMap: Record<string, number> = {};
+            unreadData?.forEach(m => {
+                unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1;
+            });
+
+            // 3. Resolve profile info in bulk for 1-on-1 chats
+            const otherUserIds = [...new Set(visibleConvs
+                .filter(c => !c.is_group)
+                .map(c => c.participants.find((id: string) => id !== user.id))
+                .filter(Boolean))] as string[];
+
+            const profileMap: Record<string, any> = {};
+            if (otherUserIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, avatar')
+                    .in('id', otherUserIds);
+                profiles?.forEach(p => { profileMap[p.id] = p; });
             }
 
-            // Hide conversations deleted by this user
-            const visibleConvs = (data || []).filter(c => !c.deleted_by?.includes(user.id));
-
-            // We need to resolve names/avatars for 1-on-1 chats
-            // This might be N+1, but for a simple start it's okay. 
-            // Optimization: Fetch all needed profiles in one go later.
-            const resolved = await Promise.all(visibleConvs.map(async (conv: any) => {
+            // 4. Transform into final display format
+            const resolved = visibleConvs.map((conv: any) => {
                 let name = conv.name;
                 let avatar_url = conv.avatar_url;
 
                 if (!conv.is_group) {
                     const otherUserId = conv.participants.find((id: string) => id !== user.id);
-                    if (otherUserId) {
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('full_name, avatar')
-                            .eq('id', otherUserId)
-                            .single();
-                        if (profile) {
-                            name = profile.full_name;
-                            avatar_url = profile.avatar;
-                        }
+                    const profile = otherUserId ? profileMap[otherUserId] : null;
+                    if (profile) {
+                        name = profile.full_name;
+                        avatar_url = profile.avatar;
                     }
                 }
 
@@ -59,32 +74,39 @@ export function useConversations() {
                     is_group: conv.is_group,
                     participants: conv.participants,
                     last_message: conv.last_message,
-                    last_message_at: conv.last_message_at
+                    last_message_at: conv.last_message_at,
+                    unread_count: unreadMap[conv.id] || 0
                 };
-            }));
+            });
 
             setConversations(resolved);
-            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching conversations:', error);
+        } finally {
+            if (isInitial) setLoading(false);
         }
+    }, [user]);
 
-        fetchConversations();
+    // Initial Load & Subscriptions
+    useEffect(() => {
+        fetchConversations(true);
 
-        // Custom event for immediate deletion feedback
-        window.addEventListener('chat_deleted', fetchConversations);
+        const handleRefresh = () => fetchConversations();
+        window.addEventListener('chat_deleted', handleRefresh);
+        window.addEventListener('chat_read', handleRefresh);
 
-        // Realtime subscription (simplified)
-        const subscription = supabase
-            .channel('public:conversations')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchConversations)
+        const chatChannel = supabase.channel(`chat_list_${user?.id?.substring(0, 8)}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+                fetchConversations();
+            })
             .subscribe();
 
         return () => {
-            window.removeEventListener('chat_deleted', fetchConversations);
-            supabase.removeChannel(subscription).catch(() => {
-                // Ignore cleanup errors
-            });
+            window.removeEventListener('chat_deleted', handleRefresh);
+            window.removeEventListener('chat_read', handleRefresh);
+            supabase.removeChannel(chatChannel).catch(() => { });
         };
-    }, [user]);
+    }, [user, fetchConversations]);
 
     const createConversation = async (partnerId: string) => {
         if (!user) return null;
@@ -92,69 +114,51 @@ export function useConversations() {
             // 1. Get the job_number of the partner
             const { data: partnerProfile } = await supabase
                 .from('profiles')
-                .select('job_number')
+                .select('id, job_number')
                 .eq('id', partnerId)
                 .single();
 
+            const partnerUuids = [partnerId];
             const jobNumber = partnerProfile?.job_number;
 
             if (jobNumber) {
-                // 2. Find all account IDs (UUIDs) that share this job_number
-                const { data: profiles } = await supabase
+                const { data: siblings } = await supabase
                     .from('profiles')
                     .select('id')
                     .eq('job_number', jobNumber);
-
-                const partnerUuids = profiles?.map(p => p.id) || [partnerId];
-
-                // 3. Search for any existing 1-on-1 chat with *any* of these account IDs
-                // Use JSON.stringify for JSONB 'contains' queries in Supabase JS client
-                const { data: existingConvs } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .eq('is_group', false)
-                    .contains('participants', JSON.stringify([user.id]));
-
-                if (existingConvs) {
-                    // Filter in memory to ensure it's exactly a 2-person chat
-                    // and includes the user and ONE of the partner's possible UUIDs
-                    const existing = existingConvs.find(c => {
-                        const parts = c.participants || [];
-                        if (parts.length !== 2) return false;
-                        
-                        // Extract IDs in case they were stored as strings or objects
-                        const partUuids = parts.map((p: any) => typeof p === 'string' ? p : p.user_id);
-                        
-                        return partUuids.includes(user.id) && 
-                               partUuids.some((pId: string) => partnerUuids.includes(pId));
+                if (siblings) {
+                    siblings.forEach(s => {
+                        if (!partnerUuids.includes(s.id)) partnerUuids.push(s.id);
                     });
-
-                    if (existing) {
-                        console.log('Found existing conversation via job_number match:', existing.id);
-                        return existing;
-                    }
                 }
-            } else {
-                // Fallback to simple ID check if no job_number
-                const { data: existing } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .eq('is_group', false)
-                    .contains('participants', JSON.stringify([user.id]))
-                    .contains('participants', JSON.stringify([partnerId]))
-                    .limit(1)
-                    .maybeSingle();
+            }
+            
+            // 2. Search for existing 1-on-1 chat
+            const { data: possibles } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('is_group', false)
+                .contains('participants', JSON.stringify([user.id]));
+
+            if (possibles) {
+                const existing = possibles.find(c => {
+                    const parts = c.participants || [];
+                    if (parts.length !== 2) return false;
+                    const partIds = parts.map((p: any) => typeof p === 'string' ? p : p.user_id);
+                    return partIds.includes(user.id) && partIds.some((pId: string) => partnerUuids.includes(pId));
+                });
 
                 if (existing) return existing;
             }
 
-            // 4. If not found, create a new one using the provided partnerId
+            // 3. Create new if not found
             const { data, error } = await supabase
                 .from('conversations')
                 .insert([{
                     is_group: false,
                     participants: [user.id, partnerId],
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    last_message_at: new Date().toISOString()
                 }])
                 .select()
                 .single();
@@ -162,7 +166,7 @@ export function useConversations() {
             if (error) throw error;
             return data;
         } catch (error) {
-            console.error('Error creating conversation:', error);
+            console.error('Error in createConversation:', error);
             return null;
         }
     };

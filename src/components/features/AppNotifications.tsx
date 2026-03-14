@@ -234,7 +234,7 @@ export const AppNotifications = () => {
             .subscribe();
 
         const chatChannel = supabase.channel('unified_chat_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
                 fetchChatNotifications();
             })
             .subscribe();

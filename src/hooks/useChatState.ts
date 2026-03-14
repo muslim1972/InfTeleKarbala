@@ -97,93 +97,88 @@ export function useChatState(conversationId: string) {
   const fetchMessagesRef = useRef(fetchMessages);
   fetchMessagesRef.current = fetchMessages;
 
-  // Subscribe to real-time changes
-  useEffect(() => {
-    if (!conversationId) return;
+    // Subscribe to real-time changes
+    useEffect(() => {
+        if (!conversationId || !user) return;
 
-    // Use the ref so this effect only depends on conversationId
-    fetchMessagesRef.current();
+        // Use the ref so this effect only depends on conversationId
+        fetchMessagesRef.current();
 
-    // Create channel
-    const channel = supabase.channel(`chat:${conversationId}`);
+        console.log('useChatState: Subscribing to chat', conversationId);
 
-    // Subscribe
-    channel
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, DELETE, UPDATE)
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newMsg = payload.new as Message;
+        // Standardized channel naming with a bit of randomness to avoid collisions during rapid re-renders
+        const channel = supabase.channel(`chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`);
 
-            // Fetch sender profile since Realtime payload doesn't include joined tables
-            const processNewMessage = (msg: Message) => {
-              // 1. Add it immediately so the UI responds instantly in Realtime
-              setMessages(prev => {
-                const exists = prev.find(m => m.id === msg.id);
-                if (exists) return prev.map(m => m.id === msg.id ? { ...msg, is_sending: false } : m);
-                return [...prev, msg];
-              });
-
-              // 2. Fetch sender name async and update it in place
-              if (msg.sender_id && !msg.sender) {
-                supabase
-                  .from('profiles')
-                  .select('full_name')
-                  .eq('id', msg.sender_id)
-                  .single()
-                  .then(({ data }) => {
-                    if (data) {
-                      setMessages(current =>
-                        current.map(m => m.id === msg.id ? { ...m, sender: { full_name: data.full_name } } : m)
-                      );
+        channel
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'messages',
+                    // Removing server-side filter for now to guarantee delivery and filter manually
+                },
+                (payload) => {
+                    console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
+                    
+                    const newMsg = (payload.new || payload.old) as Message;
+                    
+                    // Manual filter check
+                    if (newMsg.conversation_id !== conversationId) {
+                        return;
                     }
-                  });
-              }
-            };
 
-            processNewMessage(newMsg);
+                    if (payload.eventType === 'INSERT') {
+                        // 1. Add it immediately
+                        setMessages(prev => {
+                            const exists = prev.find(m => m.id === newMsg.id);
+                            if (exists) {
+                                return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
+                            }
+                            return [...prev, newMsg];
+                        });
 
-            // If the incoming message is from someone else, mark it read immediately because we are viewing the chat
-            if (user && newMsg.sender_id !== user.id && (!newMsg.read_by || !newMsg.read_by.includes(user.id))) {
-              supabase
-                .rpc('mark_chat_read', { p_conversation_id: conversationId })
-                .then(({ error: updateErr }) => {
-                  if (!updateErr) {
-                    window.dispatchEvent(new CustomEvent('chat_read', {
-                      detail: { conversationId }
-                    }));
-                  }
-                });
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMsg = payload.new as Message;
-            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
-          } else if (payload.eventType === 'DELETE') {
-            const deletedMsg = payload.old as { id: string };
-            setMessages(prev => prev.filter(m => m.id !== deletedMsg.id));
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to chat changes');
-        }
-      });
+                        // 2. Fetch sender profile async
+                        if (newMsg.sender_id && !newMsg.sender) {
+                            supabase
+                                .from('profiles')
+                                .select('full_name')
+                                .eq('id', newMsg.sender_id)
+                                .single()
+                                .then(({ data }) => {
+                                    if (data) {
+                                        setMessages(current =>
+                                            current.map(m => m.id === newMsg.id ? { ...m, sender: { full_name: data.full_name } } : m)
+                                        );
+                                    }
+                                });
+                        }
 
-    // Cleanup
-    return () => {
-      // Small check to ensure we only remove if it's not already closed
-      if (channel) {
-        supabase.removeChannel(channel).catch(() => { });
-      }
-    };
-  }, [conversationId, user]);
+                        // 3. Mark as read immediately if viewing
+                        if (newMsg.sender_id !== user.id) {
+                            supabase.rpc('mark_chat_read', { p_conversation_id: conversationId })
+                                .then(() => {
+                                    window.dispatchEvent(new CustomEvent('chat_read', {
+                                        detail: { conversationId }
+                                    }));
+                                });
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m));
+                    } else if (payload.eventType === 'DELETE') {
+                        setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
+                    }
+                }
+            )
+            .subscribe((status) => {
+                console.log(`useChatState: Status for ${conversationId}:`, status);
+            });
+
+        return () => {
+            console.log('useChatState: Cleaning up channel for', conversationId);
+            supabase.removeChannel(channel).catch(() => { });
+        };
+    }, [conversationId, user]);
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
