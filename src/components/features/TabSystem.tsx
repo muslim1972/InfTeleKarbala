@@ -98,7 +98,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
             {showRightArrow && (
                 <button
                     onClick={(e) => { e.preventDefault(); scroll("right"); }}
-                    className="absolute right-0 z-20 h-full px-2 bg-gradient-to-l from-black/10 to-transparent flex items-center justify-center text-foreground hover:bg-black/20 transition-colors rounded-r-xl"
+                    className="absolute right-0 z-20 h-full px-2 bg-gradient-to-l from-black/10 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/20 transition-colors rounded-r-xl"
                 >
                     <ChevronRight className="w-5 h-5" />
                 </button>
@@ -148,7 +148,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
             {showLeftArrow && (
                 <button
                     onClick={(e) => { e.preventDefault(); scroll("left"); }}
-                    className="absolute left-0 z-20 h-full px-2 bg-gradient-to-r from-black/10 to-transparent flex items-center justify-center text-foreground hover:bg-black/20 transition-colors rounded-l-xl"
+                    className="absolute left-0 z-20 h-full px-2 bg-gradient-to-r from-black/10 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/20 transition-colors rounded-l-xl"
                 >
                     <ChevronLeft className="w-5 h-5" />
                 </button>

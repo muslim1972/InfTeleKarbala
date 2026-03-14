@@ -290,6 +290,15 @@ textarea,
   }
 }
 
+@keyframes blink-red {
+  0%, 100% { opacity: 1; color: rgb(220 38 38); }
+  50% { opacity: 0.3; color: rgb(220 38 38 / 0.5); }
+}
+
+.animate-blink-red {
+  animation: blink-red 1s ease-in-out infinite;
+}
+
 .animate-marquee-rtl {
   display: inline-block;
   animation: marquee-ltr linear infinite;

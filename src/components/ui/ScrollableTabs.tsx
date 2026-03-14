@@ -146,7 +146,7 @@ export const ScrollableTabs = ({
             {showRightArrow && (
                 <button
                     onClick={(e) => { e.preventDefault(); scroll("right"); }}
-                    className="absolute right-0 z-10 h-full px-1 bg-gradient-to-l from-black/20 to-transparent flex items-center justify-center text-white hover:bg-black/30 transition-colors rounded-r-lg"
+                    className="absolute right-0 z-10 h-full px-1 bg-gradient-to-l from-black/20 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/30 transition-colors rounded-r-lg"
                     style={{ backdropFilter: "blur(2px)" }}
                 >
                     <ChevronRight className="w-5 h-5 drop-shadow-md" />
@@ -183,7 +183,7 @@ export const ScrollableTabs = ({
             {showLeftArrow && (
                 <button
                     onClick={(e) => { e.preventDefault(); scroll("left"); }}
-                    className="absolute left-0 z-10 h-full px-1 bg-gradient-to-r from-black/20 to-transparent flex items-center justify-center text-white hover:bg-black/30 transition-colors rounded-l-lg"
+                    className="absolute left-0 z-10 h-full px-1 bg-gradient-to-r from-black/20 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/30 transition-colors rounded-l-lg"
                     style={{ backdropFilter: "blur(2px)" }}
                 >
                     <ChevronLeft className="w-5 h-5 drop-shadow-md" />

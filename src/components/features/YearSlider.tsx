@@ -58,7 +58,7 @@ export const YearSlider = ({
                 disabled={selectedYear >= endYear}
                 className={cn(
                     "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
-                    "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    "bg-secondary text-red-600 animate-blink-red hover:bg-secondary/80"
                 )}
             >
                 <ChevronRight className="w-4 h-4" />
@@ -103,7 +103,7 @@ export const YearSlider = ({
                 disabled={selectedYear <= startYear}
                 className={cn(
                     "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
-                    "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    "bg-secondary text-red-600 animate-blink-red hover:bg-secondary/80"
                 )}
             >
                 <ChevronLeft className="w-4 h-4" />
