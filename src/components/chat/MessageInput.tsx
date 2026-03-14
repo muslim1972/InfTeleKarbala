@@ -171,7 +171,6 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
                         disabled && "opacity-60"
                     )}
                     rows={1}
-                    readOnly={disabled}
                     autoFocus
                 />
             </div>
@@ -179,7 +178,11 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
             {/* Show Mic when text is empty, Send when text exists */}
             {value.trim() ? (
                 <button
-                    onClick={() => onSend()}
+                    onClick={() => {
+                        onSend();
+                        // Immediate refocus to be extra safe on mobile
+                        setTimeout(() => textareaRef.current?.focus(), 10);
+                    }}
                     disabled={!value.trim() || disabled}
                     className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center transition-all",
