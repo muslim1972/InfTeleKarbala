@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Search, Loader2, User, MessageSquare, Users, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +13,7 @@ interface NewChatModalProps {
 
 export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: NewChatModalProps) => {
     const { user: currentUser } = useAuth();
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Modes: 'select_type' | 'direct' | 'group'
     const [mode, setMode] = useState<'select_type' | 'direct' | 'group'>('select_type');
@@ -62,6 +63,16 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
         enabled: !!debouncedSearchQuery.trim() && !!currentUser?.id,
         staleTime: 1 * 60 * 1000,
     });
+    
+    // Auto-focus search input when it appears
+    useEffect(() => {
+        if ((mode === 'direct' || mode === 'group') && searchInputRef.current) {
+            const timer = setTimeout(() => {
+                searchInputRef.current?.focus();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [mode]);
 
     const displayUsers = debouncedSearchQuery.trim() ? searchResults : users;
 
@@ -164,6 +175,7 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
                         <div className="relative">
                             <Search className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
+                                ref={searchInputRef}
                                 type="text"
                                 placeholder="ابحث بالاسم أو الرقم الوظيفي..."
                                 className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow"
