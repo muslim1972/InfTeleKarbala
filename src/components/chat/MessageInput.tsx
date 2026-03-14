@@ -34,8 +34,29 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
         }
     }, [value]);
 
-    const handleKeyDown = () => {
-        // Removed Enter-to-send logic to support new lines on mobile
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            const cursorPosition = e.currentTarget.selectionStart;
+            const text = e.currentTarget.value;
+
+            // Find current line bounds
+            const lastNewLine = text.lastIndexOf('\n', cursorPosition - 1);
+            const nextNewLine = text.indexOf('\n', cursorPosition);
+
+            const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
+            const lineEnd = nextNewLine === -1 ? text.length : nextNewLine;
+
+            const currentLine = text.substring(lineStart, lineEnd);
+
+            // Logic: If current line is empty (or whitespace), send the message.
+            // If current line has content, allow default behavior (new line).
+            if (currentLine.trim() === '') {
+                e.preventDefault();
+                if (value.trim()) {
+                    onSend();
+                }
+            }
+        }
     };
 
     const handleMicClick = async () => {
