@@ -29,7 +29,7 @@ export const AppNotifications = () => {
             .from('leave_requests')
             .select('*', { count: 'exact' })
             .eq('user_id', user.id)
-            .in('status', ['rejected', 'approved'])
+            .or('status.in.(approved,rejected),cancellation_status.in.(approved,rejected),cut_status.in.(approved,rejected)')
             .eq('is_read_by_employee', false);
 
         if (error) {

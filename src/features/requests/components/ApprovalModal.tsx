@@ -59,6 +59,9 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
 
             if (request.modification_type === 'canceled') {
                 updatePayload.cancellation_status = status;
+                if (status === 'approved') {
+                    updatePayload.status = 'canceled';
+                }
             } else if (request.modification_type === 'cut') {
                 updatePayload.cut_status = status;
                 if (status === 'approved') {
@@ -85,7 +88,14 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
 
             // Send Push Notification to Employee
             const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
-            const message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
+            let message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
+            
+            if (request.modification_type === 'canceled') {
+                message = `تم ${statusText} لطلب إلغاء إجازتك (${request.start_date})`;
+            } else if (request.modification_type === 'cut') {
+                message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
+            }
+            
             sendPushNotification(request.user_id, "تحديث طلب الإجازة", message);
         } catch (err: any) {
             console.error('Error processing request:', err);
