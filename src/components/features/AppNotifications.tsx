@@ -184,7 +184,7 @@ export const AppNotifications = () => {
     const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + systemNotificationsCount;
 
     // Always show the bell so the user knows where notifications will appear
-    // if (totalNotifications === 0) return null;
+    if (totalNotifications === 0) return null;
 
     // Actions
     const handleMarkSystemNotificationRead = async (id: string) => {
