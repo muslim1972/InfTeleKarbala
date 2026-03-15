@@ -367,20 +367,29 @@ export const AdminDashboard = () => {
                 // === تطبيع شامل: مطابقة قيم DB مع خيارات القوائم ===
                 const stripAl = (t: string) => t.replace(/^ال/, ''); // إزالة "ال" التعريف
 
-                // 1. certificate_text: استخراج اسم الشهادة فقط (قبل "بنسبة")
-                const certOptions = ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب'];
+                // 1. certificate_text: استخراج اسم الشهادة فقط (قبل "بنسبة") وتطبيعها
+                const certOptions = ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي'];
                 if (combined.certificate_text) {
                     let raw = combined.certificate_text.trim();
+
+                    // إزالة الرموز في البداية والنهاية (مثل % أو غيرها)
+                    raw = raw.replace(/^[^ء-يa-zA-Z0-9]+/, '').replace(/[^ء-يa-zA-Z0-9]+$/, '').trim();
+
+                    // توحيد إملاء البكالوريوس
+                    if (raw.includes('بكلوريوس')) raw = 'بكالوريوس';
+
                     // قص كل شيء بعد "بنسبة" → "ابتدائية بنسبة 15%" → "ابتدائية"
                     if (raw.includes('بنسبة')) raw = raw.split('بنسبة')[0].trim();
-                    // البحث بإزالة "ال" من كلا الطرفين
+
+                    // البحث بإزالة "ال" من كلا الطرفين ومطابقة الحروف
                     const match = certOptions.find(opt =>
                         stripAl(opt) === stripAl(raw) ||
                         opt === raw ||
-                        stripAl(opt).replace(/ى/g, 'ي') === stripAl(raw).replace(/ى/g, 'ي')
+                        stripAl(opt).replace(/ى/g, 'ي') === stripAl(raw).replace(/ى/g, 'ي') ||
+                        raw.includes(opt) || opt.includes(raw)
                     );
                     combined.certificate_text = match || raw;
-                    console.log('🔍 [TRACE-CERT] raw:', raw, '→ matched:', combined.certificate_text);
+                    console.log('🔍 [TRACE-CERT] raw:', combined.certificate_text, '→ matched:', combined.certificate_text);
                 }
 
                 // 2. job_title: إذا القيمة غير موجودة في القائمة، نبقيها كما هي (ستُضاف ديناميكياً)
@@ -667,20 +676,23 @@ export const AdminDashboard = () => {
         try {
             // التحقق من توافق الشهادة والنسبة
             // التحقق من توافق الشهادة والنسبة
-            const certText = financialData.certificate_text;
+            const certText = financialData.certificate_text?.trim() || '';
             const certPerc = Number(financialData.certificate_percentage || 0);
 
+            const stripAl = (t: string) => t.replace(/^ال/, ''); // إزالة "ال" التعريف
+
             let expectedPerc = 0;
-            if (certText === 'المتوسطة') expectedPerc = 15;
-            else if (certText === 'الاعدادية') expectedPerc = 25;
-            else if (certText === 'دبلوم') expectedPerc = 35;
-            else if (certText === 'بكلوريوس' || certText === 'بكالوريوس') expectedPerc = 45;
-            else if (certText === 'دبلوم عالي') expectedPerc = 55;
-            else if (certText === 'ماجستير') expectedPerc = 125;
-            else if (certText === 'دكتوراه') expectedPerc = 150;
-            else if (certText === 'أمي' || certText === 'يقرأ ويكتب') expectedPerc = 15;
-            // للشهادات الأقل من المتوسطة (ابتدائية، يقرأ ويكتب) النسبة يجب أن تكون 15
-            else if (certText === 'الابتدائية') expectedPerc = 15;
+            const normalizedCert = stripAl(certText).replace(/ى/g, 'ي');
+
+            if (normalizedCert.includes('دكتوراه')) expectedPerc = 150;
+            else if (normalizedCert.includes('ماجستير')) expectedPerc = 125;
+            else if (normalizedCert.includes('دبلوم عالي')) expectedPerc = 55;
+            else if (normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس')) expectedPerc = 45;
+            else if (normalizedCert.includes('دبلوم')) expectedPerc = 35;
+            else if (normalizedCert.includes('اعدادية')) expectedPerc = 25;
+            else if (normalizedCert.includes('متوسطة')) expectedPerc = 15;
+            else if (normalizedCert.includes('ابتدائية')) expectedPerc = 15;
+            else if (normalizedCert.includes('يقرأ ويكتب') || normalizedCert.includes('امي')) expectedPerc = 15;
 
             if (certPerc !== expectedPerc && certText) {
                 toast.error(`خطأ: شهادة "${certText}" يجب أن تكون نسبتها ${expectedPerc}% وليس ${certPerc}%`);
@@ -1153,7 +1165,7 @@ export const AdminDashboard = () => {
             {
                 key: 'certificate_text',
                 label: 'التحصيل الدراسي',
-                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكلوريوس', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي']
+                options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي']
             },
             {
                 key: 'certificate_percentage',

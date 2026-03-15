@@ -415,32 +415,32 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 if (finData) balance = finData.remaining_leaves_balance || 0;
             }
 
-        const formData = {
-            full_name: record.employee_name || '',
-            id: record.id,
-            balance: balance,
-            reason: record.reason || '-',
-            start_date: record.start_date,
-            days: record.days_count,
-            approval_date: new Date(record.created_at).toLocaleDateString('en-GB'),
-            manager_name: record.supervisor?.full_name || defaultManagerName,
-            supervisor_name: record.supervisor?.full_name || ''
-        };
+            const formData = {
+                full_name: record.employee_name || '',
+                id: record.id,
+                balance: balance,
+                reason: record.reason || '-',
+                start_date: record.start_date,
+                days: record.days_count,
+                approval_date: new Date(record.created_at).toLocaleDateString('en-GB'),
+                manager_name: record.supervisor?.full_name || defaultManagerName,
+                supervisor_name: record.supervisor?.full_name || ''
+            };
 
-        const url = await generateLeavePDF({
-            ...formData,
-            unpaid_days: record.unpaid_days || 0
-        } as any);
+            const url = await generateLeavePDF({
+                ...formData,
+                unpaid_days: record.unpaid_days || 0
+            } as any);
 
-        window.open(url, '_blank');
-        setIsPrintingPdf(false);
+            window.open(url, '_blank');
+            setIsPrintingPdf(false);
 
-    } catch (error) {
-        console.error("Error in print flow:", error);
-        setIsPrintingPdf(false);
-        alert('حدث خطأ أثناء تحضير ملف الإجازة.');
-    }
-};
+        } catch (error) {
+            console.error("Error in print flow:", error);
+            setIsPrintingPdf(false);
+            alert('حدث خطأ أثناء تحضير ملف الإجازة.');
+        }
+    };
 
     return (
         <div className="space-y-6">
