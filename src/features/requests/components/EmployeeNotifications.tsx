@@ -132,7 +132,7 @@ export const EmployeeNotifications = () => {
         <>
             <button
                 onClick={handleNotificationClick}
-                className="fixed bottom-[104px] left-[100px] z-[100] bg-white dark:bg-slate-800 p-2.5 rounded-full shadow-2xl border-2 border-blue-500 animate-pulse group"
+                className="fixed bottom-[104px] left-[170px] z-[100] bg-white dark:bg-slate-800 p-2.5 rounded-full shadow-2xl border-2 border-blue-500 animate-pulse group"
                 title="إشعارات الإجازات"
             >
                 <div className="relative">

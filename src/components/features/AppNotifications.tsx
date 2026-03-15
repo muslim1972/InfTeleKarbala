@@ -1,26 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCircle, MessageCircle } from 'lucide-react';
+import { Bell, X, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
-import { useNavigate } from 'react-router-dom';
-import { useChat } from '../../context/ChatContext';
 
 export const AppNotifications = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
-    const { conversations, totalUnreadCount: chatUnreadCount } = useChat();
-
-    // Derive unread messages for the bell dropdown
-    const unreadMessages = conversations
-        .filter(c => (c.unread_count ?? 0) > 0)
-        .map(c => ({
-            id: c.id,
-            conversation_id: c.id,
-            unread_count: c.unread_count ?? 0,
-            sender: { full_name: c.name }
-        }));
 
     // Badge Counts
     const [employeeUnreadCount, setEmployeeUnreadCount] = useState(0);
@@ -195,7 +181,7 @@ export const AppNotifications = () => {
         };
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications]);
 
-    const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + chatUnreadCount + systemNotificationsCount;
+    const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + systemNotificationsCount;
 
     // Always show the bell so the user knows where notifications will appear
     // if (totalNotifications === 0) return null;
@@ -233,15 +219,6 @@ export const AppNotifications = () => {
         } catch (err) { }
     };
 
-    const handleOpenChat = (conversationId: string) => {
-        // Dispatch local event so ChatContext handles optimistic update
-        window.dispatchEvent(new CustomEvent('chat_read', {
-            detail: { conversationId }
-        }));
-
-        setShowModal(false);
-        navigate(`/chat/${conversationId}`);
-    };
 
     const handleGoToAdminRequests = () => {
         setShowModal(false);
@@ -294,32 +271,6 @@ export const AppNotifications = () => {
                                 </div>
                             )}
 
-                            {/* Chat Messages Section */}
-                            {unreadMessages.length > 0 && (
-                                <div className="space-y-2">
-                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">رسائل جديدة</h4>
-                                    {unreadMessages.map(msg => (
-                                        <div
-                                            key={msg.id}
-                                            onClick={() => handleOpenChat(msg.conversation_id)}
-                                            className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/50 shadow-sm cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors flex items-start gap-3 relative overflow-hidden"
-                                        >
-                                            <div className="absolute top-0 right-0 w-1 h-full bg-indigo-500"></div>
-                                            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2 rounded-full shrink-0">
-                                                <MessageCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h5 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                                    لديك {msg.unread_count > 1 ? `${msg.unread_count} رسائل` : 'رسالة'} من {msg.sender?.full_name || 'مستخدم غير معروف'}
-                                                </h5>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-                                                    انقر لفتح المحادثة والرد الآن
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
 
                             {/* System Notifications Section */}
                             {systemNotifications.length > 0 && (

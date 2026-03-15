@@ -55,7 +55,11 @@ export function useChatState(conversationId: string) {
   // Fetch messages
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
-    setLoading(true);
+    // Only show loading spinner if we have no messages yet to prevent flickering
+    if (messages.length === 0) {
+      setLoading(true);
+    }
+    
     const { data, error } = await supabase
       .from('messages')
       .select('*, read_by, sender:profiles!messages_sender_id_fkey(full_name)')
@@ -106,8 +110,8 @@ export function useChatState(conversationId: string) {
 
         console.log('useChatState: Subscribing to chat', conversationId);
 
-        // Standardized channel naming with a bit of randomness to avoid collisions during rapid re-renders
-        const channel = supabase.channel(`chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`);
+        // Use a stable channel name so Supabase can reuse it if the component re-renders
+        const channel = supabase.channel(`chat_room_${conversationId}`);
 
         channel
             .on(
@@ -176,6 +180,7 @@ export function useChatState(conversationId: string) {
 
         return () => {
             console.log('useChatState: Cleaning up channel for', conversationId);
+            // Safely remove channel, ignore errors if already closed
             supabase.removeChannel(channel).catch(() => { });
         };
     }, [conversationId, user]);
