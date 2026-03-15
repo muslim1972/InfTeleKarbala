@@ -79,6 +79,14 @@ const ChatLayout = lazy(() => import("./components/chat/ChatLayout").then(m => (
 
 import { ChatProvider } from "./context/ChatContext";
 
+// مكون حماية المسارات
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Login />;
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <div dir="rtl">
@@ -87,11 +95,12 @@ function App() {
           <Toaster position="top-center" reverseOrder={false} />
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
-              <Route path="/chat" element={<ChatLayout />}>
+              {/* حماية جميع المسارات الحساسة */}
+              <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
                 <Route path=":conversationId" element={null} />
               </Route>
-              <Route path="/requests/leave" element={<LeaveRequestPage />} />
-              <Route path="/requests" element={<RequestsPage />} />
+              <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
+              <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
               <Route path="/*" element={<AppContent />} />
             </Routes>
           </Suspense>
