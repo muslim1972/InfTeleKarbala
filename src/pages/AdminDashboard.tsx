@@ -1,25 +1,16 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { createPortal } from "react-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
-import { HistoryViewer } from "../components/admin/HistoryViewer";
 import { RecordList } from "../components/features/RecordList";
-import { Search, User, Wallet, Scissors, ChevronDown, Loader2, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save, Trash2, CheckCircle, ShieldAlert } from "lucide-react";
+import { User, Scissors, ChevronDown, FileText, Plus, Award, Pencil, PieChart, AlertCircle, Shield, ScanSearch, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../lib/utils";
-import { YearSlider } from "../components/features/YearSlider";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Label } from "../components/ui/Label";
-import { ScrollableTabs } from "../components/ui/ScrollableTabs";
-import { DataPatcher } from '../components/admin/DataPatcher';
-import { SmartSalaryUpdater } from '../components/admin/SmartSalaryUpdater';
-import { FileSpreadsheet, DatabaseZap } from 'lucide-react';
-import { FixLeaveBalanceModal } from '../components/admin/FixLeaveBalanceModal';
 import {
     Select,
     SelectContent,
@@ -37,16 +28,14 @@ import { CustomAudit } from "../components/admin/CustomAudit";
 import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { FieldPermissionsModal } from "../components/admin/FieldPermissionsModal";
-import { RequestsTabPermissionsModal } from "../components/admin/RequestsTabPermissionsModal";
-import { ClipboardCheck } from "lucide-react";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
 import { AppNotifications } from "../components/features/AppNotifications";
 import { DepartmentsManager } from "../components/admin/DepartmentsManager";
-import { getExpectedNominalSalary } from "../utils/salaryScale";
-import { DepartmentSelector } from "../components/admin/DepartmentSelector";
 import { FiveYearLeaveDetailsModal } from "../components/admin/FiveYearLeaveDetailsModal";
 import { FiveYearLeaveHistoryModal } from "../components/admin/FiveYearLeaveHistoryModal";
+import { TabAddEmployee } from "../components/admin/dashboard/TabAddEmployee";
+import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
+import { TabManageEmployees } from "../components/admin/dashboard/TabManageEmployees";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
@@ -55,7 +44,7 @@ export const AdminDashboard = () => {
     const location = useLocation();
 
     // Strict helper just for account types (Role / Admin Role)
-    const isRoleEditable = currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل');
+    const isRoleEditable = Boolean(currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل'));
     const canAddEmployee = isRoleEditable || currentUser?.admin_role === 'hr';
 
     // Determine default tab based on role or navigation state
@@ -81,7 +70,6 @@ export const AdminDashboard = () => {
     const [searchJobNumber, setSearchJobNumber] = useState("");
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
     const [searchExpanded, setSearchExpanded] = useState(false); // For expandable search bar
 
     const [showDataPatcher, setShowDataPatcher] = useState(false);
@@ -232,7 +220,7 @@ export const AdminDashboard = () => {
                 return;
             }
 
-            setIsSearching(true);
+// setIsSearching(true);
             try {
                 console.log("Searching for:", query); // Debug
                 // Search by job number OR full name (only at start)
@@ -257,7 +245,7 @@ export const AdminDashboard = () => {
                 setSuggestions([]);
                 setShowSuggestions(false);
             } finally {
-                setIsSearching(false);
+// setIsSearching(false);
             }
         }, 300); // 300ms debounce
 
@@ -1279,225 +1267,38 @@ export const AdminDashboard = () => {
 
 
 
-    // Header Content with Tabs and Search
-    const headerContent = (
-        <div className="space-y-3">
-            {/* Tabs */}
-            <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
-                ? 'bg-white border-gray-100' // Changed from bg-gray-100 to bg-white
-                : 'bg-black/40 border-white/5'
-                } backdrop-blur-md overflow-hidden`}>
-                <ScrollableTabs
-                    tabs={(() => {
-                        const canAccessNews = isRoleEditable || currentUser?.admin_role === 'media';
-
-                        const allTabs = [
-                            ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
-                            { id: 'admin_manage', label: 'إدارة الموظفين' },
-                            { id: 'admin_records', label: 'إدارة السجلات' },
-                            ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
-                            { id: 'admin_departments', label: 'الهيكلية الإدارية' },
-                            // Hide Requests tab if restricted by permissions
-                            ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
-                            // Hide Supervisors tab if restricted by permissions
-                            ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-                            // Hide Training tab if restricted by permissions
-                            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }])
-                        ];
-
-                        // Media role sees news + others but others are disabled via search/save
-                        return allTabs;
-                    })()}
-                    activeTab={activeTab}
-                    onTabChange={(id) => setActiveTab(id as any)}
-                    containerClassName="w-full"
-                    activeTabClassName="bg-blue-600 text-white shadow-lg"
-                    inactiveTabClassName={theme === 'light' ? "text-gray-600 hover:text-black" : "text-white/40 hover:text-white/60"}
-                    tabClassName="flex-1" // Keep flex-1 if we want them to fill space, but user said "take one line... and expand". 
-                // Actually user said "make the tab take on line... expland horizontally off screen".
-                // If I use flex-1, they shrink. I should remove flex-1 or make it grow but not shrink?
-                // "make the tab take one line" implies whitespace-nowrap (handled in component).
-                // "expand horizontally... off screen" implies they shouldn't wrap.
-                // The ScrollableTabs component uses `flex-none` by default for items.
-                // Let's pass `flex-1 min-w-fit` maybe?
-                // User said: "اجعل التبويبة على تأخذ سطر واحد وليتوسع الشريط افقيا ويخرج عن الشاشة"
-                // "make the tab take one line and let the bar expand horizontally and go out of screen"
-                // So they should have their natural width or a minimum width, and not shrink.
-                // The component has `flex-none` on buttons, so they won't shrink.
-                // I will pass `min-w-[100px]` or something to ensure they utilize space if few, but `flex-1` might force them to be small if container is small?
-                // No, `flex-1` with `min-w` is good. 
-                // But if I want them to overflow, `flex-none` is better.
-                // However, if there are only 4 tabs on a large screen, they should probably fill the width?
-                // User said: "sometimes it expands in height... due to wrapping".
-                // So `whitespace-nowrap` is the key fixes.
-                // I will remove `flex-1` from `tabClassName` to let them be natural width, OR keep `flex-1` but ensure `min-width`.
-                // If I look at the screenshot, they are quite wide.
-                // I'll try `w-full` on container (default) and `flex-1` on tabs? No, that causes shrinking.
-                // I will use `flex-none` (default in component) and maybe `px-6` for larger touch targets.
-                />
-            </div>
-
-            {/* Search & Year Slider (only in manage & records tabs) */}
-            {/* Search & Year Slider (Unified Toolbar) */}
-            <div className="flex items-center justify-between gap-3 relative overflow-visible h-10 min-h-[40px]">
-
-                {/* Right Side (Start in RTL): Year Slider (Reserved Slot) */}
-                <div className="flex-shrink-0 min-w-[140px]">
-                    {activeTab === 'admin_records' ? (
-                        <div className={cn(
-                            "flex items-center gap-1 px-2 py-0.5 rounded-lg border animate-in fade-in zoom-in duration-300",
-                            theme === 'light'
-                                ? "bg-white border-gray-200 shadow-sm"
-                                : "bg-white/5 border-white/5"
-                        )}>
-                            <div className="w-28">
-                                <YearSlider
-                                    selectedYear={selectedAdminYear}
-                                    onYearChange={setSelectedAdminYear}
-                                />
-                            </div>
-                        </div>
-                    ) : (activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee)) ? (
-                        <button
-                            onClick={(e) => activeTab === 'admin_add' ? handleSaveEmployee(e) : handleUpdateEmployee()}
-                            disabled={loading || currentUser?.admin_role === 'media'}
-                            title={currentUser?.admin_role === 'media' ? "ليس لديك صلاحية الحفظ" : "حفظ التعديلات"}
-                            className="w-full py-2 px-2 bg-brand-green hover:bg-brand-green/90 text-white rounded-lg font-bold text-xs flex items-center justify-center shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap"
-                        >
-                            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin ml-2" /> : null}
-                            <span>حفظ التعديل والاضافة</span>
-                        </button>
-                    ) : (
-                        <div id="admin-header-portal" className="w-full h-full flex items-center" />
-                    )}
-                </div>
-
-                {/* Left Side (End in RTL): Name + Search */}
-                <div className="flex items-center gap-3">
-
-                    {/* User Name - Hidden when search is expanded */}
-                    {!searchExpanded && selectedEmployee && (
-                        <h3 className={`font-bold text-sm animate-in fade-in duration-200 ${theme === 'light' ? 'text-gray-900' : 'text-white'
-                            }`}>
-                            {selectedEmployee.full_name}
-                        </h3>
-                    )}
-
-                    {/* Search Button & Input */}
-                    <div className="flex items-center gap-2 relative overflow-visible" ref={searchRef}>
-                        {searchExpanded && (
-                            <div className="relative animate-in slide-in-from-right-5 fade-in duration-300 overflow-visible">
-                                <input
-                                    type="text"
-                                    placeholder="الرقم الوظيفي أو الاسم"
-                                    value={searchJobNumber}
-                                    onChange={e => setSearchJobNumber(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                    onFocus={() => {
-                                        if (suggestions.length > 0) setShowSuggestions(true);
-                                    }}
-                                    onBlur={(e) => {
-                                        const relatedTarget = e.relatedTarget as HTMLElement;
-                                        if (!relatedTarget?.closest('.suggestions-dropdown')) {
-                                            setTimeout(() => {
-                                                setSearchExpanded(false);
-                                            }, 200);
-                                        }
-                                    }}
-                                    disabled={currentUser?.admin_role === 'media'}
-                                    autoFocus
-                                    className={`w-48 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-green/50 ${theme === 'light'
-                                        ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
-                                        : 'bg-white/5 border-white/10 text-white placeholder:text-white/50'
-                                        }`}
-                                />
-                                {/* Suggestions Dropdown using Portal */}
-                                {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
-                                    <div
-                                        className={`suggestions-dropdown fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto ${theme === 'light'
-                                            ? 'bg-white border-gray-200'
-                                            : 'bg-slate-900/95 border-white/10'
-                                            }`}
-                                        style={{
-                                            top: `${searchRef.current.getBoundingClientRect().bottom + 8}px`,
-                                            left: `${searchRef.current.getBoundingClientRect().left}px`,
-                                            width: '200px'
-                                        }}
-                                    >
-                                        {suggestions.map((user, idx) => (
-                                            <button
-                                                key={user.id || idx}
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                onMouseUp={() => {
-                                                    console.log("Button clicked for:", user.full_name);
-                                                    handleSelectSuggestion(user);
-                                                }}
-                                                className={`w-full text-right px-3 py-2 border-b last:border-0 flex items-center justify-between group transition-colors cursor-pointer ${theme === 'light'
-                                                    ? 'hover:bg-gray-100 border-gray-200'
-                                                    : 'hover:bg-white/10 border-white/5'
-                                                    }`}
-                                            >
-                                                <div>
-                                                    <div className={`font-bold text-xs group-hover:text-brand-green transition-colors ${theme === 'light' ? 'text-gray-900' : 'text-white'
-                                                        }`}>{user.full_name}</div>
-                                                    <div className={`text-[10px] ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
-                                                        }`}>{user.job_number}</div>
-                                                </div>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${theme === 'light'
-                                                    ? 'bg-gray-100 text-gray-700'
-                                                    : 'bg-white/10 text-white/70'
-                                                    }`}>
-                                                    {user.role === 'admin' ? 'مدير' : 'موظف'}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>,
-                                    document.body
-                                )}
-                            </div>
-                        )}
-                        <button
-                            onClick={() => {
-                                if (searchExpanded) {
-                                    if (searchJobNumber) handleSearch();
-                                    else setSearchExpanded(false);
-                                } else {
-                                    setSearchJobNumber('');
-                                    setSuggestions([]);
-                                    setSearchExpanded(true);
-                                }
-                            }}
-                            disabled={loading || isSearching || currentUser?.admin_role === 'media'}
-                            className="bg-brand-green/20 text-brand-green p-1.5 rounded-lg hover:bg-brand-green/30 disabled:opacity-50 transition-all active:scale-95"
-                            title="بحث"
-                        >
-                            {loading || isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        </button>
-
-                        {/* Delete User Button - Visible only to admin (مسلم عقيل) and when an employee is selected */}
-                        {selectedEmployee && (currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) && (
-                            <button
-                                onClick={handleDeleteEmployee}
-                                disabled={loading}
-                                className="bg-red-500/10 text-red-500 p-1.5 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-all active:scale-95 border border-red-500/20 mr-2"
-                                title="حذف الموظف نهائياً"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-        </div>
+    // Updated Header Component
+    const dashboardHeader = (
+        <DashboardHeader 
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            currentUser={currentUser}
+            isRoleEditable={isRoleEditable}
+            canAddEmployee={canAddEmployee}
+            isFieldReadOnly={isFieldReadOnly}
+            theme={theme}
+            selectedAdminYear={selectedAdminYear}
+            setSelectedAdminYear={setSelectedAdminYear}
+            selectedEmployee={selectedEmployee}
+            handleSaveEmployee={handleSaveEmployee}
+            handleUpdateEmployee={handleUpdateEmployee}
+            loading={loading}
+            searchExpanded={searchExpanded}
+            setSearchExpanded={setSearchExpanded}
+            searchJobNumber={searchJobNumber}
+            setSearchJobNumber={setSearchJobNumber}
+            handleSearch={handleSearch}
+            suggestions={suggestions}
+            setShowSuggestions={setShowSuggestions}
+            showSuggestions={showSuggestions}
+            searchRef={searchRef}
+            handleSelectSuggestion={handleSelectSuggestion}
+            handleDeleteEmployee={handleDeleteEmployee}
+        />
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={headerContent} className="relative min-h-screen bg-transparent">
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative min-h-screen bg-transparent">
             <AppNotifications />
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
@@ -1506,748 +1307,48 @@ export const AdminDashboard = () => {
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto max-w-2xl">
-                    <Card className="w-full">
-                        <CardHeader>
-                            <CardTitle>إضافة موظف جديد</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {/* Row 1: Full Name */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="full_name">الاسم الكامل</Label>
-                                <Input
-                                    id="full_name"
-                                    type="text"
-                                    value={formData.full_name}
-                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                    placeholder="الاسم الرباعي واللقب"
-                                />
-                            </div>
-
-                            {/* Department / Position Tree Node */}
-                            <DepartmentSelector
-                                value={formData.department_id}
-                                onChange={(val: string | null) => setFormData({ ...formData, department_id: val })}
-                                theme={theme}
-                            />
-
-                            {/* Row 2: Account Type */}
-                            <div className="grid gap-2">
-                                <Label>نوع الحساب</Label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Button
-                                        type="button"
-                                        variant={formData.role === 'user' ? 'default' : 'outline'}
-                                        onClick={() => setFormData({ ...formData, role: 'user' })}
-                                        className="w-full gap-2"
-                                        disabled={!isRoleEditable}
-                                    >
-                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'user' ? "border-white" : "border-muted-foreground")}>
-                                            {formData.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                        </div>
-                                        موظف
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={formData.role === 'admin' ? 'default' : 'outline'}
-                                        onClick={() => setFormData({ ...formData, role: 'admin' })}
-                                        className="w-full gap-2"
-                                        disabled={!isRoleEditable}
-                                    >
-                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.role === 'admin' ? "border-white" : "border-muted-foreground")}>
-                                            {formData.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                        </div>
-                                        مشرف
-                                    </Button>
-                                </div>
-
-                                {/* Row 2.5: Admin Role (Visible only if role is admin and user has permission) */}
-                                {formData.role === 'admin' && isRoleEditable && (
-                                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300 col-span-1 md:col-span-2">
-                                        <Label>صلاحية المشرف</Label>
-                                        <div className="flex flex-wrap gap-3">
-                                            <Button
-                                                type="button"
-                                                variant={formData.admin_role === 'developer' ? 'default' : 'outline'}
-                                                onClick={() => setFormData({ ...formData, admin_role: 'developer' })}
-                                                className="flex-1 min-w-[140px] gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'developer' ? "border-white" : "border-muted-foreground")}>
-                                                    {formData.admin_role === 'developer' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                مطور (كامل)
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={formData.admin_role === 'finance' ? 'default' : 'outline'}
-                                                onClick={() => setFormData({ ...formData, admin_role: 'finance' })}
-                                                className="flex-1 min-w-[140px] gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'finance' ? "border-white" : "border-muted-foreground")}>
-                                                    {formData.admin_role === 'finance' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                مالية
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={formData.admin_role === 'hr' ? 'default' : 'outline'}
-                                                onClick={() => setFormData({ ...formData, admin_role: 'hr' })}
-                                                className="flex-1 min-w-[140px] gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'hr' ? "border-white" : "border-muted-foreground")}>
-                                                    {formData.admin_role === 'hr' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                ذاتية
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={formData.admin_role === 'media' ? 'default' : 'outline'}
-                                                onClick={() => setFormData({ ...formData, admin_role: 'media' })}
-                                                className="flex-1 min-w-[140px] gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
-                                                    {formData.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                إعلام
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={formData.admin_role === 'general' ? 'default' : 'outline'}
-                                                onClick={() => setFormData({ ...formData, admin_role: 'general' })}
-                                                className="flex-1 min-w-[140px] gap-2"
-                                            >
-                                                <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'general' ? "border-white" : "border-muted-foreground")}>
-                                                    {formData.admin_role === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                </div>
-                                                عام
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Row 3: Job Number */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="job_number">الرقم الوظيفي الموحد</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="job_number"
-                                        type="text"
-                                        value={formData.job_number}
-                                        onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                        placeholder="123456"
-                                        className="font-mono text-left"
-                                        dir="ltr"
-                                    />
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono pointer-events-none">#</div>
-                                </div>
-                            </div>
-
-                            {/* Row 4: IBAN */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="iban">رمز ( IBAN )</Label>
-                                <Input
-                                    id="iban"
-                                    type="text"
-                                    value={formData.iban}
-                                    onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                                    placeholder="IQ..."
-                                    className="font-mono text-left"
-                                    dir="ltr"
-                                />
-                            </div>
-
-                            {/* Row 5: Username */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="username">اسم المستخدم المؤقت</Label>
-                                <Input
-                                    id="username"
-                                    type="text"
-                                    value={formData.username}
-                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                    placeholder="username"
-                                    className="font-mono text-left"
-                                    dir="ltr"
-                                    autoComplete="off"
-                                />
-                            </div>
-
-                            {/* Row 6: Password */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">كلمة المرور المؤقتة</Label>
-                                <Input
-                                    id="password"
-                                    type="text"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    placeholder="password"
-                                    className="font-mono text-left"
-                                    dir="ltr"
-                                    autoComplete="off"
-                                />
-                            </div>
-
-                        </CardContent>
-                    </Card>
-                </div>
+                <TabAddEmployee 
+                    formData={formData}
+                    setFormData={setFormData}
+                    isRoleEditable={isRoleEditable}
+                    theme={theme}
+                />
             )}
 
             {/* TAB: Manage Employees */}
             {activeTab === 'admin_manage' && (
-                <div className="space-y-6">
-
-                    {selectedEmployee ? (
-                        <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto">
-
-                            <AccordionSection
-                                id="main_info"
-                                title="معلومات اساسية"
-                                icon={User}
-                                isOpen={expandedSections.main_info}
-                                color="from-teal-600 to-teal-500"
-                                onToggle={() => toggleSection('main_info')}
-                            >
-                                {/* Main Info Fields */}
-                                <div className="grid grid-cols-1 gap-4">
-                                    <EditableField
-                                        label="الاسم الكامل"
-                                        value={selectedEmployee.full_name}
-                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, full_name: val })}
-                                        recordId={selectedEmployee.id}
-                                        tableName="profiles"
-                                        dbField="full_name"
-                                        isReadOnly={isFieldReadOnly('full_name')}
-                                    />
-
-                                    <div className="px-2">
-                                        <DepartmentSelector
-                                            value={selectedEmployee.department_id}
-                                            onChange={(val: string | null) => setSelectedEmployee({ ...selectedEmployee, department_id: val })}
-                                            theme={theme}
-                                        />
-                                        <p className="text-[10px] text-gray-500 mt-1 dark:text-gray-400">
-                                            ملاحظة: يمكنك تعيينه كصاحب ارتباط إداري من خلال تبويبة "الهيكلية الإدارية"
-                                        </p>
-                                    </div>
-
-                                    {/* Role Selection (UI matching Add Employee) */}
-                                    {/* Role Selection (Refactored) */}
-                                    <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2">
-                                        {/* Label */}
-                                        <div className="flex justify-start pl-2">
-                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">نوع الحساب</label>
-                                        </div>
-
-                                        {/* Input Area + Spacer */}
-                                        <div className="flex items-center gap-2 relative">
-                                            {/* Spacer for alignment with history buttons */}
-                                            <div className="hidden md:block w-6 shrink-0" />
-
-                                            <div className="flex gap-4 flex-1">
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.role === 'user' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'user' })}
-                                                    className="flex-1 gap-2"
-                                                    disabled={!isRoleEditable} // Enforced strictly here!
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'user' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.role === 'user' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    موظف
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.role === 'admin' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, role: 'admin' })}
-                                                    className="flex-1 gap-2"
-                                                    disabled={!isRoleEditable} // Enforced strictly here!
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.role === 'admin' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.role === 'admin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    مشرف
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Admin Role Selection (Visible only if role is admin) */}
-                                    {selectedEmployee.role === 'admin' && isRoleEditable && (
-                                        <div className="grid grid-cols-1 md:grid-cols-1 items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300 w-full mt-4">
-                                            <div className="flex justify-start pl-2 mb-2">
-                                                <label className="text-sm font-bold block text-muted-foreground text-right w-full">تعديل صلاحية المشرف</label>
-                                            </div>
-                                            <div className="flex flex-wrap gap-3">
-                                                <Button
-                                                    type="button"
-                                                    variant={(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'developer' })}
-                                                    className="flex-1 min-w-[120px] gap-2"
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", (selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) ? "border-white" : "border-muted-foreground")}>
-                                                        {(selectedEmployee.admin_role === 'developer' || !selectedEmployee.admin_role) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    مطور
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.admin_role === 'finance' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'finance' })}
-                                                    className="flex-1 min-w-[120px] gap-2"
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'finance' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.admin_role === 'finance' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    مالية
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.admin_role === 'hr' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'hr' })}
-                                                    className="flex-1 min-w-[120px] gap-2"
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'hr' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.admin_role === 'hr' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    ذاتية
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.admin_role === 'media' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'media' })}
-                                                    className="flex-1 min-w-[120px] gap-2"
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'media' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.admin_role === 'media' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    إعلام
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    variant={selectedEmployee.admin_role === 'general' ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedEmployee({ ...selectedEmployee, admin_role: 'general' })}
-                                                    className="flex-1 min-w-[120px] gap-2"
-                                                >
-                                                    <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.admin_role === 'general' ? "border-white" : "border-muted-foreground")}>
-                                                        {selectedEmployee.admin_role === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                                    </div>
-                                                    عام
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <EditableField
-                                        label="الرقم الوظيفي الموحد"
-                                        value={selectedEmployee.job_number}
-                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
-                                        recordId={selectedEmployee.id}
-                                        tableName="profiles"
-                                        dbField="job_number"
-                                        isReadOnly={isFieldReadOnly('job_number')}
-                                    />
-
-                                    {/* IBAN Field */}
-                                    <EditableField
-                                        label="رمز ( IBAN )"
-                                        value={selectedEmployee.iban || ""}
-                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, iban: val })}
-                                        recordId={selectedEmployee.id}
-                                        tableName="profiles"
-                                        dbField="iban"
-                                        isReadOnly={isFieldReadOnly('iban')}
-                                    />
-
-                                    <EditableField
-                                        label="اسم المستخدم المؤقت"
-                                        value={selectedEmployee.username}
-                                        onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, username: val })}
-                                        recordId={selectedEmployee.id}
-                                        tableName="profiles"
-                                        dbField="username"
-                                        isReadOnly={isFieldReadOnly('username')}
-                                    />
-
-                                    {/* Password - optional to show here or keep hidden, but logic dictates "Same as A" */}
-                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                        {/* Label */}
-                                        <div className="flex justify-start pl-2">
-                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">كلمة المرور المؤقتة</label>
-                                        </div>
-
-                                        {/* Input Area + Spacer */}
-                                        <div className="flex items-center gap-2 relative">
-                                            {/* Spacer for alignment */}
-                                            <div className="w-6 shrink-0" />
-
-                                            <Input
-                                                type="text"
-                                                value={selectedEmployee.password || ""}
-                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, password: e.target.value })}
-                                                placeholder="كلمة المرور"
-                                                dir="ltr"
-                                                className="font-mono text-left flex-1"
-                                                disabled={isFieldReadOnly('password')}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionSection>
-
-                            <AccordionSection
-                                id="basic"
-                                title="معلومات الدرجة الوظيفية"
-                                icon={User}
-                                isOpen={expandedSections.basic}
-                                color="from-purple-600 to-purple-500"
-                                onToggle={() => toggleSection('basic')}
-                            >
-                                <div className="space-y-4">
-                                    {/* Start Date */}
-                                    <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                        {/* Label */}
-                                        <div className="flex justify-start pl-2">
-                                            <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">تأريخ اول مباشرة</label>
-                                        </div>
-
-                                        {/* Input Area + History */}
-                                        <div className="flex items-center gap-2 relative">
-                                            {/* History Icon Slot (Fixed Width) */}
-                                            <div className="w-6 shrink-0 flex justify-center">
-                                                {adminData?.id && (
-                                                    <HistoryViewer
-                                                        tableName="administrative_summary"
-                                                        recordId={adminData.id}
-                                                        fieldName="first_appointment_date"
-                                                        label="تأريخ اول مباشرة"
-                                                    />
-                                                )}
-                                            </div>
-
-                                            <DateInput
-                                                value={adminData?.first_appointment_date || ''}
-                                                onChange={val => setAdminData({ ...adminData, first_appointment_date: val })}
-                                                className="flex-1"
-                                                disabled={isFieldReadOnly('first_hire_date')}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Job Title and Risk % */}
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <FinancialInput
-                                            key="job_title"
-                                            field={financialFields.basic.find(f => f.key === 'job_title')}
-                                            value={financialData?.job_title}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="job_title"
-                                            isReadOnly={isFieldReadOnly("job_title")}
-                                        />
-                                        <FinancialInput
-                                            key="risk_percentage"
-                                            field={financialFields.basic.find(f => f.key === 'risk_percentage')}
-                                            value={financialData?.risk_percentage}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            // This is technically computed often but stored as text? Let's assume we want to track it
-                                            dbField="risk_percentage"
-                                            isReadOnly={isFieldReadOnly("risk_percentage")}
-                                        />
-                                    </div>
-
-                                    {/* Row 2: Grade and Stage - Vertical Stack */}
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <FinancialInput
-                                            key="salary_grade"
-                                            field={{ ...financialFields.basic.find(f => f.key === 'salary_grade'), label: "الدرجة الوظيفية" }}
-                                            value={financialData?.salary_grade}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="salary_grade"
-                                            isReadOnly={isFieldReadOnly("salary_grade")}
-                                        />
-
-                                        {/* Salary Stage (المرحلة) */}
-                                        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                            {/* Label */}
-                                            <div className="flex justify-start pl-2">
-                                                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">المرحلة</label>
-                                            </div>
-
-                                            {/* Input Area + History */}
-                                            <div className="flex items-center gap-2 relative">
-                                                {/* History Icon Slot (Fixed Width) */}
-                                                <div className="w-6 shrink-0 flex justify-center">
-                                                    {financialData?.id && (
-                                                        <HistoryViewer
-                                                            tableName="financial_records"
-                                                            recordId={financialData.id}
-                                                            fieldName="salary_stage"
-                                                            label="المرحلة"
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                <div className="relative flex-1">
-                                                    <Select
-                                                        value={financialData?.['salary_stage']?.toString() || ""}
-                                                        onValueChange={(val) => setFinancialData({ ...(financialData || {}), 'salary_stage': val })}
-                                                        disabled={isFieldReadOnly('salary_stage')}
-                                                    >
-                                                        <SelectTrigger className="w-full">
-                                                            <SelectValue placeholder="اختر..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {Array.from({ length: 25 }, (_, i) => i + 1).map(num => (
-                                                                <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Row 3: Certificate Text */}
-                                    <FinancialInput
-                                        key="certificate_text"
-                                        field={financialFields.basic.find(f => f.key === 'certificate_text')}
-                                        value={financialData?.certificate_text}
-                                        onChange={handleFinancialChange}
-                                        recordId={financialData?.id}
-                                        tableName="financial_records"
-                                        dbField="certificate_text"
-                                        isReadOnly={isFieldReadOnly("certificate_text")}
-                                    />
-
-                                    {/* Row 4: Certificate Percentage & Nominal Salary */}
-                                    {/* Row 4: Nominal Salary & Certificate Percentage - Adjusted for mobile: 130px fixed width for Cert to give Salary more space */}
-                                    {/* Row 4: Certificate Percentage & Nominal Salary - Vertical Stack */}
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <div className="relative">
-                                            <FinancialInput
-                                                key="nominal_salary"
-                                                field={financialFields.basic.find(f => f.key === 'nominal_salary')}
-                                                value={financialData?.nominal_salary}
-                                                onChange={handleFinancialChange}
-                                                recordId={financialData?.id}
-                                                tableName="financial_records"
-                                                dbField="nominal_salary"
-                                                isReadOnly={isFieldReadOnly("nominal_salary")}
-                                            />
-                                            {financialData?.salary_grade && financialData?.salary_stage && getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) !== null && (
-                                                <div className="flex items-center gap-2 mt-1 mb-2 text-xs mr-[140px] pr-2">
-                                                    {Number(financialData.nominal_salary) === getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) ? (
-                                                        <span className="text-green-600 dark:text-green-400 font-medium flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-green-200 dark:border-green-800">
-                                                            <CheckCircle size={12} /> مطابق لسلم الرواتب
-                                                        </span>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                                                                <AlertCircle size={12} /> غير مطابق (المستحق: {getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage)?.toLocaleString()})
-                                                            </span>
-                                                            {!isFieldReadOnly("nominal_salary") && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setFinancialData({ ...financialData, nominal_salary: getExpectedNominalSalary(financialData.salary_grade, financialData.salary_stage) })}
-                                                                    className="text-white bg-amber-500 hover:bg-amber-600 px-2 py-1 rounded-md text-[11px] transition font-bold shadow-sm"
-                                                                >
-                                                                    تحديث وتصحيح
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <FinancialInput
-                                            key="certificate_percentage"
-                                            field={{ ...financialFields.basic.find(f => f.key === 'certificate_percentage')!, label: "م.الشهادة %" }}
-                                            value={financialData?.certificate_percentage}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="certificate_percentage"
-                                            isReadOnly={isFieldReadOnly("certificate_percentage")}
-                                        />
-                                    </div>
-
-                                    {/* الراتب الكلي والصافي */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-white/10">
-                                        <FinancialInput
-                                            key="gross_salary"
-                                            // @ts-ignore
-                                            field={{ key: 'gross_salary', label: 'الراتب الاجمالي (قبل الاستقطاع)', type: 'number' }}
-                                            value={financialData?.gross_salary}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="gross_salary"
-                                            isReadOnly={isFieldReadOnly("gross_salary")}
-                                        />
-                                        <FinancialInput
-                                            key="net_salary"
-                                            // @ts-ignore
-                                            field={{ key: 'net_salary', label: 'الراتب الصافي (مستحق الدفع)', type: 'number' }}
-                                            value={financialData?.net_salary}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField="net_salary"
-                                            isReadOnly={isFieldReadOnly("net_salary")}
-                                        />
-                                    </div>
-                                </div>
-                            </AccordionSection>
-
-                            <AccordionSection
-                                id="deductions"
-                                title="الاستقطاعات"
-                                icon={Scissors}
-                                isOpen={expandedSections.deductions}
-                                color="from-red-600 to-red-500"
-                                onToggle={() => toggleSection('deductions')}
-                            >
-                                <div className="grid grid-cols-1 gap-4">
-                                    {financialFields.deductions.map(field => (
-                                        <FinancialInput
-                                            key={field.key}
-                                            field={field}
-                                            value={financialData?.[field.key]}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField={field.key}
-                                        />
-                                    ))}
-                                </div>
-                            </AccordionSection>
-
-                            <AccordionSection
-                                id="allowances"
-                                title="المخصصات"
-                                icon={Wallet}
-                                isOpen={expandedSections.allowances}
-                                color="from-green-600 to-green-500"
-                                onToggle={() => toggleSection('allowances')}
-                            >
-                                <div className="grid grid-cols-1 gap-4">
-                                    {financialFields.allowances.map(field => (
-                                        <FinancialInput
-                                            key={field.key}
-                                            field={field}
-                                            value={financialData?.[field.key]}
-                                            onChange={handleFinancialChange}
-                                            recordId={financialData?.id}
-                                            tableName="financial_records"
-                                            dbField={field.key}
-                                        />
-                                    ))}
-                                </div>
-                            </AccordionSection>
-
-
-                        </div>
-                    ) : (
-                        <div className="text-center py-20">
-                            <div className="p-4 bg-white/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-border/50 shadow-sm">
-                                <User className="w-10 h-10 text-muted-foreground/30" />
-                            </div>
-                            <h3 className="text-foreground font-bold text-xl mb-2">إدارة الموظفين</h3>
-                            <p className="text-muted-foreground">يرجى البحث عن موظف بواسطة الرقم الوظيفي لتعديل بياناته</p>
-
-                            {/* Excel Update Button - Visible ONLY to Muslim Aqeel */
-                                currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل')) && (
-                                    <>
-                                        <div className="mt-8 flex flex-wrap justify-center gap-4">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setShowDataPatcher(true)}
-                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
-                                            >
-                                                <FileSpreadsheet className="w-4 h-4 text-green-500" />
-                                                تحديث بيانات من Excel
-                                            </Button>
-
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setShowSmartUpdater(true)}
-                                                className="gap-2 border-border/50 hover:bg-muted/20 hover:border-blue-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
-                                            >
-                                                <DatabaseZap className="w-4 h-4 text-blue-500" />
-                                                المحدث الشهري الذكي
-                                            </Button>
-
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setShowFieldPermissionsModal(true)}
-                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
-                                            >
-                                                <Shield className="w-4 h-4 text-amber-500" />
-                                                الحقول حسب الصلاحية
-                                            </Button>
-
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setShowRequestsPermissionsModal(true)}
-                                                className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
-                                            >
-                                                <ClipboardCheck className="w-4 h-4 text-purple-500" />
-                                                تحديد مستخدمي تبويبة الطلبات
-                                            </Button>
-
-                                            {/* Fix Leave Balance Button for Muslim Aqeel */}
-                                            {currentUser?.job_number === '103130486' && (
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => setShowFixBalanceModal(true)}
-                                                    className="gap-2 border-border/50 hover:bg-muted/20 hover:border-rose-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
-                                                >
-                                                    <ShieldAlert className="w-4 h-4 text-rose-500" />
-                                                    إصلاح الرصيد
-                                                </Button>
-                                            )}
-                                        </div>
-                                        {showRequestsPermissionsModal && (
-                                            <RequestsTabPermissionsModal
-                                                onClose={() => setShowRequestsPermissionsModal(false)}
-                                                theme={theme}
-                                            />
-                                        )}
-                                        {showDataPatcher && (
-                                            <DataPatcher onClose={() => setShowDataPatcher(false)} />
-                                        )}
-                                        {showFixBalanceModal && (
-                                            <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} />
-                                        )}
-                                        {showSmartUpdater && (
-                                            <SmartSalaryUpdater onClose={() => setShowSmartUpdater(false)} />
-                                        )}
-                                        {showFieldPermissionsModal && (
-                                            <FieldPermissionsModal
-                                                onClose={() => {
-                                                    setShowFieldPermissionsModal(false);
-                                                    fetchFieldPermissions();
-                                                }}
-                                                theme={theme}
-                                            />
-                                        )}
-                                    </>
-                                )}
-                        </div>
-                    )}
-                </div>
+                <TabManageEmployees
+                    selectedEmployee={selectedEmployee}
+                    setSelectedEmployee={setSelectedEmployee}
+                    detailsRef={detailsRef}
+                    expandedSections={expandedSections}
+                    toggleSection={toggleSection}
+                    financialData={financialData}
+                    setFinancialData={setFinancialData}
+                    adminData={adminData}
+                    setAdminData={setAdminData}
+                    isFieldReadOnly={isFieldReadOnly}
+                    isRoleEditable={isRoleEditable}
+                    theme={theme}
+                    financialFields={financialFields}
+                    handleFinancialChange={handleFinancialChange}
+                    currentUser={currentUser}
+                    showDataPatcher={showDataPatcher}
+                    setShowDataPatcher={setShowDataPatcher}
+                    showSmartUpdater={showSmartUpdater}
+                    setShowSmartUpdater={setShowSmartUpdater}
+                    showFieldPermissionsModal={showFieldPermissionsModal}
+                    setShowFieldPermissionsModal={setShowFieldPermissionsModal}
+                    showRequestsPermissionsModal={showRequestsPermissionsModal}
+                    setShowRequestsPermissionsModal={setShowRequestsPermissionsModal}
+                    showFixBalanceModal={showFixBalanceModal}
+                    setShowFixBalanceModal={setShowFixBalanceModal}
+                    fetchFieldPermissions={fetchFieldPermissions}
+                    handleFiveYearLeaveChange={handleFiveYearLeaveChange}
+                />
             )}
+
+            {/* TAB: Admin Records Portal */}
 
             {/* TAB: Admin Records Portal */}
             {activeTab === 'admin_records' && (
@@ -2906,109 +2007,4 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
 
 
 
-function EditableField({
-    label,
-    value,
-    onChange,
-    recordId,
-    tableName,
-    dbField,
-    isReadOnly,
-    type = "text"
-}: any) {
-    return (
-        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-            {/* Label Column: Aligned to Right (RTL Start) */}
-            <div className="flex justify-start pl-2">
-                <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{label}</label>
-            </div>
-
-            {/* Input Column: Flex with Icon first (Right in RTL) */}
-            <div className="flex items-center gap-2 relative">
-                {/* Fixed Width Slot for History Icon (or empty) */}
-                <div className="w-6 shrink-0 flex justify-center">
-                    {recordId && tableName && dbField && (
-                        <HistoryViewer
-                            tableName={tableName}
-                            recordId={recordId}
-                            fieldName={dbField}
-                            label={label}
-                        />
-                    )}
-                </div>
-
-                <Input
-                    type={type}
-                    value={value || ""}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="flex-1"
-                    disabled={isReadOnly}
-                />
-            </div>
-        </div>
-    );
-}
-
-function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly }: any) {
-    if (!field) return null;
-    return (
-        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-            {/* Label Column */}
-            <div className="flex justify-start pl-2">
-                <label className="text-[10px] md:text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{field.label}</label>
-            </div>
-
-            {/* Input Column */}
-            <div className="flex items-center gap-2 relative w-full">
-                {/* Fixed Width Slot for History Icon (or empty) */}
-                <div className="w-6 shrink-0 flex justify-center">
-                    {recordId && tableName && (dbField || field.key) && (
-                        <HistoryViewer
-                            tableName={tableName}
-                            recordId={recordId}
-                            fieldName={dbField || field.key}
-                            label={field.label}
-                        />
-                    )}
-                </div>
-
-                <div className="flex-1 relative">
-                    {field.options ? (() => {
-                        // إضافة القيمة الحالية كخيار ديناميكي إذا لم تكن ضمن الخيارات
-                        const allOptions = (value && !field.options.includes(String(value)))
-                            ? [String(value), ...field.options]
-                            : field.options;
-                        return (
-                            <Select
-                                value={value?.toString() || ""}
-                                onValueChange={(val) => onChange(field.key, val)}
-                                disabled={field.disabled || isReadOnly}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="اختر..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allOptions.map((opt: string) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        );
-                    })() : (
-                        <div className="relative w-full">
-                            <Input
-                                type={field.isMoney ? "number" : "text"}
-                                value={value || ""}
-                                onChange={(e) => onChange(field.key, e.target.value)}
-                                disabled={field.disabled || isReadOnly}
-                                className={cn("no-spin w-full", field.isMoney && "pl-10")}
-                            />
-                            {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
-                            {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{field.suffix}</span>}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
+// End of file

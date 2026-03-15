@@ -80,7 +80,8 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
     if (tipsToDisplay.length === 0) return null;
 
     const marqueeText = tipsToDisplay.join('  ★★★★★  ');
-    const duplicatedText = `${marqueeText}  ★★★★★  ${marqueeText}  ★★★★★  `;
+    // For a seamless loop with translate(-50%), we need exactly two copies with a separator
+    const duplicatedText = `${marqueeText}  ★★★★★  `;
 
     return (
         <div
@@ -93,11 +94,10 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
 
             <div className="w-full overflow-hidden px-4">
                 <div
-                    className="whitespace-nowrap animate-marquee-rtl inline-block"
+                    className="whitespace-nowrap animate-marquee-seamless-rtl inline-block"
                     style={{
-                        animationDuration: `${Math.max(duplicatedText.length * 0.3, 40)}s`,
+                        animationDuration: `${Math.max(duplicatedText.length * 0.4, 30)}s`,
                         animationPlayState: isPaused ? 'paused' : 'running',
-                        animationDelay: `-${Math.max(duplicatedText.length * 0.3, 40) / 2}s`, // Start halfway to show text immediately
                     }}
                     onPointerDown={() => setIsPaused(true)}
                     onPointerUp={() => setIsPaused(false)}
@@ -105,8 +105,8 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                     onTouchStart={() => setIsPaused(true)}
                     onTouchEnd={() => setIsPaused(false)}
                 >
-                    <span className="font-bold text-base text-blue-100 drop-shadow-md font-tajawal mx-4">
-                        {duplicatedText}
+                    <span className="font-bold text-base text-blue-100 drop-shadow-md font-tajawal mx-0">
+                        {duplicatedText}{duplicatedText}
                     </span>
                 </div>
             </div>
