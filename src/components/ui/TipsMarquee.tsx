@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { cn } from '../../lib/utils';
 
 interface TipsMarqueeProps {
     appName?: string;
@@ -80,23 +81,26 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
     if (tipsToDisplay.length === 0) return null;
 
     const marqueeText = tipsToDisplay.join('  ★★★★★  ');
-    // For a seamless loop with translate(-50%), we need exactly two copies with a separator
-    const duplicatedText = `${marqueeText}  ★★★★★  `;
+    // For a seamless infinite loop, we need at least two copies and enough content to fill screen
+    const duplicatedText = `${marqueeText}  ★★★★★  ${marqueeText}  ★★★★★  `;
 
     return (
         <div
-            className={`relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 
-                  border-b border-blue-500/20 h-10 flex items-center ${className}`}
+            className={cn(
+                "relative overflow-hidden bg-slate-900 border-b border-blue-500/20 h-10 w-full flex items-center",
+                className
+            )}
+            dir="ltr" 
         >
             {/* Fade Effect */}
-            <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-900 to-transparent z-10 pointer-events-none" />
-            <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-900 to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-slate-900 to-transparent z-20 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-slate-900 to-transparent z-20 pointer-events-none" />
 
-            <div className="w-full overflow-hidden px-4">
+            <div className="flex whitespace-nowrap min-w-full">
                 <div
-                    className="whitespace-nowrap animate-marquee-seamless-rtl inline-block"
+                    className="flex shrink-0 animate-marquee-infinite-ltr"
                     style={{
-                        animationDuration: `${Math.max(duplicatedText.length * 0.4, 30)}s`,
+                        animationDuration: `${Math.max(duplicatedText.length * 0.1, 15)}s`, 
                         animationPlayState: isPaused ? 'paused' : 'running',
                     }}
                     onPointerDown={() => setIsPaused(true)}
@@ -105,8 +109,11 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                     onTouchStart={() => setIsPaused(true)}
                     onTouchEnd={() => setIsPaused(false)}
                 >
-                    <span className="font-bold text-base text-blue-100 drop-shadow-md font-tajawal mx-0">
-                        {duplicatedText}{duplicatedText}
+                    <span className="font-bold text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
+                        {duplicatedText}
+                    </span>
+                    <span className="font-bold text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
+                        {duplicatedText}
                     </span>
                 </div>
             </div>

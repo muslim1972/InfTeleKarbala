@@ -279,43 +279,35 @@ textarea,
   animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Marquee Animation for Tips - Seamless Loop RTL */
-@keyframes marquee-seamless-rtl {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+/* Marquee Animation for Tips - Text moves from LEFT to RIGHT */
+@keyframes marquee-infinite-ltr {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
 }
 
-.animate-marquee-seamless-rtl {
-  display: inline-block;
-  animation: marquee-seamless-rtl linear infinite;
+/* Marquee Animation for Tips - Text moves from RIGHT to LEFT */
+@keyframes marquee-infinite-rtl {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
-@keyframes marquee-ltr {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
+@keyframes blink-red {
+  0%, 100% { opacity: 1; color: rgb(220 38 38); }
+  50% { opacity: 0.3; color: rgb(220 38 38 / 0.5); }
 }
 
 .animate-blink-red {
   animation: blink-red 1s ease-in-out infinite;
 }
 
-.animate-marquee-rtl {
+.animate-marquee-infinite-rtl {
   display: inline-block;
-  animation: marquee-ltr linear infinite;
+  animation: marquee-infinite-rtl linear infinite;
 }
 
-.animate-marquee {
+.animate-marquee-infinite-ltr {
   display: inline-block;
-  animation: marquee-ltr 20s linear infinite;
+  animation: marquee-infinite-ltr linear infinite;
 }
 
 /* Fade In Animation */

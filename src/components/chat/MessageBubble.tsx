@@ -141,17 +141,17 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                         <div className="flex items-center">
                             {message.is_sending ? (
                                 <div 
-                                    className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_5px_rgba(251,191,36,0.5)]" 
+                                    className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse ring-1 ring-amber-600/30 shadow-[0_0_5px_rgba(251,191,36,0.5)]" 
                                     title="جاري الإرسال"
                                 />
                             ) : (message.read_by && message.read_by.filter(id => id !== user?.id).length > 0) ? (
                                 <div 
-                                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" 
+                                    className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-1 ring-emerald-700/30 shadow-[0_0_8px_rgba(16,185,129,0.6)]" 
                                     title="تمت القراءة"
                                 />
                             ) : (
                                 <div 
-                                    className="w-2 h-2 rounded-full bg-white border border-gray-200 shadow-sm" 
+                                    className="w-2.5 h-2.5 rounded-full bg-white ring-1 ring-gray-300 shadow-sm" 
                                     title="تم التسليم"
                                 />
                             )}
