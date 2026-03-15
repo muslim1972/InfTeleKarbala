@@ -1,6 +1,5 @@
 /**
- * App.tsx - محسّن باستخدام lazy loading
- * يقلل حجم التحميل الأولي بشكل كبير
+ * App.tsx
  */
 
 import { Suspense, lazy, useState, useEffect } from "react";
@@ -10,7 +9,7 @@ import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
 
-// Lazy loading للصفحات الثقيلة
+// Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
@@ -18,7 +17,7 @@ const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login }
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 
-// مكون التحميل
+// Loading Component
 const LoadingScreen = () => (
   <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
     <div className="text-center">
@@ -79,7 +78,7 @@ const ChatLayout = lazy(() => import("./components/chat/ChatLayout").then(m => (
 
 import { ChatProvider } from "./context/ChatContext";
 
-// مكون حماية المسارات
+// Protected Routes logic
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -95,7 +94,6 @@ function App() {
           <Toaster position="top-center" reverseOrder={false} />
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
-              {/* حماية جميع المسارات الحساسة */}
               <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
                 <Route path=":conversationId" element={null} />
               </Route>
