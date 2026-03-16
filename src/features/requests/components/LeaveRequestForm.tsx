@@ -143,6 +143,32 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
     fetchLatestRequest();
   }, [user, success]); // refetch on success
 
+  // Realtime subscription for latest request and balance
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`leave_request_updates_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_requests',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchLatestRequest();
+          invalidateCache();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, invalidateCache]);
+
   // Auto-calculate Supervisor based on hierarchy
   useEffect(() => {
     const fetchManager = async () => {
@@ -411,8 +437,16 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               من {latestRequest.start_date} إلى {latestRequest.end_date}
-              <span className={`mx-2 px-2 py-0.5 rounded-full text-xs font-bold ${latestRequest.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : latestRequest.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
-                {latestRequest.status === 'pending' ? 'قيد الانتظار' : latestRequest.status === 'approved' ? 'موافق عليه' : 'مرفوض'}
+              <span className={`mx-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                latestRequest.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                latestRequest.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                latestRequest.status === 'canceled' ? 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' :
+                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+              }`}>
+                {latestRequest.status === 'pending' ? 'قيد الانتظار' :
+                 latestRequest.status === 'approved' ? 'موافق عليه' :
+                 latestRequest.status === 'canceled' ? 'ملغاة' :
+                 'مرفوض'}
               </span>
             </p>
           </div>
