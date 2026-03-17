@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://onesignal.com https://cdn.onesignal.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://cdn.onesignal.com; worker-src 'self' blob: https://cdn.onesignal.com https://onesignal.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://onesignal.com https://cdn.onesignal.com https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://*.onesignal.com; worker-src 'self' blob: https://cdn.onesignal.com https://onesignal.com; frame-src 'self' https://onesignal.com; manifest-src 'self';"
         },
         {
           "key": "X-Frame-Options",
@@ -32,7 +32,7 @@
       "destination": "/OneSignalSDKUpdaterWorker.js"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|OneSignalSDKWorker|OneSignalSDKUpdaterWorker).*)",
       "destination": "/index.html"
     }
   ]
