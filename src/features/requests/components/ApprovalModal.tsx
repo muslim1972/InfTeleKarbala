@@ -58,9 +58,15 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
 
             if (request.modification_type === 'canceled') {
-                updatePayload.cancellation_status = status;
                 if (status === 'approved') {
-                    updatePayload.status = 'canceled';
+                    // Call RPC to fully refund leave
+                    const { data: rpcData, error: rpcErr } = await supabase.rpc('process_leave_cancellation', {
+                        p_request_id: request.id
+                    });
+                    if (rpcErr) throw rpcErr;
+                    if (rpcData && !rpcData.success) throw new Error(rpcData.message);
+                } else {
+                    updatePayload.cancellation_status = status;
                 }
             } else if (request.modification_type === 'cut') {
                 updatePayload.cut_status = status;
@@ -95,8 +101,32 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             } else if (request.modification_type === 'cut') {
                 message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
             }
-            
             sendPushNotification(request.user_id, "تحديث طلب الإجازة", message);
+            
+            // Notify HR/Admin if it's a cut or cancellation approval
+            if (status === 'approved' && (request.modification_type === 'canceled' || request.modification_type === 'cut')) {
+                try {
+                    // Fetch all admins/hr
+                    const { data: admins } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .in('admin_role', ['developer', 'hr']);
+                    
+                    if (admins && admins.length > 0) {
+                        const hrTitle = request.modification_type === 'canceled' ? "إلغاء إجازة" : "اعتماد قطع إجازة";
+                        const hrMessage = request.modification_type === 'canceled' 
+                            ? `تم إلغاء إجازة الموظف (${request.profiles?.full_name || 'مجهول'}) واسترجاع رصيده بالكامل.`
+                            : `توجد إجازة مقطوعة للموظف (${request.profiles?.full_name || 'مجهول'}) بانتظار اعتمادك لإرجاع الرصيد.`;
+                        
+                        // Send Push to all admins
+                        for (const admin of admins) {
+                            await sendPushNotification(admin.id, hrTitle, hrMessage);
+                        }
+                    }
+                } catch (hrError) {
+                    console.error('Failed to notify HR:', hrError);
+                }
+            }
         } catch (err: any) {
             console.error('Error processing request:', err);
             setError(err.message || 'حدث خطأ أثناء معالجة الطلب');

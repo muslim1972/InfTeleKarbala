@@ -627,8 +627,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                                             const actualDaysStr = window.prompt(`الموظف (${record.employee_name}) قَطَع إجازته بتاريخ ${record.cut_date}.\nكم عدد الأيام الفعلية التي تمتع بها قبل القطع؟\n\n(مثلاً إذا قطعها بعد يومين، أدخل: 2. سيتم إعادة الباقي لرصيده)`, "0");
                                             if (actualDaysStr !== null) {
                                                 const actualDays = parseInt(actualDaysStr, 10);
-                                                if (isNaN(actualDays) || actualDays < 0 || actualDays >= record.days_count) {
-                                                    alert("يرجى إدخال عدد أيام صحيح (أقل من الإجازة الأصلية).");
+                                                if (isNaN(actualDays) || actualDays < 0 || actualDays > record.days_count) {
+                                                    alert("يرجى إدخال عدد أيام صحيح (أقل من أو يساوي الإجازة الأصلية).");
                                                 } else {
                                                     if (window.confirm(`هل أنت متأكد أن الأيام الفعلية هي ${actualDays} أيام؟\nسيتم إرجاع ${record.days_count - actualDays} يوم للموظف.`)) {
                                                         const processCut = async () => {

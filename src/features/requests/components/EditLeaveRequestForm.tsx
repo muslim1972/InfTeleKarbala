@@ -23,6 +23,8 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
     const today = new Date().toISOString().split('T')[0];
     const isBeforeStart = today < request.start_date;
     const isAfterStartButBeforeEnd = today >= request.start_date && today <= request.end_date;
+    
+    // إذا كان الموظف قد ألغى الإجازة في أول يوم لها (نادرة الحدوث) فسيقوم بقطعها بمدة صفر، وهذا تتم معالجته في الكود
 
     useEffect(() => {
         if (formData.startDate && formData.daysCount > 0) {

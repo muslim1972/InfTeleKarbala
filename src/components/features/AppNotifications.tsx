@@ -122,7 +122,7 @@ export const AppNotifications = () => {
         const { data, error } = await supabase
             .from('leave_requests')
             .select('id', { count: 'exact' })
-            .or('status.eq.approved_by_supervisor,cancellation_status.eq.approved_by_supervisor,cut_status.eq.approved_by_supervisor');
+            .eq('hr_cut_status', 'pending');
 
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
