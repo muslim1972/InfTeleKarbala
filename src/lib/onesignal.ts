@@ -9,23 +9,21 @@ export const initOneSignal = (userId: string) => {
 
   const setupUser = async (OS: any) => {
     try {
-      // 1. Identify User - Aggressive Approach
+      // 1. Identify User
       if (userId && typeof OS.login === 'function') {
         await OS.login(userId);
-        console.log('OneSignal: Forced Identity Sync for', userId);
       }
 
-      // 2. Force Subscription Refresh
-      // Using requestPermission() handles both new users and re-installations
+      // 2. Force Subscription Opt-In
       const isPushSupported = OS.Notifications.isPushSupported();
       if (isPushSupported) {
+        console.log('OneSignal: Forcing Opt-In for push notifications...');
+        // This is the most powerful way to re-enable push after re-install
+        await OS.User.PushSubscription.optIn();
+        
         const permission = await OS.Notifications.permission;
         if (permission !== 'granted') {
-          console.log('OneSignal: Requesting fresh permission...');
           await OS.Notifications.requestPermission();
-        } else {
-          // Even if granted, we ensure the user is registered
-          console.log('OneSignal: Refreshing subscription status...');
         }
       }
     } catch (e) {
