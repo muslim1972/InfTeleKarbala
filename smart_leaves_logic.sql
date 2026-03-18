@@ -121,7 +121,7 @@ BEGIN
     -- IF they canceled everything (actual is 0) we mark the leave as canceled entirely or keep cut
     IF p_actual_days = 0 THEN
         UPDATE public.leave_requests
-        SET hr_cut_status = 'approved', days_count = 0, status = 'canceled', leave_status = 'canceled'
+        SET hr_cut_status = 'approved', leave_status = 'cut' -- Keep it cut explicitly for reports (مقطوعة بالكامل)
         WHERE id = p_request_id;
         
         DELETE FROM public.leaves_details WHERE user_id = v_request.user_id AND start_date = v_request.start_date AND duration = v_request.days_count;
