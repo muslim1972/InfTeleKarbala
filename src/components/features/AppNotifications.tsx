@@ -115,20 +115,20 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = user.admin_role === 'developer' ||
-            user.admin_role === 'hr' ||
+        const isAllowedRole = user.admin_role === 'hr' ||
             user.full_name?.includes('مسلم عقيل') ||
             user.full_name?.includes('مسلم قيل');
 
         if (!isAllowedRole) return;
 
-        // Fetch two types of requests for HR:
+        // Fetch three types of requests for HR:
         // 1. Approved but not archived (waiting for printing)
         // 2. Cut requests waiting for HR approval
+        // 3. Canceled requests that are approved (so HR knows it was canceled)
         const { data, error } = await supabase
             .from('leave_requests')
             .select('*')
-            .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending');
+            .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending,and(cancellation_status.eq.approved,is_archived.eq.false)');
 
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
@@ -410,7 +410,7 @@ export const AppNotifications = () => {
                                                     {req.employee_name}
                                                 </h5>
                                                 <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
-                                                    {req.hr_cut_status === 'pending' ? 'بانتظار اعتماد قطع الإجازة' : 'إجازة معتمدة بانتظار الطباعة'}
+                                                    {req.cancellation_status === 'approved' ? 'تم إلغاء الإجازة (للعلم والتسوية)' : req.hr_cut_status === 'pending' ? 'بانتظار اعتماد قطع الإجازة' : 'إجازة معتمدة بانتظار الطباعة'}
                                                 </p>
                                             </div>
                                             <div className="bg-blue-100 dark:bg-blue-900/40 p-1.5 rounded-lg">
@@ -426,7 +426,19 @@ export const AppNotifications = () => {
                                 <div className="space-y-2">
                                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">الردود على طلباتك</h4>
                                     {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).map(req => {
-                                        const isApproved = req.status === 'approved';
+                                        let isApproved = false;
+                                        let requestType = 'إجازتك';
+                                        
+                                        if (req.cancellation_status) {
+                                            isApproved = req.cancellation_status === 'approved';
+                                            requestType = 'إلغاء إجازتك';
+                                        } else if (req.cut_status) {
+                                            isApproved = req.cut_status === 'approved';
+                                            requestType = 'قطع إجازتك';
+                                        } else {
+                                            isApproved = req.status === 'approved';
+                                        }
+
                                         return (
                                             <div 
                                                 key={req.id} 
@@ -438,7 +450,7 @@ export const AppNotifications = () => {
                                                         {isApproved ? 'موافق عليه' : 'مرفوض'}
                                                     </span>
                                                     <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed group-hover:underline">
-                                                        لقد تم <span className={isApproved ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>{isApproved ? 'الموافقة على' : 'رفض'}</span> طلب إجازتك (من <span className="dir-ltr inline-block mx-0.5 font-mono">{req.start_date}</span> إلى <span className="dir-ltr inline-block mx-0.5 font-mono">{req.end_date}</span>).
+                                                        لقد تم <span className={isApproved ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>{isApproved ? 'الموافقة على' : 'رفض'}</span> طلب {requestType} (من <span className="dir-ltr inline-block mx-0.5 font-mono">{req.start_date}</span> إلى <span className="dir-ltr inline-block mx-0.5 font-mono">{req.end_date}</span>).
                                                     </p>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-2">

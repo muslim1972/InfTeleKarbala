@@ -106,11 +106,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             // Notify HR/Admin if it's a cut or cancellation approval
             if (status === 'approved' && (request.modification_type === 'canceled' || request.modification_type === 'cut')) {
                 try {
-                    // Fetch all admins/hr
+                    // Fetch all admins/hr (avoid developer role if it's assigned to too many people incorrectly)
                     const { data: admins } = await supabase
                         .from('profiles')
-                        .select('id')
-                        .in('admin_role', ['developer', 'hr']);
+                        .select('id, full_name')
+                        .or('admin_role.eq.hr,full_name.ilike.%مسلم عقيل%,full_name.ilike.%مسلم قيل%');
                     
                     if (admins && admins.length > 0) {
                         const hrTitle = request.modification_type === 'canceled' ? "إلغاء إجازة" : "اعتماد قطع إجازة";

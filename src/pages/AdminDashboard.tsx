@@ -706,7 +706,7 @@ export const AdminDashboard = () => {
                     username: selectedEmployee.username,
                     password: selectedEmployee.password,
                     role: selectedEmployee.role,
-                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : 'developer',
+                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
                     iban: selectedEmployee.iban,
                     department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar, // Save to 'avatar' column
@@ -931,7 +931,7 @@ export const AdminDashboard = () => {
                     job_number: formData.job_number,
                     iban: formData.iban,
                     role: formData.role || 'user',
-                    admin_role: formData.role === 'admin' ? (formData.admin_role || 'developer') : 'developer',
+                    admin_role: formData.role === 'admin' ? (formData.admin_role || 'developer') : null,
                     department_id: formData.department_id,
                     updated_at: new Date().toISOString()
                 }])
