@@ -62,8 +62,9 @@ export function useChatState(conversationId: string) {
     
     const { data, error } = await supabase
       .from('messages')
-      .select('*, read_by, sender:profiles!messages_sender_id_fkey(full_name)')
+      .select('*, read_by, deleted_by, sender:profiles!messages_sender_id_fkey(full_name)')
       .eq('conversation_id', conversationId)
+      .not('deleted_by', 'cs', `{${user?.id}}`)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -125,10 +126,19 @@ export function useChatState(conversationId: string) {
                 (payload) => {
                     console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
                     
-                    const newMsg = (payload.new || payload.old) as Message;
+                    const newMsg = (payload.new || payload.old) as Message & { deleted_by?: string[] };
                     
                     // Manual filter check
                     if (newMsg.conversation_id !== conversationId) {
+                        return;
+                    }
+                    
+                    // Ignore messages that the current user has explicitly deleted
+                    if (newMsg.deleted_by && newMsg.deleted_by.includes(user.id)) {
+                        if (payload.eventType === 'UPDATE') {
+                            // If an existing message was deleted by this user, remove it
+                            setMessages(prev => prev.filter(m => m.id !== newMsg.id));
+                        }
                         return;
                     }
 
