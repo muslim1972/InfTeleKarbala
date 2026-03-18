@@ -59,6 +59,17 @@ export const Dashboard = () => {
     // UI State for Collapsible Sections
     const [openSection, setOpenSection] = useState<string | null>(null);
 
+    // Navigation Listener for Notifications
+    useEffect(() => {
+        const handleNavigate = () => {
+            setActiveTab('requests');
+            // Ensure we scroll to top to see records
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+        window.addEventListener('navigate_to_user_requests', handleNavigate);
+        return () => window.removeEventListener('navigate_to_user_requests', handleNavigate);
+    }, []);
+
     const toggleSection = (section: string) => {
         setOpenSection(prev => {
             const newState = prev === section ? null : section;

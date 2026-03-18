@@ -127,6 +127,22 @@ export const AdminDashboard = () => {
         fetchFieldPermissions();
     }, []);
 
+    // Handle automated navigation from notifications
+    useEffect(() => {
+        const handleNotificationNavigation = (e: any) => {
+            console.log("🔔 AdminDashboard: Navigation event received", e.detail);
+            setActiveTab('admin_requests');
+            
+            if (e.detail?.employeeId) {
+                // If an employee ID is provided, load their data to "stand on their request"
+                loadEmployeeData({ id: e.detail.employeeId });
+            }
+        };
+
+        window.addEventListener('navigate_to_hr_requests', handleNotificationNavigation);
+        return () => window.removeEventListener('navigate_to_hr_requests', handleNotificationNavigation);
+    }, []);
+
     const isFieldReadOnly = (columnName: string) => {
         // Special strict check for the Requests tab
         if (columnName === 'tab_requests') {

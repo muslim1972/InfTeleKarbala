@@ -11,16 +11,19 @@ export const AppNotifications = () => {
     // Badge Counts
     const [employeeUnreadCount, setEmployeeUnreadCount] = useState(0);
     const [supervisorPendingCount, setSupervisorPendingCount] = useState(0);
-    const [hrPendingCount, setHrPendingCount] = useState(0);
     const [systemNotificationsCount, setSystemNotificationsCount] = useState(0);
 
     // Data lists
     const [employeeRequests, setEmployeeRequests] = useState<any[]>([]);
     const [supervisorRequests, setSupervisorRequests] = useState<any[]>([]);
+    const [hrRequests, setHrRequests] = useState<any[]>([]);
     const [systemNotifications, setSystemNotifications] = useState<any[]>([]);
+    const [dismissedHRRequestIds, setDismissedHRRequestIds] = useState<Set<string>>(new Set());
+    const [dismissedEmployeeRequestIds, setDismissedEmployeeRequestIds] = useState<Set<string>>(new Set());
 
     // Modal state
     const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
+
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
     const fetchEmployeeNotifications = useCallback(async () => {
@@ -119,16 +122,37 @@ export const AppNotifications = () => {
 
         if (!isAllowedRole) return;
 
+        // Fetch two types of requests for HR:
+        // 1. Approved but not archived (waiting for printing)
+        // 2. Cut requests waiting for HR approval
         const { data, error } = await supabase
             .from('leave_requests')
-            .select('id', { count: 'exact' })
-            .eq('hr_cut_status', 'pending');
+            .select('*')
+            .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending');
 
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
+        } else if (data && data.length > 0) {
+            const validIds = data.map(r => r.user_id).filter(Boolean);
+            const userIds = [...new Set(validIds)];
+            let profileMap: Record<string, string> = {};
+
+            if (userIds.length > 0) {
+                const { data: profilesData } = await supabase
+                    .from('profiles')
+                    .select('id, full_name')
+                    .in('id', userIds);
+                if (profilesData) profilesData.forEach(p => { profileMap[p.id] = p.full_name; });
+            }
+
+            const formatted = data.map(item => ({
+                ...item,
+                employee_name: profileMap[item.user_id] || 'موظف'
+            }));
+
+            setHrRequests(formatted);
         } else {
-            const uniqueIds = new Set(data?.map(r => r.id));
-            setHrPendingCount(uniqueIds.size || 0);
+            setHrRequests([]);
         }
     }, [user]);
 
@@ -181,7 +205,12 @@ export const AppNotifications = () => {
         };
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications]);
 
-    const totalNotifications = employeeUnreadCount + supervisorPendingCount + (hrPendingCount > 0 ? 1 : 0) + systemNotificationsCount;
+    const totalNotifications = 
+        employeeUnreadCount + 
+        supervisorPendingCount + 
+        (hrRequests.filter(r => !dismissedHRRequestIds.has(r.id)).length) + 
+        (employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length) +
+        systemNotificationsCount;
 
     // Always show the bell so the user knows where notifications will appear
     if (totalNotifications === 0) return null;
@@ -198,14 +227,30 @@ export const AppNotifications = () => {
     };
 
     const handleDismissEmployeeNotification = async (requestId: string) => {
+        // Immediate UI feedback
+        setDismissedEmployeeRequestIds(prev => {
+            const next = new Set(prev);
+            next.add(requestId);
+            return next;
+        });
+
         try {
             const { error } = await supabase.from('leave_requests').update({ is_read_by_employee: true }).eq('id', requestId);
             if (error) throw error;
             const updated = employeeRequests.filter(r => r.id !== requestId);
             setEmployeeRequests(updated);
             setEmployeeUnreadCount(updated.length);
-            if (totalNotifications - 1 === 0) setShowModal(false);
+            // If total drops to 0 after this (considering other lists), close modal
+            // But totalNotifications is computed on render, so we check if it was 1
+            if (totalNotifications <= 1) setShowModal(false);
         } catch (err) { }
+    };
+
+    const handleGoToUserRequests = (requestId: string) => {
+        handleDismissEmployeeNotification(requestId);
+        setShowModal(false);
+        const event = new CustomEvent('navigate_to_user_requests');
+        window.dispatchEvent(event);
     };
 
     const handleDismissAllEmployee = async () => {
@@ -220,10 +265,19 @@ export const AppNotifications = () => {
     };
 
 
-    const handleGoToAdminRequests = () => {
+    const handleGoToAdminRequests = (requestId?: string, employeeId?: string) => {
+        if (requestId) {
+            setDismissedHRRequestIds(prev => {
+                const next = new Set(prev);
+                next.add(requestId);
+                return next;
+            });
+        }
         setShowModal(false);
-        // Dispatching custom event for Dashboard/AdminDashboard layout to handle tab switching
-        const event = new CustomEvent('navigate_to_hr_requests');
+        // Dispatching custom event with employeeId for automatic search/stand on request
+        const event = new CustomEvent('navigate_to_hr_requests', {
+            detail: { employeeId }
+        });
         window.dispatchEvent(event);
     };
 
@@ -341,51 +395,60 @@ export const AppNotifications = () => {
                                 </div>
                             )}
 
-                            {/* HR Dashboard Link */}
-                            {hrPendingCount > 0 && (
+                            {/* HR Dashboard Individual Requests */}
+                            {hrRequests.filter(r => !dismissedHRRequestIds.has(r.id)).length > 0 && (
                                 <div className="space-y-2">
                                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">إشعارات الموارد البشرية</h4>
-                                    <div
-                                        onClick={handleGoToAdminRequests}
-                                        className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:shadow-md transition-all text-center group"
-                                    >
-                                        <h5 className="font-bold text-blue-700 dark:text-blue-400 group-hover:underline">
-                                            يوجد {hrPendingCount} طلب إجازة مكتمل الموافقات وبانتظار أمر إداري
-                                        </h5>
-                                        <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1">
-                                            النقر هنا سينقلك لقسم الطلبات
-                                        </p>
-                                    </div>
+                                    {hrRequests.filter(r => !dismissedHRRequestIds.has(r.id)).map(req => (
+                                        <div
+                                            key={req.id}
+                                            onClick={() => handleGoToAdminRequests(req.id, req.user_id)}
+                                            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:shadow-md transition-all group flex justify-between items-center"
+                                        >
+                                            <div className="flex-1">
+                                                <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 group-hover:underline">
+                                                    {req.employee_name}
+                                                </h5>
+                                                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
+                                                    {req.hr_cut_status === 'pending' ? 'بانتظار اعتماد قطع الإجازة' : 'إجازة معتمدة بانتظار الطباعة'}
+                                                </p>
+                                            </div>
+                                            <div className="bg-blue-100 dark:bg-blue-900/40 p-1.5 rounded-lg">
+                                                <CheckCircle size={16} className="text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {/* Employee Personal Responses Section */}
-                            {employeeRequests.length > 0 && (
+                            {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 0 && (
                                 <div className="space-y-2">
                                     <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">الردود على طلباتك</h4>
-                                    {employeeRequests.map(req => {
+                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).map(req => {
                                         const isApproved = req.status === 'approved';
                                         return (
-                                            <div key={req.id} className={`bg-white dark:bg-slate-800 border rounded-xl p-3 relative ${isApproved ? 'border-emerald-200 dark:border-emerald-800/50' : 'border-rose-200 dark:border-rose-800/50'} shadow-sm`}>
-                                                <div className="mb-2">
+                                            <div 
+                                                key={req.id} 
+                                                onClick={() => handleGoToUserRequests(req.id)}
+                                                className={`bg-white dark:bg-slate-800 border rounded-xl p-3 relative cursor-pointer hover:shadow-md transition-all ${isApproved ? 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50/30' : 'border-rose-200 dark:border-rose-800/50 hover:bg-rose-50/30'} shadow-sm group`}
+                                            >
+                                                <div className="mb-1">
                                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded inline-block mb-1 ${isApproved ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-400' : 'text-rose-700 bg-rose-100 dark:bg-rose-900/50 dark:text-rose-400'}`}>
                                                         {isApproved ? 'موافق عليه' : 'مرفوض'}
                                                     </span>
-                                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed group-hover:underline">
                                                         لقد تم <span className={isApproved ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>{isApproved ? 'الموافقة على' : 'رفض'}</span> طلب إجازتك (من <span className="dir-ltr inline-block mx-0.5 font-mono">{req.start_date}</span> إلى <span className="dir-ltr inline-block mx-0.5 font-mono">{req.end_date}</span>).
                                                     </p>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleDismissEmployeeNotification(req.id)}
-                                                    className="w-full mt-2 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
-                                                >
-                                                    <CheckCircle size={14} className="text-slate-400" />
-                                                    علم (إخفاء)
-                                                </button>
+                                                <div className="flex justify-between items-center mt-2">
+                                                    <span className="text-[10px] text-slate-400 font-medium italic">انقر للمراجعة والمسح</span>
+                                                    <CheckCircle size={14} className="text-slate-300 group-hover:text-slate-500" />
+                                                </div>
                                             </div>
                                         );
                                     })}
-                                    {employeeRequests.length > 1 && (
+                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 1 && (
                                         <button
                                             onClick={handleDismissAllEmployee}
                                             className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 py-2 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl"
