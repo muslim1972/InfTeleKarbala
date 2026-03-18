@@ -16,14 +16,9 @@ export const initOneSignal = (userId: string) => {
       }
 
       // 2. Polite Permission Prompt (Slidedown)
-      // This is much safer than the browser's native window and won't block the UI
       const permission = await OS.Notifications.permission;
       if (!permission) {
-          const canPrompt = await OS.Notifications.canPrompt();
-          if (canPrompt) {
-              // Shows a gentle prompt at the top/bottom instead of a blocking popup
-              OS.Slidedown.promptPush();
-          }
+          OS.Slidedown.promptPush({ force: true });
       }
     } catch (e) {
       console.error('OneSignal setup error:', e);
