@@ -175,9 +175,9 @@ export const DashboardHeader = ({
                                             {suggestions.map((sug) => (
                                                 <button
                                                     key={sug.id}
-                                                    onClick={() => {
+                                                    onMouseDown={() => {
                                                         handleSelectSuggestion(sug);
-                                                        setSearchJobNumber('');
+                                                        setSearchJobNumber(sug.full_name);
                                                         setShowSuggestions(false);
                                                     }}
                                                     className={`w-full text-right px-4 py-3 flex items-center justify-between transition-colors ${

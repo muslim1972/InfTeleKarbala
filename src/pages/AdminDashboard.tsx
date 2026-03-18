@@ -237,7 +237,7 @@ export const AdminDashboard = () => {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('id, full_name, job_number, username, role')
-                    .or(`job_number.ilike.%${query}%,full_name.ilike.%${query}%`)
+                    .or(`job_number.ilike.${query}%,full_name.ilike.${query}%,full_name.ilike.% ${query}%`)
                     .limit(50);
 
                 if (error) {
