@@ -11,19 +11,22 @@ export const initOneSignal = (userId: string) => {
     try {
       // 1. Identify User - Aggressive Approach
       if (userId && typeof OS.login === 'function') {
-        const currentId = await OS.getExternalUserId();
-        if (currentId !== userId) {
-          await OS.login(userId);
-          console.log('OneSignal: Identity synchronized for', userId);
-        } else {
-          console.log('OneSignal: Already identified as', userId);
-        }
+        await OS.login(userId);
+        console.log('OneSignal: Forced Identity Sync for', userId);
       }
 
-      // 2. Polite Permission Prompt (Slidedown)
-      const permission = await OS.Notifications.permission;
-      if (!permission) {
-          await OS.Slidedown.promptPush({ force: true });
+      // 2. Force Subscription Refresh
+      // Using requestPermission() handles both new users and re-installations
+      const isPushSupported = OS.Notifications.isPushSupported();
+      if (isPushSupported) {
+        const permission = await OS.Notifications.permission;
+        if (permission !== 'granted') {
+          console.log('OneSignal: Requesting fresh permission...');
+          await OS.Notifications.requestPermission();
+        } else {
+          // Even if granted, we ensure the user is registered
+          console.log('OneSignal: Refreshing subscription status...');
+        }
       }
     } catch (e) {
       console.error('OneSignal setup error:', e);
