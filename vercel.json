@@ -1,42 +1,18 @@
 {
-  "github": {
-    "silent": false,
-    "deploymentEnabled": {
-      "main": false,
-      "stable-info-karbala": true
-    }
-  },
-  "alias": "inf-tele-karbala.vercel.app",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
         }
       ]
     }
   ],
   "rewrites": [
     {
-      "source": "/OneSignalSDKWorker.js",
-      "destination": "/OneSignalSDKWorker.js"
-    },
-    {
-      "source": "/OneSignalSDKUpdaterWorker.js",
-      "destination": "/OneSignalSDKUpdaterWorker.js"
-    },
-    {
-      "source": "/((?!api/|OneSignalSDKWorker|OneSignalSDKUpdaterWorker).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
