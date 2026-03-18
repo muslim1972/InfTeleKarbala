@@ -86,26 +86,44 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         setHasSearched(false);
     }, [employeeId, employeeName]);
 
-    // Highlight effect logic
+    // Refresh data when a new highlight is requested
     useEffect(() => {
         if (highlightRequestId) {
-            setActiveHighlightId(highlightRequestId);
-            
-            // Scroll to the highlighted element if exists
-            setTimeout(() => {
-                const element = document.getElementById(`request-${highlightRequestId}`);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 500);
-
-            // Clear highlight after 5 seconds
-            const timer = setTimeout(() => {
-                setActiveHighlightId(null);
-            }, 5000);
-            return () => clearTimeout(timer);
+            fetchAllApprovedRequests();
+            fetchPendingCutApprovals();
         }
     }, [highlightRequestId]);
+
+    // Highlight and Scroll effect logic - robust version
+    useEffect(() => {
+        let timeoutId: any;
+        let clearId: any;
+
+        if (highlightRequestId && !isLoadingApproved && !isLoadingCutApprovals) {
+            setActiveHighlightId(highlightRequestId);
+            
+            // Give the DOM a moment to render the new records
+            timeoutId = setTimeout(() => {
+                const element = document.getElementById(`request-${highlightRequestId}`);
+                if (element) {
+                    console.log("🎯 AdminLeaveRequests: Scrolling to element", highlightRequestId);
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Clear the highlight after 5 seconds of visibility
+                    clearId = setTimeout(() => {
+                        setActiveHighlightId(null);
+                    }, 5000);
+                } else {
+                    console.error("❌ AdminLeaveRequests: Element not found for ID:", highlightRequestId);
+                }
+            }, 500); // Increased slightly for safer margin
+        }
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (clearId) clearTimeout(clearId);
+        };
+    }, [highlightRequestId, isLoadingApproved, isLoadingCutApprovals, approvedRecords, cutApprovalRecords]);
 
     // Debounced search for archive section
     useEffect(() => {
