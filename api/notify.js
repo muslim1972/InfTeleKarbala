@@ -42,10 +42,7 @@ export default async function handler(req, res) {
         android_sound: "notification",
         ios_sound: "notification.wav",
         priority: 10,
-        data: data || {},
-        android_channel_id: "default", // Force creation of default channel
-        priority: 10, // High priority
-        android_visibility: 1, // Public
+        android_visibility: 1,
         ios_badgeType: "Increase",
         ios_badgeCount: 1,
         ttl: 3600, // 1 hour time to live
