@@ -274,9 +274,9 @@ export const AppNotifications = () => {
             });
         }
         setShowModal(false);
-        // Dispatching custom event with employeeId for automatic search/stand on request
+        // Dispatching custom event with employeeId and requestId for automatic search and highlight
         const event = new CustomEvent('navigate_to_hr_requests', {
-            detail: { employeeId }
+            detail: { employeeId, requestId }
         });
         window.dispatchEvent(event);
     };

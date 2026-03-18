@@ -127,12 +127,18 @@ export const AdminDashboard = () => {
         fetchFieldPermissions();
     }, []);
 
+    const [highlightRequestId, setHighlightRequestId] = useState<string | null>(null);
+
     // Handle automated navigation from notifications
     useEffect(() => {
         const handleNotificationNavigation = (e: any) => {
             console.log("🔔 AdminDashboard: Navigation event received", e.detail);
             setActiveTab('admin_requests');
             
+            if (e.detail?.requestId) {
+                setHighlightRequestId(e.detail.requestId);
+            }
+
             if (e.detail?.employeeId) {
                 // If an employee ID is provided, load their data to "stand on their request"
                 loadEmployeeData({ id: e.detail.employeeId });
@@ -1549,6 +1555,7 @@ export const AdminDashboard = () => {
                         <AdminLeaveRequests
                             employeeId={selectedEmployee?.id}
                             employeeName={selectedEmployee?.full_name}
+                            highlightRequestId={highlightRequestId}
                         />
                     </div>
                 )

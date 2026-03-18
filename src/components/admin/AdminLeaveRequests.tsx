@@ -7,6 +7,7 @@ import { generateLeavePDF } from '../../utils/pdfGenerator';
 interface AdminLeaveRequestsProps {
     employeeId?: string;
     employeeName?: string;
+    highlightRequestId?: string | null;
 }
 
 interface LeaveRecord {
@@ -37,8 +38,9 @@ interface LeaveRecord {
     cancellation_status?: string;
 }
 
-export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveRequestsProps) => {
+export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestId }: AdminLeaveRequestsProps) => {
     const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
+    const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
     // Approved requests state (all employees)
     const [isLoadingApproved, setIsLoadingApproved] = useState(true);
@@ -83,6 +85,27 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
         setArchiveRecords([]);
         setHasSearched(false);
     }, [employeeId, employeeName]);
+
+    // Highlight effect logic
+    useEffect(() => {
+        if (highlightRequestId) {
+            setActiveHighlightId(highlightRequestId);
+            
+            // Scroll to the highlighted element if exists
+            setTimeout(() => {
+                const element = document.getElementById(`request-${highlightRequestId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 500);
+
+            // Clear highlight after 5 seconds
+            const timer = setTimeout(() => {
+                setActiveHighlightId(null);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightRequestId]);
 
     // Debounced search for archive section
     useEffect(() => {
@@ -477,6 +500,18 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                     }
                     #print-section * { visibility: visible !important; }
                 }
+
+                @keyframes pulse-highlight {
+                    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); border-color: #4f46e5; }
+                    50% { transform: scale(1.02); box-shadow: 0 0 20px 10px rgba(79, 70, 229, 0); border-color: #818cf8; }
+                    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); border-color: #4f46e5; }
+                }
+                .highlight-request {
+                    animation: pulse-highlight 1.5s ease-in-out infinite;
+                    border: 2px solid #4f46e5 !important;
+                    z-index: 10;
+                    position: relative;
+                }
             `}</style>
 
             {/* Hidden Print Layout */}
@@ -600,7 +635,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 ) : cutApprovalRecords.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {cutApprovalRecords.map(record => (
-                            <div key={record.id} className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col justify-between">
+                            <div 
+                                key={record.id} 
+                                id={`request-${record.id}`}
+                                className={`bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col justify-between transition-all duration-500 ${record.id === activeHighlightId ? 'highlight-request' : ''}`}
+                            >
                                 <div>
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-2">
@@ -691,7 +730,11 @@ export const AdminLeaveRequests = ({ employeeId, employeeName }: AdminLeaveReque
                 ) : approvedRecords.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {approvedRecords.map(record => (
-                            <div key={record.id} className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col justify-between">
+                            <div 
+                                key={record.id} 
+                                id={`request-${record.id}`}
+                                className={`bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col justify-between transition-all duration-500 ${record.id === activeHighlightId ? 'highlight-request' : ''}`}
+                            >
                                 <div>
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-2">
