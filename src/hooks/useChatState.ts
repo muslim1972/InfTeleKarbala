@@ -228,18 +228,22 @@ export function useChatState(conversationId: string) {
 
       if (error) throw error;
 
-      // 3. Update conversation last_message and clear deleted_by so it revives for others
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: text,
-          last_message_at: new Date().toISOString()
-          // Removed deleted_by: [] to ensure chats don't reappear after deletion
-        })
-        .eq('id', conversationId);
-
-      // 4. IMPORTANT: Clear sending state IMMEDIATELY so UI is responsive
+      // IMPORTANT: Clear sending state IMMEDIATELY so UI is responsive
       setIsSending(false);
+
+      // 3. Update conversation last_message and clear deleted_by so it revives for others
+      try {
+        await supabase
+          .from('conversations')
+          .update({
+            last_message: text,
+            last_message_at: new Date().toISOString(),
+            deleted_by: [] // إحياء المحادثة لدى الطرفين بمجرد وصول رسالة جديدة
+          })
+          .eq('id', conversationId);
+      } catch (convErr) {
+        console.error('Failed to update conversation state:', convErr);
+      }
 
       // 5. Send Push Notification to recipients (Fire and forget in background)
       (async () => {
@@ -264,7 +268,7 @@ export function useChatState(conversationId: string) {
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('فشل إرسال الرسالة');
-      // Remove optimistic message on failure
+      // Remove optimistic message on failure ONLY if insertion failed
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       setNewMessage(text); // Restore text
       setIsSending(false); // Ensure cleared
@@ -332,32 +336,43 @@ export function useChatState(conversationId: string) {
       ));
 
       // 5. Update conversation
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: '🎤 رسالة صوتية',
-          last_message_at: new Date().toISOString(),
-          deleted_by: [],
-        })
-        .eq('id', conversationId);
+      try {
+        await supabase
+          .from('conversations')
+          .update({
+            last_message: '🎤 رسالة صوتية',
+            last_message_at: new Date().toISOString(),
+            deleted_by: [], // إحياء المحادثة لدى الطرفين
+          })
+          .eq('id', conversationId);
+      } catch (convErr) {
+        console.error('Failed to update conversation state:', convErr);
+      }
 
       // 6. Send Push Notification to recipients
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('participants')
-        .eq('id', conversationId)
-        .single();
+      (async () => {
+        try {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .select('participants')
+            .eq('id', conversationId)
+            .single();
 
-      if (convData?.participants) {
-        const recipients = (convData.participants as string[]).filter(id => id !== user.id);
-        for (const recipientId of recipients) {
-            sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
+          if (convData?.participants) {
+            const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+            for (const recipientId of recipients) {
+                sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
+            }
+          }
+        } catch (err) {
+          console.error('Background notification error:', err);
         }
-      }
+      })();
 
     } catch (error) {
       console.error('Error sending voice message:', error);
       toast.error('فشل إرسال الرسالة الصوتية');
+      // Remove optimistic message ONLY if insert failed
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       // Cleanup uploaded file on failure
       supabase.storage.from('voice-messages').remove([filePath]).catch(() => {});
