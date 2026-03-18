@@ -116,7 +116,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 } else {
                     console.error("❌ AdminLeaveRequests: Element not found for ID:", highlightRequestId);
                 }
-            }, 500); // Increased slightly for safer margin
+            }, 50); // Reduced for instant feel
         }
 
         return () => {
