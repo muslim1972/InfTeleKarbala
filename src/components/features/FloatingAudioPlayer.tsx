@@ -5,6 +5,8 @@ import { Play, Pause, X } from 'lucide-react';
 import { useAudio } from "../../context/AudioContext";
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface FloatingAudioPlayerProps {
     className?: string;
@@ -21,25 +23,46 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
         isQuranPlayerVisible
     } = useAudio();
     const { theme } = useTheme();
+    const { user } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const isChat = location.pathname.startsWith('/chat/');
 
     if (!currentTrack || hide || isQuranPlayerVisible) return null;
+
+    const handlePlayerClick = (e: React.MouseEvent) => {
+        // Prevent navigation if clicking buttons
+        if ((e.target as HTMLElement).closest('button')) return;
+
+        const isAdmin = user?.role === 'admin';
+        const targetTab = isAdmin ? 'admin_audio' : 'audio';
+        
+        // Navigate to root with tab parameter
+        navigate(`/?tab=${targetTab}`);
+    };
 
     return (
         <AnimatePresence>
             <motion.div
-                initial={{ y: 20, opacity: 0 }}
+                initial={{ y: isChat ? -20 : 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 20, opacity: 0 }}
+                exit={{ y: isChat ? -20 : 20, opacity: 0 }}
+                onClick={handlePlayerClick}
                 className={cn(
-                    "fixed bottom-[6px] left-4 z-[100] group",
+                    "fixed z-[100] group transition-all duration-500 cursor-pointer",
+                    isChat 
+                        ? "top-[10px] left-14" 
+                        : "bottom-[6px] left-4",
                     className
                 )}
             >
                 <div className={cn(
                     "relative overflow-hidden rounded-lg border backdrop-blur-md shadow-lg transition-all duration-300",
-                    theme === 'light' 
-                        ? "bg-white/90 border-gray-200" 
-                        : "bg-slate-900/90 border-blue-500/30"
+                    isChat
+                        ? "bg-emerald-50/80 border-emerald-200"
+                        : theme === 'light' 
+                            ? "bg-white/90 border-gray-200" 
+                            : "bg-slate-900/90 border-blue-500/30"
                 )}>
                     {/* Progress Line */}
                     <motion.div 

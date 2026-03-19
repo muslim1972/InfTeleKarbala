@@ -69,9 +69,9 @@ export const DashboardHeader = ({
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
             { id: 'admin_departments', label: 'الهيكلية الإدارية' },
             ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
+            { id: 'admin_audio', label: 'القرآن الكريم' },
             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }]),
-            { id: 'admin_audio', label: 'القرآن الكريم' }
+            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }])
         ];
 
         return allTabs;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User } from "lucide-react";
@@ -27,6 +27,7 @@ import { AudioHub } from "../components/features/AudioHub";
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const location = useLocation();
 
@@ -41,6 +42,18 @@ export const AdminDashboard = () => {
 
     const defaultTab = location.state?.activeTab || baseTab;
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio'>(defaultTab as any);
+
+    // Handle initial tab from URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'admin_audio') {
+            setActiveTab('admin_audio');
+            // Clean up the URL
+            searchParams.delete('tab');
+            setSearchParams(searchParams, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
+
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",

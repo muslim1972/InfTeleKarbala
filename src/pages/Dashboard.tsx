@@ -46,8 +46,11 @@ const itemVariants = {
     show: { opacity: 1, y: 0 }
 };
 
+import { useSearchParams } from "react-router-dom";
+
 export const Dashboard = () => {
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio'>('financial');
 
     // Data State
@@ -58,6 +61,17 @@ export const Dashboard = () => {
 
     // UI State for Collapsible Sections
     const [openSection, setOpenSection] = useState<string | null>(null);
+
+    // Handle initial tab from URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'audio') {
+            setActiveTab('audio');
+            // Clean up the URL
+            searchParams.delete('tab');
+            setSearchParams(searchParams, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     // Navigation Listener for Notifications
     useEffect(() => {
