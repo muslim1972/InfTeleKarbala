@@ -22,7 +22,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'training', label: 'التدريب الصيفي', icon: BookOpen },
-        { id: 'audio', label: 'واحة النغم', icon: Music },
+        { id: 'audio', label: 'القرآن الكريم', icon: Music },
     ] as const;
 
     const tabs = baseTabs.filter(tab => {

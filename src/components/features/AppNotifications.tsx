@@ -115,9 +115,7 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = user.admin_role === 'hr' ||
-            user.full_name?.includes('مسلم عقيل') ||
-            user.full_name?.includes('مسلم قيل');
+        const isAllowedRole = user.admin_role === 'hr';
 
         if (!isAllowedRole) return;
 

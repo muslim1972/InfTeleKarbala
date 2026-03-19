@@ -400,7 +400,7 @@ export const Dashboard = () => {
     const headerContent = (
         <div className="flex flex-col gap-2 w-full">
             <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
-            {(activeTab !== 'polls' && activeTab !== 'requests' && activeTab !== 'training') && (
+            {(activeTab === 'financial' || activeTab === 'administrative') && (
                 <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
             )}
         </div>
