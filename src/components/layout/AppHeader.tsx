@@ -4,6 +4,7 @@ import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { useTheme } from "../../context/ThemeContext";
+import { getRoleLabel } from "../../utils/formatRoles";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
@@ -52,7 +53,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                         </h2>
                                         <p className={`text-[10px] font-cairo ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
                                             }`}>
-                                            {user?.role === 'admin' ? 'مدير النظام' : 'الحساب الشخصي'}
+                                            {getRoleLabel(user)}
                                         </p>
                                     </div>
                                 )}

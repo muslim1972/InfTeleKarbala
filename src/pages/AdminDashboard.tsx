@@ -23,6 +23,7 @@ import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
 import { TabManageEmployees } from "../components/admin/dashboard/TabManageEmployees";
 import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
 import { AudioHub } from "../components/features/AudioHub";
+import { SupervisorPermissions } from "../components/admin/SupervisorPermissions";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
@@ -159,7 +160,7 @@ export const AdminDashboard = () => {
         const handleNotificationNavigation = (e: any) => {
             console.log("🔔 AdminDashboard: Navigation event received", e.detail);
             setActiveTab('admin_requests');
-            
+
             if (e.detail?.requestId) {
                 setHighlightRequestId(e.detail.requestId);
             }
@@ -254,7 +255,7 @@ export const AdminDashboard = () => {
                 return;
             }
 
-// setIsSearching(true);
+            // setIsSearching(true);
             try {
                 console.log("Searching for:", query); // Debug
                 // Search by job number OR full name (only at start)
@@ -279,7 +280,7 @@ export const AdminDashboard = () => {
                 setSuggestions([]);
                 setShowSuggestions(false);
             } finally {
-// setIsSearching(false);
+                // setIsSearching(false);
             }
         }, 300); // 300ms debounce
 
@@ -1303,7 +1304,7 @@ export const AdminDashboard = () => {
 
     // Updated Header Component
     const dashboardHeader = (
-        <DashboardHeader 
+        <DashboardHeader
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             currentUser={currentUser}
@@ -1341,7 +1342,7 @@ export const AdminDashboard = () => {
 
             {/* TAB: Add Employee */}
             {activeTab === 'admin_add' && (
-                <TabAddEmployee 
+                <TabAddEmployee
                     formData={formData}
                     setFormData={setFormData}
                     isRoleEditable={isRoleEditable}
@@ -1530,18 +1531,7 @@ export const AdminDashboard = () => {
                             color="from-amber-600 to-yellow-500"
                             onToggle={() => toggleSection('sup_permissions')}
                         >
-                            <div className="p-4 space-y-4">
-                                <div className={cn(
-                                    "rounded-xl border p-6 text-center",
-                                    theme === 'light'
-                                        ? "bg-amber-50/50 border-amber-200/40"
-                                        : "bg-amber-950/20 border-amber-500/10"
-                                )}>
-                                    <Shield className={cn("w-12 h-12 mx-auto mb-3", theme === 'light' ? "text-amber-500/40" : "text-amber-500/30")} />
-                                    <h3 className={cn("font-bold text-sm mb-1", theme === 'light' ? "text-amber-800" : "text-amber-300")}>إدارة صلاحيات المشرفين</h3>
-                                    <p className={cn("text-xs", theme === 'light' ? "text-amber-700/60" : "text-amber-400/40")}>تعيين المشرفين وتحديد صلاحيات الوصول والتدقيق لكل مشرف</p>
-                                </div>
-                            </div>
+                            <SupervisorPermissions theme={theme} />
                         </AccordionSection>
 
                         {/* Section 2: تدقيق مخصص */}

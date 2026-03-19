@@ -17,6 +17,7 @@ import { formatDateTime } from "../utils/formatDate";
 import { AppNotifications } from "../components/features/AppNotifications";
 import { SalaryCalculator } from "../components/features/SalaryCalculator";
 import { AudioHub } from "../components/features/AudioHub";
+import { getRoleLabel } from "../utils/formatRoles";
 
 // Interface for Financial Fields
 interface FinancialField {
@@ -364,6 +365,7 @@ export const Dashboard = () => {
             icon: User,
             color: 'from-blue-600 to-blue-500',
             fields: [
+                { key: 'permission_level', label: 'مستوى الصلاحية', superHighlight: true },
                 { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
                 { key: 'department_name', label: 'مكان العمل' },
                 { key: 'direct_manager', label: 'المسؤول المباشر' },
@@ -503,6 +505,8 @@ export const Dashboard = () => {
                                                             val = departmentInfo.name;
                                                         } else if (field.key === 'direct_manager') {
                                                             val = departmentInfo.managerName;
+                                                        } else if (field.key === 'permission_level') {
+                                                            val = getRoleLabel(user);
                                                         } else {
                                                             val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
                                                         }
