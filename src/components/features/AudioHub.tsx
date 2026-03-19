@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, useMotionTemplate } from "framer-motion";
 import { 
     Play, 
     Pause, 
@@ -60,7 +60,22 @@ export const AudioHub = () => {
     const [isDownloading, setIsDownloading] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
+    const glowIntensity = useMotionValue(0);
+    const glowOpacity = useMotionValue(0.2);
+    const glowScaleX = useMotionValue(0.9);
+    const glowScaleY = useMotionValue(1);
+
+    // Reactive Transforms for best performance (No re-renders)
+    const dynamicShadow = useTransform(
+        glowIntensity, 
+        [0, 45], 
+        ["0px 0px 0px 0px rgba(34, 197, 94, 0)", "0px 0px 60px 12px rgba(34, 197, 94, 0.5)"]
+    );
+
+    const color1 = useTransform(glowIntensity, [0, 45], ["#22c55e", "#4ade80"]);
+    const color2 = useTransform(glowIntensity, [0, 45], ["#16a34a", "#22c55e"]);
+    const dynamicGradient = useMotionTemplate`linear-gradient(90deg, ${color1} 0%, ${color2} 50%, ${color1} 100%)`;
+
     const audioRef = useRef<HTMLAudioElement>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -96,7 +111,32 @@ export const AudioHub = () => {
             if (analyserRef.current && isPlaying) {
                 const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
                 analyserRef.current.getByteFrequencyData(dataArray);
-                setAudioData(dataArray);
+
+                // Calculate Breathing Glow Effect
+                const startBin = 5;
+                const endBin = 45;
+                let sum = 0;
+                for (let i = startBin; i < endBin; i++) {
+                    sum += dataArray[i];
+                }
+                const avg = sum / (endBin - startBin);
+                
+                // Diagnostic Log (Can be removed after verification)
+                if (avg > 0 && Math.random() > 0.98) console.log("Audio Visualizer Activity:", avg);
+
+                // Significantly more aggressive scaling to ensure visibility
+                const normalized = Math.min(1, Math.pow(avg / 150, 0.6));
+
+                // Directly set MotionValues (No re-renders!)
+                glowOpacity.set(0.3 + (normalized * 0.7));
+                glowIntensity.set(normalized * 50); 
+                glowScaleX.set(0.95 + (normalized * 0.15));
+                glowScaleY.set(1 + (normalized * 4)); // Dramatic thickness increase
+            } else if (!isPlaying) {
+                glowOpacity.set(0.2);
+                glowIntensity.set(0);
+                glowScaleX.set(0.95);
+                glowScaleY.set(1);
             }
             animationRef.current = requestAnimationFrame(updateData);
         };
@@ -226,33 +266,6 @@ export const AudioHub = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Calculate bars from audio data - Symmetric for full bar interaction
-    const barsData = useMemo(() => {
-        const numBars = 50; // Use fixed 50 bars for better visual balance
-        if (audioData.length === 0) return [...Array(numBars)].map(() => 4);
-        
-        const bars = new Array(numBars);
-        const half = Math.floor(numBars / 2);
-        
-        // Focus on vocal frequencies (first 30 bins roughly)
-        const activeBins = 30; 
-        const step = activeBins / half;
-
-        for (let i = 0; i < half; i++) {
-            const binIdx = Math.floor(i * step);
-            const val = audioData[binIdx];
-            
-            // Apply a nice outward slope profile
-            const weight = 0.5 + (i / half) * 0.5;
-            const height = Math.max(4, (val / 255) * 55 * weight);
-            
-            // Fill symmetrically from center to sides
-            bars[half + i] = height; // Right side
-            bars[half - 1 - i] = height; // Left side
-        }
-        return bars;
-    }, [audioData]);
-
     return (
         <div className="w-full max-w-4xl mx-auto space-y-3 pb-20 px-2">
             {/* High-End Interactive Player Card */}
@@ -289,31 +302,34 @@ export const AudioHub = () => {
                     <div className="absolute top-0 right-0 w-80 h-80 bg-brand-green/10 rounded-full -mr-40 -mt-40 blur-3xl animate-pulse pointer-events-none" />
                     
                     <div className="flex flex-col items-center gap-4 relative z-10 w-full">
-                        {/* Audio Visualization Replacement - Horizontal Bars */}
-                        <div className="w-full h-20 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/10 flex items-center justify-center px-4 overflow-hidden group">
-                            <div className="flex items-center gap-0.5 h-14 w-full justify-center">
-                                {barsData.map((height, i) => (
-                                    <motion.div
-                                        key={i}
-                                        animate={{ height: height }}
-                                        transition={{ 
-                                            type: "spring",
-                                            bounce: 0.5,
-                                            duration: 0.1
-                                        }}
-                                        className={cn(
-                                            "w-1 min-w-[2px] rounded-full shadow-[0_0_15px_rgba(34,197,94,0.2)] transition-colors",
-                                            isPlaying ? "bg-brand-green" : "bg-slate-300 dark:bg-white/10"
-                                        )}
-                                    />
-                                ))}
-                                {!isPlaying && audioData.length === 0 && (
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <Music size={20} className="text-brand-green/20 animate-pulse" />
-                                        <span className="text-[8px] font-black tracking-[0.2em] uppercase opacity-30 mr-2">بانتظار التشغيل</span>
-                                    </div>
-                                )}
-                            </div>
+                        {/* Audio Visualization - Breathing Glow Effect */}
+                        <div className="w-full h-16 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/10 flex items-center justify-center px-12 overflow-hidden group">
+                            <motion.div
+                                style={{
+                                    opacity: glowOpacity,
+                                    scaleX: glowScaleX,
+                                    scaleY: glowScaleY,
+                                    boxShadow: dynamicShadow,
+                                    background: dynamicGradient
+                                }}
+                                className="w-full h-1 bg-brand-green rounded-full shadow-[0_0_20px_rgba(34,197,94,0.3)] relative"
+                            >
+                                {/* Immersive Pulse Glow */}
+                                <motion.div 
+                                    style={{ 
+                                        opacity: glowOpacity,
+                                        boxShadow: dynamicShadow,
+                                        scaleY: 1.5
+                                    }}
+                                    className="absolute inset-0 bg-white/10 rounded-full blur-[2px]"
+                                />
+                            </motion.div>
+                            {!isPlaying && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <Music size={14} className="text-brand-green/20 animate-pulse" />
+                                    <span className="text-[7px] font-black tracking-[0.2em] uppercase opacity-30 mr-2">جاهز للتلاوة</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Player Context & Controls */}
