@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
@@ -23,6 +22,7 @@ import { TabAddEmployee } from "../components/admin/dashboard/TabAddEmployee";
 import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
 import { TabManageEmployees } from "../components/admin/dashboard/TabManageEmployees";
 import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
+import { AudioHub } from "../components/features/AudioHub";
 
 export const AdminDashboard = () => {
     const { user: currentUser } = useAuth();
@@ -40,7 +40,7 @@ export const AdminDashboard = () => {
     else if (canAddEmployee) baseTab = 'admin_add';
 
     const defaultTab = location.state?.activeTab || baseTab;
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio'>(defaultTab as any);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",
@@ -1557,6 +1557,15 @@ export const AdminDashboard = () => {
                             employeeName={selectedEmployee?.full_name}
                             highlightRequestId={highlightRequestId}
                         />
+                    </div>
+                )
+            }
+
+            {/* ======= القرآن الكريم TAB ======= */}
+            {
+                activeTab === 'admin_audio' && (
+                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                        <AudioHub />
                     </div>
                 )
             }

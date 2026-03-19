@@ -8,6 +8,9 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
+import { AudioProvider } from "./context/AudioContext";
+import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
+import { ChatProvider } from "./context/ChatContext";
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -76,8 +79,6 @@ const AppContent = () => {
 
 const ChatLayout = lazy(() => import("./components/chat/ChatLayout").then(m => ({ default: m.ChatLayout })));
 
-import { ChatProvider } from "./context/ChatContext";
-
 // Protected Routes logic
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -90,19 +91,22 @@ function App() {
   return (
     <div dir="rtl">
       <AuthProvider>
-        <ChatProvider>
-          <Toaster position="top-center" reverseOrder={false} />
-          <Suspense fallback={<LoadingScreen />}>
-            <Routes>
-              <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
-                <Route path=":conversationId" element={null} />
-              </Route>
-              <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
-              <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
-              <Route path="/*" element={<AppContent />} />
-            </Routes>
-          </Suspense>
-        </ChatProvider>
+        <AudioProvider>
+          <ChatProvider>
+            <Toaster position="top-center" reverseOrder={false} />
+            <Suspense fallback={<LoadingScreen />}>
+              <Routes>
+                <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
+                  <Route path=":conversationId" element={null} />
+                </Route>
+                <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
+                <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
+                <Route path="/*" element={<AppContent />} />
+              </Routes>
+            </Suspense>
+            <FloatingAudioPlayer />
+          </ChatProvider>
+        </AudioProvider>
       </AuthProvider>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, useMotionTemplate } from "framer-motion";
+import { motion, AnimatePresence, useTransform, useMotionTemplate } from "framer-motion";
 import { 
     Play, 
     Pause, 
@@ -19,51 +19,42 @@ import {
 } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { cn } from "../../lib/utils";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const BUCKET_NAME = "quran";
-
-// Surah Names List
-const SURAH_NAMES = [
-    "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
-    "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
-    "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
-    "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر",
-    "فصلت", "الشورى", "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق",
-    "الذاريات", "الطور", "النجم", "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة",
-    "الصف", "الجمعة", "المنافقون", "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج",
-    "نوح", "الجن", "المزمل", "المدثر", "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس",
-    "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد",
-    "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", "البينة", "الزلزلة", "العاديات",
-    "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", "الكوثر", "الكافرون", "النصر",
-    "المسد", "الإخلاص", "الفلق", "الناس"
-];
-
-interface Track {
-    id: string;
-    title: string;
-    index: number;
-    url: string;
-    type: 'app' | 'local';
-}
+import { useAudio, type Track } from "../../context/AudioContext";
 
 export const AudioHub = () => {
+    const {
+        isPlaying,
+        currentTrack,
+        progress,
+        duration,
+        currentTime,
+        volume,
+        isMuted,
+        glowIntensity,
+        playTrack,
+        togglePlay,
+        playNext,
+        playPrev,
+        setVolume,
+        setIsMuted,
+        seek,
+        setIsQuranPlayerVisible,
+        quranTracks
+    } = useAudio();
+
     const [mode, setMode] = useState<'app' | 'local'>('app');
-    const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
     const [cachedIds, setCachedIds] = useState<Set<string>>(new Set());
     const [isDownloading, setIsDownloading] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const glowIntensity = useMotionValue(0);
-    const glowOpacity = useMotionValue(0.2);
-    const glowScaleX = useMotionValue(0.9);
-    const glowScaleY = useMotionValue(1);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Visibility Management
+    useEffect(() => {
+        setIsQuranPlayerVisible(true);
+        return () => setIsQuranPlayerVisible(false);
+    }, [setIsQuranPlayerVisible]);
 
     // Reactive Transforms for best performance (No re-renders)
     const dynamicShadow = useTransform(
@@ -76,98 +67,10 @@ export const AudioHub = () => {
     const color2 = useTransform(glowIntensity, [0, 45], ["#16a34a", "#22c55e"]);
     const dynamicGradient = useMotionTemplate`linear-gradient(90deg, ${color1} 0%, ${color2} 50%, ${color1} 100%)`;
 
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const animationRef = useRef<number | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-    // Audio Context & Analyser Setup
-    useEffect(() => {
-        if (!audioRef.current) return;
-        
-        const initAudio = () => {
-            if (audioContextRef.current) return;
-            
-            try {
-                const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
-                const ctx = new AudioContextClass();
-                const analyser = ctx.createAnalyser();
-                const source = ctx.createMediaElementSource(audioRef.current!);
-                
-                source.connect(analyser);
-                analyser.connect(ctx.destination);
-                
-                analyser.fftSize = 256;
-                analyserRef.current = analyser;
-                audioContextRef.current = ctx;
-            } catch (err) {
-                console.error("Audio API init failed:", err);
-            }
-        };
-
-        const updateData = () => {
-            if (analyserRef.current && isPlaying) {
-                const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-                analyserRef.current.getByteFrequencyData(dataArray);
-
-                // Calculate Breathing Glow Effect
-                const startBin = 5;
-                const endBin = 45;
-                let sum = 0;
-                for (let i = startBin; i < endBin; i++) {
-                    sum += dataArray[i];
-                }
-                const avg = sum / (endBin - startBin);
-                
-                // Diagnostic Log (Can be removed after verification)
-                if (avg > 0 && Math.random() > 0.98) console.log("Audio Visualizer Activity:", avg);
-
-                // Significantly more aggressive scaling to ensure visibility
-                const normalized = Math.min(1, Math.pow(avg / 150, 0.6));
-
-                // Directly set MotionValues (No re-renders!)
-                glowOpacity.set(0.3 + (normalized * 0.7));
-                glowIntensity.set(normalized * 50); 
-                glowScaleX.set(0.95 + (normalized * 0.15));
-                glowScaleY.set(1 + (normalized * 4)); // Dramatic thickness increase
-            } else if (!isPlaying) {
-                glowOpacity.set(0.2);
-                glowIntensity.set(0);
-                glowScaleX.set(0.95);
-                glowScaleY.set(1);
-            }
-            animationRef.current = requestAnimationFrame(updateData);
-        };
-
-        if (isPlaying) {
-            initAudio();
-            if (audioContextRef.current?.state === 'suspended') {
-                audioContextRef.current.resume();
-            }
-            updateData();
-        } else {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
-        }
-
-        return () => {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
-        };
-    }, [isPlaying]);
-
-    // Generate tracks based on the user's naming pattern: sura (x).mp3
-    const quranTracks = useMemo(() => {
-        return SURAH_NAMES.map((name, i) => ({
-            id: `sura-${i + 1}`,
-            title: `سورة ${name}`,
-            index: i + 1,
-            url: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/sura (${i + 1}).mp3`,
-            type: 'app' as const
-        }));
-    }, []);
+    // Glow visuals based on intensity
+    const glowOpacity = useTransform(glowIntensity, [0, 50], [0.2, 0.9]);
+    const glowScaleX = useTransform(glowIntensity, [0, 50], [0.95, 1.1]);
+    const glowScaleY = useTransform(glowIntensity, [0, 50], [1, 5]);
 
     const filteredTracks = useMemo(() => {
         if (!searchQuery.trim()) return quranTracks;
@@ -207,43 +110,6 @@ export const AudioHub = () => {
         }
     };
 
-    const selectTrack = (track: Track) => {
-        setCurrentTrack(track);
-        setIsPlaying(true);
-        if (audioRef.current) {
-            audioRef.current.src = track.url;
-            audioRef.current.play().catch(() => {});
-        }
-    };
-
-    const togglePlay = () => {
-        if (audioRef.current) {
-            if (isPlaying) audioRef.current.pause();
-            else audioRef.current.play().catch(() => {});
-            setIsPlaying(!isPlaying);
-        }
-    };
-
-    const playNext = () => {
-        if (!currentTrack || currentTrack.type !== 'app') return;
-        const idx = quranTracks.findIndex(t => t.id === currentTrack.id);
-        if (idx < quranTracks.length - 1) selectTrack(quranTracks[idx + 1]);
-    };
-
-    const playPrev = () => {
-        if (!currentTrack || currentTrack.type !== 'app') return;
-        const idx = quranTracks.findIndex(t => t.id === currentTrack.id);
-        if (idx > 0) selectTrack(quranTracks[idx - 1]);
-    };
-
-    const handleTimeUpdate = () => {
-        if (audioRef.current) {
-            setCurrentTime(audioRef.current.currentTime);
-            setDuration(audioRef.current.duration);
-            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-        }
-    };
-
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -255,7 +121,7 @@ export const AudioHub = () => {
                 url: localUrl,
                 type: 'local'
             };
-            selectTrack(newTrack);
+            playTrack(newTrack);
         }
     };
 
@@ -357,13 +223,7 @@ export const AudioHub = () => {
                                         min="0" 
                                         max="100" 
                                         value={progress || 0} 
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (audioRef.current) {
-                                                audioRef.current.currentTime = (val / 100) * audioRef.current.duration;
-                                                setProgress(val);
-                                            }
-                                        }} 
+                                        onChange={(e) => seek(parseFloat(e.target.value))} 
                                         className="w-full h-1 bg-slate-200 dark:bg-white/10 rounded-full appearance-none cursor-pointer accent-brand-green hover:h-1.5 transition-all"
                                     />
                                 </div>
@@ -401,7 +261,6 @@ export const AudioHub = () => {
                                                 const v = parseFloat(e.target.value);
                                                 setVolume(v);
                                                 setIsMuted(v === 0);
-                                                if (audioRef.current) audioRef.current.volume = v;
                                             }} 
                                             className="w-16 h-0.5 accent-brand-green" 
                                         />
@@ -453,7 +312,7 @@ export const AudioHub = () => {
                                         <motion.div 
                                             key={track.id}
                                             whileHover={{ y: -1 }}
-                                            onClick={() => selectTrack(track)}
+                                            onClick={() => playTrack(track)}
                                             className={cn(
                                                 "p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-2 group relative overflow-hidden",
                                                 isSelected 
@@ -521,13 +380,6 @@ export const AudioHub = () => {
                     )}
                 </motion.div>
             </AnimatePresence>
-
-            <audio 
-                ref={audioRef} 
-                onTimeUpdate={handleTimeUpdate} 
-                onEnded={() => { setIsPlaying(false); playNext(); }} 
-                crossOrigin="anonymous"
-            />
         </div>
     );
 };
