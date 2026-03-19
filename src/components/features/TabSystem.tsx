@@ -30,7 +30,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
             return user?.role === 'admin' || user?.can_view_requests === true;
         }
         if (tab.id === 'audio') {
-            return user?.job_number === '103130486';
+            return true;
         }
         return true;
     });

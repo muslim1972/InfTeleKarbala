@@ -226,23 +226,29 @@ export const AudioHub = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Calculate bars from audio data - Improved for full bar interaction
+    // Calculate bars from audio data - Symmetric for full bar interaction
     const barsData = useMemo(() => {
-        const numBars = 48; // Increased bar density
+        const numBars = 50; // Use fixed 50 bars for better visual balance
         if (audioData.length === 0) return [...Array(numBars)].map(() => 4);
         
-        const bars = [];
-        // Spread frequencies effectively across the bars
-        const samplingRange = Math.floor(audioData.length * 0.75); 
-        const step = samplingRange / numBars;
+        const bars = new Array(numBars);
+        const half = Math.floor(numBars / 2);
+        
+        // Focus on vocal frequencies (first 30 bins roughly)
+        const activeBins = 30; 
+        const step = activeBins / half;
 
-        for (let i = 0; i < numBars; i++) {
-            const idx = Math.floor(i * step);
-            const val = audioData[idx];
-            // Apply a slight parabolic scaling to make it look "modern" and full
-            const multiplier = 1 + Math.sin((i / numBars) * Math.PI) * 0.5;
-            const height = Math.max(4, (val / 255) * 55 * multiplier);
-            bars.push(height);
+        for (let i = 0; i < half; i++) {
+            const binIdx = Math.floor(i * step);
+            const val = audioData[binIdx];
+            
+            // Apply a nice outward slope profile
+            const weight = 0.5 + (i / half) * 0.5;
+            const height = Math.max(4, (val / 255) * 55 * weight);
+            
+            // Fill symmetrically from center to sides
+            bars[half + i] = height; // Right side
+            bars[half - 1 - i] = height; // Left side
         }
         return bars;
     }, [audioData]);
@@ -252,7 +258,7 @@ export const AudioHub = () => {
             {/* High-End Interactive Player Card */}
             <GlassCard className="p-0 overflow-hidden border-2 border-brand-green/30 shadow-2xl bg-gradient-to-br from-brand-green/10 via-background to-brand-green/5 ring-1 ring-white/10">
                 {/* Header Sub-tabs */}
-                <div className="flex bg-slate-100/50 dark:bg-black/40 border-b border-white/5 p-1">
+                <div className="flex bg-slate-100/50 dark:bg-black/40 border-b border-white/5 p-1 relative z-20">
                     <button 
                         onClick={() => setMode('app')} 
                         className={cn(
@@ -280,7 +286,7 @@ export const AudioHub = () => {
                 </div>
 
                 <div className="p-4 md:p-6 relative">
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-brand-green/10 rounded-full -mr-40 -mt-40 blur-3xl animate-pulse" />
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-brand-green/10 rounded-full -mr-40 -mt-40 blur-3xl animate-pulse pointer-events-none" />
                     
                     <div className="flex flex-col items-center gap-4 relative z-10 w-full">
                         {/* Audio Visualization Replacement - Horizontal Bars */}

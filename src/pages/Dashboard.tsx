@@ -418,7 +418,7 @@ export const Dashboard = () => {
                     <RequestsTabContent />
                 ) : activeTab === 'training' ? (
                     <TrainingTabContent />
-                ) : (activeTab === 'audio' && user?.job_number === '103130486') ? (
+                ) : activeTab === 'audio' ? (
                     <AudioHub />
                 ) : activeTab === 'financial' ? (
                     /* Financial Tab */
