@@ -235,7 +235,7 @@ export const AudioHub = () => {
 
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <div className="flex items-center gap-6">
-                                    <button onClick={playPrev} className="text-slate-400 hover:text-brand-green transition-all transform hover:scale-110"><SkipBack size={20} /></button>
+                                    <button onClick={playNext} className="text-slate-400 hover:text-brand-green transition-all transform hover:scale-110"><SkipForward size={20} /></button>
                                     <button 
                                         onClick={togglePlay} 
                                         className="w-14 h-14 rounded-full bg-brand-green text-white flex items-center justify-center shadow-lg shadow-brand-green/30 hover:scale-105 active:scale-95 transition-all group relative overflow-hidden"
@@ -243,7 +243,7 @@ export const AudioHub = () => {
                                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {isPlaying ? <Pause size={24} fill="white" /> : <Play size={24} fill="white" className="ml-1" />}
                                     </button>
-                                    <button onClick={playNext} className="text-slate-400 hover:text-brand-green transition-all transform hover:scale-110"><SkipForward size={20} /></button>
+                                    <button onClick={playPrev} className="text-slate-400 hover:text-brand-green transition-all transform hover:scale-110"><SkipBack size={20} /></button>
                                 </div>
 
                                 <div className="flex items-center gap-4 border-r border-white/10 pr-4">
