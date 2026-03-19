@@ -73,15 +73,26 @@ export const Dashboard = () => {
         }
     }, [searchParams, setSearchParams]);
 
-    // Navigation Listener for Notifications
+    // Handle tab switching via custom events (more reliable than URL params for global components)
     useEffect(() => {
-        const handleNavigate = () => {
+        const handleSwitchTab = (e: any) => {
+            if (e.detail?.tab === 'audio') {
+                setActiveTab('audio');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+        window.addEventListener('switch_dashboard_tab', handleSwitchTab);
+        
+        const handleNavigateToRequests = () => {
             setActiveTab('requests');
-            // Ensure we scroll to top to see records
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
-        window.addEventListener('navigate_to_user_requests', handleNavigate);
-        return () => window.removeEventListener('navigate_to_user_requests', handleNavigate);
+        window.addEventListener('navigate_to_user_requests', handleNavigateToRequests);
+
+        return () => {
+            window.removeEventListener('switch_dashboard_tab', handleSwitchTab);
+            window.removeEventListener('navigate_to_user_requests', handleNavigateToRequests);
+        };
     }, []);
 
     const toggleSection = (section: string) => {

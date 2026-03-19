@@ -54,6 +54,18 @@ export const AdminDashboard = () => {
         }
     }, [searchParams, setSearchParams]);
 
+    // Handle tab switching via custom events for reliable cross-component navigation
+    useEffect(() => {
+        const handleSwitchTab = (e: any) => {
+            if (e.detail?.tab === 'admin_audio') {
+                setActiveTab('admin_audio');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+        window.addEventListener('switch_dashboard_tab', handleSwitchTab);
+        return () => window.removeEventListener('switch_dashboard_tab', handleSwitchTab);
+    }, []);
+
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: "",

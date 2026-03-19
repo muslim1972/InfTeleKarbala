@@ -37,7 +37,12 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
         const isAdmin = user?.role === 'admin';
         const targetTab = isAdmin ? 'admin_audio' : 'audio';
         
-        // Navigate to root with tab parameter
+        // Dispatch custom event for instant tab switching if already on dashboard
+        window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { 
+            detail: { tab: targetTab } 
+        }));
+
+        // Also navigate to root with tab parameter for fallback/deep-linking
         navigate(`/?tab=${targetTab}`);
     };
 
