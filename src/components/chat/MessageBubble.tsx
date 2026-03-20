@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
@@ -7,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import useLongPress from '../../hooks/useLongPress';
 import { AudioPlayer } from './AudioPlayer';
 import { useChatSettings } from '../../hooks/useChatSettings';
+import { X } from 'lucide-react';
 
 interface MessageBubbleProps {
     message: Message;
@@ -227,25 +229,40 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 )}
             </div>
 
-            {/* Fullscreen Image Lightbox */}
-            {showLightbox && message.image_url && (
+            {/* Fullscreen Image Lightbox - Using Portal to break from stacking context */}
+            {showLightbox && message.image_url && createPortal(
                 <div
-                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[99999] bg-black flex items-center justify-center animate-in fade-in duration-300"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
                     onClick={() => setShowLightbox(false)}
                 >
+                    {/* Close Button - Even More Prominent */}
                     <button
-                        onClick={() => setShowLightbox(false)}
-                        className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all z-[101]"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowLightbox(false);
+                        }}
+                        className="absolute top-8 right-8 w-14 h-14 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-all z-[100000] backdrop-blur-md border border-white/40 shadow-2xl active:scale-90"
+                        title="إغلاق"
                     >
-                        <span className="text-2xl font-light">×</span>
+                        <X className="w-10 h-10" />
                     </button>
+
                     <img
                         src={message.image_url}
                         alt="عرض الصورة"
-                        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg"
+                        className="max-w-full max-h-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] select-none pointer-events-auto"
                         onClick={(e) => e.stopPropagation()}
                     />
-                </div>
+                    
+                    {/* Bottom hint to close */}
+                    <div className="absolute bottom-10 left-0 right-0 text-center pointer-events-none">
+                        <span className="bg-white/10 text-white/90 px-6 py-2.5 rounded-full text-sm font-medium backdrop-blur-md border border-white/20 shadow-lg">
+                            اضغط في أي مكان للخروج من العارض
+                        </span>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
