@@ -126,7 +126,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     /* Image Message */
                     <div className={cn(
                         "relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100/10 shadow-sm",
-                        !message.is_sending && "min-h-[150px] min-w-[150px]"
+                        !message.is_sending && "min-h-[200px] min-w-[200px]"
                     )}>
                         <img
                             src={message.image_url}

@@ -30,16 +30,26 @@ export function MessageList({
         scrollToBottom();
     }, [messages]);
 
-    // Extra scroll when images load to account for height changes
-    const handleImageLoad = () => {
-        // Only scroll if we are already near the bottom
+    // Track scroll height changes (for images loading, etc)
+    useEffect(() => {
         const container = scrollContainerRef.current;
-        if (container) {
+        if (!container) return;
+
+        const observer = new ResizeObserver(() => {
+            // If near bottom, snap to bottom
             const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 400;
             if (isNearBottom) {
-                scrollToBottom('auto'); // Use 'auto' to avoid jumping during bulk loads
+                scrollToBottom('auto');
             }
-        }
+        });
+
+        observer.observe(container.firstChild as Element || container);
+        return () => observer.disconnect();
+    }, []);
+
+    // Extra scroll when images load to account for height changes
+    const handleImageLoad = () => {
+        scrollToBottom('auto');
     };
 
     const renderBackground = () => (
