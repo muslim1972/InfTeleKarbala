@@ -456,16 +456,47 @@ export function useChatState(conversationId: string) {
   }, []);
 
   const deleteMessages = async () => {
-    if (selectedMessages.length === 0) return;
+    if (selectedMessages.length === 0 || !user) return;
 
     const toastId = toast.loading('جاري الحذف...');
     try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .in('id', selectedMessages);
+      // Split: own messages vs received messages
+      const ownMsgIds: string[] = [];
+      const receivedMsgIds: string[] = [];
 
-      if (error) throw error;
+      for (const msgId of selectedMessages) {
+        const msg = messages.find(m => m.id === msgId);
+        if (msg?.sender_id === user.id) {
+          ownMsgIds.push(msgId);
+        } else if (msg) {
+          receivedMsgIds.push(msgId);
+        }
+      }
+
+      console.log('[DeleteMessages] Own:', ownMsgIds, 'Received:', receivedMsgIds);
+
+      // Hard delete own messages (RLS allows this - same as before)
+      if (ownMsgIds.length > 0) {
+        const { error } = await supabase
+          .from('messages')
+          .delete()
+          .in('id', ownMsgIds);
+        if (error) throw error;
+        console.log('[DeleteMessages] Own messages deleted successfully');
+      }
+
+      // Soft delete received messages using RPC (SECURITY DEFINER bypasses RLS)
+      for (const msgId of receivedMsgIds) {
+        const { error } = await supabase.rpc('append_deleted_by', {
+          p_message_id: msgId,
+          p_user_id: user.id,
+        });
+        if (error) {
+          console.error('[DeleteMessages] RPC error for', msgId, ':', error);
+          throw error;
+        }
+        console.log('[DeleteMessages] Received message soft-deleted:', msgId);
+      }
 
       // Optimistic delete
       setMessages(prev => prev.filter(m => !selectedMessages.includes(m.id)));

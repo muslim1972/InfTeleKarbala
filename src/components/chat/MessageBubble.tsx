@@ -77,6 +77,8 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
     const onClick = () => {
         if (isSelectionMode && onToggleSelection) {
             onToggleSelection(message.id);
+        } else if (isImage && !message.is_sending) {
+            setShowLightbox(true);
         }
     };
 
@@ -137,10 +139,6 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                                 "max-w-full md:max-w-[300px] max-h-[350px] object-cover cursor-pointer transition-all hover:opacity-90",
                                 message.is_sending && "opacity-50"
                             )}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (!message.is_sending) setShowLightbox(true);
-                            }}
                         />
                         {message.is_sending && (
                             <div className="absolute inset-0 flex items-center justify-center">
