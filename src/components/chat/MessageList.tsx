@@ -20,10 +20,27 @@ export function MessageList({
     onToggleReaction 
 }: MessageListProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+        bottomRef.current?.scrollIntoView({ behavior });
+    };
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        scrollToBottom();
     }, [messages]);
+
+    // Extra scroll when images load to account for height changes
+    const handleImageLoad = () => {
+        // Only scroll if we are already near the bottom
+        const container = scrollContainerRef.current;
+        if (container) {
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 400;
+            if (isNearBottom) {
+                scrollToBottom('auto'); // Use 'auto' to avoid jumping during bulk loads
+            }
+        }
+    };
 
     const renderBackground = () => (
         <>
@@ -72,7 +89,10 @@ export function MessageList({
         <div className="flex-1 relative overflow-hidden bg-gray-50 flex flex-col">
             {renderBackground()}
             
-            <div className="flex-1 overflow-y-auto p-4 py-8 space-y-2 relative scroll-smooth z-[2] custom-scrollbar">
+            <div 
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto p-4 py-8 space-y-2 relative scroll-smooth z-[2] custom-scrollbar"
+            >
                 {messages.map((msg) => (
                     <MessageBubble
                         key={msg.id}
@@ -82,6 +102,7 @@ export function MessageList({
                         isSelectionMode={selectedMessages.length > 0}
                         onToggleSelection={onToggleSelection}
                         onToggleReaction={onToggleReaction}
+                        onImageLoad={handleImageLoad}
                     />
                 ))}
                 <div ref={bottomRef} />

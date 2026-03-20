@@ -17,6 +17,7 @@ interface MessageBubbleProps {
     isSelectionMode?: boolean;
     onToggleSelection?: (id: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
+    onImageLoad?: () => void;
 }
 
 const REACTION_EMOJIS = ['❤️', '👍', '🌹', '😂', '😢'];
@@ -48,7 +49,7 @@ const renderMessageText = (text: string, isMe: boolean, textColorMe: string, tex
     });
 };
 
-export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction }: MessageBubbleProps) => {
+export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction, onImageLoad }: MessageBubbleProps) => {
     const { user } = useAuth();
     const { settings } = useChatSettings();
     const [showReactions, setShowReactions] = React.useState(false);
@@ -123,13 +124,17 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     <AudioPlayer src={message.audio_url} isMe={isMe} />
                 ) : isImage && message.image_url ? (
                     /* Image Message */
-                    <div className="relative">
+                    <div className={cn(
+                        "relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100/10 shadow-sm",
+                        !message.is_sending && "min-h-[150px] min-w-[150px]"
+                    )}>
                         <img
                             src={message.image_url}
                             alt="صورة مرفقة"
-                            loading="lazy"
+                            loading="eager"
+                            onLoad={onImageLoad}
                             className={cn(
-                                "max-w-[250px] max-h-[300px] rounded-xl object-cover cursor-pointer transition-all hover:opacity-90",
+                                "max-w-full md:max-w-[300px] max-h-[350px] object-cover cursor-pointer transition-all hover:opacity-90",
                                 message.is_sending && "opacity-50"
                             )}
                             onClick={(e) => {
