@@ -50,8 +50,10 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
     const { user } = useAuth();
     const { settings } = useChatSettings();
     const [showReactions, setShowReactions] = React.useState(false);
+    const [showLightbox, setShowLightbox] = React.useState(false);
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
+    const isImage = !!message.image_url;
 
     // Close reactions if message is deselected
     React.useEffect(() => {
@@ -117,6 +119,28 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 {/* Voice Message */}
                 {isVoice && message.audio_url ? (
                     <AudioPlayer src={message.audio_url} isMe={isMe} />
+                ) : isImage && message.image_url ? (
+                    /* Image Message */
+                    <div className="relative">
+                        <img
+                            src={message.image_url}
+                            alt="صورة مرفقة"
+                            loading="lazy"
+                            className={cn(
+                                "max-w-[250px] max-h-[300px] rounded-xl object-cover cursor-pointer transition-all hover:opacity-90",
+                                message.is_sending && "opacity-50"
+                            )}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (!message.is_sending) setShowLightbox(true);
+                            }}
+                        />
+                        {message.is_sending && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <p 
                         className={cn(
@@ -202,6 +226,27 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     </div>
                 )}
             </div>
+
+            {/* Fullscreen Image Lightbox */}
+            {showLightbox && message.image_url && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center animate-in fade-in duration-200"
+                    onClick={() => setShowLightbox(false)}
+                >
+                    <button
+                        onClick={() => setShowLightbox(false)}
+                        className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all z-[101]"
+                    >
+                        <span className="text-2xl font-light">×</span>
+                    </button>
+                    <img
+                        src={message.image_url}
+                        alt="عرض الصورة"
+                        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 });

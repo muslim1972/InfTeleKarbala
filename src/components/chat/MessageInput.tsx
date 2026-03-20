@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Send, Mic, X, Square } from 'lucide-react';
+import { Send, Mic, X, Square, ImagePlus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { useChatSettings } from '../../hooks/useChatSettings';
@@ -7,15 +7,19 @@ import { useChatSettings } from '../../hooks/useChatSettings';
 interface MessageInputProps {
     onSend: (e?: React.FormEvent) => void;
     onSendVoice?: (blob: Blob) => void;
+    onSendImage?: (file: File) => void;
     value: string;
     onChange: (val: string) => void;
     disabled?: boolean;
 }
 
-export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, onSendVoice, onSendImage, value, onChange, disabled }: MessageInputProps) {
     const { settings } = useChatSettings();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSendingVoice, setIsSendingVoice] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     const {
         isRecording,
@@ -151,9 +155,93 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
         );
     }
 
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSelectedImage(file);
+        setImagePreview(URL.createObjectURL(file));
+        // Reset file input so the same file can be selected again
+        e.target.value = '';
+    };
+
+    const handleSendImage = () => {
+        if (selectedImage && onSendImage) {
+            onSendImage(selectedImage);
+            cancelImage();
+        }
+    };
+
+    const cancelImage = () => {
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        setSelectedImage(null);
+        setImagePreview(null);
+    };
+
+    // ─── Image Preview Mode ───
+    if (selectedImage && imagePreview) {
+        return (
+            <div className="p-3 bg-white border-t">
+                {/* Preview */}
+                <div className="relative mb-2 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 inline-block max-w-[200px]">
+                    <img
+                        src={imagePreview}
+                        alt="معاينة الصورة"
+                        className="max-h-[200px] max-w-[200px] object-contain rounded-2xl"
+                    />
+                    <button
+                        onClick={cancelImage}
+                        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-all active:scale-90"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    {/* File size badge */}
+                    <div className="absolute bottom-1.5 left-1.5 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {(selectedImage.size / 1024 / 1024).toFixed(1)} MB
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex-1 text-sm text-gray-500 text-right font-medium px-2">
+                        إرسال صورة
+                    </div>
+                    <button
+                        onClick={handleSendImage}
+                        disabled={disabled}
+                        className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 transition-all active:scale-90 shadow-lg shadow-emerald-200"
+                    >
+                        <Send className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // ─── Normal Text Mode ───
     return (
         <div className="p-3 bg-white border-t flex items-end gap-2">
+            {/* Hidden file input */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+            />
+
+            {/* Image picker button - on the right side */}
+            <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+                className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0",
+                    disabled
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-violet-50 text-violet-500 hover:bg-violet-100 border border-violet-200"
+                )}
+                title="إرسال صورة"
+            >
+                <ImagePlus className="w-5 h-5" />
+            </button>
+
             <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2 flex items-center">
                 <textarea
                     ref={textareaRef}
@@ -180,8 +268,7 @@ export function MessageInput({ onSend, onSendVoice, value, onChange, disabled }:
                 <button
                     onClick={() => {
                         onSend();
-                        // Immediate refocus to be extra safe on mobile
-                        setTimeout(() => textareaRef.current?.focus(), 10);
+                        textareaRef.current?.focus();
                     }}
                     disabled={!value.trim() || disabled}
                     className={cn(

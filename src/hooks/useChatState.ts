@@ -30,12 +30,64 @@ async function sendPushNotification(recipientId: string, title: string, message:
     }
 }
 
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+/**
+ * Compress an image file using Canvas API.
+ * Returns a Blob in WebP format (or JPEG fallback) within the size limit.
+ */
+async function compressImage(file: File, maxSizeBytes: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      // Scale down large images
+      const MAX_DIM = 1600;
+      let { width, height } = img;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try WebP first, then JPEG with decreasing quality
+      const tryCompress = (quality: number) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error('فشل ضغط الصورة'));
+            if (blob.size <= maxSizeBytes || quality <= 0.3) {
+              resolve(blob);
+            } else {
+              tryCompress(quality - 0.1);
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      tryCompress(0.85);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('فشل تحميل الصورة'));
+    };
+    img.src = url;
+  });
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   sender_id: string;
   text: string;
   audio_url?: string;
+  image_url?: string;
   read_by?: string[];
   reactions?: Record<string, string>; // { user_id: emoji }
   created_at: string;
@@ -449,6 +501,140 @@ export function useChatState(conversationId: string) {
     }
   };
 
+  // Image Message Sending
+  const sendImageMessage = async (file: File) => {
+    if (isSending || !user || !conversationId) return;
+
+    // 1. Validate original file size first
+    if (file.size > MAX_IMAGE_SIZE_BYTES * 3) {
+      // If original is way too large (>6MB), reject immediately
+      toast.error(`حجم الصورة كبير جداً. الحد الأقصى المسموح هو 2 ميجابايت`, { duration: 4000 });
+      return;
+    }
+
+    setIsSending(true);
+    const optimisticId = uuidv4();
+
+    // Optimistic message with local preview
+    const localPreviewUrl = URL.createObjectURL(file);
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      text: '📷 صورة',
+      image_url: localPreviewUrl,
+      created_at: new Date().toISOString(),
+      is_sending: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      // 2. Compress image
+      let imageBlob: Blob;
+      try {
+        imageBlob = await compressImage(file, MAX_IMAGE_SIZE_BYTES);
+      } catch {
+        toast.error('فشل ضغط الصورة. جرّب صورة أخرى');
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        setIsSending(false);
+        URL.revokeObjectURL(localPreviewUrl);
+        return;
+      }
+
+      // 3. Final size check after compression
+      if (imageBlob.size > MAX_IMAGE_SIZE_BYTES) {
+        toast.error(`حجم الصورة بعد الضغط (${(imageBlob.size / 1024 / 1024).toFixed(1)} MB) لا يزال أكبر من 2 ميجابايت. جرّب صورة أصغر.`, { duration: 5000 });
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        setIsSending(false);
+        URL.revokeObjectURL(localPreviewUrl);
+        return;
+      }
+
+      // 4. Upload to storage
+      const filePath = `${user.id}/${optimisticId}.webp`;
+      const { error: uploadError } = await supabase.storage
+        .from('image-message')
+        .upload(filePath, imageBlob, {
+          contentType: 'image/webp',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 5. Get public URL
+      const { data: urlData } = supabase.storage
+        .from('image-message')
+        .getPublicUrl(filePath);
+      const imageUrl = urlData.publicUrl;
+
+      // 6. Insert message
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          id: optimisticId,
+          conversation_id: conversationId,
+          sender_id: user.id,
+          text: '📷 صورة',
+          image_url: imageUrl,
+        });
+
+      if (insertError) throw insertError;
+
+      // 7. Update optimistic message with real URL
+      URL.revokeObjectURL(localPreviewUrl);
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticId
+          ? { ...m, image_url: imageUrl, is_sending: false }
+          : m
+      ));
+
+      // 8. Update conversation
+      try {
+        await supabase
+          .from('conversations')
+          .update({
+            last_message: '📷 صورة',
+            last_message_at: new Date().toISOString(),
+            deleted_by: [],
+          })
+          .eq('id', conversationId);
+      } catch (convErr) {
+        console.error('Failed to update conversation state:', convErr);
+      }
+
+      // 9. Send Push Notification
+      (async () => {
+        try {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .select('participants')
+            .eq('id', conversationId)
+            .single();
+
+          if (convData?.participants) {
+            const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+            for (const recipientId of recipients) {
+              sendPushNotification(recipientId, user.full_name, '📷 صورة', conversationId);
+            }
+          }
+        } catch (err) {
+          console.error('Background notification error:', err);
+        }
+      })();
+
+    } catch (error) {
+      console.error('Error sending image message:', error);
+      toast.error('فشل إرسال الصورة');
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      URL.revokeObjectURL(localPreviewUrl);
+      // Cleanup uploaded file on failure
+      const filePath = `${user.id}/${optimisticId}.webp`;
+      supabase.storage.from('image-message').remove([filePath]).catch(() => {});
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return {
     messages,
     loading,
@@ -457,6 +643,7 @@ export function useChatState(conversationId: string) {
     isSending,
     sendMessage,
     sendVoiceMessage,
+    sendImageMessage,
     selectedMessages,
     toggleSelection,
     clearSelection,
