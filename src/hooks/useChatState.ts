@@ -195,11 +195,18 @@ export function useChatState(conversationId: string) {
                     }
 
                     if (payload.eventType === 'INSERT') {
-                        // 1. Add it immediately
+                        // 1. Add it immediately, preserving optimistic data (image_url, audio_url)
                         setMessages(prev => {
                             const exists = prev.find(m => m.id === newMsg.id);
                             if (exists) {
-                                return prev.map(m => m.id === newMsg.id ? { ...newMsg, is_sending: false } : m);
+                                // Merge: keep optimistic fields if the server payload doesn't have them
+                                return prev.map(m => m.id === newMsg.id ? {
+                                    ...m,           // Keep optimistic data (image_url, audio_url, etc.)
+                                    ...newMsg,       // Override with server data
+                                    image_url: newMsg.image_url || m.image_url,
+                                    audio_url: newMsg.audio_url || m.audio_url,
+                                    is_sending: false
+                                } : m);
                             }
                             return [...prev, newMsg];
                         });
@@ -532,8 +539,11 @@ export function useChatState(conversationId: string) {
       // 2. Compress image
       let imageBlob: Blob;
       try {
+        console.log(`[ImageSend] Compressing image: ${file.name}, size: ${(file.size / 1024).toFixed(0)}KB`);
         imageBlob = await compressImage(file, MAX_IMAGE_SIZE_BYTES);
-      } catch {
+        console.log(`[ImageSend] Compressed to: ${(imageBlob.size / 1024).toFixed(0)}KB`);
+      } catch (compressErr) {
+        console.error('[ImageSend] Compression failed:', compressErr);
         toast.error('فشل ضغط الصورة. جرّب صورة أخرى');
         setMessages(prev => prev.filter(m => m.id !== optimisticId));
         setIsSending(false);
@@ -552,6 +562,7 @@ export function useChatState(conversationId: string) {
 
       // 4. Upload to storage
       const filePath = `${user.id}/${optimisticId}.webp`;
+      console.log(`[ImageSend] Uploading to: image-message/${filePath}`);
       const { error: uploadError } = await supabase.storage
         .from('image-message')
         .upload(filePath, imageBlob, {
@@ -559,15 +570,21 @@ export function useChatState(conversationId: string) {
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[ImageSend] Upload failed:', uploadError);
+        throw uploadError;
+      }
+      console.log('[ImageSend] Upload successful');
 
       // 5. Get public URL
       const { data: urlData } = supabase.storage
         .from('image-message')
         .getPublicUrl(filePath);
       const imageUrl = urlData.publicUrl;
+      console.log('[ImageSend] Public URL:', imageUrl);
 
       // 6. Insert message
+      console.log('[ImageSend] Inserting message into DB...');
       const { error: insertError } = await supabase
         .from('messages')
         .insert({
@@ -578,7 +595,11 @@ export function useChatState(conversationId: string) {
           image_url: imageUrl,
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[ImageSend] DB insert failed:', insertError);
+        throw insertError;
+      }
+      console.log('[ImageSend] Message inserted successfully');
 
       // 7. Update optimistic message with real URL
       URL.revokeObjectURL(localPreviewUrl);
