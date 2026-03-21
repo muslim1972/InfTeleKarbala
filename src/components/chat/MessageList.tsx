@@ -101,21 +101,23 @@ export function MessageList({
             
             <div 
                 ref={scrollContainerRef}
-                className="flex-1 overflow-y-auto p-4 py-8 space-y-2 relative scroll-smooth z-[2] custom-scrollbar"
+                className="flex-1 overflow-y-auto p-4 py-8 relative scroll-smooth z-[2] custom-scrollbar flex flex-col"
             >
-                {messages.map((msg) => (
-                    <MessageBubble
-                        key={msg.id}
-                        message={msg}
-                        isGroup={isGroup}
-                        isSelected={selectedMessages.includes(msg.id)}
-                        isSelectionMode={selectedMessages.length > 0}
-                        onToggleSelection={onToggleSelection}
-                        onToggleReaction={onToggleReaction}
-                        onImageLoad={handleImageLoad}
-                    />
-                ))}
-                <div ref={bottomRef} />
+                <div className="mt-auto space-y-2 w-full flex flex-col">
+                    {messages.map((msg) => (
+                        <MessageBubble
+                            key={msg.id}
+                            message={msg}
+                            isGroup={isGroup}
+                            isSelected={selectedMessages.includes(msg.id)}
+                            isSelectionMode={selectedMessages.length > 0}
+                            onToggleSelection={onToggleSelection}
+                            onToggleReaction={onToggleReaction}
+                            onImageLoad={handleImageLoad}
+                        />
+                    ))}
+                    <div ref={bottomRef} />
+                </div>
             </div>
         </div>
     );

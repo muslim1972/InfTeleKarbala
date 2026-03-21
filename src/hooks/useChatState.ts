@@ -8,26 +8,26 @@ import { v4 as uuidv4 } from 'uuid';
  * Sends a push notification via our serverless relay
  */
 async function sendPushNotification(recipientId: string, title: string, message: string, conversationId: string) {
-    // Skip on localhost to avoid 404 errors as the API relay is only on Vercel
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.log('Skipping push notification on localhost');
-        return;
-    }
-    try {
-        await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipientId,
-                title,
-                message,
-                url: `${window.location.origin}/chat/${conversationId}`,
-                data: { conversationId }
-            })
-        });
-    } catch (error) {
-        console.error('Failed to send push notification:', error);
-    }
+  // Skip on localhost to avoid 404 errors as the API relay is only on Vercel
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('Skipping push notification on localhost');
+    return;
+  }
+  try {
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientId,
+        title,
+        message,
+        url: `${window.location.origin}/chat/${conversationId}`,
+        data: { conversationId }
+      })
+    });
+  } catch (error) {
+    console.error('Failed to send push notification:', error);
+  }
 }
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -111,7 +111,7 @@ export function useChatState(conversationId: string) {
     if (messages.length === 0) {
       setLoading(true);
     }
-    
+
     const { data, error } = await supabase
       .from('messages')
       .select('*, read_by, deleted_by, sender:profiles!messages_sender_id_fkey(full_name)')
@@ -154,106 +154,106 @@ export function useChatState(conversationId: string) {
   const fetchMessagesRef = useRef(fetchMessages);
   fetchMessagesRef.current = fetchMessages;
 
-    // Subscribe to real-time changes
-    useEffect(() => {
-        if (!conversationId || !user) return;
+  // Subscribe to real-time changes
+  useEffect(() => {
+    if (!conversationId || !user) return;
 
-        // Use the ref so this effect only depends on conversationId
-        fetchMessagesRef.current();
+    // Use the ref so this effect only depends on conversationId
+    fetchMessagesRef.current();
 
-        console.log('useChatState: Subscribing to chat', conversationId);
+    console.log('useChatState: Subscribing to chat', conversationId);
 
-        // Use a stable channel name so Supabase can reuse it if the component re-renders
-        const channelId = `chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`;
-        const channel = supabase.channel(channelId);
+    // Use a stable channel name so Supabase can reuse it if the component re-renders
+    const channelId = `chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelId);
 
-        channel
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'messages',
-                    // Removing server-side filter for now to guarantee delivery and filter manually
-                },
-                (payload) => {
-                    console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
-                    
-                    const newMsg = (payload.new || payload.old) as Message & { deleted_by?: string[] };
-                    
-                    // Manual filter check
-                    if (newMsg.conversation_id !== conversationId) {
-                        return;
-                    }
-                    
-                    // Ignore messages that the current user has explicitly deleted
-                    if (newMsg.deleted_by && newMsg.deleted_by.includes(user.id)) {
-                        if (payload.eventType === 'UPDATE') {
-                            // If an existing message was deleted by this user, remove it
-                            setMessages(prev => prev.filter(m => m.id !== newMsg.id));
-                        }
-                        return;
-                    }
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          // Removing server-side filter for now to guarantee delivery and filter manually
+        },
+        (payload) => {
+          console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
 
-                    if (payload.eventType === 'INSERT') {
-                        // 1. Add it immediately, preserving optimistic data (image_url, audio_url)
-                        setMessages(prev => {
-                            const exists = prev.find(m => m.id === newMsg.id);
-                            if (exists) {
-                                // Merge: keep optimistic fields if the server payload doesn't have them
-                                return prev.map(m => m.id === newMsg.id ? {
-                                    ...m,           // Keep optimistic data (image_url, audio_url, etc.)
-                                    ...newMsg,       // Override with server data
-                                    image_url: newMsg.image_url || m.image_url,
-                                    audio_url: newMsg.audio_url || m.audio_url,
-                                    is_sending: false
-                                } : m);
-                            }
-                            return [...prev, newMsg];
-                        });
+          const newMsg = (payload.new || payload.old) as Message & { deleted_by?: string[] };
 
-                        // 2. Fetch sender profile async
-                        if (newMsg.sender_id && !newMsg.sender) {
-                            supabase
-                                .from('profiles')
-                                .select('full_name')
-                                .eq('id', newMsg.sender_id)
-                                .single()
-                                .then(({ data }) => {
-                                    if (data) {
-                                        setMessages(current =>
-                                            current.map(m => m.id === newMsg.id ? { ...m, sender: { full_name: data.full_name } } : m)
-                                        );
-                                    }
-                                });
-                        }
+          // Manual filter check
+          if (newMsg.conversation_id !== conversationId) {
+            return;
+          }
 
-                        // 3. Mark as read immediately if viewing
-                        if (newMsg.sender_id !== user.id) {
-                            supabase.rpc('mark_chat_read', { p_conversation_id: conversationId })
-                                .then(() => {
-                                    window.dispatchEvent(new CustomEvent('chat_read', {
-                                        detail: { conversationId }
-                                    }));
-                                });
-                        }
-                    } else if (payload.eventType === 'UPDATE') {
-                        setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m));
-                    } else if (payload.eventType === 'DELETE') {
-                        setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
-                    }
-                }
-            )
-            .subscribe((status) => {
-                console.log(`useChatState: Status for ${conversationId}:`, status);
+          // Ignore messages that the current user has explicitly deleted
+          if (newMsg.deleted_by && newMsg.deleted_by.includes(user.id)) {
+            if (payload.eventType === 'UPDATE') {
+              // If an existing message was deleted by this user, remove it
+              setMessages(prev => prev.filter(m => m.id !== newMsg.id));
+            }
+            return;
+          }
+
+          if (payload.eventType === 'INSERT') {
+            // 1. Add it immediately, preserving optimistic data (image_url, audio_url)
+            setMessages(prev => {
+              const exists = prev.find(m => m.id === newMsg.id);
+              if (exists) {
+                // Merge: keep optimistic fields if the server payload doesn't have them
+                return prev.map(m => m.id === newMsg.id ? {
+                  ...m,           // Keep optimistic data (image_url, audio_url, etc.)
+                  ...newMsg,       // Override with server data
+                  image_url: newMsg.image_url || m.image_url,
+                  audio_url: newMsg.audio_url || m.audio_url,
+                  is_sending: false
+                } : m);
+              }
+              return [...prev, newMsg];
             });
 
-        return () => {
-            console.log('useChatState: Cleaning up channel for', conversationId);
-            // Safely remove channel, ignore errors if already closed
-            supabase.removeChannel(channel).catch(() => { });
-        };
-    }, [conversationId, user]);
+            // 2. Fetch sender profile async
+            if (newMsg.sender_id && !newMsg.sender) {
+              supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', newMsg.sender_id)
+                .single()
+                .then(({ data }) => {
+                  if (data) {
+                    setMessages(current =>
+                      current.map(m => m.id === newMsg.id ? { ...m, sender: { full_name: data.full_name } } : m)
+                    );
+                  }
+                });
+            }
+
+            // 3. Mark as read immediately if viewing
+            if (newMsg.sender_id !== user.id) {
+              supabase.rpc('mark_chat_read', { p_conversation_id: conversationId })
+                .then(() => {
+                  window.dispatchEvent(new CustomEvent('chat_read', {
+                    detail: { conversationId }
+                  }));
+                });
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m));
+          } else if (payload.eventType === 'DELETE') {
+            setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`useChatState: Status for ${conversationId}:`, status);
+      });
+
+    return () => {
+      console.log('useChatState: Cleaning up channel for', conversationId);
+      // Safely remove channel, ignore errors if already closed
+      supabase.removeChannel(channel).catch(() => { });
+    };
+  }, [conversationId, user]);
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -421,7 +421,7 @@ export function useChatState(conversationId: string) {
           if (convData?.participants) {
             const recipients = (convData.participants as string[]).filter(id => id !== user.id);
             for (const recipientId of recipients) {
-                sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
+              sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
             }
           }
         } catch (err) {
@@ -435,7 +435,7 @@ export function useChatState(conversationId: string) {
       // Remove optimistic message ONLY if insert failed
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       // Cleanup uploaded file on failure
-      supabase.storage.from('voice-messages').remove([filePath]).catch(() => {});
+      supabase.storage.from('voice-messages').remove([filePath]).catch(() => { });
     } finally {
       setIsSending(false);
     }
@@ -682,7 +682,7 @@ export function useChatState(conversationId: string) {
       URL.revokeObjectURL(localPreviewUrl);
       // Cleanup uploaded file on failure
       const filePath = `${user.id}/${optimisticId}.webp`;
-      supabase.storage.from('image-message').remove([filePath]).catch(() => {});
+      supabase.storage.from('image-message').remove([filePath]).catch(() => { });
     } finally {
       setIsSending(false);
     }
