@@ -237,7 +237,10 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 <div
                     className="fixed inset-0 z-[99999] bg-black flex items-center justify-center animate-in fade-in duration-300"
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-                    onClick={() => setShowLightbox(false)}
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent bubbling to parent bubble which would re-open it
+                        setShowLightbox(false);
+                    }}
                 >
                     {/* Close Button - Even More Prominent */}
                     <button

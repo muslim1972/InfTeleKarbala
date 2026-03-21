@@ -164,7 +164,8 @@ export function useChatState(conversationId: string) {
         console.log('useChatState: Subscribing to chat', conversationId);
 
         // Use a stable channel name so Supabase can reuse it if the component re-renders
-        const channel = supabase.channel(`chat_room_${conversationId}`);
+        const channelId = `chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`;
+        const channel = supabase.channel(channelId);
 
         channel
             .on(

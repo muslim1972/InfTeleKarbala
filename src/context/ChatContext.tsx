@@ -71,7 +71,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (otherUserIds.length > 0) {
                 const { data: profiles } = await supabase
                     .from('profiles')
-                    .select('id, full_name, avatar')
+                    .select('id, full_name, avatar_url')
                     .in('id', otherUserIds);
                 profiles?.forEach(p => { profileMap[p.id] = p; });
             }
@@ -86,7 +86,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const profile = otherUserId ? profileMap[otherUserId] : null;
                     if (profile) {
                         name = profile.full_name;
-                        avatar_url = profile.avatar;
+                        avatar_url = profile.avatar_url;
                     }
                 }
 
@@ -143,7 +143,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.addEventListener('chat_read', handleChatRead);
 
         // Supabase Realtime - ONE SINGLE CHANNEL for the entire app
-        const chatChannel = supabase.channel(`global_chat_sync_${user.id.substring(0, 8)}`)
+        const channelId = `global_chat_sync_${user.id.substring(0, 8)}_${Math.random().toString(36).substring(7)}`;
+        const chatChannel = supabase.channel(channelId)
             .on('postgres_changes', { 
                 event: '*', 
                 schema: 'public', 
