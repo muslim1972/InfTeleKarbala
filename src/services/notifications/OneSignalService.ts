@@ -72,11 +72,21 @@ export const initOneSignal = (userId: string) => {
 
       // 2. Polite Permission Prompt (Slidedown)
       const permission = await OS.Notifications.permission;
+      console.log('OneSignal: Current permission status:', permission);
+      
       if (!permission) {
           const canPrompt = await OS.Notifications.canPrompt();
+          console.log('OneSignal: canPrompt status:', canPrompt);
+          
           if (canPrompt) {
-              OS.Slidedown.promptPush();
+              console.log('OneSignal: Attempting to show Slidedown prompt...');
+              OS.Slidedown.promptPush({ force: true });
+          } else {
+              console.log('OneSignal: canPrompt is false. Forcing prompt anyway for testing...');
+              OS.Slidedown.promptPush({ force: true });
           }
+      } else {
+          console.log('OneSignal: Permission already granted naturally.');
       }
     } catch (e) {
       console.error('OneSignal setup error:', e);
