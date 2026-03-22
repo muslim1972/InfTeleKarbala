@@ -5,50 +5,7 @@
  * and dynamic script injection to keep index.html clean.
  */
 
-const ONESIGNAL_SDK_URL = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
 
-/**
- * Dynamically injects the OneSignal SDK script into the document head.
- * This prevents blocking page load and keeps index.html clean.
- */
-export const injectOneSignalScript = (): void => {
-  if (typeof window === 'undefined') return;
-
-  // Skip if already injected
-  if (document.querySelector(`script[src="${ONESIGNAL_SDK_URL}"]`)) {
-    return;
-  }
-
-  const script = document.createElement('script');
-  script.src = ONESIGNAL_SDK_URL;
-  script.async = true;
-  document.head.appendChild(script);
-
-  console.log("🛠️ OneSignal SDK script injected dynamically");
-
-  // Initialize OneSignal once the script is loaded or push it to Deferred
-  const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-  (window as any).OneSignalDeferred = OneSignalDeferred;
-  
-  OneSignalDeferred.push(async function (OneSignal: any) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.log('OneSignal: Initialized in debug mode on localhost');
-      return; // Skip actual init on localhost to prevent domain errors
-    }
-    
-    try {
-      await OneSignal.init({
-        appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
-        safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
-        notifyButton: {
-          enable: false,
-        },
-      });
-    } catch (error) {
-      console.error('OneSignal Init Error:', error);
-    }
-  });
-};
 
 /**
  * Initializes OneSignal for a specific user and requests permissions.

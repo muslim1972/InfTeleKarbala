@@ -11,7 +11,6 @@ import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
 import { AudioProvider } from "./context/AudioContext";
 import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
 import { ChatProvider } from "./context/ChatContext";
-import { injectOneSignalScript } from "./services/notifications";
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -89,11 +88,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  useEffect(() => {
-    // Inject OneSignal SDK script dynamically on initial app load
-    injectOneSignalScript();
-  }, []);
-
   return (
     <div dir="rtl">
       <AuthProvider>
