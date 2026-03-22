@@ -70,12 +70,12 @@ export const initOneSignal = (userId: string) => {
         console.log('OneSignal: Logged in as', userId);
       }
 
-      // 2. Direct Permission Prompt (Native)
+      // 2. Polite Permission Prompt (Slidedown)
       const permission = await OS.Notifications.permission;
       if (!permission) {
           const canPrompt = await OS.Notifications.canPrompt();
           if (canPrompt) {
-              await OS.Notifications.requestPermission();
+              OS.Slidedown.promptPush();
           }
       }
     } catch (e) {
