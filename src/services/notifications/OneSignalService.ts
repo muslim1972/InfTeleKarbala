@@ -64,10 +64,15 @@ export const initOneSignal = (userId: string) => {
 
   const setupUser = async (OS: any) => {
     try {
-      // 1. Identify User
-      if (typeof OS.login === 'function') {
-        await OS.login(userId);
-        console.log('OneSignal: Logged in as', userId);
+      // 1. Identify User (Isolated to prevent it from blocking the prompt if it fails/hangs)
+      try {
+        if (typeof OS.login === 'function') {
+          // Do NOT await this! If OneSignal backend hangs, it blocks the prompt forever.
+          OS.login(userId).catch((err: any) => console.error('OneSignal login failed:', err));
+          console.log('OneSignal: Login request sent for', userId);
+        }
+      } catch (loginErr) {
+        console.error('OneSignal: Login error (ignoring to proceed with prompt):', loginErr);
       }
 
       // 2. Polite Permission Prompt (Slidedown)
