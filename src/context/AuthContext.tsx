@@ -1,26 +1,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { initOneSignal, logoutOneSignal } from "../lib/onesignal";
-
-async function sendPushNotification(recipientId: string, title: string, message: string) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return;
-    }
-    try {
-        await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipientId,
-                title,
-                message,
-            })
-        });
-    } catch (error) {
-        console.error('Failed to send push notification:', error);
-    }
-}
+import { initOneSignal, logoutOneSignal, sendPushNotification } from "../services/notifications";
 
 export interface AppUser {
   id: string;
@@ -361,18 +342,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, error: data.error };
       }
 
-      return { 
-        success: true, 
-        supervisor_name: data.supervisor_name,
-        action_required: data.action_required,
-        action_completed: data.action_completed
-      };
-
       if (data.action_completed === 'generated' && data.supervisor_id) {
-          sendPushNotification(
+          await sendPushNotification(
               data.supervisor_id, 
-              "طلب كلمة مرور مؤقتة", 
-              `قام الموظف (${username}) بطلب إعادة تعيين كلمة المرور.`
+              `قام الموظف (${username}) بطلب إعادة تعيين كلمة المرور.`,
+              { title: "طلب كلمة مرور مؤقتة" }
           );
       }
 

@@ -4,31 +4,7 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
-/**
- * Sends a push notification via our serverless relay
- */
-async function sendPushNotification(recipientId: string, title: string, message: string, conversationId: string) {
-  // Skip on localhost to avoid 404 errors as the API relay is only on Vercel
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('Skipping push notification on localhost');
-    return;
-  }
-  try {
-    await fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipientId,
-        title,
-        message,
-        url: `${window.location.origin}/chat/${conversationId}`,
-        data: { conversationId }
-      })
-    });
-  } catch (error) {
-    console.error('Failed to send push notification:', error);
-  }
-}
+import { sendPushNotification } from '../services/notifications';
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -317,7 +293,11 @@ export function useChatState(conversationId: string) {
           if (convData?.participants) {
             const recipients = (convData.participants as string[]).filter(id => id !== user.id);
             recipients.forEach(recipientId => {
-              sendPushNotification(recipientId, user.full_name, text, conversationId);
+              sendPushNotification(recipientId, text, { 
+                title: user.full_name, 
+                url: `${window.location.origin}/chat/${conversationId}`,
+                data: { conversationId }
+              });
             });
           }
         } catch (err) {
@@ -421,7 +401,11 @@ export function useChatState(conversationId: string) {
           if (convData?.participants) {
             const recipients = (convData.participants as string[]).filter(id => id !== user.id);
             for (const recipientId of recipients) {
-              sendPushNotification(recipientId, user.full_name, '🎤 رسالة صوتية', conversationId);
+              sendPushNotification(recipientId, '🎤 رسالة صوتية', {
+                title: user.full_name,
+                url: `${window.location.origin}/chat/${conversationId}`,
+                data: { conversationId }
+              });
             }
           }
         } catch (err) {
@@ -667,7 +651,11 @@ export function useChatState(conversationId: string) {
           if (convData?.participants) {
             const recipients = (convData.participants as string[]).filter(id => id !== user.id);
             for (const recipientId of recipients) {
-              sendPushNotification(recipientId, user.full_name, '📷 صورة', conversationId);
+              sendPushNotification(recipientId, '📷 صورة', {
+                title: user.full_name,
+                url: `${window.location.origin}/chat/${conversationId}`,
+                data: { conversationId }
+              });
             }
           }
         } catch (err) {

@@ -4,24 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
 
-async function sendPushNotification(recipientId: string, title: string, message: string) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return;
-    }
-    try {
-        await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipientId,
-                title,
-                message,
-            })
-        });
-    } catch (error) {
-        console.error('Failed to send push notification:', error);
-    }
-}
+import { sendPushNotification } from '../../../services/notifications';
 import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
 
@@ -377,8 +360,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       if (formData.supervisorId) {
         sendPushNotification(
             formData.supervisorId, 
-            "طلب إجازة جديد", 
-            `قام الموظف ${user?.full_name} بتقديم طلب إجازة جديد (${formData.startDate})`
+            `قام الموظف ${user?.full_name} بتقديم طلب إجازة جديد (${formData.startDate})`,
+            { title: "طلب إجازة جديد", url: `${window.location.origin}/requests` }
         );
       }
 

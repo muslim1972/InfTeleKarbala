@@ -2,24 +2,7 @@ import { useState } from 'react';
 import { User, Check, X, Calendar, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
-async function sendPushNotification(recipientId: string, title: string, message: string) {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return;
-    }
-    try {
-        await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                recipientId,
-                title,
-                message,
-            })
-        });
-    } catch (error) {
-        console.error('Failed to send push notification:', error);
-    }
-}
+import { sendPushNotification } from '../../../services/notifications';
 
 interface LeaveRequest {
     id: string;
@@ -95,14 +78,14 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             // Send Push Notification to Employee
             const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
             let message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
-            
+
             if (request.modification_type === 'canceled') {
                 message = `تم ${statusText} لطلب إلغاء إجازتك (${request.start_date})`;
             } else if (request.modification_type === 'cut') {
                 message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
             }
-            sendPushNotification(request.user_id, "تحديث طلب الإجازة", message);
-            
+            sendPushNotification(request.user_id, message, { title: "تحديث طلب الإجازة", url: `${window.location.origin}/requests` });
+
             // Notify HR/Admin if it's a cut or cancellation approval
             if (status === 'approved' && (request.modification_type === 'canceled' || request.modification_type === 'cut')) {
                 try {
@@ -111,16 +94,16 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         .from('profiles')
                         .select('id, full_name')
                         .or('admin_role.eq.hr,full_name.ilike.%مسلم عقيل%,full_name.ilike.%مسلم قيل%');
-                    
+
                     if (admins && admins.length > 0) {
                         const hrTitle = request.modification_type === 'canceled' ? "إلغاء إجازة" : "اعتماد قطع إجازة";
-                        const hrMessage = request.modification_type === 'canceled' 
+                        const hrMessage = request.modification_type === 'canceled'
                             ? `تم إلغاء إجازة الموظف (${request.profiles?.full_name || 'مجهول'}) واسترجاع رصيده بالكامل.`
                             : `توجد إجازة مقطوعة للموظف (${request.profiles?.full_name || 'مجهول'}) بانتظار اعتمادك لإرجاع الرصيد.`;
-                        
+
                         // Send Push to all admins
                         for (const admin of admins) {
-                            await sendPushNotification(admin.id, hrTitle, hrMessage);
+                            await sendPushNotification(admin.id, hrMessage, { title: hrTitle, url: `${window.location.origin}/requests` });
                         }
                     }
                 } catch (hrError) {
