@@ -21,48 +21,53 @@ export const initOneSignal = (userId: string) => {
 
   const setupUser = async (OS: any) => {
     try {
+      alert("OneSignal: 1. Start setupUser");
       // 1. Identify User (Isolated to prevent it from blocking the prompt if it fails/hangs)
       try {
         if (typeof OS.login === 'function') {
           // Do NOT await this! If OneSignal backend hangs, it blocks the prompt forever.
-          OS.login(userId).catch((err: any) => console.error('OneSignal login failed:', err));
-          console.log('OneSignal: Login request sent for', userId);
+          OS.login(userId).catch((err: any) => alert('OneSignal login failed: ' + err));
+          alert('OneSignal: 2. Login request sent for: ' + userId);
+        } else {
+          alert('OneSignal: OS.login is not a function');
         }
       } catch (loginErr) {
-        console.error('OneSignal: Login error (ignoring to proceed with prompt):', loginErr);
+        alert('OneSignal: 3. Login error: ' + loginErr);
       }
 
       // 2. Polite Permission Prompt (Slidedown)
       const permission = await OS.Notifications.permission;
-      console.log('OneSignal: Current permission status:', permission);
+      alert('OneSignal: 4. Current permission status: ' + permission);
       
       if (!permission) {
           const canPrompt = await OS.Notifications.canPrompt();
-          console.log('OneSignal: canPrompt status:', canPrompt);
+          alert('OneSignal: 5. canPrompt status: ' + canPrompt);
           
           if (canPrompt) {
-              console.log('OneSignal: Attempting to show Slidedown prompt...');
+              alert('OneSignal: 6. Attempting to show Slidedown prompt...');
               OS.Slidedown.promptPush({ force: true });
           } else {
-              console.log('OneSignal: canPrompt is false. Forcing prompt anyway for testing...');
+              alert('OneSignal: 6. canPrompt is false. Forcing prompt anyway...');
               OS.Slidedown.promptPush({ force: true });
           }
       } else {
-          console.log('OneSignal: Permission already granted naturally.');
+          alert('OneSignal: 5. Permission already granted naturally.');
       }
     } catch (e) {
-      console.error('OneSignal setup error:', e);
+      alert('OneSignal setup error: ' + e);
     }
   };
 
   const OneSignal = (window as any).OneSignal;
   if (OneSignal && typeof OneSignal.login === 'function') {
+    alert('OneSignal: Executing setupUser immediately');
     setupUser(OneSignal);
   } else {
-    // If not loaded or method not ready, use the Deferred queue
+    alert('OneSignal: Not fully loaded yet. Using Deferred queue.');
     const OneSignalDeferred = (window as any).OneSignalDeferred || [];
     (window as any).OneSignalDeferred = OneSignalDeferred;
     OneSignalDeferred.push((OS: any) => {
+      alert('OneSignal: Deferred queue triggered setupUser');
       setupUser(OS);
     });
   }
