@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, User, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { useEmployeeSearch } from '../../../hooks/useEmployeeSearch';
 
 interface Profile {
     id: string;
@@ -15,9 +16,18 @@ interface SupervisorSelectorProps {
 }
 
 export const SupervisorSelector = ({ onSelect, selectedSupervisorId }: SupervisorSelectorProps) => {
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Profile[]>([]);
-    const [loading, setLoading] = useState(false);
+    // البحث العالمي للموظفين
+    const { query, setQuery, results: rawResults } = useEmployeeSearch({
+        selectFields: 'id, full_name, job_number, avatar_url',
+        limit: 10,
+        debounceMs: 300
+    });
+    const results: Profile[] = rawResults.map((d: any) => ({
+        id: d.id,
+        full_name: d.full_name || 'مستخدم',
+        job_number: d.job_number,
+        avatar_url: d.avatar_url
+    }));
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -54,47 +64,6 @@ export const SupervisorSelector = ({ onSelect, selectedSupervisorId }: Superviso
         };
         fetchSelectedProfile();
     }, [selectedSupervisorId]);
-
-    // Search logic
-    useEffect(() => {
-        const searchUsers = async () => {
-            const trimmedQuery = query.trim();
-            if (!trimmedQuery) {
-                setResults([]);
-                return;
-            }
-            setLoading(true);
-            try {
-                // Search by job number OR full name (starts with) - matching CustomAudit behavior
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, avatar_url')
-                    .or(`job_number.ilike.${trimmedQuery}%,full_name.ilike.${trimmedQuery}%`)
-                    .limit(10); // Increased limit slightly
-
-                if (!error && data) {
-                    // Map to Profile interface ensuring fields exist
-                    const profiles: Profile[] = data.map(d => ({
-                        id: d.id,
-                        full_name: d.full_name || 'مستخدم',
-                        job_number: d.job_number,
-                        avatar_url: d.avatar_url
-                    }));
-                    setResults(profiles);
-                }
-            } catch (error) {
-                console.error('Error searching users:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        const timeoutId = setTimeout(() => {
-            if (isOpen) searchUsers();
-        }, 300); // Debounce
-
-        return () => clearTimeout(timeoutId);
-    }, [query, isOpen]);
 
     const handleSelect = (profile: Profile) => {
         setSelectedProfile(profile);
@@ -154,9 +123,7 @@ export const SupervisorSelector = ({ onSelect, selectedSupervisorId }: Superviso
 
                     {isOpen && (query || results.length > 0) && (
                         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto">
-                            {loading ? (
-                                <div className="p-4 text-center text-gray-500 text-sm">جاري البحث...</div>
-                            ) : results.length > 0 ? (
+                            {results.length > 0 ? (
                                 results.map(profile => (
                                     <button
                                         key={profile.id}

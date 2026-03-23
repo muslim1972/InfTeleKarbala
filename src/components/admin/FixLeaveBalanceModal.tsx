@@ -6,6 +6,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { createPortal } from 'react-dom';
 import { HistoryViewer } from './HistoryViewer';
 import { useAuth } from '../../context/AuthContext';
+import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface FixLeaveBalanceModalProps {
     onClose: () => void;
@@ -14,53 +15,23 @@ interface FixLeaveBalanceModalProps {
 export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
     const { theme } = useTheme();
     const { user: currentUser } = useAuth();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [suggestions, setSuggestions] = useState<any[]>([]);
+    // البحث العالمي للموظفين
+    const { query: searchQuery, setQuery: setSearchQuery, results: suggestions, isSearching } = useEmployeeSearch({
+        limit: 5,
+        debounceMs: 300
+    });
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [financialRecord, setFinancialRecord] = useState<any>(null);
     const [newBalance, setNewBalance] = useState<number | ''>('');
     const [isSaving, setIsSaving] = useState(false);
+    const [_loadingRecord, setLoadingRecord] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
 
-    // Search logic similar to AdminDashboard
+    // Show suggestions when results change
     useEffect(() => {
-        const fetchSuggestions = async () => {
-            if (!searchQuery.trim() || searchQuery.length < 2) {
-                setSuggestions([]);
-                setShowSuggestions(false);
-                return;
-            }
-
-            setIsSearching(true);
-            try {
-                // If query is practically numbers, search by job_number precisely, else search by name
-                const isNumeric = /^\d+$/.test(searchQuery);
-
-                let query = supabase.from('profiles').select('*').limit(5);
-
-                if (isNumeric) {
-                    query = query.ilike('job_number', `${searchQuery}%`);
-                } else {
-                    query = query.ilike('full_name', `%${searchQuery}%`);
-                }
-
-                const { data, error } = await query;
-                if (error) throw error;
-
-                setSuggestions(data || []);
-                setShowSuggestions(true);
-            } catch (err) {
-                console.error("Search error:", err);
-            } finally {
-                setIsSearching(false);
-            }
-        };
-
-        const debounceTimer = setTimeout(fetchSuggestions, 300);
-        return () => clearTimeout(debounceTimer);
-    }, [searchQuery]);
+        setShowSuggestions(suggestions.length > 0 && searchQuery.trim().length > 0);
+    }, [suggestions, searchQuery]);
 
     // Close suggestions on outside click
     useEffect(() => {
@@ -75,12 +46,11 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
 
     const handleSelectSuggestion = async (employee: any) => {
         setSelectedEmployee(employee);
-        setSuggestions([]);
         setShowSuggestions(false);
         setSearchQuery(""); // Clear search
 
         // Fetch financial record to get current balance
-        setIsSearching(true);
+        setLoadingRecord(true);
         try {
             const { data, error } = await supabase
                 .from('financial_records')
@@ -96,7 +66,7 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
             console.error("Fetch financial record error:", err);
             toast.error("حدث خطأ أثناء جلب الرصيد المالي للموظف.");
         } finally {
-            setIsSearching(false);
+            setLoadingRecord(false);
         }
     };
 

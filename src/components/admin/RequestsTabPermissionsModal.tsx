@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface RequestsTabPermissionsModalProps {
     onClose: () => void;
@@ -12,10 +13,13 @@ interface RequestsTabPermissionsModalProps {
 }
 
 export const RequestsTabPermissionsModal: React.FC<RequestsTabPermissionsModalProps> = ({ onClose, theme }) => {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    // البحث العالمي للموظفين
+    const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useEmployeeSearch({
+        selectFields: 'id, full_name, job_number, role, can_view_requests',
+        limit: 10,
+        debounceMs: 400
+    });
     const [allowedUsers, setAllowedUsers] = useState<any[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
     // Fetch allowed users on mount
@@ -42,35 +46,6 @@ export const RequestsTabPermissionsModal: React.FC<RequestsTabPermissionsModalPr
         fetchAllowedUsers();
     }, []);
 
-    // Search users
-    useEffect(() => {
-        const delaySearch = setTimeout(async () => {
-            if (!searchQuery.trim()) {
-                setSearchResults([]);
-                return;
-            }
-
-            setIsSearching(true);
-            try {
-                // Focus on normal users only since admins always see it
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, role, can_view_requests')
-                    .or(`full_name.ilike.%${searchQuery}%,job_number.ilike.%${searchQuery}%`)
-                    .limit(10);
-
-                if (error) throw error;
-                setSearchResults(data || []);
-            } catch (error: any) {
-                console.error('Search error:', error);
-            } finally {
-                setIsSearching(false);
-            }
-        }, 500);
-
-        return () => clearTimeout(delaySearch);
-    }, [searchQuery]);
-
     const handleGrantPermission = async (user: any) => {
         if (user.role === 'admin') {
             toast.error('هذا المستخدم "مشرف" ولديه صلاحية رؤية التبويبة مسبقاً.');
@@ -91,7 +66,6 @@ export const RequestsTabPermissionsModal: React.FC<RequestsTabPermissionsModalPr
 
             toast.success(`تم منح الصلاحية لـ ${user.full_name}`);
             setSearchQuery('');
-            setSearchResults([]);
             fetchAllowedUsers();
         } catch (error: any) {
             console.error('Error updating permission:', error);

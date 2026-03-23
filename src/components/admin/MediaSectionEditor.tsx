@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
+import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface MediaSectionEditorProps {
     type: 'directive' | 'conference';
@@ -21,9 +22,13 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
     const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [contentId, setContentId] = useState<string | null>(null);
 
-    // Search & Check State
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    // البحث العالمي للموظفين
+    const { query: searchQuery, setQuery: setSearchQuery, results: searchResults } = useEmployeeSearch({
+        selectFields: 'id, full_name, username, job_number',
+        searchUsername: true,
+        limit: 5,
+        debounceMs: 300
+    });
     const [checkResult, setCheckResult] = useState<{ status: 'acknowledged' | 'pending', date?: string, userName: string } | null>(null);
 
     useEffect(() => {
@@ -55,24 +60,8 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
         }
     };
 
-    const handleSearch = async (query: string) => {
-        if (query.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-
-        const { data } = await supabase
-            .from('profiles')
-            .select('id, full_name, username, job_number')
-            .or(`full_name.ilike.%${query}%,username.ilike.%${query}%,job_number.ilike.%${query}%`)
-            .limit(5);
-
-        if (data) setSearchResults(data);
-    };
-
     const checkAcknowledgment = async (profile: any) => {
         setSearchQuery('');
-        setSearchResults([]);
         if (!contentId) return;
 
         try {
@@ -231,17 +220,13 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
                                     type="text"
                                     placeholder="بحث عن موظف (الاسم، الرقم الوظيفي)..."
                                     value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        handleSearch(e.target.value);
-                                    }}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full pl-3 pr-9 py-2 bg-muted/30 border border-input rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-green"
                                 />
                                 {searchQuery && (
                                     <button
                                         onClick={() => {
                                             setSearchQuery('');
-                                            setSearchResults([]);
                                             setCheckResult(null);
                                         }}
                                         className="absolute left-2 top-2.5 text-muted-foreground hover:text-foreground"

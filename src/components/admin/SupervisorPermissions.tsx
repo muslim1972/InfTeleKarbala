@@ -4,17 +4,34 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../../lib/utils";
 import { getRoleLabel, roleLabelToDb, ROLE_OPTIONS } from "../../utils/formatRoles";
+import { useEmployeeSearch } from "../../hooks/useEmployeeSearch";
 
 interface SupervisorPermissionsProps {
     theme: 'light' | 'dark';
 }
 
 export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => {
-    // Search state
-    const [searchQuery, setSearchQuery] = useState("");
-    const [suggestions, setSuggestions] = useState<any[]>([]);
+    // DEVELOPER_JOB_NUMBER to exclude from search
+    const DEVELOPER_JOB_NUMBER = "103130486";
+
+    // البحث العالمي للموظفين
+    const { query: searchQuery, setQuery: setSearchQuery, results: rawSuggestions } = useEmployeeSearch({
+        selectFields: 'id, full_name, job_number, role, admin_role, department_id',
+        limit: 50,
+        debounceMs: 300
+    });
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+
+    // Filter out developer from suggestions
+    const suggestions = rawSuggestions.filter(
+        (u: any) => u.job_number !== DEVELOPER_JOB_NUMBER && !u.full_name?.includes('مسلم عقيل') && !u.full_name?.includes('مسلم قيل')
+    );
+
+    // Show suggestions when results change
+    useEffect(() => {
+        setShowSuggestions(suggestions.length > 0 && searchQuery.trim().length > 0);
+    }, [suggestions, searchQuery]);
 
     // Selected employee state
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -24,9 +41,6 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const [showDropdown, setShowDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-
-    // DEVELOPER_JOB_NUMBER to exclude from search
-    const DEVELOPER_JOB_NUMBER = "103130486";
 
     // Click outside to close suggestions & dropdown
     useEffect(() => {
@@ -41,44 +55,6 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
-
-    // Debounced search
-    useEffect(() => {
-        const delay = setTimeout(async () => {
-            const q = searchQuery.trim();
-            if (!q) {
-                setSuggestions([]);
-                setShowSuggestions(false);
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, role, admin_role, department_id')
-                    .or(`job_number.ilike.${q}%,full_name.ilike.${q}%,full_name.ilike.% ${q}%`)
-                    .neq('job_number', DEVELOPER_JOB_NUMBER)
-                    .limit(50);
-
-                if (error) {
-                    console.error("Search error:", error);
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                } else {
-                    // Extra filter to exclude developer by name in case job_number is null
-                    const filtered = (data || []).filter(
-                        (u: any) => !u.full_name?.includes('مسلم عقيل') && !u.full_name?.includes('مسلم قيل')
-                    );
-                    setSuggestions(filtered);
-                    setShowSuggestions(filtered.length > 0);
-                }
-            } catch (err) {
-                console.error("Search error:", err);
-            }
-        }, 300);
-
-        return () => clearTimeout(delay);
-    }, [searchQuery]);
 
     // Load employee details (department, manager)
     const loadEmployeeDetails = async (employee: any) => {
