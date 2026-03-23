@@ -1,23 +1,27 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { VoiceRecorderInput } from './inputs/VoiceRecorderInput';
 import { ImagePreviewInput } from './inputs/ImagePreviewInput';
+import { FilePreviewInput } from './inputs/FilePreviewInput';
 import { TextInput } from './inputs/TextInput';
 
 interface MessageInputProps {
     onSend: (e?: React.FormEvent) => void;
     onSendVoice?: (blob: Blob) => void;
     onSendImage?: (file: File) => void;
+    onSendFile?: (file: File) => void;
     value: string;
     onChange: (val: string) => void;
     disabled?: boolean;
 }
 
-export function MessageInput({ onSend, onSendVoice, onSendImage, value, onChange, disabled }: MessageInputProps) {
-    const fileInputRef = useRef<HTMLInputElement>(null);
+export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, value, onChange, disabled }: MessageInputProps) {
     const [isSendingVoice, setIsSendingVoice] = useState(false);
+    
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const {
         isRecording,
@@ -58,13 +62,13 @@ export function MessageInput({ onSend, onSendVoice, onSendImage, value, onChange
         cancelRecording();
     };
 
-    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const handleImageSelect = (file: File) => {
         setSelectedImage(file);
         setImagePreview(URL.createObjectURL(file));
-        // Reset file input so the same file can be selected again
-        e.target.value = '';
+    };
+
+    const handleFileSelect = (file: File) => {
+        setSelectedFile(file);
     };
 
     const handleSendImage = () => {
@@ -74,10 +78,21 @@ export function MessageInput({ onSend, onSendVoice, onSendImage, value, onChange
         }
     };
 
+    const handleSendFileClick = () => {
+        if (selectedFile && onSendFile) {
+            onSendFile(selectedFile);
+            cancelFile();
+        }
+    };
+
     const cancelImage = () => {
         if (imagePreview) URL.revokeObjectURL(imagePreview);
         setSelectedImage(null);
         setImagePreview(null);
+    };
+
+    const cancelFile = () => {
+        setSelectedFile(null);
     };
 
     // ─── Render Coordinations ─── //
@@ -108,25 +123,28 @@ export function MessageInput({ onSend, onSendVoice, onSendImage, value, onChange
         );
     }
 
-    // 3. Normal Text Mode
-    return (
-        <>
-            {/* Hidden file input controlled by TextInput's image button */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageSelect}
-            />
-            <TextInput
-                value={value}
-                onChange={onChange}
-                onSend={onSend}
-                onMicClick={handleMicClick}
-                onImageClick={() => fileInputRef.current?.click()}
+    // 3. File Preview Mode
+    if (selectedFile) {
+        return (
+            <FilePreviewInput
+                selectedFile={selectedFile}
                 disabled={disabled}
+                onCancel={cancelFile}
+                onSendFile={handleSendFileClick}
             />
-        </>
+        );
+    }
+
+    // 4. Normal Text Mode
+    return (
+        <TextInput
+            value={value}
+            onChange={onChange}
+            onSend={onSend}
+            onMicClick={handleMicClick}
+            onImageSelect={handleImageSelect}
+            onFileSelect={handleFileSelect}
+            disabled={disabled}
+        />
     );
 }

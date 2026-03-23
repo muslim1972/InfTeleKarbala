@@ -9,6 +9,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { useChatSettings } from '../../hooks/useChatSettings';
 import { ImageMessage } from './bubbles/ImageMessage';
 import { TextMessage } from './bubbles/TextMessage';
+import { FileMessage } from './bubbles/FileMessage';
 
 interface MessageBubbleProps {
     message: Message;
@@ -30,6 +31,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
     const isImage = !!message.image_url;
+    const isFile = !!message.file_url || (message.file_name && message.is_sending);
 
     // Close reactions if message is deselected
     React.useEffect(() => {
@@ -85,11 +87,13 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     </div>
                 )}
 
-                {/* Voice Message */}
+                {/* Voice, Image, File, or Text */}
                 {isVoice && message.audio_url ? (
                     <AudioPlayer src={message.audio_url} isMe={isMe} />
                 ) : isImage && message.image_url ? (
                     <ImageMessage message={message} onImageLoad={onImageLoad} />
+                ) : isFile ? (
+                    <FileMessage message={message} isMe={isMe} />
                 ) : (
                     <TextMessage message={message} isMe={isMe} />
                 )}

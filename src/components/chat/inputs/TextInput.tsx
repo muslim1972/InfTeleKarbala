@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Send, Mic, ImagePlus } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Send, Mic, Paperclip, Image as ImageIcon, FileText } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useChatSettings } from '../../../hooks/useChatSettings';
 
@@ -8,7 +8,8 @@ interface TextInputProps {
     onChange: (val: string) => void;
     onSend: () => void;
     onMicClick: () => void;
-    onImageClick: () => void;
+    onImageSelect: (file: File) => void;
+    onFileSelect: (file: File) => void;
     disabled?: boolean;
 }
 
@@ -17,11 +18,16 @@ export const TextInput: React.FC<TextInputProps> = ({
     onChange,
     onSend,
     onMicClick,
-    onImageClick,
+    onImageSelect,
+    onFileSelect,
     disabled = false,
 }) => {
     const { settings } = useChatSettings();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
+    
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Auto-resize textarea
     useEffect(() => {
@@ -54,22 +60,89 @@ export const TextInput: React.FC<TextInputProps> = ({
         }
     };
 
+    // Click outside handler for dropdown
+    useEffect(() => {
+        const handleClickOutside = (e: globalThis.MouseEvent) => {
+            if (isAttachmentOpen && !(e.target as Element).closest('.attachment-dropdown-container')) {
+                setIsAttachmentOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isAttachmentOpen]);
+
+    const handleInputClick = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        if (type === 'image') onImageSelect(file);
+        else onFileSelect(file);
+        
+        // Reset input
+        e.target.value = '';
+        setIsAttachmentOpen(false);
+    };
+
     return (
         <div className="p-3 bg-white border-t flex items-end gap-2">
-            {/* Image picker button */}
-            <button
-                onClick={onImageClick}
-                disabled={disabled}
-                className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0",
-                    disabled
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-violet-50 text-violet-500 hover:bg-violet-100 border border-violet-200"
+            {/* Hidden inputs */}
+            <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleInputClick(e, 'image')}
+            />
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                className="hidden"
+                onChange={(e) => handleInputClick(e, 'file')}
+            />
+
+            {/* Attachment Dropdown Button */}
+            <div className="relative attachment-dropdown-container">
+                <button
+                    onClick={() => setIsAttachmentOpen(!isAttachmentOpen)}
+                    disabled={disabled}
+                    className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0",
+                        isAttachmentOpen && "bg-violet-100 ring-2 ring-violet-300",
+                        disabled
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "bg-violet-50 text-violet-500 hover:bg-violet-100 border border-violet-200"
+                    )}
+                    title="مرفقات"
+                >
+                    <Paperclip className="w-5 h-5" />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isAttachmentOpen && (
+                    <div className="absolute bottom-12 right-0 bg-white border border-gray-100 shadow-xl rounded-2xl p-2 flex flex-col gap-1 w-48 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                        <button
+                            onClick={() => imageInputRef.current?.click()}
+                            className="flex items-center gap-3 px-3 py-2.5 w-full text-right rounded-xl hover:bg-gray-50 text-gray-700 transition-colors"
+                        >
+                            <div className="bg-blue-50 text-blue-500 p-2 rounded-full">
+                                <ImageIcon className="w-4 h-4" />
+                            </div>
+                            <span className="font-medium text-sm">إدراج صورة</span>
+                        </button>
+                        
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-3 px-3 py-2.5 w-full text-right rounded-xl hover:bg-gray-50 text-gray-700 transition-colors"
+                        >
+                            <div className="bg-rose-50 text-rose-500 p-2 rounded-full">
+                                <FileText className="w-4 h-4" />
+                            </div>
+                            <span className="font-medium text-sm">إدراج ملف</span>
+                        </button>
+                    </div>
                 )}
-                title="إرسال صورة"
-            >
-                <ImagePlus className="w-5 h-5" />
-            </button>
+            </div>
 
             <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2 flex items-center">
                 <textarea

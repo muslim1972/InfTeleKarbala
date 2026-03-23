@@ -64,6 +64,9 @@ export interface Message {
   text: string;
   audio_url?: string;
   image_url?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
   read_by?: string[];
   reactions?: Record<string, string>; // { user_id: emoji }
   created_at: string;
@@ -182,6 +185,9 @@ export function useChatState(conversationId: string) {
                   ...newMsg,       // Override with server data
                   image_url: newMsg.image_url || m.image_url,
                   audio_url: newMsg.audio_url || m.audio_url,
+                  file_url: newMsg.file_url || m.file_url,
+                  file_name: newMsg.file_name || m.file_name,
+                  file_size: newMsg.file_size || m.file_size,
                   is_sending: false
                 } : m);
               }
@@ -676,6 +682,118 @@ export function useChatState(conversationId: string) {
     }
   };
 
+  // File Message Sending
+  const sendFileMessage = async (file: File) => {
+    if (isSending || !user || !conversationId) return;
+
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit for general files
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`حجم الملف كبير جداً. الحد الأقصى المسموح هو 10 ميجابايت`, { duration: 4000 });
+      return;
+    }
+
+    setIsSending(true);
+    const optimisticId = uuidv4();
+
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      text: '📄 ملف',
+      file_name: file.name,
+      file_size: file.size,
+      created_at: new Date().toISOString(),
+      is_sending: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      const ext = file.name.split('.').pop() || 'file';
+      const filePath = `${user.id}/${optimisticId}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file, {
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+      
+      const fileUrl = urlData.publicUrl;
+
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          id: optimisticId,
+          conversation_id: conversationId,
+          sender_id: user.id,
+          text: '📄 ملف',
+          file_url: fileUrl,
+          file_name: file.name,
+          file_size: file.size,
+        });
+
+      if (insertError) throw insertError;
+
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticId
+          ? { ...m, file_url: fileUrl, is_sending: false }
+          : m
+      ));
+
+      try {
+        await supabase
+          .from('conversations')
+          .update({
+            last_message: '📄 ملف',
+            last_message_at: new Date().toISOString(),
+            deleted_by: [],
+          })
+          .eq('id', conversationId);
+      } catch (convErr) {
+        console.error('Failed to update conversation state:', convErr);
+      }
+
+      (async () => {
+        try {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .select('participants')
+            .eq('id', conversationId)
+            .single();
+
+          if (convData?.participants) {
+            const recipients = (convData.participants as string[]).filter(id => id !== user.id);
+            for (const recipientId of recipients) {
+              sendPushNotification(recipientId, '📄 ملف جديد', {
+                title: user.full_name,
+                url: `${window.location.origin}/chat/${conversationId}`,
+                data: { conversationId }
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Background notification error:', err);
+        }
+      })();
+
+    } catch (error) {
+      console.error('Error sending file message:', error);
+      toast.error('فشل رفع الملف');
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      
+      const ext = file.name.split('.').pop() || 'file';
+      const filePath = `${user.id}/${optimisticId}.${ext}`;
+      supabase.storage.from('chat-files').remove([filePath]).catch(() => { });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return {
     messages,
     loading,
@@ -685,6 +803,7 @@ export function useChatState(conversationId: string) {
     sendMessage,
     sendVoiceMessage,
     sendImageMessage,
+    sendFileMessage,
     selectedMessages,
     toggleSelection,
     clearSelection,
