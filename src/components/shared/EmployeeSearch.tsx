@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Loader2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
+import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface EmployeeSearchProps {
     onSelect: (employee: any) => void;
@@ -33,66 +33,44 @@ export function EmployeeSearch({
     onChange
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
-    const [internalQuery, setInternalQuery] = useState('');
-    const query = value !== undefined ? value : internalQuery;
-    
-    const [suggestions, setSuggestions] = useState<any[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+    const showRef = useRef(false);
 
-    // Sync external query
+    const {
+        query: internalQuery,
+        setQuery: setInternalQuery,
+        results: suggestions,
+        isSearching
+    } = useEmployeeSearch({
+        includeFinancialRecords,
+        includeRole,
+        searchUsername,
+        limit,
+        enabled: !disabled
+    });
+
+    // Controlled vs uncontrolled query
+    const query = value !== undefined ? value : internalQuery;
     const handleQueryChange = (val: string) => {
         if (onChange) onChange(val);
         else setInternalQuery(val);
-        
-        setShowSuggestions(true);
+        showRef.current = true;
     };
 
+    // Sync controlled value into the hook for search
     useEffect(() => {
-        if (!query.trim()) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            return;
+        if (value !== undefined) {
+            setInternalQuery(value);
         }
+    }, [value, setInternalQuery]);
 
-        const timer = setTimeout(async () => {
-            setIsSearching(true);
-            try {
-                let selectClause = 'id, full_name, job_number, department_id';
-                if (includeRole) selectClause += ', role';
-                if (searchUsername) selectClause += ', username';
-                if (includeFinancialRecords) selectClause += ', financial_records(*)';
-
-                let orClause = `job_number.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`;
-                if (searchUsername) orClause += `,username.ilike.%${query.trim()}%`;
-
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select(selectClause)
-                    .or(orClause)
-                    .limit(limit);
-
-                if (error) throw error;
-
-                setSuggestions(data || []);
-                setShowSuggestions((data || []).length > 0);
-            } catch (err) {
-                console.error('Error searching employees:', err);
-                setSuggestions([]);
-            } finally {
-                setIsSearching(false);
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [query, includeFinancialRecords, includeRole, searchUsername, limit]);
+    const showSuggestions = showRef.current && suggestions.length > 0 && query.trim().length > 0;
 
     // Close suggestions on outside click
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-                setShowSuggestions(false);
+                showRef.current = false;
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -102,9 +80,8 @@ export function EmployeeSearch({
     const handleSelect = (user: any) => {
         if (onChange) onChange(user.full_name);
         else setInternalQuery(user.full_name);
-        
-        setShowSuggestions(false);
-        setSuggestions([]);
+
+        showRef.current = false;
         onSelect(user);
     };
 
@@ -120,7 +97,9 @@ export function EmployeeSearch({
                     placeholder={placeholder}
                     value={query}
                     onChange={e => handleQueryChange(e.target.value)}
-                    onFocus={() => query.trim() && suggestions.length > 0 && setShowSuggestions(true)}
+                    onFocus={() => {
+                        if (query.trim() && suggestions.length > 0) showRef.current = true;
+                    }}
                     disabled={disabled}
                     className={cn(
                         "w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 pr-9 transition-colors",
@@ -138,7 +117,7 @@ export function EmployeeSearch({
             </div>
 
             {/* Suggestions Portal to avoid clipping issues */}
-            {showSuggestions && suggestions.length > 0 && searchRef.current && createPortal(
+            {showSuggestions && searchRef.current && createPortal(
                 <div
                     className={cn(
                         "fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200",

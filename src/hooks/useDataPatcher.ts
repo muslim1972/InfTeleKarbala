@@ -32,11 +32,8 @@ export function useDataPatcher() {
     const [selectedSheet, setSelectedSheet] = useState<string>('');
     const [headerRowIndex, setHeaderRowIndex] = useState<number>(0);
 
-    const [manualSearchQuery, setManualSearchQuery] = useState('');
-    const [manualSearchResults, setManualSearchResults] = useState<any[]>([]);
     const [selectedManualProfile, setSelectedManualProfile] = useState<any>(null);
     const [manualFormData, setManualFormData] = useState<any>({});
-    const [isSearching, setIsSearching] = useState(false);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -294,25 +291,6 @@ export function useDataPatcher() {
         };
     }, [matches]);
 
-    const handleManualSearch = async () => {
-        if (!manualSearchQuery.trim()) return;
-        setIsSearching(true);
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*, financial_records(*)')
-                .or(`full_name.ilike.%${manualSearchQuery}%,username.ilike.%${manualSearchQuery}%,job_number.ilike.%${manualSearchQuery}%`)
-                .limit(10);
-
-            if (error) throw error;
-            setManualSearchResults(data || []);
-        } catch (error) {
-            console.error(error);
-            toast.error('حدث خطأ في البحث');
-        } finally {
-            setIsSearching(false);
-        }
-    };
 
     const handleSelectProfile = (profile: any) => {
         setSelectedManualProfile(profile);
@@ -378,16 +356,12 @@ export function useDataPatcher() {
         sheetNames, setSheetNames,
         selectedSheet, setSelectedSheet,
         headerRowIndex, setHeaderRowIndex,
-        manualSearchQuery, setManualSearchQuery,
-        manualSearchResults, setManualSearchResults,
         selectedManualProfile, setSelectedManualProfile,
         manualFormData, setManualFormData,
-        isSearching, setIsSearching,
         
         handleFileSelect,
         analyzeData,
         executeUpdate,
-        handleManualSearch,
         handleSelectProfile,
         handleManualSave,
         stats

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '../../lib/utils';
+import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface NewChatModalProps {
     onClose: () => void;
@@ -22,14 +23,18 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
     const [groupName, setGroupName] = useState('');
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
-    // Search State
-    const [searchQuery, setSearchQuery] = useState('');
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 500);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+    // البحث العالمي للموظفين
+    const {
+        query: searchQuery,
+        setQuery: setSearchQuery,
+        results: searchResults,
+        isSearching
+    } = useEmployeeSearch({
+        selectFields: 'id, full_name, avatar_url, role, job_number',
+        excludeUserId: currentUser?.id,
+        limit: 20,
+        debounceMs: 400
+    });
 
     // Initial fetch of users (cached)
     const { data: users = [], isLoading: loadingUsers } = useQuery({
@@ -39,6 +44,7 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
                 .from('profiles')
                 .select('id, full_name, avatar_url, role, job_number')
                 .neq('id', currentUser?.id)
+                .order('full_name')
                 .limit(50);
             if (error) throw error;
             return data || [];
@@ -47,23 +53,6 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
         staleTime: 5 * 60 * 1000,
     });
 
-    // Search results (cached)
-    const { data: searchResults = [], isFetching: isSearching } = useQuery({
-        queryKey: ['chat-users-search-modal', debouncedSearchQuery, currentUser?.id],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, avatar_url, role, job_number')
-                .or(`job_number.ilike.${debouncedSearchQuery}%,full_name.ilike.${debouncedSearchQuery}%`)
-                .limit(20);
-
-            if (error) throw error;
-            return data?.filter(u => u.id !== currentUser?.id) || [];
-        },
-        enabled: !!debouncedSearchQuery.trim() && !!currentUser?.id,
-        staleTime: 1 * 60 * 1000,
-    });
-    
     // Auto-focus search input when it appears
     useEffect(() => {
         if ((mode === 'direct' || mode === 'group') && searchInputRef.current) {
@@ -74,7 +63,7 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
         }
     }, [mode]);
 
-    const displayUsers = debouncedSearchQuery.trim() ? searchResults : users;
+    const displayUsers = searchQuery.trim() ? searchResults : users;
 
     const toggleUserSelection = (userId: string) => {
         const newSet = new Set(selectedUsers);

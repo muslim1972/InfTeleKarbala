@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
+import { useEmployeeSearch } from "./useEmployeeSearch";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
     // 1. Loading State
@@ -554,21 +555,24 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         }
     };
 
-    // Auto-search Suggestions (Debounced)
+    // Auto-search Suggestions (powered by global useEmployeeSearch hook)
+    const _empSearch = useEmployeeSearch({
+        selectFields: 'id, full_name, job_number, username, role',
+        limit: 50,
+        debounceMs: 300,
+        enabled: searchExpanded
+    });
+
+    // مزامنة searchJobNumber مع الخطاف العالمي
     useEffect(() => {
-        const delaySearch = setTimeout(async () => {
-            const query = searchJobNumber.trim();
-            if (!query || !searchExpanded) { setSuggestions([]); setShowSuggestions(false); return; }
-            try {
-                const { data } = await supabase.from('profiles').select('id, full_name, job_number, username, role')
-                    .or(`job_number.ilike.${query}%,full_name.ilike.${query}%,full_name.ilike.% ${query}%`).limit(50);
-                setSuggestions(data || []); setShowSuggestions((data || []).length > 0);
-            } catch (err) {
-                setSuggestions([]); setShowSuggestions(false);
-            }
-        }, 300);
-        return () => clearTimeout(delaySearch);
-    }, [searchJobNumber, searchExpanded]);
+        _empSearch.setQuery(searchJobNumber);
+    }, [searchJobNumber]);
+
+    // مزامنة نتائج الخطاف مع suggestions
+    useEffect(() => {
+        setSuggestions(_empSearch.results);
+        setShowSuggestions(_empSearch.results.length > 0);
+    }, [_empSearch.results]);
 
     // ----------------------------
     // Financial Fields Definition

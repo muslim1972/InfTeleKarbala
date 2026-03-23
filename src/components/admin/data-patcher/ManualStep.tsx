@@ -1,15 +1,13 @@
-import { Loader2, ArrowRight, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import type { UseDataPatcherReturn } from '../../../hooks/useDataPatcher';
 import { dbFields } from '../../../utils/dataPatcherUtils';
+import { EmployeeSearch } from '../../shared/EmployeeSearch';
 
 export function ManualStep({ patcher }: { patcher: UseDataPatcherReturn }) {
     const {
         step, setStep,
-        manualSearchQuery, setManualSearchQuery,
-        manualSearchResults,
         selectedManualProfile, setSelectedManualProfile,
         manualFormData, setManualFormData,
-        isSearching, handleManualSearch,
         handleSelectProfile, handleManualSave
     } = patcher;
 
@@ -18,52 +16,14 @@ export function ManualStep({ patcher }: { patcher: UseDataPatcherReturn }) {
             {step === 'manual_search' && (
                 <div className="p-6 h-full flex flex-col items-center animate-in slide-in-from-bottom-5 duration-300">
                     <div className="w-full max-w-xl space-y-4 shadow-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4">
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="بحث عن موظف (الاسم، اسم المستخدم، الرقم الوظيفي)..."
-                                className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none pr-10"
-                                value={manualSearchQuery}
-                                onChange={(e) => setManualSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
-                            />
-                            <button
-                                onClick={handleManualSearch}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-bold transition-colors shadow-sm"
-                                disabled={isSearching}
-                            >
-                                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'بحث'}
-                            </button>
-                        </div>
-
-                        <div className="space-y-2 mt-4 max-h-[50vh] overflow-y-auto scroll-smooth">
-                            {manualSearchResults.map((profile) => {
-                                const hasRecord = profile.financial_records && (Array.isArray(profile.financial_records) ? profile.financial_records.length > 0 : true);
-                                return (
-                                    <div
-                                        key={profile.id}
-                                        onClick={() => handleSelectProfile(profile)}
-                                        className="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-amber-500 cursor-pointer transition-colors group flex justify-between items-center"
-                                    >
-                                        <div>
-                                            <p className="font-bold text-zinc-900 dark:text-white">{profile.full_name || 'بدون اسم'}</p>
-                                            <p className="text-xs text-zinc-500 mt-1">@{profile.username} | {profile.job_number || 'No Job #'}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {hasRecord ? (
-                                                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">لديه سجل</span>
-                                            ) : (
-                                                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">جديد</span>
-                                            )}
-                                            <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-amber-500 transition-colors rotate-180" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {manualSearchResults.length === 0 && manualSearchQuery && !isSearching && (
-                                <div className="text-center text-zinc-500 py-8 font-medium">لا توجد نتائج مطابقة</div>
-                            )}
-                        </div>
+                        <EmployeeSearch
+                            onSelect={handleSelectProfile}
+                            placeholder="بحث عن موظف (الاسم، الرقم الوظيفي)..."
+                            includeFinancialRecords={true}
+                            searchUsername={true}
+                            limit={15}
+                            inputClassName="focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        />
                     </div>
                 </div>
             )}
