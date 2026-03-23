@@ -1,170 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, X, AlertTriangle, CheckCircle2, Printer, Loader2, ShieldCheck, Calculator } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ShieldCheck, Calculator, Loader2, X, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { FullAudit } from './FullAudit';
 import { getExpectedNominalSalary } from '../../utils/salaryScale';
 
-// ===== النسب المعتمدة حسب rwservlet.xml =====
-const APPROVED_PERCENTAGES: Record<string, number | null> = {
-    certificate_allowance: null,
-    engineering_allowance: null,
-    legal_allowance: null,
-    transport_allowance: null,
-    marital_allowance: null,
-    children_allowance: null,
-    position_allowance: null,
-    risk_allowance: null,
-    additional_50_percent_allowance: null,
-    tax_deduction_amount: null,
-    loan_deduction: null,
-    execution_deduction: null,
-    retirement_deduction: 10,
-    school_stamp_deduction: null,
-    social_security_deduction: 0.25,
-    other_deductions: null,
-};
-
-const ALLOWANCE_FIELDS = [
-    { key: 'certificate_allowance', label: 'م. الشهادة' },
-    { key: 'engineering_allowance', label: 'م. هندسية' },
-    { key: 'legal_allowance', label: 'م. القانونية' },
-    { key: 'position_allowance', label: 'م. المنصب' },
-    { key: 'risk_allowance', label: 'م. الخطورة' },
-    { key: 'additional_50_percent_allowance', label: 'م. اضافية 50%' },
-];
-
-const DEDUCTION_FIELDS = [
-    { key: 'retirement_deduction', label: 'استقطاع التقاعد' },
-    { key: 'social_security_deduction', label: 'استقطاع الحماية الاجتماعية' },
-    { key: 'tax_deduction_amount', label: 'الاستقطاع الضريبي' },
-];
-
-const SALARY_FIELDS = [
-    { key: 'nominal_salary', label: 'الراتب الاسمي' },
-    { key: 'gross_salary', label: 'الراتب الكلي (الاجمالي)' },
-    { key: 'net_salary', label: 'الراتب المستحق (الصافي)' },
-];
-
-// ===== دالة مساعدة للتحقق من استحقاق المخصصات القانونية =====
-function getLegalAllowancePercentage(finData: any): number {
-    const title = finData.job_title ? finData.job_title.trim() : '';
-    const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
-    const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
-
-    // العناوين القانونية المحددة بدقة
-    const legalTitles = [
-        'مستشار قانوني',
-        'مستشار قانوني اقدم',
-        'مستشار قانوني اقدم اول',
-        'مشاور قانوني',
-        'مشاور قانوني اقدم',
-        'مشاور قانوني اقدم اول',
-        'ر مستشارين',
-        'ر مستشارين اقدم',
-        'ر مستشارين اقدم اول',
-        'ر مشاورين',
-        'ر مشاورين اقدم',
-        'ر مشاورين اقدم اول'
-    ];
-    const isLegalTitle = legalTitles.some(t => title === t || title.includes(t));
-    const isBachelor = normalizedCert.includes('بكلوريوس') || normalizedCert.includes('بكالوريوس');
-
-    if (isLegalTitle && isBachelor) return 30;
-    return 0;
-}
-
-// ===== الدالة المساعدة لحل النسبة المعتمدة =====
-function resolveApprovedPercentage(fieldKey: string, finData: any): number | null {
-    if (!finData) return null;
-
-    // === إجازة 5 سنوات: تصفير المخصصات ===
-    if (finData.is_five_year_leave) {
-        const isAllowance = ALLOWANCE_FIELDS.some(f => f.key === fieldKey);
-        if (isAllowance) return 0;
-    }
-    if (fieldKey === 'certificate_allowance') {
-        let t = finData.certificate_text ? finData.certificate_text.trim() : '';
-
-        // تطبيع النص: إزالة الأرقام، الرموز، والمسافات لتسهيل المطابقة (Smart Fuzzy Match)
-        // مثال: "دبلو م عالي 55%" -> "دبلومعالي"
-        // مثال: "بكلوريوس (قديم)" -> "بكلوريوسقديم"
-        const normalized = t.replace(/[0-9%.\s\-\(\)]/g, '');
-
-        if (normalized.includes('دكتوراه')) return 150;
-        if (normalized.includes('ماجستير')) return 125;
-        if (normalized.includes('دبلومعالي')) return 55; // دبلوم عالي
-        if (normalized.includes('بكلوريوس') || normalized.includes('بكالوريوس')) return 45;
-        if (normalized.includes('دبلوم') || normalized.includes('معهد')) return 35; // دبلوم أو معهد
-        if (normalized.includes('اعدادية') || normalized.includes('إعدادية')) return 25;
-        if (normalized.includes('توسطة')) return 15; // متوسطة
-        if (normalized.includes('بتدائية') || normalized.includes('إبتدائية')) return 15;
-        if (normalized.includes('يقرأ') || normalized.includes('أمي')) return 15;
-
-        return 0; // Default (Primary or none)
-    }
-    if (fieldKey === 'engineering_allowance') {
-        const title = finData.job_title ? finData.job_title.trim() : '';
-        // العناوين المشمولة بمخصصات هندسية (35%)
-        const engineeringTitles = [
-            'م مهندس',
-            'مهندس',
-            'ر مهندسين',
-            'ر مهندسين اقدم',
-            'ر مهندسين اقدم اول'
-        ];
-
-        // تطبيع العنوان للمقارنة (إزالة مسافات زائدة)
-        // التحقق مما إذا كان العنوان يبدأ بأحد العناوين المذكورة أو يطابقها
-        // ملاحظة: قد نحتاج لـ startWith أو includes حسب دقة البيانات
-        // هنا سنستخدم includes للسلامة، أو exact match إذا كانت البيانات دقيقة
-        // بناءً على طلب المستخدم، هذه هي العناوين الخمسة.
-
-        const isEngineer = engineeringTitles.some(t => title === t || title.includes(t));
-
-        if (isEngineer) return 35;
-        return 0;
-    }
-    if (fieldKey === 'legal_allowance') {
-        return getLegalAllowancePercentage(finData);
-    }
-    if (fieldKey === 'risk_allowance') {
-        // 1. التحقق من استحقاق القانونية أولاً (لا يجتمعان)
-        const legalPct = getLegalAllowancePercentage(finData);
-        if (legalPct === 30) return 0; // إذا كان مستحقاً للقانونية، تحجب الخطورة
-
-        // 2. إذا لم يستحق قانونية، فالنسبة الثابتة للشركة هي 30%
-        return 30;
-    }
-    if (fieldKey === 'position_allowance') {
-        const val = parseFloat(finData.position_allowance) || 0;
-        // إذا كان لديه مخصصات منصب (القيمة > 0) فالنسبة الثابتة هي 15%
-        // إذا كانت القيمة 0، فالنسبة المتوقعة 0 (لا يوجد منصب)
-        return val > 0 ? 15 : 0;
-    }
-    if (fieldKey === 'additional_50_percent_allowance') {
-        const val = parseFloat(finData.additional_50_percent_allowance) || 0;
-        // إذا كان لديه مخصصات إضافية (القيمة > 0) فالنسبة الثابتة هي 50%
-        // إذا كانت القيمة 0، فالنسبة المتوقعة 0 (غير مستحق)
-        return val > 0 ? 50 : 0;
-    }
-    const fixed = APPROVED_PERCENTAGES[fieldKey];
-    if (fixed !== undefined && fixed !== null) return fixed;
-    const nomSal = parseFloat(finData.nominal_salary) || 0;
-    const storedVal = parseFloat(finData[fieldKey]) || 0;
-    if (nomSal > 0 && storedVal > 0) {
-        return Math.round((storedVal / nomSal) * 10000) / 100;
-    }
-    return null;
-}
-
-// ===== تنسيق الأرقام =====
-const fmt = (n: number | null | undefined) => (n !== null && n !== undefined) ? n.toLocaleString('en-US') : '—';
+import {
+    ALLOWANCE_FIELDS,
+    DEDUCTION_FIELDS,
+    SALARY_FIELDS,
+    resolveApprovedPercentage
+} from '../../utils/salaryRules';
+import { printMismatchReportHTML, buildSingleAuditHTML } from '../../utils/auditPrintUtils';
+import { formatCurrency } from '../../utils/formatters';
+import { EmployeeSearch } from '../shared/EmployeeSearch';
 
 // ===== أنواع البيانات =====
-interface MismatchRow {
+export interface MismatchRow {
     name: string;
     jobNumber: string;
     nominalSalary: number;
@@ -174,6 +27,8 @@ interface MismatchRow {
     notes: string;
     isFiveYearLeave?: boolean;
 }
+
+const fmt = formatCurrency;
 
 interface CustomAuditProps {
     onClose: () => void;
@@ -185,8 +40,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     // === التبويبات الرئيسية ===
     const [activeTab, setActiveTab] = useState<'custom' | 'full'>('custom');
 
-    const searchRef = useRef<HTMLDivElement>(null);
-
     // === الحالات العامة ===
     const [scope, setScope] = useState<'all' | 'specific'>('all');
     const [auditType, setAuditType] = useState<'allowances' | 'deductions' | 'salary_values' | null>(null);
@@ -194,9 +47,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 
     // === وضع "اسم محدد" ===
     const [searchQuery, setSearchQuery] = useState('');
-    const [suggestions, setSuggestions] = useState<any[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
 
     // === مشترك ===
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -223,33 +73,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     const inputBg = theme === 'light' ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/40 border-white/10 text-white';
     const mutedBg = theme === 'light' ? 'bg-gray-100/80' : 'bg-white/5';
 
-    // === بحث الاقتراحات ===
-    useEffect(() => {
-        if (scope !== 'specific' || !searchQuery.trim()) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            return;
-        }
-
-        // ✅ منع إعادة البحث/ظهور القائمة إذا كان الاسم في الحقل هو نفسه الاسم المختار
-        if (selectedEmployee && searchQuery === selectedEmployee.full_name) {
-            setShowSuggestions(false);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            setIsSearching(true);
-            const { data } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_number')
-                .or(`job_number.ilike.${searchQuery.trim()}%,full_name.ilike.${searchQuery.trim()}%`)
-                .limit(10);
-            setSuggestions(data || []);
-            setShowSuggestions((data || []).length > 0);
-            setIsSearching(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery, scope, selectedEmployee]);
 
     // === جلب البيانات المالية ===
     const loadFinancialData = useCallback(async (userId: string) => {
@@ -289,7 +112,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
     const handleSelectSuggestion = (user: any) => {
         setSelectedEmployee(user);
         setSearchQuery(user.full_name);
-        setShowSuggestions(false);
         loadFinancialData(user.id);
         resetAuditResults();
     };
@@ -557,7 +379,8 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         const fieldLabel = fieldsList.find(f => f.key === selectedField)?.label || '';
         const pw = window.open('', '_blank');
         if (!pw) return;
-        pw.document.write(buildSingleHTML(fieldLabel));
+        const html = buildSingleAuditHTML(fieldLabel, selectedEmployee, financialData, approvedPercentage, auditResult, currentValue, validationState);
+        pw.document.write(html);
         pw.document.close();
         pw.focus();
         pw.onafterprint = () => pw.close();
@@ -571,117 +394,13 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 
         const pw = window.open('', '_blank');
         if (!pw) return;
-        pw.document.write(`
-<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <title>تقرير القيود غير المطابقة</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Tajawal', sans-serif; padding: 30px; color: #1a1a1a; background: white; font-size: 12px; }
-        .header { border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .header h1 { font-size: 18px; }
-        .summary { display: flex; gap: 15px; margin-bottom: 15px; }
-        .summary-item { background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 12px; }
-        .summary-item .label { font-size: 10px; color: #888; }
-        .summary-item .value { font-size: 14px; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #1a1a1a; color: white; padding: 8px 6px; font-size: 11px; text-align: center; }
-        td { border: 1px solid #ddd; padding: 6px; text-align: center; font-size: 12px; }
-        tr:nth-child(even) { background: #fafafa; }
-        .mismatch { color: #dc2626; font-weight: 700; }
-        .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #ccc; text-align: center; color: #999; font-size: 10px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div><h1>تقرير القيود غير المطابقة</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا التصالات</p></div>
-        <div style="text-align:left"><p>نوع: ${auditType === 'allowances' ? 'مخصصات' : auditType === 'deductions' ? 'استقطاعات' : 'قيم الراتب'} — ${fieldLabel}</p></div>
-    </div>
-    <div class="summary">
-        <div class="summary-item"><div class="label">غير المطابق</div><div class="value mismatch">${mismatchRows.length}</div></div>
-    </div>
-    <table>
-        <thead>
-            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الاستحقاق حسب النسبة</th><th>الرقم حسب المالية</th><th>الملاحظات</th></tr>
-        </thead>
-        <tbody>
-            ${mismatchRows.map((r, i) => `
-            <tr>
-                <td>${i + 1}</td>
-                <td style="text-align:right">${r.name}<br/><small>${r.jobNumber}</small></td>
-                <td>${fmt(r.nominalSalary)}</td>
-                <td>
-                    ${fmt(r.approvedCalc)}
-                    ${r.isFiveYearLeave ? '<br/><small style="color:red; font-size:9px">(إجازة 5 سنوات)</small>' : ''}
-                </td>
-                <td class="mismatch">${fmt(r.currentValue)}</td>
-                <td style="font-size:11px; color:#dc2626">${r.notes}</td>
-            </tr>`).join('')}
-        </tbody>
-    </table>
-    <div class="footer"><p>تقرير تدقيقي لأغراض المراجعة</p></div>
-</body>
-</html>`);
+        const html = printMismatchReportHTML(fieldLabel, auditType, mismatchRows);
+        pw.document.write(html);
         pw.document.close();
         pw.focus();
         pw.onafterprint = () => pw.close();
         pw.print();
     };
-
-    // === بناء HTML التقرير الفردي ===
-    const buildSingleHTML = (fieldLabel: string) => `
-<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <title>تقرير تدقيق مخصص</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Tajawal', sans-serif; padding: 40px; color: #1a1a1a; background: white; }
-        .header { border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; }
-        .header h1 { font-size: 22px; font-weight: 700; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
-        .info-item { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; }
-        .info-item .label { font-size: 11px; color: #888; margin-bottom: 4px; }
-        .info-item .value { font-size: 16px; font-weight: 700; }
-        .result-section { border: 2px solid #e5e5e5; border-radius: 12px; padding: 20px; margin-top: 20px; }
-        .result-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #ddd; }
-        .result-row:last-child { border: none; }
-        .result-row .label { color: #555; font-size: 13px; }
-        .result-row .value { font-weight: 700; font-size: 16px; direction: ltr; }
-        .match { color: #16a34a; }
-        .mismatch { color: #dc2626; }
-        .footer { margin-top: 40px; padding-top: 15px; border-top: 1px solid #ccc; text-align: center; color: #999; font-size: 11px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div><h1>تقرير تدقيق محدد</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا الاتصالات</p></div>
-        <div style="text-align:left"><p>${fieldLabel}</p></div>
-    </div>
-    <div class="info-grid">
-        <div class="info-item"><div class="label">اسم الموظف</div><div class="value">${selectedEmployee?.full_name || '—'}</div></div>
-        <div class="info-item"><div class="label">الراتب الاسمي</div><div class="value">${fmt(financialData?.nominal_salary)} د.ع</div></div>
-    </div>
-    <div class="result-section">
-        <div class="result-row"><span class="label">النسبة المعتمدة</span><span class="value">${approvedPercentage !== null ? approvedPercentage + '%' : 'غير محدد'}</span></div>
-        <div class="result-row">
-            <div style="display:flex; flex-direction:column">
-                <span class="label">الاستحقاق (المحسوب)</span>
-                ${financialData?.is_five_year_leave ? '<span style="font-size:10px; color:#dc2626; margin-top:2px">(كونه يتمتع بإجازة 5 سنوات)</span>' : ''}
-            </div>
-            <span class="value">${fmt(auditResult ?? 0)} د.ع</span>
-        </div>
-        <div class="result-row"><span class="label">القيمة الحالية</span><span class="value">${fmt(currentValue)} د.ع</span></div>
-        <div class="result-row"><span class="label">الحالة</span><span class="value ${validationState === 'match' ? 'match' : 'mismatch'}">${validationState === 'match' ? '✓ مطابق' : '✗ غير مطابق'}</span></div>
-    </div>
-    <div class="footer"><p>تقرير تدقيقي لأغراض المراجعة</p></div>
-</body>
-</html>`;
 
     // =====================================================================
     // ========================== واجهة العرض =============================
@@ -748,57 +467,17 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                 </div>
 
                                 {/* حقل البحث / التنقل */}
-                                <div className="flex-1 relative" ref={searchRef}>
+                                <div className="flex-1 relative">
                                     <label className={cn("text-xs font-bold mb-1.5 block", labelClr)}>البحث عن موظف</label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            placeholder={scope === 'all' ? "كل المنتسبين" : "الرقم الوظيفي أو الاسم..."}
-                                            value={scope === 'all' ? '' : searchQuery}
-                                            onChange={e => setSearchQuery(e.target.value)}
-                                            onFocus={() => scope === 'specific' && suggestions.length > 0 && setShowSuggestions(true)}
-                                            disabled={scope === 'all'}
-                                            className={cn("w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 pr-9",
-                                                inputBg,
-                                                scope === 'all' && "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-white/5"
-                                            )}
-                                        />
-                                        <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
-                                        {isSearching && scope === 'specific' && (
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-brand-green/50 border-t-transparent rounded-full animate-spin" />
-                                        )}
-                                        {/* الاقتراحات */}
-                                        {showSuggestions && suggestions.length > 0 && scope === 'specific' && searchRef.current && createPortal(
-                                            <div
-                                                className={cn(
-                                                    "fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[180px] overflow-y-auto",
-                                                    theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10'
-                                                )}
-                                                style={{
-                                                    top: `${searchRef.current.getBoundingClientRect().bottom + 4}px`,
-                                                    left: `${searchRef.current.getBoundingClientRect().left}px`,
-                                                    width: `${searchRef.current.getBoundingClientRect().width}px`
-                                                }}
-                                            >
-                                                {suggestions.map((user, idx) => (
-                                                    <button
-                                                        key={user.id || idx}
-                                                        type="button"
-                                                        onMouseDown={e => e.preventDefault()}
-                                                        onClick={() => handleSelectSuggestion(user)}
-                                                        className={cn(
-                                                            "w-full text-right px-3 py-2 border-b last:border-0 flex items-center justify-between transition-colors",
-                                                            theme === 'light' ? 'hover:bg-gray-100 border-gray-100' : 'hover:bg-white/10 border-white/5'
-                                                        )}
-                                                    >
-                                                        <span className={cn("text-sm font-bold", textClr)}>{user.full_name}</span>
-                                                        <span className={cn("text-xs font-mono", labelClr)}>{user.job_number}</span>
-                                                    </button>
-                                                ))}
-                                            </div>,
-                                            document.body
-                                        )}
-                                    </div>
+                                    <EmployeeSearch
+                                        onSelect={handleSelectSuggestion}
+                                        placeholder={scope === 'all' ? "كل المنتسبين" : "الرقم الوظيفي أو الاسم..."}
+                                        disabled={scope === 'all'}
+                                        value={scope === 'all' ? '' : searchQuery}
+                                        onChange={setSearchQuery}
+                                        className={scope === 'all' ? "opacity-50 cursor-not-allowed" : ""}
+                                        inputClassName={scope === 'all' ? "bg-gray-100 dark:bg-white/5" : ""}
+                                    />
                                 </div>
                             </div>
                         </div>
