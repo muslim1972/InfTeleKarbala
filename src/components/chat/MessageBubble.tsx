@@ -1,5 +1,4 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
@@ -8,7 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 import useLongPress from '../../hooks/useLongPress';
 import { AudioPlayer } from './AudioPlayer';
 import { useChatSettings } from '../../hooks/useChatSettings';
-import { X } from 'lucide-react';
+import { ImageMessage } from './bubbles/ImageMessage';
+import { TextMessage } from './bubbles/TextMessage';
 
 interface MessageBubbleProps {
     message: Message;
@@ -22,38 +22,11 @@ interface MessageBubbleProps {
 
 const REACTION_EMOJIS = ['❤️', '👍', '🌹', '😂', '😢'];
 
-const renderMessageText = (text: string, isMe: boolean, textColorMe: string, textColorOther: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-
-    return parts.map((part, i) => {
-        if (part.match(urlRegex)) {
-            return (
-                <a
-                    key={i}
-                    href={part}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                        "underline break-all transition-colors",
-                        isMe ? "hover:text-white" : "hover:underline"
-                    )}
-                    style={{ color: isMe ? textColorMe : textColorOther }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {part}
-                </a>
-            );
-        }
-        return <span key={i}>{part}</span>;
-    });
-};
-
 export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction, onImageLoad }: MessageBubbleProps) => {
     const { user } = useAuth();
     const { settings } = useChatSettings();
     const [showReactions, setShowReactions] = React.useState(false);
-    const [showLightbox, setShowLightbox] = React.useState(false);
+    
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
     const isImage = !!message.image_url;
@@ -77,19 +50,10 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
     const onClick = () => {
         if (isSelectionMode && onToggleSelection) {
             onToggleSelection(message.id);
-        } else if (isImage && !message.is_sending) {
-            setShowLightbox(true);
         }
     };
 
     const longPressEvent = useLongPress(onLongPress, onClick, { delay: 800 });
-
-    const fontSizesMap = {
-        sm: 'text-xs',
-        md: 'text-sm',
-        lg: 'text-lg',
-        xl: 'text-2xl'
-    };
 
     return (
         <div
@@ -125,38 +89,9 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 {isVoice && message.audio_url ? (
                     <AudioPlayer src={message.audio_url} isMe={isMe} />
                 ) : isImage && message.image_url ? (
-                    /* Image Message */
-                    <div className={cn(
-                        "relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100/10 shadow-sm",
-                        !message.is_sending && "min-h-[200px] min-w-[200px]"
-                    )}>
-                        <img
-                            src={message.image_url}
-                            alt="صورة مرفقة"
-                            loading="eager"
-                            onLoad={onImageLoad}
-                            className={cn(
-                                "max-w-full md:max-w-[300px] max-h-[350px] object-cover cursor-pointer transition-all hover:opacity-90",
-                                message.is_sending && "opacity-50"
-                            )}
-                        />
-                        {message.is_sending && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
-                            </div>
-                        )}
-                    </div>
+                    <ImageMessage message={message} onImageLoad={onImageLoad} />
                 ) : (
-                    <p 
-                        className={cn(
-                            "leading-relaxed whitespace-pre-wrap break-words",
-                            fontSizesMap[settings.fontSize],
-                            settings.isBold && "font-bold"
-                        )}
-                        style={{ color: isMe ? settings.textColorMe : settings.textColorOther }}
-                    >
-                        {renderMessageText(message.text, isMe, settings.textColorMe, settings.textColorOther)}
-                    </p>
+                    <TextMessage message={message} isMe={isMe} />
                 )}
 
                 <div 
@@ -231,45 +166,6 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     </div>
                 )}
             </div>
-
-            {/* Fullscreen Image Lightbox - Using Portal to break from stacking context */}
-            {showLightbox && message.image_url && createPortal(
-                <div
-                    className="fixed inset-0 z-[99999] bg-black flex items-center justify-center animate-in fade-in duration-300"
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-                    onClick={(e) => {
-                        e.stopPropagation(); // Prevent bubbling to parent bubble which would re-open it
-                        setShowLightbox(false);
-                    }}
-                >
-                    {/* Close Button - Even More Prominent */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowLightbox(false);
-                        }}
-                        className="absolute top-8 right-8 w-14 h-14 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-all z-[100000] backdrop-blur-md border border-white/40 shadow-2xl active:scale-90"
-                        title="إغلاق"
-                    >
-                        <X className="w-10 h-10" />
-                    </button>
-
-                    <img
-                        src={message.image_url}
-                        alt="عرض الصورة"
-                        className="max-w-full max-h-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] select-none pointer-events-auto"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                    
-                    {/* Bottom hint to close */}
-                    <div className="absolute bottom-10 left-0 right-0 text-center pointer-events-none">
-                        <span className="bg-white/10 text-white/90 px-6 py-2.5 rounded-full text-sm font-medium backdrop-blur-md border border-white/20 shadow-lg">
-                            اضغط في أي مكان للخروج من العارض
-                        </span>
-                    </div>
-                </div>,
-                document.body
-            )}
         </div>
     );
 });
