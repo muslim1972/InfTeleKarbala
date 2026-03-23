@@ -79,15 +79,15 @@ export function ChatScreen() {
             ) : (
                 <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-[60] sticky top-0 transition-all">
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => navigate('/chat')} 
+                        <button
+                            onClick={() => navigate('/chat')}
                             className="p-3 -mr-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95"
                             title="الرجوع للقائمة"
                         >
                             <ArrowRight className="w-6 h-6 text-gray-700" />
                         </button>
 
-                        <div 
+                        <div
                             className={cn(
                                 "flex items-center gap-3",
                                 details?.is_group && "cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
@@ -110,11 +110,11 @@ export function ChatScreen() {
                         {/* Group Participants List Dropdown */}
                         {showParticipants && details?.is_group && (
                             <>
-                                <div 
-                                    className="fixed inset-0 z-[15]" 
-                                    onClick={() => setShowParticipants(false)} 
+                                <div
+                                    className="fixed inset-0 z-[15]"
+                                    onClick={() => setShowParticipants(false)}
                                 />
-                                <div 
+                                <div
                                     className="absolute top-16 right-4 left-4 md:right-auto md:left-auto md:w-64 bg-white rounded-xl shadow-2xl border border-gray-100 z-[20] animate-in fade-in slide-in-from-top-2 duration-200"
                                     onClick={(e) => e.stopPropagation()}
                                 >
@@ -135,7 +135,7 @@ export function ChatScreen() {
                                         ))}
                                     </div>
                                     <div className="p-2 border-t">
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={(e) => {
                                                 e.preventDefault();
@@ -175,7 +175,7 @@ export function ChatScreen() {
                                             <Palette className="w-5 h-5 text-emerald-600" />
                                             تنسيق الدردشة
                                         </h3>
-                                        <button 
+                                        <button
                                             onClick={resetSettings}
                                             className="text-xs font-bold text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors"
                                         >
@@ -183,7 +183,7 @@ export function ChatScreen() {
                                             إعادة تعيين
                                         </button>
                                     </div>
-                                    
+
                                     <div className="p-5 space-y-6 text-right">
                                         {/* Font Size */}
                                         <div className="space-y-3">
@@ -195,8 +195,8 @@ export function ChatScreen() {
                                                         onClick={() => updateSettings({ fontSize: fs.value })}
                                                         className={cn(
                                                             "py-3 px-1 text-xs font-bold rounded-xl border transition-all",
-                                                            settings.fontSize === fs.value 
-                                                                ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-200" 
+                                                            settings.fontSize === fs.value
+                                                                ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-200"
                                                                 : "bg-white border-gray-100 text-gray-600 hover:border-emerald-200 hover:bg-emerald-50"
                                                         )}
                                                     >
@@ -213,7 +213,7 @@ export function ChatScreen() {
                                                 {messageColors.map((color) => (
                                                     <button
                                                         key={color.name}
-                                                        onClick={() => updateSettings({ 
+                                                        onClick={() => updateSettings({
                                                             bubbleColorMe: color.me,
                                                             bubbleColorOther: color.other,
                                                             textColorMe: color.textMe,
@@ -221,8 +221,8 @@ export function ChatScreen() {
                                                         })}
                                                         className={cn(
                                                             "w-full p-3 rounded-2xl border flex items-center justify-between transition-all",
-                                                            settings.bubbleColorMe === color.me 
-                                                                ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500" 
+                                                            settings.bubbleColorMe === color.me
+                                                                ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500"
                                                                 : "border-gray-100 hover:border-emerald-100 bg-gray-50/30"
                                                         )}
                                                     >
@@ -247,8 +247,8 @@ export function ChatScreen() {
                                                 onClick={() => updateSettings({ isBold: !settings.isBold })}
                                                 className={cn(
                                                     "w-full py-3.5 rounded-2xl border text-xs font-extrabold transition-all flex items-center justify-center gap-2",
-                                                    settings.isBold 
-                                                        ? "bg-gray-800 text-white border-gray-800 shadow-md" 
+                                                    settings.isBold
+                                                        ? "bg-gray-800 text-white border-gray-800 shadow-md"
                                                         : "bg-white text-gray-600 border-gray-100 hover:bg-gray-50"
                                                 )}
                                             >
