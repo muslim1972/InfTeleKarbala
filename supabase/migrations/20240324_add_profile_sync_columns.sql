@@ -16,3 +16,11 @@ COMMENT ON COLUMN public.profiles.specialization IS 'التخصص (PROF)';
 COMMENT ON COLUMN public.profiles.dept_text IS 'اسم القسم (نصي من Excel)';
 COMMENT ON COLUMN public.profiles.section_text IS 'اسم الشعبة (نصي من Excel)';
 COMMENT ON COLUMN public.profiles.unit_text IS 'اسم الوحدة (نصي من Excel)';
+
+-- ترحيل البيانات القديمة من administrative_summary إلى profiles لضمان عدم وجود حقول فارغة
+-- تاريخ التعيين = تاريخ أول مباشرة
+UPDATE public.profiles p
+SET appointment_date = s.first_appointment_date
+FROM public.administrative_summary s
+WHERE s.id = p.id
+AND (p.appointment_date IS NULL OR p.appointment_date = '');

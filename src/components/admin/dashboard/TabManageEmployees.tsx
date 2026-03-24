@@ -40,8 +40,6 @@ interface TabManageEmployeesProps {
     toggleSection: (id: string) => void;
     financialData: any;
     setFinancialData: (val: any) => void;
-    adminData: any;
-    setAdminData: (val: any) => void;
     isFieldReadOnly: (key: string) => boolean;
     isRoleEditable: boolean;
     theme: 'light' | 'dark';
@@ -72,8 +70,6 @@ export const TabManageEmployees = ({
     toggleSection,
     financialData,
     setFinancialData,
-    adminData,
-    setAdminData,
     isFieldReadOnly,
     isRoleEditable,
     theme,
@@ -239,39 +235,20 @@ export const TabManageEmployees = ({
                     >
                         <div className="space-y-4">
                             {/* Start Date */}
-                            <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-                                {/* Label */}
-                                <div className="flex justify-start pl-2">
-                                    <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">تأريخ اول مباشرة</label>
-                                </div>
-
-                                {/* Input Area + History */}
-                                <div className="flex items-center gap-2 relative">
-                                    {/* History Icon Slot (Fixed Width) */}
-                                    <div className="w-6 shrink-0 flex justify-center">
-                                        {adminData?.id && (
-                                            <HistoryViewer
-                                                tableName="administrative_summary"
-                                                recordId={adminData.id}
-                                                fieldName="first_appointment_date"
-                                                label="تأريخ اول مباشرة"
-                                            />
-                                        )}
-                                    </div>
-
-                                    {/* Input replaced with a basic one for portability or DateInput if available */}
-                                    <Input 
-                                        type="date"
-                                        value={adminData?.first_appointment_date || ''}
-                                        onChange={e => setAdminData({ ...adminData, first_appointment_date: e.target.value })}
-                                        className="flex-1"
-                                        disabled={isFieldReadOnly('first_hire_date')}
-                                    />
-                                </div>
-                            </div>
+                            {/* Appointment Date */}
+                            <EditableField
+                                label="تاريخ التعيين"
+                                value={selectedEmployee.appointment_date}
+                                onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, appointment_date: val })}
+                                recordId={selectedEmployee.id}
+                                tableName="profiles"
+                                dbField="appointment_date"
+                                type="text"
+                                isReadOnly={isFieldReadOnly('appointment_date')}
+                            />
 
                             {/* Job Title and Risk % */}
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 gap-4 mt-4">
                                 <FinancialInput
                                     key="job_title"
                                     field={financialFields.basic.find((f: any) => f.key === 'job_title')}
@@ -291,6 +268,64 @@ export const TabManageEmployees = ({
                                     tableName="financial_records"
                                     dbField="risk_percentage"
                                     isReadOnly={isFieldReadOnly("risk_percentage")}
+                                />
+                            </div>
+
+                            {/* New Profile Fields */}
+                            <div className="grid grid-cols-1 gap-4 mt-4">
+                                <EditableField
+                                    label="التخصص (PROF)"
+                                    value={selectedEmployee.specialization}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, specialization: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="specialization"
+                                    isReadOnly={isFieldReadOnly('specialization')}
+                                />
+                                <EditableField
+                                    label="سنة التخرج"
+                                    value={selectedEmployee.graduation_year}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, graduation_year: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="graduation_year"
+                                    isReadOnly={isFieldReadOnly('graduation_year')}
+                                />
+                                <EditableField
+                                    label="طبيعة العمل"
+                                    value={selectedEmployee.work_nature}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, work_nature: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="work_nature"
+                                    isReadOnly={isFieldReadOnly('work_nature')}
+                                />
+                                <EditableField
+                                    label="القسم"
+                                    value={cleanText(selectedEmployee.dept_text)}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, dept_text: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="dept_text"
+                                    isReadOnly={isFieldReadOnly('dept_text')}
+                                />
+                                <EditableField
+                                    label="الشعبة"
+                                    value={cleanText(selectedEmployee.section_text)}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, section_text: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="section_text"
+                                    isReadOnly={isFieldReadOnly('section_text')}
+                                />
+                                <EditableField
+                                    label="الوحدة"
+                                    value={cleanText(selectedEmployee.unit_text)}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, unit_text: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="unit_text"
+                                    isReadOnly={isFieldReadOnly('unit_text')}
                                 />
                             </div>
 
@@ -685,4 +720,8 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
             </div>
         </div>
     );
+}
+function cleanText(text: any) {
+    if (!text || typeof text !== 'string') return text;
+    return text.split('/')[0].trim();
 }

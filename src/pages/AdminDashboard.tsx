@@ -74,7 +74,7 @@ export const AdminDashboard = () => {
         loading, formData, setFormData, searchJobNumber, setSearchJobNumber,
         suggestions, showSuggestions, setShowSuggestions, searchExpanded, setSearchExpanded,
         selectedEmployee, setSelectedEmployee, financialData, setFinancialData,
-        adminData, setAdminData, yearlyData,
+        yearlyData,
         activeFiveYearLeave, showFiveYearLeaveModal, setShowFiveYearLeaveModal,
         showFiveYearLeaveHistoryModal, setShowFiveYearLeaveHistoryModal, newFiveYearLeave,
         selectedAdminYear, setSelectedAdminYear, adminRecords,
@@ -228,8 +228,6 @@ export const AdminDashboard = () => {
                     toggleSection={toggleSection}
                     financialData={financialData}
                     setFinancialData={setFinancialData}
-                    adminData={adminData}
-                    setAdminData={setAdminData}
                     isFieldReadOnly={isFieldReadOnly}
                     isRoleEditable={isRoleEditable}
                     theme={theme}

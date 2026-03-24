@@ -54,6 +54,9 @@ export const FinancialTabContent = ({
     toggleSection
 }: FinancialTabContentProps) => {
 
+
+
+
     const financialGroups = [
         {
             id: 'basic',
@@ -63,9 +66,16 @@ export const FinancialTabContent = ({
             fields: [
                 { key: 'permission_level', label: 'مستوى الصلاحية', superHighlight: true },
                 { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
+                { key: 'full_name', label: 'الاسم الكامل', isProfile: true },
+                { key: 'specialization', label: 'التخصص (PROF)', isProfile: true },
+                { key: 'graduation_year', label: 'سنة التخرج', isProfile: true },
+                { key: 'appointment_date', label: 'تاريخ التعيين', isProfile: true, isDate: true },
+                { key: 'work_nature', label: 'طبيعة العمل', isProfile: true },
+                { key: 'dept_text', label: 'القسم', isProfile: true },
+                { key: 'section_text', label: 'الشعبة', isProfile: true },
+                { key: 'unit_text', label: 'الوحدة', isProfile: true },
                 { key: 'department_name', label: 'مكان العمل' },
                 { key: 'direct_manager', label: 'المسؤول المباشر' },
-                { key: 'first_appointment_date', label: 'تاريخ أول مباشرة', isDate: true },
                 { key: 'job_title', label: 'العنوان الوظيفي' },
                 { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
                 { key: 'salary_stage', label: 'المرحلة في الدرجة الوظيفية' },
@@ -190,6 +200,11 @@ export const FinancialTabContent = ({
                                             val = getRoleLabel(user);
                                         } else {
                                             val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
+                                            
+                                            // Apply cleaning to organizational fields
+                                            if (['dept_text', 'section_text', 'unit_text'].includes(field.key)) {
+                                                val = cleanText(val);
+                                            }
                                         }
 
                                         const displayVal = field.isMoney
@@ -267,3 +282,8 @@ export const FinancialTabContent = ({
         </div>
     );
 };
+
+function cleanText(text: any) {
+    if (!text || typeof text !== 'string') return text;
+    return text.split('/')[0].trim();
+}

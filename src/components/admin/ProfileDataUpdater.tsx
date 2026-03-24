@@ -104,6 +104,12 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
         reader.readAsBinaryString(file);
     };
 
+    const cleanText = (text: any) => {
+        if (!text || typeof text !== 'string') return text;
+        // Remove everything after and including the first '/'
+        return text.split('/')[0].trim();
+    };
+
     const handleStartPreview = async () => {
         if (excelData.length === 0) {
             toast.error('يرجى رفع ملف Excel أولاً');
@@ -146,12 +152,17 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
                     let hasChanges = false;
                     
                     TARGET_FIELDS.forEach(field => {
-                        const excelValue = row[mapping[field.key]];
+                        let excelValue = row[mapping[field.key]];
                         if (excelValue !== undefined && excelValue !== null) {
+                            // Apply cleaning to organizational fields
+                            if (['dept_text', 'section_text', 'unit_text'].includes(field.key)) {
+                                excelValue = cleanText(excelValue);
+                            }
+
                             updates[field.key] = {
                                 from: existing[field.key],
                                 to: excelValue,
-                                modified: String(existing[field.key]) !== String(excelValue)
+                                modified: String(existing[field.key] || '') !== String(excelValue || '')
                             };
                             if (updates[field.key].modified) hasChanges = true;
                         }

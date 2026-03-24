@@ -14,6 +14,13 @@ export interface AppUser {
   iban?: string;
   department_id?: string | null;
   can_view_requests?: boolean;
+  specialization?: string;
+  graduation_year?: string;
+  appointment_date?: string;
+  work_nature?: string;
+  dept_text?: string;
+  section_text?: string;
+  unit_text?: string;
 }
 
 interface AuthContextType {
@@ -103,7 +110,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
               iban: profile.iban,
               department_id: profile.department_id,
-              can_view_requests: profile.can_view_requests
+              can_view_requests: profile.can_view_requests,
+              specialization: profile.specialization,
+              graduation_year: profile.graduation_year,
+              appointment_date: profile.appointment_date,
+              work_nature: profile.work_nature,
+              dept_text: profile.dept_text,
+              section_text: profile.section_text,
+              unit_text: profile.unit_text
             };
             setUser(appUser);
             if (profile) {
@@ -190,7 +204,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         avatar_url: fullProfile.avatar || fullProfile.avatar_url,
         iban: fullProfile.iban,
         department_id: fullProfile.department_id,
-        can_view_requests: fullProfile.can_view_requests
+        can_view_requests: fullProfile.can_view_requests,
+        specialization: fullProfile.specialization,
+        graduation_year: fullProfile.graduation_year,
+        appointment_date: fullProfile.appointment_date,
+        work_nature: fullProfile.work_nature,
+        dept_text: fullProfile.dept_text,
+        section_text: fullProfile.section_text,
+        unit_text: fullProfile.unit_text
       };
 
       setUser(appUser);
