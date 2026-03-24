@@ -58,6 +58,9 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     // 6. Field Permissions State
     const [fieldPermissions, setFieldPermissions] = useState<any[]>([]);
 
+    // 7. Profile Updater State
+    const [showProfileUpdater, setShowProfileUpdater] = useState(false);
+
     const fetchFieldPermissions = async () => {
         try {
             const { data } = await supabase.from('field_permissions').select('*');
@@ -708,6 +711,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         adminRecords, setAdminRecords,
         fieldPermissions, fetchFieldPermissions,
         financialFields, 
+        showProfileUpdater, setShowProfileUpdater,
         
         loadEmployeeData, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
         handleCreateFiveYearLeave, handleNewFiveYearLeaveChange, handleFiveYearLeaveChange,

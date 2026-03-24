@@ -79,6 +79,7 @@ export const AdminDashboard = () => {
         showFiveYearLeaveHistoryModal, setShowFiveYearLeaveHistoryModal, newFiveYearLeave,
         selectedAdminYear, setSelectedAdminYear, adminRecords,
         fetchFieldPermissions, financialFields,
+        showProfileUpdater, setShowProfileUpdater,
         loadEmployeeData, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
         handleCreateFiveYearLeave, handleNewFiveYearLeaveChange, handleFiveYearLeaveChange,
         fetchAdminRecords, handleSaveRecord, handleDeleteRecord, handleFinancialChange, isFieldReadOnly
@@ -239,6 +240,8 @@ export const AdminDashboard = () => {
                     setShowDataPatcher={setShowDataPatcher}
                     showSmartUpdater={showSmartUpdater}
                     setShowSmartUpdater={setShowSmartUpdater}
+                    showProfileUpdater={showProfileUpdater}
+                    setShowProfileUpdater={setShowProfileUpdater}
                     showFieldPermissionsModal={showFieldPermissionsModal}
                     setShowFieldPermissionsModal={setShowFieldPermissionsModal}
                     showRequestsPermissionsModal={showRequestsPermissionsModal}
@@ -251,208 +254,182 @@ export const AdminDashboard = () => {
             )}
 
             {/* ======= السجلات الإدارية TAB ======= */}
-            {
-                activeTab === 'admin_records' && (
-                    <TabAdminRecords
-                        selectedEmployee={selectedEmployee}
-                        yearlyData={yearlyData}
-                        selectedAdminYear={selectedAdminYear}
-                        adminRecords={adminRecords}
-                        handleSaveRecord={handleSaveRecord}
-                        handleDeleteRecord={handleDeleteRecord}
-                        openRecordSection={openRecordSection}
-                        handleToggleRecordSection={handleToggleRecordSection}
-                        isFieldReadOnly={isFieldReadOnly}
-                        activeFiveYearLeave={activeFiveYearLeave}
-                        setShowFiveYearLeaveModal={setShowFiveYearLeaveModal}
-                        setShowFiveYearLeaveHistoryModal={setShowFiveYearLeaveHistoryModal}
-                        financialData={financialData}
-                        handleFiveYearLeaveChange={handleFiveYearLeaveChange}
-                        newFiveYearLeave={newFiveYearLeave}
-                        handleNewFiveYearLeaveChange={handleNewFiveYearLeaveChange}
-                        handleCreateFiveYearLeave={handleCreateFiveYearLeave}
-                        loading={loading}
-                    />
-                )
-            }
+            {activeTab === 'admin_records' && (
+                <TabAdminRecords
+                    selectedEmployee={selectedEmployee}
+                    yearlyData={yearlyData}
+                    selectedAdminYear={selectedAdminYear}
+                    adminRecords={adminRecords}
+                    handleSaveRecord={handleSaveRecord}
+                    handleDeleteRecord={handleDeleteRecord}
+                    openRecordSection={openRecordSection}
+                    handleToggleRecordSection={handleToggleRecordSection}
+                    isFieldReadOnly={isFieldReadOnly}
+                    activeFiveYearLeave={activeFiveYearLeave}
+                    setShowFiveYearLeaveModal={setShowFiveYearLeaveModal}
+                    setShowFiveYearLeaveHistoryModal={setShowFiveYearLeaveHistoryModal}
+                    financialData={financialData}
+                    handleFiveYearLeaveChange={handleFiveYearLeaveChange}
+                    newFiveYearLeave={newFiveYearLeave}
+                    handleNewFiveYearLeaveChange={handleNewFiveYearLeaveChange}
+                    handleCreateFiveYearLeave={handleCreateFiveYearLeave}
+                    loading={loading}
+                />
+            )}
 
             {/* News Ticker Tab */}
-            {
-                activeTab === 'admin_news' && (
-                    <div className="space-y-6 mx-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                        {/* News Bar Section */}
-                        <AccordionSection
-                            id="news_bar"
-                            title="إدارة شريط الاخبار"
-                            icon={FileText}
-                            isOpen={expandedSections.news_bar}
-                            color="from-teal-600 to-teal-500"
-                            onToggle={() => toggleSection('news_bar')}
-                        >
-                            <div className="p-2">
-                                <div className="flex justify-between items-center mb-4">
-                                    <p className="text-white/60 text-sm leading-relaxed">
-                                        يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
-                                    </p>
-                                    <button
-                                        onClick={() => toggleSection('news_bar')}
-                                        className="text-white/40 hover:text-white flex items-center gap-1 text-xs transition-colors"
-                                    >
-                                        <ChevronDown className="w-4 h-4 rotate-180" />
-                                        إغلاق
-                                    </button>
-                                </div>
-                                <TipsEditor appName="InfTeleKarbala" />
+            {activeTab === 'admin_news' && (
+                <div className="space-y-6 mx-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <AccordionSection
+                        id="news_bar"
+                        title="إدارة شريط الاخبار"
+                        icon={FileText}
+                        isOpen={expandedSections.news_bar}
+                        color="from-teal-600 to-teal-500"
+                        onToggle={() => toggleSection('news_bar')}
+                    >
+                        <div className="p-2">
+                            <div className="flex justify-between items-center mb-4">
+                                <p className="text-white/60 text-sm leading-relaxed">
+                                    يمكنك هنا تحديث شريط الاخبار الذي يظهر في أسفل التطبيق لجميع المستخدمين.
+                                </p>
+                                <button
+                                    onClick={() => toggleSection('news_bar')}
+                                    className="text-white/40 hover:text-white flex items-center gap-1 text-xs transition-colors"
+                                >
+                                    <ChevronDown className="w-4 h-4 rotate-180" />
+                                    إغلاق
+                                </button>
                             </div>
-                        </AccordionSection>
+                            <TipsEditor appName="InfTeleKarbala" />
+                        </div>
+                    </AccordionSection>
 
-                        {/* Polls Section */}
-                        <AccordionSection
-                            id="polls"
-                            title="الاستطلاعات"
-                            icon={PieChart}
-                            isOpen={expandedSections.polls}
-                            color="from-purple-600 to-purple-500"
-                            onToggle={() => toggleSection('polls')}
-                        >
-                            <div className="p-2">
-                                <PollCreator />
-                            </div>
-                        </AccordionSection>
+                    <AccordionSection
+                        id="polls"
+                        title="الاستطلاعات"
+                        icon={PieChart}
+                        isOpen={expandedSections.polls}
+                        color="from-purple-600 to-purple-500"
+                        onToggle={() => toggleSection('polls')}
+                    >
+                        <div className="p-2">
+                            <PollCreator />
+                        </div>
+                    </AccordionSection>
 
-                        {/* Directives Section (Red) */}
-                        <AccordionSection
-                            id="directives"
-                            title="التوجيهات"
-                            icon={AlertCircle}
-                            isOpen={expandedSections.directives}
-                            color="from-red-600 to-red-500"
-                            onToggle={() => toggleSection('directives')}
-                        >
-                            <div className="p-2">
-                                <MediaSectionEditor
-                                    type="directive"
-                                    title="محتوى التوجيهات الهامة"
-                                    placeholder="اكتب التوجيه هنا... سيظهر هذا النص في نافذة منبثقة حمراء تتطلب تأكيد القراءة."
-                                />
-                            </div>
-                        </AccordionSection>
+                    <AccordionSection
+                        id="directives"
+                        title="التوجيهات"
+                        icon={AlertCircle}
+                        isOpen={expandedSections.directives}
+                        color="from-red-600 to-red-500"
+                        onToggle={() => toggleSection('directives')}
+                    >
+                        <div className="p-2">
+                            <MediaSectionEditor
+                                type="directive"
+                                title="محتوى التوجيهات الهامة"
+                                placeholder="اكتب التوجيه هنا... سيظهر هذا النص في نافذة منبثقة حمراء تتطلب تأكيد القراءة."
+                            />
+                        </div>
+                    </AccordionSection>
 
-                        {/* Conferences Section (Green) */}
-                        <AccordionSection
-                            id="conferences"
-                            title="النشاطات"
-                            icon={User}
-                            isOpen={expandedSections.conferences}
-                            color="from-green-600 to-green-500"
-                            onToggle={() => toggleSection('conferences')}
-                        >
-                            <div className="p-2">
-                                <MediaSectionEditor
-                                    type="conference"
-                                    title="محتوى النشاطات"
-                                    placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
-                                />
-                            </div>
-                        </AccordionSection>
-
-                    </div>
-                )
-            }
+                    <AccordionSection
+                        id="conferences"
+                        title="النشاطات"
+                        icon={User}
+                        isOpen={expandedSections.conferences}
+                        color="from-green-600 to-green-500"
+                        onToggle={() => toggleSection('conferences')}
+                    >
+                        <div className="p-2">
+                            <MediaSectionEditor
+                                type="conference"
+                                title="محتوى النشاطات"
+                                placeholder="اكتب تفاصيل المؤتمر هنا... سيظهر هذا النص في نافذة خضراء."
+                            />
+                        </div>
+                    </AccordionSection>
+                </div>
+            )}
 
             {/* ======= المشرفون TAB ======= */}
-            {
-                activeTab === 'admin_supervisors' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
-
-                        {/* Header */}
-                        <div className={cn(
-                            "rounded-2xl p-5 border",
-                            theme === 'light'
-                                ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/60"
-                                : "bg-gradient-to-br from-amber-950/30 to-orange-950/20 border-amber-500/10"
-                        )}>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className={cn(
-                                    "w-10 h-10 rounded-xl flex items-center justify-center",
-                                    theme === 'light'
-                                        ? "bg-amber-500/10 text-amber-600"
-                                        : "bg-amber-500/20 text-amber-400"
-                                )}>
-                                    <Shield className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h2 className={cn("text-lg font-bold", theme === 'light' ? "text-amber-900" : "text-amber-300")}>لوحة المشرفين</h2>
-                                    <p className={cn("text-xs", theme === 'light' ? "text-amber-700/70" : "text-amber-400/60")}>التدقيق والرقابة المالية والإدارية</p>
-                                </div>
+            {activeTab === 'admin_supervisors' && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+                    <div className={cn(
+                        "rounded-2xl p-5 border",
+                        theme === 'light'
+                            ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/60"
+                            : "bg-gradient-to-br from-amber-950/30 to-orange-950/20 border-amber-500/10"
+                    )}>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center",
+                                theme === 'light'
+                                    ? "bg-amber-500/10 text-amber-600"
+                                    : "bg-amber-500/20 text-amber-400"
+                            )}>
+                                <Shield className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className={cn("text-lg font-bold", theme === 'light' ? "text-amber-900" : "text-amber-300")}>لوحة المشرفين</h2>
+                                <p className={cn("text-xs", theme === 'light' ? "text-amber-700/70" : "text-amber-400/60")}>التدقيق والرقابة المالية والإدارية</p>
                             </div>
                         </div>
-
-                        {/* Section 1: صلاحيات المشرفون */}
-                        <AccordionSection
-                            id="sup_permissions"
-                            title="صلاحيات المشرفين"
-                            icon={Shield}
-                            isOpen={expandedSections.sup_permissions}
-                            color="from-amber-600 to-yellow-500"
-                            onToggle={() => toggleSection('sup_permissions')}
-                        >
-                            <SupervisorPermissions theme={theme} />
-                        </AccordionSection>
-
-                        {/* Section 2: تدقيق مخصص */}
-                        <AccordionSection
-                            id="sup_custom_audit"
-                            title="تدقيق مخصص"
-                            icon={ScanSearch}
-                            isOpen={expandedSections.sup_custom_audit}
-                            color="from-cyan-600 to-teal-500"
-                            onToggle={() => toggleSection('sup_custom_audit')}
-                        >
-                            <div className="p-4">
-                                <CustomAudit onClose={() => toggleSection('sup_custom_audit')} />
-                            </div>
-                        </AccordionSection>
-
-
-
                     </div>
-                )
-            }
+
+                    <AccordionSection
+                        id="sup_permissions"
+                        title="صلاحيات المشرفين"
+                        icon={Shield}
+                        isOpen={expandedSections.sup_permissions}
+                        color="from-amber-600 to-yellow-500"
+                        onToggle={() => toggleSection('sup_permissions')}
+                    >
+                        <SupervisorPermissions theme={theme} />
+                    </AccordionSection>
+
+                    <AccordionSection
+                        id="sup_custom_audit"
+                        title="تدقيق مخصص"
+                        icon={ScanSearch}
+                        isOpen={expandedSections.sup_custom_audit}
+                        color="from-cyan-600 to-teal-500"
+                        onToggle={() => toggleSection('sup_custom_audit')}
+                    >
+                        <div className="p-4">
+                            <CustomAudit onClose={() => toggleSection('sup_custom_audit')} />
+                        </div>
+                    </AccordionSection>
+                </div>
+            )}
 
             {/* ======= التدريب الصيفي TAB ======= */}
-            {
-                activeTab === 'admin_training' && (
-                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                        <TrainingTabContent isAdmin={true} />
-                    </div>
-                )
-            }
+            {activeTab === 'admin_training' && (
+                <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                    <TrainingTabContent isAdmin={true} />
+                </div>
+            )}
 
             {/* ======= الطلبات TAB ======= */}
-            {
-                activeTab === 'admin_requests' && (
-                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                        <AdminLeaveRequests
-                            employeeId={selectedEmployee?.id}
-                            employeeName={selectedEmployee?.full_name}
-                            highlightRequestId={highlightRequestId}
-                        />
-                    </div>
-                )
-            }
+            {activeTab === 'admin_requests' && (
+                <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                    <AdminLeaveRequests
+                        employeeId={selectedEmployee?.id}
+                        employeeName={selectedEmployee?.full_name}
+                        highlightRequestId={highlightRequestId}
+                    />
+                </div>
+            )}
 
             {/* ======= القرآن الكريم TAB ======= */}
-            {
-                activeTab === 'admin_audio' && (
-                    <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                        <AudioHub />
-                    </div>
-                )
-            }
+            {activeTab === 'admin_audio' && (
+                <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                    <AudioHub />
+                </div>
+            )}
 
-            {/* Five Year Leave Edit/Cancel Modal */}
             <FiveYearLeaveDetailsModal
                 isOpen={showFiveYearLeaveModal}
                 onClose={() => setShowFiveYearLeaveModal(false)}
@@ -473,9 +450,3 @@ export const AdminDashboard = () => {
         </Layout >
     );
 };
-
-
-
-
-
-// End of file

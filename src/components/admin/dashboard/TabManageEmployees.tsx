@@ -26,6 +26,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
 import { DataPatcher } from '../DataPatcher';
+import { ProfileDataUpdater } from '../ProfileDataUpdater';
 import { SmartSalaryUpdater } from '../SmartSalaryUpdater';
 import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
@@ -57,6 +58,8 @@ interface TabManageEmployeesProps {
     setShowRequestsPermissionsModal: (val: boolean) => void;
     showFixBalanceModal: boolean;
     setShowFixBalanceModal: (val: boolean) => void;
+    showProfileUpdater: boolean;
+    setShowProfileUpdater: (val: boolean) => void;
     fetchFieldPermissions: () => Promise<void>;
     handleFiveYearLeaveChange: (checked: boolean) => void;
 }
@@ -87,6 +90,8 @@ export const TabManageEmployees = ({
     setShowRequestsPermissionsModal,
     showFixBalanceModal,
     setShowFixBalanceModal,
+    showProfileUpdater,
+    setShowProfileUpdater,
     fetchFieldPermissions,
 }: TabManageEmployeesProps) => {
     return (
@@ -493,7 +498,16 @@ export const TabManageEmployees = ({
                                     className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
                                 >
                                     <FileSpreadsheet className="w-4 h-4 text-green-500" />
-                                    تحديث بيانات من Excel
+                                    تحديث بيانات من Excel (قديم)
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowProfileUpdater(true)}
+                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50 border-teal-500/30 font-bold"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4 text-teal-500" />
+                                    تحديث المعلومات الأساسية
                                 </Button>
 
                                 <Button
@@ -542,6 +556,12 @@ export const TabManageEmployees = ({
                             )}
                             {showDataPatcher && (
                                 <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                            )}
+                            {showProfileUpdater && (
+                                <ProfileDataUpdater 
+                                    onClose={() => setShowProfileUpdater(false)} 
+                                    theme={theme}
+                                />
                             )}
                             {showFixBalanceModal && (
                                 <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} />
