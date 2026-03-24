@@ -5,6 +5,7 @@ import { SalaryCalculator } from "./SalaryCalculator";
 import { formatDateTime } from "../../utils/formatDate";
 import { getRoleLabel } from "../../utils/formatRoles";
 import { cn } from "../../lib/utils";
+import { cleanText } from "../../utils/profileUtils";
 
 interface FinancialField {
     key: string;
@@ -283,7 +284,3 @@ export const FinancialTabContent = ({
     );
 };
 
-function cleanText(text: any) {
-    if (!text || typeof text !== 'string') return text;
-    return text.split('/')[0].trim();
-}

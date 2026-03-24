@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { Loader2, Plus, Edit, Trash2, Save, Network, Check, X, Edit2, Search } from "lucide-react";
+import { normalizeForComparison } from "../../utils/profileUtils";
 
 interface Department {
     id: string;
@@ -16,6 +17,9 @@ interface UserProfile {
     id: string;
     full_name: string;
     department_id?: string | null;
+    dept_text?: string | null;
+    section_text?: string | null;
+    unit_text?: string | null;
 }
 
 interface DepartmentsManagerProps {
@@ -88,28 +92,49 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, department_id')
+                .select('id, full_name, department_id, dept_text, section_text, unit_text')
                 .order('full_name');
 
             if (error) throw error;
 
             const fetchedUsers = data || [];
             setUsers(fetchedUsers);
-
-            // Group employees by department for the tree view
-            const grouped: Record<string, UserProfile[]> = {};
-            fetchedUsers.forEach(u => {
-                if (u.department_id) {
-                    if (!grouped[u.department_id]) grouped[u.department_id] = [];
-                    grouped[u.department_id].push(u);
-                }
-            });
-            setEmployeesByDept(grouped);
-
         } catch (error) {
             console.error("Error fetching users:", error);
         }
     };
+
+    // New: Handle dynamic grouping based on text fields and department names
+    useEffect(() => {
+        if (departments.length > 0 && users.length > 0) {
+            const grouped: Record<string, UserProfile[]> = {};
+            
+            departments.forEach(dept => {
+                const normalizedDeptName = normalizeForComparison(dept.name);
+                
+                const deptEmployees = users.filter(u => {
+                    const normUDept = u.dept_text ? normalizeForComparison(u.dept_text) : '';
+                    const normUSection = u.section_text ? normalizeForComparison(u.section_text) : '';
+                    const normUUnit = u.unit_text ? normalizeForComparison(u.unit_text) : '';
+                    
+                    const isTextMatch = normUDept === normalizedDeptName || 
+                                       normUSection === normalizedDeptName || 
+                                       normUUnit === normalizedDeptName;
+
+                    if (isTextMatch) return true;
+
+                    // Fallback to legacy department_id (for nodes that don't match by text name)
+                    return u.department_id === dept.id;
+                });
+                
+                if (deptEmployees.length > 0) {
+                    grouped[dept.id] = deptEmployees;
+                }
+            });
+            
+            setEmployeesByDept(grouped);
+        }
+    }, [departments, users]);
 
     useEffect(() => {
         fetchDepartments();
@@ -507,6 +532,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                             <option value={2}>مستوى 2 (المعاون)</option>
                             <option value={3}>مستوى 3 (أقسام / مجمعات رئيسية)</option>
                             <option value={4}>مستوى 4 (شعب فرعية)</option>
+                            <option value={5}>مستوى 5 (وحدات)</option>
                         </select>
                     </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
+import { cleanText } from "../utils/profileUtils";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
     // 1. Loading State
@@ -302,9 +303,9 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     graduation_year: selectedEmployee.graduation_year,
                     appointment_date: selectedEmployee.appointment_date,
                     work_nature: selectedEmployee.work_nature,
-                    dept_text: selectedEmployee.dept_text,
-                    section_text: selectedEmployee.section_text,
-                    unit_text: selectedEmployee.unit_text,
+                    dept_text: cleanText(selectedEmployee.dept_text),
+                    section_text: cleanText(selectedEmployee.section_text),
+                    unit_text: cleanText(selectedEmployee.unit_text),
                     updated_at: new Date().toISOString(),
                     last_modified_by: currentUser.id,
                     last_modified_by_name: currentUser.full_name,

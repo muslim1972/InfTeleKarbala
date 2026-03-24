@@ -76,3 +76,57 @@ export async function fetchProfilesMap(userIds: string[]): Promise<Record<string
 
     return profileMap;
 }
+
+/**
+ * تنظيف النصوص الإدارية (الأقسام، الشعب، الوحدات) من الزيادات
+ * مثل: (/) أو (/كربلاء) أو (/ م.اتصالات كربلاء)
+ */
+export function cleanText(text: any): string {
+    if (!text || typeof text !== 'string') return String(text || '');
+    
+    let cleaned = text.trim();
+    
+    // 1. إزالة كل ما بعد وحول العلامات المائلة أو الواصلة
+    // مثال: "قسم المالي والاداري/ كربلاء" -> "قسم المالي والاداري"
+    if (cleaned.includes('/') || (cleaned.includes('-') && !cleaned.startsWith('-'))) {
+        const separator = cleaned.includes('/') ? '/' : '-';
+        cleaned = cleaned.split(separator)[0].trim();
+    }
+    
+    // 2. إزالة اللواحق الشائعة التي قد تأتي بدون علامة مائلة
+    const suffixesToRemove = [
+        /\s+كربلاء\s*$/,
+        /\s+م\.اتصالات كربلاء\s*$/,
+        /\s+م\.اتصالات\s*$/,
+        /\s+اتصالات كربلاء\s*$/
+    ];
+    
+    suffixesToRemove.forEach(pattern => {
+        cleaned = cleaned.replace(pattern, '').trim();
+    });
+    
+    // 3. تأكيد إزالة أي علامات مائلة متبقية في النهاية
+    cleaned = cleaned.replace(/\/.*$/, '').trim();
+    
+    return cleaned;
+}
+
+/**
+ * توحيد النصوص لغرض المقارنة والمطابقة البرمجية
+ * تعالج مشاكل المسافات، الحروف المتشابهة (ه/ة، ي/ى)، وحالة الأحرف الإنجليزية
+ */
+export function normalizeForComparison(text: any): string {
+    if (!text || typeof text !== 'string') return '';
+    
+    const normalized = text
+        .trim()
+        .replace(/\s+/g, ' ') // تحويل المسافات المتعددة لمسافة واحدة
+        .replace(/[إأآ]/g, 'ا') // توحيد الألف
+        .replace(/ة/g, 'ه')     // توحيد ه/ة
+        .replace(/ى/g, 'ي')     // توحيد ي/ى
+        .replace(/[\u064B-\u065F\u0670]/g, '') // حذف الحركات
+        .toLowerCase();        // تحويل الإنجليزي لأحرف صغيرة
+
+    // تقسيم الكلمات وترتيبها أبجدياً لمعالجة اختلاف ترتيب الكلمات (مثل: شعبة GIS مقابل GIS شعبة)
+    return normalized.split(' ').sort().join(' ');
+}

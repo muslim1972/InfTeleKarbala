@@ -20,6 +20,7 @@ import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
+import { cleanText } from '../../utils/profileUtils';
 
 interface ProfileDataUpdaterProps {
     onClose: () => void;
@@ -104,11 +105,6 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
         reader.readAsBinaryString(file);
     };
 
-    const cleanText = (text: any) => {
-        if (!text || typeof text !== 'string') return text;
-        // Remove everything after and including the first '/'
-        return text.split('/')[0].trim();
-    };
 
     const handleStartPreview = async () => {
         if (excelData.length === 0) {

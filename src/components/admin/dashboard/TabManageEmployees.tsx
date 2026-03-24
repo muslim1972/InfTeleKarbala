@@ -27,6 +27,7 @@ import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
 import { DataPatcher } from '../DataPatcher';
 import { ProfileDataUpdater } from '../ProfileDataUpdater';
+import { cleanText } from '../../../utils/profileUtils';
 import { SmartSalaryUpdater } from '../SmartSalaryUpdater';
 import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
@@ -720,8 +721,4 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
             </div>
         </div>
     );
-}
-function cleanText(text: any) {
-    if (!text || typeof text !== 'string') return text;
-    return text.split('/')[0].trim();
 }
