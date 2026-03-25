@@ -41,10 +41,12 @@ export default async function handler(req, res) {
           },
           url: url || null,
           data: { ...(data || {}), isBuzz: !!isBuzz },
-          // Custom sound ONLY for Buzz
+          // Custom sound and vibration ONLY for Buzz
           ...(isBuzz ? {
             android_sound: "buzz",
             ios_sound: "buzz.wav",
+            // Urgent vibration pattern: Long-Short-Long
+            android_vibration_pattern: [200, 100, 200, 100, 1000],
             ttl: 3600, // Increase to ensure retries if phone is sleeping
           } : {
             // Normal message settings

@@ -175,10 +175,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     // Play if background tab OR not in the specific conversation
                     if (!isTabVisible || !isInThisChat) {
                         console.log('📢 [Global Buzz] Playing alert...');
-                        buzzAudio.play().catch(e => {
-                            console.warn('Audio play blocked (Interaction required):', e);
-                            // Toast if blocked
-                        });
+                        
+                        let playCount = 0;
+                        const maxPlays = 2;
+                        
+                        const playBuzz = () => {
+                            if (playCount < maxPlays) {
+                                buzzAudio.currentTime = 0;
+                                buzzAudio.play().catch(e => console.warn('Audio play blocked:', e));
+                                playCount++;
+                            }
+                        };
+
+                        buzzAudio.onended = playBuzz;
+                        playBuzz(); // Start first play
                     }
                 }
             })

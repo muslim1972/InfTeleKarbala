@@ -42,6 +42,17 @@ export const initOneSignal = (userId: string) => {
       } else {
           console.log('OneSignal: Permission already granted naturally.');
       }
+
+      // 3. Handle Foreground Notifications to avoid sound conflict
+      OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
+          const notificationData = event.notification.data;
+          if (notificationData && notificationData.isBuzz) {
+              // Prevent the system notification from showing when the app is open
+              // because ChatContext.tsx is already playing the custom buzz.wav sound.
+              event.preventDefault();
+              console.log('OneSignal: Suppressed foreground Buzz notification to prevent sound conflict.');
+          }
+      });
     } catch (e) {
       console.error('OneSignal setup error:', e);
     }
