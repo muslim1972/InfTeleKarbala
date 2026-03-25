@@ -46,7 +46,10 @@ export const initOneSignal = (userId: string) => {
       // 3. Handle Foreground Notifications to avoid sound conflict
       OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
           const notificationData = event.notification.data;
-          if (notificationData && notificationData.isBuzz) {
+          // Robust check for isBuzz flag (handles boolean or string from OneSignal)
+          const isBuzz = notificationData?.isBuzz === true || notificationData?.isBuzz === 'true';
+          
+          if (isBuzz) {
               // Prevent the system notification from showing when the app is open
               // because ChatContext.tsx is already playing the custom buzz.wav sound.
               event.preventDefault();

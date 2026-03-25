@@ -177,13 +177,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         console.log('📢 [Global Buzz] Playing alert...');
                         
                         let playCount = 0;
-                        const maxPlays = 2;
+                        const maxPlays = 3; // Updated to 3x per user request
                         
                         const playBuzz = () => {
                             if (playCount < maxPlays) {
                                 buzzAudio.currentTime = 0;
-                                buzzAudio.play().catch(e => console.warn('Audio play blocked:', e));
-                                playCount++;
+                                // Small delay (300ms) to avoid conflict with system blip if any
+                                setTimeout(() => {
+                                    buzzAudio.play().catch(e => console.warn('Audio play blocked:', e));
+                                    playCount++;
+                                }, playCount === 0 ? 300 : 0);
                             }
                         };
 
