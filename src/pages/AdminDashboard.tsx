@@ -85,7 +85,6 @@ export const AdminDashboard = () => {
         fetchAdminRecords, handleSaveRecord, handleDeleteRecord, handleFinancialChange, isFieldReadOnly
     } = useEmployeeManager(currentUser, setActiveTab as any, detailsRef as any);
 
-    const [showDataPatcher, setShowDataPatcher] = useState(false);
     const [showSmartUpdater, setShowSmartUpdater] = useState(false);
     
     const [expandedSections, setExpandedSections] = useState({
@@ -99,6 +98,7 @@ export const AdminDashboard = () => {
     const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
     const [showRequestsPermissionsModal, setShowRequestsPermissionsModal] = useState(false);
     const [showFixBalanceModal, setShowFixBalanceModal] = useState(false);
+    const [showFinancialUpdater, setShowFinancialUpdater] = useState(false);
     const [highlightRequestId, setHighlightRequestId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -234,8 +234,6 @@ export const AdminDashboard = () => {
                     financialFields={financialFields}
                     handleFinancialChange={handleFinancialChange}
                     currentUser={currentUser}
-                    showDataPatcher={showDataPatcher}
-                    setShowDataPatcher={setShowDataPatcher}
                     showSmartUpdater={showSmartUpdater}
                     setShowSmartUpdater={setShowSmartUpdater}
                     showProfileUpdater={showProfileUpdater}
@@ -246,8 +244,9 @@ export const AdminDashboard = () => {
                     setShowRequestsPermissionsModal={setShowRequestsPermissionsModal}
                     showFixBalanceModal={showFixBalanceModal}
                     setShowFixBalanceModal={setShowFixBalanceModal}
+                    showFinancialUpdater={showFinancialUpdater}
+                    setShowFinancialUpdater={setShowFinancialUpdater}
                     fetchFieldPermissions={fetchFieldPermissions}
-                    handleFiveYearLeaveChange={handleFiveYearLeaveChange}
                 />
             )}
 

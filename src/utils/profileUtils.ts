@@ -130,3 +130,43 @@ export function normalizeForComparison(text: any): string {
     // تقسيم الكلمات وترتيبها أبجدياً لمعالجة اختلاف ترتيب الكلمات (مثل: شعبة GIS مقابل GIS شعبة)
     return normalized.split(' ').sort().join(' ');
 }
+
+/**
+ * تنظيف مسمى الشهادة من الزيادات مثل النسب المئوية
+ */
+export function cleanCertificate(text: any): string {
+    if (!text || typeof text !== 'string') return String(text || '');
+    
+    let cleaned = text.trim();
+    
+    // إزالة "بنسبة ...%" أو أي شيء يبدأ بـ "بنسبة"
+    if (cleaned.includes('بنسبة')) {
+        cleaned = cleaned.split('بنسبة')[0].trim();
+    }
+    
+    // توحيد المسميات الشائعة
+    if (cleaned.includes('بكلوريوس') || cleaned.includes('بكالوريوس')) cleaned = 'بكلوريوس';
+    if (cleaned.includes('ماجستير')) cleaned = 'ماجستير';
+    if (cleaned.includes('دكتوراه')) cleaned = 'دكتوراه';
+    
+    return cleaned;
+}
+
+export function cleanFinancialAmount(val: any): number {
+    if (val === undefined || val === null || val === '') return 0;
+    if (typeof val === 'number') return val;
+    
+    // تحويل الأرقام العربية (٠١٢٣٤٥٦٧٨٩) إلى إنجليزية
+    const arabicDigits: Record<string, string> = {
+        '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+        '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
+    };
+    
+    let cleaned = String(val).replace(/[٠-٩]/g, d => arabicDigits[d]);
+    
+    // إزالة الفواصل (العربية والإنجليزية) وأي أحرف غير رقمية عدا النقطة العشرية
+    cleaned = cleaned.replace(/[،,]/g, '').replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned);
+    
+    return isNaN(num) ? 0 : num;
+}

@@ -25,11 +25,11 @@ import {
 } from "../../ui/Select";
 import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
-import { DataPatcher } from '../DataPatcher';
 import { ProfileDataUpdater } from '../ProfileDataUpdater';
-import { cleanText } from '../../../utils/profileUtils';
+import { FinancialDataUpdater } from '../FinancialDataUpdater';
 import { SmartSalaryUpdater } from '../SmartSalaryUpdater';
 import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
+import { cleanText } from '../../../utils/profileUtils';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
 import { RequestsTabPermissionsModal } from '../RequestsTabPermissionsModal';
 
@@ -47,8 +47,6 @@ interface TabManageEmployeesProps {
     financialFields: any;
     handleFinancialChange: (key: string, value: any) => void;
     currentUser: any;
-    showDataPatcher: boolean;
-    setShowDataPatcher: (val: boolean) => void;
     showSmartUpdater: boolean;
     setShowSmartUpdater: (val: boolean) => void;
     showFieldPermissionsModal: boolean;
@@ -57,10 +55,11 @@ interface TabManageEmployeesProps {
     setShowRequestsPermissionsModal: (val: boolean) => void;
     showFixBalanceModal: boolean;
     setShowFixBalanceModal: (val: boolean) => void;
+    showFinancialUpdater: boolean;
+    setShowFinancialUpdater: (val: boolean) => void;
     showProfileUpdater: boolean;
     setShowProfileUpdater: (val: boolean) => void;
     fetchFieldPermissions: () => Promise<void>;
-    handleFiveYearLeaveChange: (checked: boolean) => void;
 }
 
 export const TabManageEmployees = ({
@@ -77,8 +76,6 @@ export const TabManageEmployees = ({
     financialFields,
     handleFinancialChange,
     currentUser,
-    showDataPatcher,
-    setShowDataPatcher,
     showSmartUpdater,
     setShowSmartUpdater,
     showFieldPermissionsModal,
@@ -89,6 +86,8 @@ export const TabManageEmployees = ({
     setShowFixBalanceModal,
     showProfileUpdater,
     setShowProfileUpdater,
+    showFinancialUpdater,
+    setShowFinancialUpdater,
     fetchFieldPermissions,
 }: TabManageEmployeesProps) => {
     return (
@@ -530,11 +529,11 @@ export const TabManageEmployees = ({
                             <div className="mt-8 flex flex-wrap justify-center gap-4">
                                 <Button
                                     variant="outline"
-                                    onClick={() => setShowDataPatcher(true)}
-                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
+                                    onClick={() => setShowFinancialUpdater(true)}
+                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50 border-green-500/30 font-bold"
                                 >
                                     <FileSpreadsheet className="w-4 h-4 text-green-500" />
-                                    تحديث بيانات من Excel (قديم)
+                                    تحديث بيانات الراتب
                                 </Button>
 
                                 <Button
@@ -590,8 +589,11 @@ export const TabManageEmployees = ({
                                     theme={theme}
                                 />
                             )}
-                            {showDataPatcher && (
-                                <DataPatcher onClose={() => setShowDataPatcher(false)} />
+                            {showFinancialUpdater && (
+                                <FinancialDataUpdater 
+                                    onClose={() => setShowFinancialUpdater(false)} 
+                                    theme={theme}
+                                />
                             )}
                             {showProfileUpdater && (
                                 <ProfileDataUpdater 
