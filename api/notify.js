@@ -43,6 +43,7 @@ export default async function handler(req, res) {
           data: { ...(data || {}), isBuzz: !!isBuzz },
           android_sound: isBuzz ? "buzz" : "notification",
           ios_sound: isBuzz ? "buzz.wav" : "notification.wav",
+          android_channel_id: isBuzz ? "buzz_channel" : "message_channel",
           priority: 10,
           android_visibility: 1,
           ios_badgeType: "Increase",

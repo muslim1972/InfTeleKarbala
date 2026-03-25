@@ -146,10 +146,6 @@ export function useChatState(conversationId: string) {
     const channelId = `chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`;
     const channel = supabase.channel(channelId);
 
-    // Audio element for Buzz (pre-loaded)
-    const buzzAudio = new Audio('/buzz.wav');
-    buzzAudio.preload = 'auto';
-
     channel
       .on(
         'postgres_changes',
@@ -223,20 +219,6 @@ export function useChatState(conversationId: string) {
                     detail: { conversationId }
                   }));
                 });
-
-              // BEEP/BUZZ Logic: Only if it's a Buzz message
-              // NOTE: We only play sound if the user is NOT in this conversation OR the tab is hidden
-              // However, since useChatState is ONLY mounted when the conversation IS open,
-              // we instead check if the document is hidden (background tab) or if it's a BUZZ specifically.
-              if (newMsg.text?.includes('🚨')) {
-                // If it's a BUZZ, we play it even if the chat is open, 
-                // BUT the user said if they are in the chat they don't need it.
-                // However, they might have the tab in the background.
-                const isPageVisible = document.visibilityState === 'visible';
-                if (!isPageVisible) {
-                  buzzAudio.play().catch(e => console.warn('Audio play blocked:', e));
-                }
-              }
             }
           } else if (payload.eventType === 'UPDATE') {
             setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m));

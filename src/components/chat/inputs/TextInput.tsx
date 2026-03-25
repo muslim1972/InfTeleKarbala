@@ -40,6 +40,10 @@ export const TextInput: React.FC<TextInputProps> = ({
     }, [value]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // Try to unlock audio on first interaction
+        const silentAudio = new Audio();
+        silentAudio.play().catch(() => {});
+
         if (e.key === 'Enter' && !e.shiftKey) {
             const cursorPosition = e.currentTarget.selectionStart;
             const text = e.currentTarget.value;

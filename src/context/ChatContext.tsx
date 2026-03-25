@@ -144,6 +144,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Supabase Realtime - ONE SINGLE CHANNEL for the entire app
         const channelId = `global_chat_sync_${user.id.substring(0, 8)}_${Math.random().toString(36).substring(7)}`;
+        
+        // Load Audio
+        const buzzAudio = new Audio('/buzz.wav');
+        buzzAudio.preload = 'auto';
+
         const chatChannel = supabase.channel(channelId)
             .on('postgres_changes', { 
                 event: '*', 
@@ -153,9 +158,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('ChatContext: Conversations changed, refreshing...');
                 fetchConversations();
             })
-            // Optimization: Also listen to messages table to catch new arrivals faster
-            // But only if we want ultra-realtime on the list. 
-            // The conversations table is already updated in useChatState by the sender.
+            // Optimization: Listen for BUZZ messages globally
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages'
+            }, (payload) => {
+                const newMsg = payload.new as any;
+                if (newMsg.sender_id !== user.id && newMsg.text?.includes('🚨')) {
+                    // It's a BUZZ!
+                    // Check if we are NOT in the chat OR tab is hidden
+                    const currentPath = window.location.pathname;
+                    const isInThisChat = currentPath.includes(`/chat/${newMsg.conversation_id}`);
+                    const isTabVisible = document.visibilityState === 'visible';
+
+                    // Play if background tab OR not in the specific conversation
+                    if (!isTabVisible || !isInThisChat) {
+                        console.log('📢 [Global Buzz] Playing alert...');
+                        buzzAudio.play().catch(e => {
+                            console.warn('Audio play blocked (Interaction required):', e);
+                            // Toast if blocked
+                        });
+                    }
+                }
+            })
             .subscribe((status) => {
                 console.log('ChatContext: Subscription status:', status);
             });
