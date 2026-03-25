@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Mic, Paperclip, Image as ImageIcon, FileText } from 'lucide-react';
+import { Send, Mic, Paperclip, Image as ImageIcon, FileText, BellRing } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useChatSettings } from '../../../hooks/useChatSettings';
 
@@ -10,6 +10,7 @@ interface TextInputProps {
     onMicClick: () => void;
     onImageSelect: (file: File) => void;
     onFileSelect: (file: File) => void;
+    onSendBuzz: () => void;
     disabled?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const TextInput: React.FC<TextInputProps> = ({
     onMicClick,
     onImageSelect,
     onFileSelect,
+    onSendBuzz,
     disabled = false,
 }) => {
     const { settings } = useChatSettings();
@@ -183,19 +185,35 @@ export const TextInput: React.FC<TextInputProps> = ({
                     <Send className="w-5 h-5" />
                 </button>
             ) : (
-                <button
-                    onClick={onMicClick}
-                    disabled={disabled}
-                    className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90",
-                        disabled
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
-                    )}
-                    title="تسجيل رسالة صوتية"
-                >
-                    <Mic className="w-5 h-5" />
-                </button>
+                <>
+                    <button
+                        onClick={onMicClick}
+                        disabled={disabled}
+                        className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90",
+                            disabled
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
+                        )}
+                        title="تسجيل رسالة صوتية"
+                    >
+                        <Mic className="w-5 h-5" />
+                    </button>
+
+                    <button
+                        onClick={onSendBuzz}
+                        disabled={disabled}
+                        className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 group",
+                            disabled
+                                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                : "bg-rose-50 text-rose-500 hover:bg-rose-100 border border-rose-200 shadow-sm"
+                        )}
+                        title="تنبيه عاجل (Buzz)"
+                    >
+                        <BellRing className="w-5 h-5 group-hover:animate-bounce" />
+                    </button>
+                </>
             )}
         </div>
     );

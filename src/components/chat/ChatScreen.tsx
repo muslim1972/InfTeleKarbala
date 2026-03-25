@@ -39,6 +39,7 @@ export function ChatScreen() {
         sendVoiceMessage,
         sendImageMessage,
         sendFileMessage,
+        sendBuzzMessage,
         selectedMessages,
         toggleSelection,
         clearSelection,
@@ -293,6 +294,7 @@ export function ChatScreen() {
                 onSendVoice={sendVoiceMessage}
                 onSendImage={sendImageMessage}
                 onSendFile={sendFileMessage}
+                onSendBuzz={sendBuzzMessage}
                 disabled={selectedMessages.length > 0 || isSending}
             />
         </div>

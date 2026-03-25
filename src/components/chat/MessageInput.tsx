@@ -10,12 +10,13 @@ interface MessageInputProps {
     onSendVoice?: (blob: Blob) => void;
     onSendImage?: (file: File) => void;
     onSendFile?: (file: File) => void;
+    onSendBuzz: () => void;
     value: string;
     onChange: (val: string) => void;
     disabled?: boolean;
 }
 
-export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, value, onChange, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, onSendBuzz, value, onChange, disabled }: MessageInputProps) {
     const [isSendingVoice, setIsSendingVoice] = useState(false);
     
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -144,6 +145,7 @@ export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, val
             onMicClick={handleMicClick}
             onImageSelect={handleImageSelect}
             onFileSelect={handleFileSelect}
+            onSendBuzz={onSendBuzz}
             disabled={disabled}
         />
     );

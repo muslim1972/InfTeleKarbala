@@ -10,6 +10,7 @@ export interface PushNotificationOptions {
   title?: string;
   url?: string;
   data?: Record<string, any>;
+  isBuzz?: boolean;
 }
 
 export const sendPushNotification = async (
@@ -45,6 +46,7 @@ export const sendPushNotification = async (
         title: options?.title || 'إشعار جديد',
         url: options?.url,
         data: options?.data,
+        isBuzz: options?.isBuzz
       }),
     });
 

@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { recipientId, title, message, url, data } = req.body;
+  const { recipientId, title, message, url, data, isBuzz } = req.body;
 
   if (!recipientId || !message) {
     return res.status(400).json({ error: 'Missing recipientId or message' });
@@ -31,23 +31,26 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${restKey}`
       },
-      body: JSON.stringify({
-        app_id: appId,
-        include_external_user_ids: [recipientId],
-        contents: { en: message, ar: message },
-        headings: { en: title || "New Notification", ar: title || "تنبيه جديد" },
-        url: url || null,
-        data: data || {},
-        android_sound: "notification",
-        ios_sound: "notification.wav",
-        priority: 10,
-        android_visibility: 1,
-        ios_badgeType: "Increase",
-        ios_badgeCount: 1,
-        ttl: 3600, // 1 hour time to live
-        android_group: data?.conversationId || "chat",
-        thread_id: data?.conversationId || "chat"
-      })
+        body: JSON.stringify({
+          app_id: appId,
+          include_external_user_ids: [recipientId],
+          contents: { en: message, ar: message },
+          headings: { 
+            en: isBuzz ? "🚨 ALERT 🚨" : (title || "New Notification"), 
+            ar: isBuzz ? "🚨 تنبيه عاجل 🚨" : (title || "تنبيه جديد") 
+          },
+          url: url || null,
+          data: { ...(data || {}), isBuzz: !!isBuzz },
+          android_sound: isBuzz ? "buzz" : "notification",
+          ios_sound: isBuzz ? "buzz.wav" : "notification.wav",
+          priority: 10,
+          android_visibility: 1,
+          ios_badgeType: "Increase",
+          ios_badgeCount: 1,
+          ttl: isBuzz ? 0 : 3600, // Deliver immediately if Buzz
+          android_group: data?.conversationId || "chat",
+          thread_id: data?.conversationId || "chat"
+        })
     });
 
     const result = await response.json();
