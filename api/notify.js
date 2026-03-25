@@ -41,14 +41,20 @@ export default async function handler(req, res) {
           },
           url: url || null,
           data: { ...(data || {}), isBuzz: !!isBuzz },
-          android_sound: isBuzz ? "buzz" : "notification",
-          ios_sound: isBuzz ? "buzz.wav" : "notification.wav",
-          android_channel_id: isBuzz ? "buzz_channel" : "message_channel",
+          // Custom sound and channel ONLY for Buzz
+          ...(isBuzz ? {
+            android_sound: "buzz",
+            ios_sound: "buzz.wav",
+            android_channel_id: "buzz_channel",
+            ttl: 0,
+          } : {
+            // Normal message settings
+            ttl: 3600,
+          }),
           priority: 10,
           android_visibility: 1,
           ios_badgeType: "Increase",
           ios_badgeCount: 1,
-          ttl: isBuzz ? 0 : 3600, // Deliver immediately if Buzz
           android_group: data?.conversationId || "chat",
           thread_id: data?.conversationId || "chat"
         })
