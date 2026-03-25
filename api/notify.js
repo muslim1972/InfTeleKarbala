@@ -41,12 +41,11 @@ export default async function handler(req, res) {
           },
           url: url || null,
           data: { ...(data || {}), isBuzz: !!isBuzz },
-          // Custom sound and channel ONLY for Buzz
+          // Custom sound ONLY for Buzz
           ...(isBuzz ? {
             android_sound: "buzz",
             ios_sound: "buzz.wav",
-            android_channel_id: "buzz_channel",
-            ttl: 0,
+            ttl: 3600, // Increase to ensure retries if phone is sleeping
           } : {
             // Normal message settings
             ttl: 3600,
