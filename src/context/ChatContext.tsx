@@ -145,9 +145,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Supabase Realtime - ONE SINGLE CHANNEL for the entire app
         const channelId = `global_chat_sync_${user.id.substring(0, 8)}_${Math.random().toString(36).substring(7)}`;
         
-        // Load Audio
-        const buzzAudio = new Audio('/buzz.wav');
-        buzzAudio.preload = 'auto';
+
 
         const chatChannel = supabase.channel(channelId)
             .on('postgres_changes', { 
@@ -158,7 +156,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('ChatContext: Conversations changed, refreshing...');
                 fetchConversations();
             })
-            // Optimization: Listen for BUZZ messages globally
+            // Buzz Sound: Listen for both INSERT (first buzz) and UPDATE (stacked buzz)
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
@@ -166,38 +164,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }, (payload) => {
                 const newMsg = payload.new as any;
                 if (newMsg.sender_id !== user.id && newMsg.text?.includes('🚨')) {
-                    // It's a BUZZ!
-                    // Check if we are NOT in the chat OR tab is hidden
-                    const currentPath = window.location.pathname;
-                    const isInThisChat = currentPath.includes(`/chat/${newMsg.conversation_id}`);
-                    const isTabVisible = document.visibilityState === 'visible';
-
-                    // Play if background tab OR not in the specific conversation
-                    if (!isTabVisible || !isInThisChat) {
-                        console.log('📢 [Global Buzz] Playing alert...');
-                        
-                        let playCount = 0;
-                        const maxPlays = 3; // Updated to 3x per user request
-                        
-                        const playBuzz = () => {
-                            if (playCount < maxPlays) {
-                                buzzAudio.currentTime = 0;
-                                // Small delay (300ms) to avoid conflict with system blip if any
-                                setTimeout(() => {
-                                    buzzAudio.play().catch(e => console.warn('Audio play blocked:', e));
-                                    playCount++;
-                                }, playCount === 0 ? 300 : 0);
-                            }
-                        };
-
-                        buzzAudio.onended = playBuzz;
-                        playBuzz(); // Start first play
-                    }
+                    playBuzzSound();
+                }
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'messages'
+            }, (payload) => {
+                const newMsg = payload.new as any;
+                const oldMsg = payload.old as any;
+                // Play sound only if buzz_count actually increased (stacked buzz)
+                if (newMsg.sender_id !== user.id && 
+                    newMsg.text?.includes('🚨') && 
+                    newMsg.buzz_count > (oldMsg?.buzz_count || 1)) {
+                    playBuzzSound();
                 }
             })
             .subscribe((status) => {
                 console.log('ChatContext: Subscription status:', status);
             });
+
+        // Helper: Play buzz sound with 3x repeat using a FRESH Audio object each time
+        function playBuzzSound() {
+            console.log('📢 [Global Buzz] Playing alert...');
+            
+            let playCount = 0;
+            const maxPlays = 3;
+            
+            const playNext = () => {
+                if (playCount >= maxPlays) return;
+                // Create a FRESH Audio object each time to avoid browser caching/locking issues
+                const audio = new Audio('/buzz.wav');
+                audio.onended = () => {
+                    playCount++;
+                    playNext();
+                };
+                audio.play().catch(e => console.warn('Audio play blocked:', e));
+            };
+            
+            // Small delay to avoid conflict with system notification sound
+            requestAnimationFrame(() => {
+                playNext();
+            });
+        }
+
 
         return () => {
             window.removeEventListener('chat_deleted', handleRefresh);
