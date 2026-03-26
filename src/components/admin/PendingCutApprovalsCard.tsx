@@ -23,7 +23,7 @@ export function PendingCutApprovalsCard({
                 <div>
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <CheckCircle className="text-amber-500" />
-                        طلبات قطع الإجازة (بانتظار اعتماد الذاتية)
+                        طلبات قطع الإجازة (بانتظار اعتماد الموارد البشرية)
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         طلبات قطع تمت الموافقة عليها من قبل المسؤول المباشر وتحتاج إلى اعتمادك لإرجاع الرصيد.
@@ -60,7 +60,7 @@ export function PendingCutApprovalsCard({
                                             )}
                                         </div>
                                     </div>
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-amber-500/30">بانتظار اعتماد الذاتية</span>
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-amber-500/30">بانتظار اعتماد الموارد البشرية</span>
                                 </div>
                                 <div className="space-y-1 text-sm">
                                     <p>الإجازة الأصلية: من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span> (المدة: {record.days_count} يوم)</p>
@@ -105,7 +105,7 @@ export function PendingCutApprovalsCard({
                 </div>
             ) : (
                 <div className="text-center py-10 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
-                    لا توجد طلبات قطع إجازة بانتظار الاعتماد
+                    لا توجد طلبات قطع إجازة بانتظار اعتماد الموارد البشرية
                 </div>
             )}
         </div>

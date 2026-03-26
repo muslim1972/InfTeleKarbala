@@ -160,7 +160,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                         <div>
                             <h2 className={`font-bold text-lg ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>صلاحيات الحقول</h2>
                             <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-white/60'}`}>
-                                تحديد مستوى الصلاحية المطلوب لتعديل كل حقل مالي (1 للمالية، 2 للذاتية، الخ..)
+                                تحديد مستوى الصلاحية المطلوب لتعديل كل حقل مالي (1 للمالية، 2 للموارد البشرية، الخ..)
                             </p>
                         </div>
                     </div>
@@ -198,7 +198,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
 
                                         <div className="flex items-center gap-1 shrink-0" dir="ltr">
                                             {[1, 2, 3, 4].map(level => {
-                                                const labels = ["مالية", "ذاتية", "إعلام", "عام"];
+                                                const labels = ["مالية", "موارد بشرية", "إعلام", "عام"];
                                                 const label = labels[level - 1];
                                                 const isActive = perm.permission_level === level;
 

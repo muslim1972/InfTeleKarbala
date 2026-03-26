@@ -18,7 +18,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
 
     const baseTabs = [
         { id: 'financial', label: 'المالية', icon: Wallet },
-        { id: 'administrative', label: 'الذاتية', icon: FileText },
+        { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },

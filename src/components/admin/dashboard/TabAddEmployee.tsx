@@ -111,7 +111,7 @@ export const TabAddEmployee = ({
                                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'hr' ? "border-white" : "border-muted-foreground")}>
                                             {formData.admin_role === 'hr' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                         </div>
-                                        ذاتية
+                                        الموارد البشرية
                                     </Button>
                                     <Button
                                         type="button"
