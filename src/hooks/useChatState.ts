@@ -94,7 +94,7 @@ export function useChatState(conversationId: string) {
 
     const { data, error } = await supabase
       .from('messages')
-      .select('*, read_by, deleted_by, sender:profiles!messages_sender_id_fkey(full_name)')
+      .select('*, read_by, deleted_by, buzz_count, sender:profiles!messages_sender_id_fkey(full_name)')
       .eq('conversation_id', conversationId)
       .not('deleted_by', 'cs', `{${user?.id}}`)
       .order('created_at', { ascending: true });
@@ -103,6 +103,16 @@ export function useChatState(conversationId: string) {
       console.error('Error fetching messages:', error);
       toast.error('فشل تحميل الرسائل');
     } else {
+      // Diagnostic Log
+      if (data && data.length > 0) {
+        const last = data[data.length - 1];
+        console.log('Last message received:', { 
+            id: last.id, 
+            text: last.text, 
+            buzz_count: last.buzz_count,
+            all_keys: Object.keys(last)
+        });
+      }
       setMessages(data || []);
 
       // Mark unread messages as read for this user
@@ -160,22 +170,23 @@ export function useChatState(conversationId: string) {
           console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
 
           const newMsg = (payload.new || payload.old) as Message & { deleted_by?: string[] };
+          const eventType = payload.eventType;
 
-          // Manual filter check
-          if (newMsg.conversation_id !== conversationId) {
+          // Manual filter check (Only for INSERT, as UPDATE might be partial and lack conversation_id)
+          if (eventType === 'INSERT' && newMsg.conversation_id !== conversationId) {
             return;
           }
 
           // Ignore messages that the current user has explicitly deleted
           if (newMsg.deleted_by && newMsg.deleted_by.includes(user.id)) {
-            if (payload.eventType === 'UPDATE') {
+            if (eventType === 'UPDATE') {
               // If an existing message was deleted by this user, remove it
               setMessages(prev => prev.filter(m => m.id !== newMsg.id));
             }
             return;
           }
 
-          if (payload.eventType === 'INSERT') {
+          if (eventType === 'INSERT') {
             // 1. Add it immediately, preserving optimistic data (image_url, audio_url)
             setMessages(prev => {
               const exists = prev.find(m => m.id === newMsg.id);
@@ -221,13 +232,26 @@ export function useChatState(conversationId: string) {
                   }));
                 });
             }
-          } else if (payload.eventType === 'UPDATE') {
-            setMessages(prev => prev.map(m => m.id === newMsg.id ? { 
-                ...m, 
-                ...newMsg,
-                buzz_count: newMsg.buzz_count || m.buzz_count // Ensure buzz_count is preserved
-            } : m));
-          } else if (payload.eventType === 'DELETE') {
+          } else if (eventType === 'UPDATE') {
+            // Find message by ID before assuming conversation_id is present
+            setMessages(prev => {
+                const idx = prev.findIndex(m => m.id === newMsg.id);
+                if (idx !== -1) {
+                    const next = [...prev];
+                    next[idx] = { 
+                        ...next[idx], 
+                        ...newMsg,
+                        buzz_count: newMsg.buzz_count || next[idx].buzz_count
+                    };
+                    return next;
+                }
+                // If not in state, but payload HAS conversation_id AND matches
+                if (newMsg.conversation_id === conversationId) {
+                    return [...prev, newMsg];
+                }
+                return prev;
+            });
+          } else if (eventType === 'DELETE') {
             setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
           }
         }
