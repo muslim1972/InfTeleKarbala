@@ -69,6 +69,7 @@ export interface Message {
   file_size?: number;
   read_by?: string[];
   reactions?: Record<string, string>; // { user_id: emoji }
+  buzz_count?: number;
   created_at: string;
   is_sending?: boolean; // Optimistic UI
   sender?: {
@@ -803,12 +804,63 @@ export function useChatState(conversationId: string) {
     const text = "🚨 تنبيه عاجل 🚨";
     setIsSending(true);
 
+    const lastMsg = messages[messages.length - 1];
+    const isConsecutiveBuzz = 
+        lastMsg && 
+        lastMsg.text === text && 
+        lastMsg.sender_id === user.id &&
+        !lastMsg.is_sending;
+
+    if (isConsecutiveBuzz) {
+        const newCount = (lastMsg.buzz_count || 1) + 1;
+        const now = new Date().toISOString();
+        
+        // Optimistic Update
+        setMessages(prev => {
+            const next = [...prev];
+            const idx = next.length - 1;
+            next[idx] = { ...next[idx], buzz_count: newCount, created_at: now };
+            return next;
+        });
+
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .update({ 
+                    buzz_count: newCount,
+                    created_at: now // Update timestamp to keep it at the bottom
+                })
+                .eq('id', lastMsg.id);
+
+            if (error) throw error;
+            setIsSending(false);
+
+            // Update conversation
+            await supabase.from('conversations').update({
+                last_message: text,
+                last_message_at: now,
+                deleted_by: []
+            }).eq('id', conversationId);
+            
+            // Send Push (same as before)
+            sendBuzzNotification(text);
+
+        } catch (error) {
+            console.error('Error updating buzz count:', error);
+            toast.error('فشل تحديث التنبيه');
+            setIsSending(false);
+        }
+        return;
+    }
+
+    // Normal Insert (First Buzz)
     const optimisticId = uuidv4();
     const optimisticMsg: Message = {
       id: optimisticId,
       conversation_id: conversationId,
       sender_id: user.id,
       text: text,
+      buzz_count: 1,
       created_at: new Date().toISOString(),
       is_sending: true,
     };
@@ -821,7 +873,8 @@ export function useChatState(conversationId: string) {
           id: optimisticId,
           conversation_id: conversationId,
           sender_id: user.id,
-          text: text
+          text: text,
+          buzz_count: 1
         });
 
       if (error) throw error;
@@ -835,14 +888,26 @@ export function useChatState(conversationId: string) {
         deleted_by: []
       }).eq('id', conversationId);
 
-      // Send Push with isBuzz: true
+      sendBuzzNotification(text);
+    } catch (error) {
+      console.error('Error sending buzz:', error);
+      toast.error('فشل إرسال التنبيه');
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Helper for Buzz Notifications
+  const sendBuzzNotification = async (text: string) => {
+    try {
       const { data: convData } = await supabase
         .from('conversations')
         .select('participants')
         .eq('id', conversationId)
         .single();
 
-      if (convData?.participants) {
+      if (convData?.participants && user) {
         const recipients = (convData.participants as string[]).filter(id => id !== user.id);
         recipients.forEach(recipientId => {
           sendPushNotification(recipientId, text, {
@@ -853,12 +918,8 @@ export function useChatState(conversationId: string) {
           });
         });
       }
-    } catch (error) {
-      console.error('Error sending buzz:', error);
-      toast.error('فشل إرسال التنبيه');
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
-    } finally {
-      setIsSending(false);
+    } catch (err) {
+      console.error('Buzz notification error:', err);
     }
   };
 
