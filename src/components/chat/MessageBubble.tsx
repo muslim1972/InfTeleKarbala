@@ -80,8 +80,8 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 {/* Buzz Counter Badge */}
                 {message.buzz_count && message.buzz_count > 1 && (
                     <div className={cn(
-                        "absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-bounce z-20",
-                        !isMe && "-right-auto -left-2"
+                        "absolute -top-2 -right-2 bg-red-600 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-2xl border-2 border-white animate-bounce z-[100]",
+                        !isMe && "right-auto -left-2"
                     )}>
                         {message.buzz_count}
                     </div>

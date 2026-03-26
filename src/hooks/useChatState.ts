@@ -222,7 +222,11 @@ export function useChatState(conversationId: string) {
                 });
             }
           } else if (payload.eventType === 'UPDATE') {
-            setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m));
+            setMessages(prev => prev.map(m => m.id === newMsg.id ? { 
+                ...m, 
+                ...newMsg,
+                buzz_count: newMsg.buzz_count || m.buzz_count // Ensure buzz_count is preserved
+            } : m));
           } else if (payload.eventType === 'DELETE') {
             setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
           }
@@ -807,7 +811,7 @@ export function useChatState(conversationId: string) {
     const lastMsg = messages[messages.length - 1];
     const isConsecutiveBuzz = 
         lastMsg && 
-        lastMsg.text === text && 
+        (lastMsg.text?.includes("تنبيه عاجل") || lastMsg.text === text) && 
         lastMsg.sender_id === user.id &&
         !lastMsg.is_sending;
 
