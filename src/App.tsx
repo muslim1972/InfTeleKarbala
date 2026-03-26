@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
+const LauncherPage = lazy(() => import("./pages/LauncherPage").then(m => ({ default: m.LauncherPage })));
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 
@@ -57,7 +58,7 @@ const AppContent = () => {
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
 
-  if (!user) return <Login />;
+  if (!user) return <LauncherPage />;
 
   // توجيه المستخدم حسب الصلاحية
   if (user.role === 'admin') {

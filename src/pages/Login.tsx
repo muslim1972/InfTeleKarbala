@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { AppFooter } from "../components/layout/AppFooter";
 
-export const Login = () => {
+export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -64,6 +64,17 @@ export const Login = () => {
 
       {/* Main Content Content */}
       <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center">
+
+        {/* Back to Launcher Button */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="self-start mb-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 animate-in fade-in slide-in-from-right-4 duration-500"
+          >
+            <span>→</span>
+            <span>العودة للبوابة</span>
+          </button>
+        )}
 
         {/* Header / Logo Section */}
         <div className="text-center mb-10 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
