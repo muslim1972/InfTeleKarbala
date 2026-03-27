@@ -189,7 +189,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                         <div className="relative">
                             <button
                                 onClick={() => setShowPrintMenu(!showPrintMenu)}
-                                className="bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-900 dark:text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all mr-auto"
+                                className="bg-brand-green/10 hover:bg-brand-green/20 text-brand-green border border-brand-green/20 px-4 py-2 rounded-xl flex items-center gap-2 transition-all mr-auto animate-pulse shadow-[0_0_15px_-5px_rgba(34,197,94,0.4)]"
                             >
                                 <Printer className="w-5 h-5" />
                                 <span className="hidden md:inline">تصدير PDF</span>
@@ -224,7 +224,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                                 />
                             )}
                         </div>,
-                        document.getElementById('root') || document.body // Target root or body safely
+                        document.getElementById('admin-header-portal') || document.body // Target dedicated admin header portal
                     )}
 
                     <div className="flex items-center gap-4">
