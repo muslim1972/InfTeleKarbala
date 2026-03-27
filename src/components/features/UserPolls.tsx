@@ -102,7 +102,7 @@ export function UserPolls() {
             )}
 
             {/* Poll Link Section */}
-            {pollLink && (
+            {pollLink && pollLink.is_active && (
                 <div className="animate-in fade-in slide-in-from-top-4 duration-500 delay-150">
                     <a
                         href={pollLink.content.startsWith('http') ? pollLink.content : `https://${pollLink.content}`}
@@ -115,7 +115,9 @@ export function UserPolls() {
                                 <ExternalLink size={20} />
                             </div>
                             <div>
-                                <h4 className="text-sm font-bold text-gray-900 dark:text-white/90">رابط مهم</h4>
+                                <h4 className="text-sm font-bold text-gray-900 dark:text-white/90">
+                                    {pollLink.title || 'رابط مهم'}
+                                </h4>
                                 <p className="text-xs text-brand-green font-medium mt-0.5 truncate max-w-[200px] md:max-w-xs">{pollLink.content}</p>
                             </div>
                         </div>

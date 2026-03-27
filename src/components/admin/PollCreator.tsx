@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     PieChart, Save, ArrowLeft, CheckCircle2,
-    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit, Archive, RefreshCw, Search, Link, Loader2
+    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit, Archive, RefreshCw, Search, Link, Loader2, Eye, EyeOff
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -10,6 +10,9 @@ import { useAuth } from '../../context/AuthContext';
 import { PollStats } from './PollStats';
 import { formatDate } from '../../utils/formatDate';
 import { DateInput } from '../ui/DateInput';
+import { useQueryClient } from '@tanstack/react-query';
+import { cacheManager } from '../../cache/CacheManager';
+import { CACHE_CONFIG } from '../../cache/CacheConfig';
 
 interface OptionDraft {
     text: string;
@@ -27,6 +30,7 @@ interface PollCreatorProps {
 
 export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     // Phases: 'list' -> 'config' -> 'building' -> 'review' | 'stats' | 'view'
     const [phase, setPhase] = useState<'list' | 'config' | 'building' | 'review' | 'stats' | 'view'>('list');
     const [isLoading, setIsLoading] = useState(false);
@@ -49,8 +53,16 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
     const [currentOptions, setCurrentOptions] = useState<OptionDraft[]>([{ text: '' }, { text: '' }]);
 
     const [pollLink, setPollLink] = useState('');
+    const [pollLinkTitle, setPollLinkTitle] = useState('');
+    const [pollLinkActive, setPollLinkActive] = useState(true);
     const [pollLinkExists, setPollLinkExists] = useState(false);
     const [isSavingLink, setIsSavingLink] = useState(false);
+
+    // تتبع القيم الأصلية لكشف التغييرات غير المحفوظة
+    const savedLinkRef = useRef({ link: '', title: '', active: true });
+    const hasLinkChanges = pollLink !== savedLinkRef.current.link
+        || pollLinkTitle !== savedLinkRef.current.title
+        || pollLinkActive !== savedLinkRef.current.active;
 
     // Storage
     const [collectedQuestions, setCollectedQuestions] = useState<QuestionDraft[]>([]);
@@ -98,7 +110,10 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
             
             if (data) {
                 setPollLink(data.content || '');
+                setPollLinkTitle(data.title || '');
+                setPollLinkActive(data.is_active ?? true);
                 setPollLinkExists(true);
+                savedLinkRef.current = { link: data.content || '', title: data.title || '', active: data.is_active ?? true };
             }
         } catch (err) {
             console.error("Error fetching poll link:", err);
@@ -111,8 +126,9 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
         try {
             const payload = {
                 type: 'poll_link',
+                title: pollLinkTitle.trim() || null,
                 content: pollLink,
-                is_active: pollLink.trim().length > 0,
+                is_active: pollLinkActive,
                 updated_at: new Date().toISOString()
             };
 
@@ -130,13 +146,26 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                 setPollLinkExists(true);
             }
             
-            toast.success("تم حفظ الرابط بنجاح");
+            toast.success("تم حفظ التغييرات بنجاح");
+
+            // تحديث القيم المرجعية
+            savedLinkRef.current = { link: pollLink, title: pollLinkTitle.trim(), active: pollLinkActive };
+
+            // إبطال الكاش فوراً لضمان تحديث واجهة المستخدم
+            if (user?.id) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            }
+            queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
         } catch (err) {
             console.error("Error saving poll link:", err);
             toast.error("فشل في حفظ الرابط");
         } finally {
             setIsSavingLink(false);
         }
+    };
+
+    const handleToggleLinkActive = () => {
+        setPollLinkActive(prev => !prev);
     };
 
     // --- Handlers ---
@@ -503,29 +532,77 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
 
                     {/* Important Link Section */}
                     {phase === 'list' && !showDeleted && (
-                        <div className="bg-white/50 dark:bg-black/20 p-4 rounded-2xl border border-gray-200 dark:border-white/5 shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2">
-                            <div className="flex items-center gap-2 text-brand-green font-bold text-sm">
-                                <Link className="w-4 h-4" />
-                                <span>أضف رابطاً (يظهر للمستخدمين كـ "رابط مهم")</span>
+                        <div className={cn(
+                            "p-4 rounded-2xl border shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2",
+                            pollLinkActive
+                                ? "bg-white/50 dark:bg-black/20 border-gray-200 dark:border-white/5"
+                                : "bg-red-50/50 dark:bg-red-900/10 border-red-200/50 dark:border-red-500/20"
+                        )}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-brand-green font-bold text-sm">
+                                    <Link className="w-4 h-4" />
+                                    <span>أضف رابطاً (يظهر للمستخدمين كـ "رابط مهم")</span>
+                                </div>
+                                {pollLinkExists && (
+                                    <button
+                                        onClick={handleToggleLinkActive}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                            pollLinkActive
+                                                ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200"
+                                                : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200"
+                                        )}
+                                        title={pollLinkActive ? 'إخفاء الرابط عن المستخدمين' : 'إظهار الرابط للمستخدمين'}
+                                    >
+                                        {pollLinkActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                        {pollLinkActive ? 'إخفاء' : 'إظهار'}
+                                    </button>
+                                )}
                             </div>
-                            <div className="flex gap-2">
+                            {!pollLinkActive && pollLinkExists && (
+                                <div className="text-xs text-red-500 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg">
+                                    ⚠️ الرابط مخفي حالياً عن المستخدمين. اضغط "إظهار" ثم "حفظ" لإعادة تفعيله.
+                                </div>
+                            )}
+                            <input
+                                type="text"
+                                value={pollLinkTitle}
+                                onChange={e => setPollLinkTitle(e.target.value)}
+                                placeholder="اسم الرابط (مثلاً: استمارة تقييم الأداء)"
+                                className="w-full bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50 text-sm"
+                            />
+                            <div className="relative">
                                 <input
                                     type="text"
                                     value={pollLink}
                                     onChange={e => setPollLink(e.target.value)}
                                     placeholder="أدخل الرابط هنا (مثلاً: https://google.com)"
-                                    className="flex-1 bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50 text-sm"
+                                    className="w-full bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 pl-9 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50 text-sm"
                                     dir="ltr"
                                 />
-                                <button
-                                    onClick={handleSaveLink}
-                                    disabled={isSavingLink}
-                                    className="bg-brand-green hover:bg-brand-green/90 text-white px-6 py-2 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-brand-green/10"
-                                >
-                                    {isSavingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    <span>{isSavingLink ? 'جاري الحفظ...' : 'حفظ الرابط'}</span>
-                                </button>
+                                {pollLink && (
+                                    <button
+                                        onClick={() => setPollLink('')}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-300 dark:bg-white/20 hover:bg-red-500 hover:text-white text-gray-600 dark:text-white/60 flex items-center justify-center transition-all text-xs font-bold"
+                                        title="مسح الرابط"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
                             </div>
+                            <button
+                                onClick={handleSaveLink}
+                                disabled={isSavingLink}
+                                className={cn(
+                                    "w-full px-6 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg",
+                                    hasLinkChanges
+                                        ? "bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/20 animate-pulse"
+                                        : "bg-brand-green hover:bg-brand-green/90 text-white shadow-brand-green/10"
+                                )}
+                            >
+                                {isSavingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                <span>{isSavingLink ? 'جاري الحفظ...' : hasLinkChanges ? 'حفظ التغييرات ⚡' : 'حفظ التغييرات'}</span>
+                            </button>
                         </div>
                     )}
 

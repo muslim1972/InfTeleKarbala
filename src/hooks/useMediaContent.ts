@@ -11,7 +11,7 @@ import { CACHE_CONFIG, getOptimalSettings } from '../cache/CacheConfig';
 interface MediaContent {
     directive: { id: string; content: string } | null;
     conference: { id: string; content: string } | null;
-    pollLink: { id: string; content: string } | null;
+    pollLink: { id: string; content: string; title: string | null; is_active: boolean } | null;
     isDirectiveAcknowledged: boolean;
 }
 
@@ -57,12 +57,11 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
             .select('content_id')
             .eq('user_id', userId),
 
-        // رابط الاستبيان المخصص
+        // رابط الاستبيان المخصص (جلب حتى لو غير نشط - للمشرف)
         supabase
             .from('media_content')
-            .select('id, content')
+            .select('id, content, title, is_active')
             .eq('type', 'poll_link')
-            .eq('is_active', true)
             .limit(1)
             .maybeSingle()
     ]);
