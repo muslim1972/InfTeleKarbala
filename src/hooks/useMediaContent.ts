@@ -11,6 +11,7 @@ import { CACHE_CONFIG, getOptimalSettings } from '../cache/CacheConfig';
 interface MediaContent {
     directive: { id: string; content: string } | null;
     conference: { id: string; content: string } | null;
+    pollLink: { id: string; content: string } | null;
     isDirectiveAcknowledged: boolean;
 }
 
@@ -31,7 +32,7 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
     const startTime = Date.now();
 
     // جلب كل شيء بالتوازي (أسرع بكثير!)
-    const [directiveResult, conferenceResult, allAcknowledgments] = await Promise.all([
+    const [directiveResult, conferenceResult, allAcknowledgments, pollLinkResult] = await Promise.all([
         // التوجيه النشط
         supabase
             .from('media_content')
@@ -54,7 +55,16 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
         supabase
             .from('user_acknowledgments')
             .select('content_id')
-            .eq('user_id', userId)
+            .eq('user_id', userId),
+
+        // رابط الاستبيان المخصص
+        supabase
+            .from('media_content')
+            .select('id, content')
+            .eq('type', 'poll_link')
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
     ]);
 
     // التحقق من الإقرار
@@ -66,6 +76,7 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
     const data: MediaContent = {
         directive: directiveResult.data,
         conference: conferenceResult.data,
+        pollLink: pollLinkResult.data || null,
         isDirectiveAcknowledged
     };
 

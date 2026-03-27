@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     PieChart, Save, ArrowLeft, CheckCircle2,
-    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit, Archive, RefreshCw, Search
+    ListChecks, HelpCircle, MousePointerClick, BarChart3, Plus, Trash2, StopCircle, Edit, Archive, RefreshCw, Search, Link, Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -48,6 +48,10 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
     const [currentOptionsCount, setCurrentOptionsCount] = useState(2);
     const [currentOptions, setCurrentOptions] = useState<OptionDraft[]>([{ text: '' }, { text: '' }]);
 
+    const [pollLink, setPollLink] = useState('');
+    const [pollLinkExists, setPollLinkExists] = useState(false);
+    const [isSavingLink, setIsSavingLink] = useState(false);
+
     // Storage
     const [collectedQuestions, setCollectedQuestions] = useState<QuestionDraft[]>([]);
 
@@ -55,6 +59,9 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
     useEffect(() => {
         if (phase === 'list') {
             fetchPolls();
+            if (!showDeleted) {
+                fetchPollLink();
+            }
         }
     }, [phase, showDeleted]); // Re-fetch when filter changes
 
@@ -78,6 +85,58 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
         if (error) console.error(error);
         else setPollsList(data || []);
         setIsLoading(false);
+    };
+
+    const fetchPollLink = async () => {
+        try {
+            const { data } = await supabase
+                .from('media_content')
+                .select('*')
+                .eq('type', 'poll_link')
+                .limit(1)
+                .maybeSingle();
+            
+            if (data) {
+                setPollLink(data.content || '');
+                setPollLinkExists(true);
+            }
+        } catch (err) {
+            console.error("Error fetching poll link:", err);
+        }
+    };
+
+    const handleSaveLink = async () => {
+        if (!user) return;
+        setIsSavingLink(true);
+        try {
+            const payload = {
+                type: 'poll_link',
+                content: pollLink,
+                is_active: pollLink.trim().length > 0,
+                updated_at: new Date().toISOString()
+            };
+
+            if (pollLinkExists) {
+                const { error } = await supabase
+                    .from('media_content')
+                    .update(payload)
+                    .eq('type', 'poll_link');
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('media_content')
+                    .insert(payload);
+                if (error) throw error;
+                setPollLinkExists(true);
+            }
+            
+            toast.success("تم حفظ الرابط بنجاح");
+        } catch (err) {
+            console.error("Error saving poll link:", err);
+            toast.error("فشل في حفظ الرابط");
+        } finally {
+            setIsSavingLink(false);
+        }
     };
 
     // --- Handlers ---
@@ -441,6 +500,34 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                             )}
                         </div>
                     </div>
+
+                    {/* Important Link Section */}
+                    {phase === 'list' && !showDeleted && (
+                        <div className="bg-white/50 dark:bg-black/20 p-4 rounded-2xl border border-gray-200 dark:border-white/5 shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-2 text-brand-green font-bold text-sm">
+                                <Link className="w-4 h-4" />
+                                <span>أضف رابطاً (يظهر للمستخدمين كـ "رابط مهم")</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={pollLink}
+                                    onChange={e => setPollLink(e.target.value)}
+                                    placeholder="أدخل الرابط هنا (مثلاً: https://google.com)"
+                                    className="flex-1 bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-brand-green/50 text-sm"
+                                    dir="ltr"
+                                />
+                                <button
+                                    onClick={handleSaveLink}
+                                    disabled={isSavingLink}
+                                    className="bg-brand-green hover:bg-brand-green/90 text-white px-6 py-2 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-brand-green/10"
+                                >
+                                    {isSavingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    <span>{isSavingLink ? 'جاري الحفظ...' : 'حفظ الرابط'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Filters (Archive Mode) */}
                     {showDeleted && (

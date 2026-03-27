@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Loader2, PieChart, AlertCircle, Users } from 'lucide-react';
+import { Loader2, PieChart, AlertCircle, Users, ExternalLink } from 'lucide-react';
 import { PollItem } from './PollItem';
 import { DirectivesModal } from './DirectivesModal';
 import { useMediaContent } from '../../hooks/useMediaContent';
@@ -26,6 +26,7 @@ export function UserPolls() {
     // استخراج البيانات من الكاش
     const directive = mediaContent?.directive || null;
     const conference = mediaContent?.conference || null;
+    const pollLink = mediaContent?.pollLink || null;
     const isDirectiveAcknowledged = mediaContent?.isDirectiveAcknowledged || false;
     const activePolls = polls || [];
     const loading = mediaLoading || pollsLoading;
@@ -97,6 +98,31 @@ export function UserPolls() {
                             )}
                         </button>
                     )}
+                </div>
+            )}
+
+            {/* Poll Link Section */}
+            {pollLink && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-500 delay-150">
+                    <a
+                        href={pollLink.content.startsWith('http') ? pollLink.content : `https://${pollLink.content}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl group transition-all hover:bg-brand-green/5 hover:border-brand-green/30 shadow-sm"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-brand-green/10 rounded-xl flex items-center justify-center text-brand-green group-hover:scale-110 transition-transform">
+                                <ExternalLink size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-900 dark:text-white/90">رابط مهم</h4>
+                                <p className="text-xs text-brand-green font-medium mt-0.5 truncate max-w-[200px] md:max-w-xs">{pollLink.content}</p>
+                            </div>
+                        </div>
+                        <div className="bg-brand-green/10 px-3 py-1.5 rounded-lg text-brand-green text-xs font-bold group-hover:bg-brand-green group-hover:text-white transition-all">
+                            زيارة الرابط
+                        </div>
+                    </a>
                 </div>
             )}
 
