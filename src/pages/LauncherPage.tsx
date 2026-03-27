@@ -64,13 +64,13 @@ export const LauncherPage = () => {
                     <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl group-hover:border-blue-400/50 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] bg-white">
                         <img
                             src="/Logo-Int-Karbala.jpeg"
-                            alt="نظام إدارة الإنترنت"
+                            alt="نظام قسم السعات"
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                     </div>
                     <div className="text-center">
                         <h2 className="text-xl font-bold text-white font-tajawal group-hover:text-blue-300 transition-colors duration-300">
-                            نظام إدارة الإنترنت
+                            نظام قسم السعات
                         </h2>
                         <p className="text-white/50 text-sm mt-1 group-hover:text-white/70 transition-colors">
                             قسم تجهيز خدمات المعلوماتية
