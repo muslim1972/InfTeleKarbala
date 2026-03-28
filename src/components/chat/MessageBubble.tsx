@@ -10,8 +10,9 @@ import { useChatSettings } from '../../hooks/useChatSettings';
 import { ImageMessage } from './bubbles/ImageMessage';
 import { TextMessage } from './bubbles/TextMessage';
 import { FileMessage } from './bubbles/FileMessage';
-import { Copy } from 'lucide-react';
+import { Copy, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useConversationDetails } from '../../hooks/useConversationDetails';
 
 interface MessageBubbleProps {
     message: Message;
@@ -29,7 +30,11 @@ const REACTION_EMOJIS = ['❤️', '👍', '🌹', '😂', '😢'];
 export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, selectedCount = 0, onToggleSelection, onToggleReaction, onImageLoad }: MessageBubbleProps) => {
     const { user } = useAuth();
     const { settings } = useChatSettings();
+    const { details } = useConversationDetails(message.conversation_id);
     const [showReactions, setShowReactions] = React.useState(false);
+    const [showReactionDetails, setShowReactionDetails] = React.useState(false);
+    const [popoverPosition, setPopoverPosition] = React.useState<'top' | 'bottom'>('top');
+    const bubbleRef = React.useRef<HTMLDivElement>(null);
     
     const isMe = message.sender_id === user?.id;
     const isVoice = !!message.audio_url;
@@ -44,8 +49,21 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
         }
     }, [isSelected, selectedCount]);
 
+    React.useEffect(() => {
+        const handleClickOutside = () => setShowReactionDetails(false);
+        if (showReactionDetails) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showReactionDetails]);
+
     const onLongPress = () => {
         if (!isSelectionMode) {
+            if (bubbleRef.current) {
+                const rect = bubbleRef.current.getBoundingClientRect();
+                // If message is too close to top (e.g. under SelectionHeader), render popover at bottom
+                setPopoverPosition(rect.top < 120 ? 'bottom' : 'top');
+            }
             setShowReactions(true);
         }
         if (onToggleSelection) {
@@ -63,6 +81,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
 
     return (
         <div
+            ref={bubbleRef}
             className={cn(
                 "flex w-full mb-4 relative transition-colors duration-200",
                 isMe ? "justify-start" : "justify-end",
@@ -144,7 +163,8 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                 {showReactions && (
                     <div 
                         className={cn(
-                            "absolute -top-16 z-[50] flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-2 rounded-full shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-200",
+                            "absolute z-[50] flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-2 rounded-full shadow-2xl border border-gray-100 animate-in fade-in duration-200",
+                            popoverPosition === 'top' ? "-top-16 zoom-in slide-in-from-bottom-2" : "top-full mt-2 slide-in-from-top-2",
                             isMe ? "right-0" : "left-0"
                         )}
                         onClick={(e) => e.stopPropagation()}
@@ -156,6 +176,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                                     e.stopPropagation();
                                     onToggleReaction?.(message.id, emoji);
                                     setShowReactions(false);
+                                    onToggleSelection?.(message.id);
                                 }}
                                 className="hover:scale-150 active:scale-95 transition-transform px-1.5 text-xl"
                             >
@@ -172,6 +193,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                                         navigator.clipboard.writeText(message.text);
                                         toast.success('تم نسخ النص');
                                         setShowReactions(false);
+                                        onToggleSelection?.(message.id);
                                     }}
                                     className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors group"
                                     title="نسخ النص"
@@ -180,15 +202,27 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                                 </button>
                             </>
                         )}
+
+                        <div className="w-[1px] h-6 bg-gray-200 mx-1"></div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowReactions(false);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            title="إغلاق التفاعلات"
+                        >
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Reactions Display */}
+                {/* Reactions Display Badge */}
                 {message.reactions && Object.keys(message.reactions).length > 0 && (
                     <div 
                         onClick={(e) => {
                             e.stopPropagation();
-                            setShowReactions(true);
+                            setShowReactionDetails(true);
                         }}
                         className={cn(
                             "absolute -bottom-3 flex items-center gap-0.5 bg-white rounded-full px-2 py-0.5 shadow-md border border-gray-100 text-[12px] cursor-pointer hover:bg-gray-50 transition-all z-[5] hover:scale-105",
@@ -198,6 +232,47 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                         {Object.values(message.reactions).map((emoji, idx) => (
                             <span key={idx} className="leading-none">{emoji}</span>
                         ))}
+                    </div>
+                )}
+
+                {/* Reaction Details Popup */}
+                {showReactionDetails && message.reactions && Object.keys(message.reactions).length > 0 && (
+                    <div 
+                        className={cn(
+                            "absolute top-full mt-2 z-[60] min-w-[150px] bg-white rounded-xl shadow-xl border border-gray-100 p-2 animate-in fade-in slide-in-from-top-2 duration-200",
+                            isMe ? "right-0" : "left-0"
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="text-xs font-bold text-gray-500 mb-2 px-1 border-b pb-1">المتفاعلون</div>
+                        <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar">
+                            {Object.entries(message.reactions).map(([userId, emoji]) => {
+                                const profile = details?.member_profiles?.find(p => p.id === userId);
+                                const isCurrentUser = userId === user?.id;
+                                const displayName = isCurrentUser ? 'أنت' : profile?.full_name || 'مستخدم';
+                                return (
+                                    <div key={userId} className="flex items-center justify-between p-1.5 hover:bg-gray-50 rounded-lg group">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg leading-none">{emoji}</span>
+                                            <span className="text-sm font-medium text-gray-700 truncate max-w-[100px]">{displayName}</span>
+                                        </div>
+                                        {isCurrentUser && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onToggleReaction?.(message.id, emoji);
+                                                    setShowReactionDetails(false);
+                                                }}
+                                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all focus:opacity-100"
+                                                title="إزالة تفاعلي"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
