@@ -115,6 +115,17 @@ export const TabManageEmployees = ({
                                 isReadOnly={isFieldReadOnly('full_name')}
                             />
 
+                            <EditableField
+                                label="الرقم الوظيفي"
+                                value={selectedEmployee.job_number}
+                                onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, job_number: val })}
+                                recordId={selectedEmployee.id}
+                                tableName="profiles"
+                                dbField="job_number"
+                                isReadOnly={isFieldReadOnly('job_number')}
+                                className="font-mono text-left"
+                            />
+
                             <div className="px-2">
                                 <DepartmentSelector
                                     value={selectedEmployee.department_id}
@@ -633,7 +644,8 @@ function EditableField({
     tableName,
     dbField,
     isReadOnly,
-    type = "text"
+    type = "text",
+    className = ""
 }: any) {
     return (
         <div className="grid grid-cols-[132px_1fr] items-center gap-2">
@@ -657,7 +669,7 @@ function EditableField({
                     type={type}
                     value={value || ""}
                     onChange={(e) => onChange(e.target.value)}
-                    className="flex-1"
+                    className={cn("flex-1", className)}
                     disabled={isReadOnly}
                 />
             </div>

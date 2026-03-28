@@ -1,5 +1,5 @@
 
-import { Search, Loader2, Trash2 } from "lucide-react";
+import { Search, Loader2, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
@@ -158,6 +158,15 @@ export const DashboardHeader = ({
                                         : 'bg-white/10 border-white/10 text-white placeholder:text-white/40'
                                         }`}
                                 />
+                                {searchJobNumber && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearchJobNumber("")}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                )}
                                 
                                 {/* Suggestions Dropdown */}
                                 {showSuggestions && suggestions.length > 0 && createPortal(
@@ -199,7 +208,13 @@ export const DashboardHeader = ({
                         )}
 
                         <button
-                            onClick={() => setSearchExpanded(!searchExpanded)}
+                            onClick={() => {
+                                const isExpanding = !searchExpanded;
+                                setSearchExpanded(isExpanding);
+                                if (isExpanding) {
+                                    setSearchJobNumber("");
+                                }
+                            }}
                             className={cn(
                                 "p-2 rounded-xl transition-all active:scale-95",
                                 theme === 'light'
