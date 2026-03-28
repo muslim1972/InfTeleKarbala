@@ -27,7 +27,7 @@ import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
 import { ProfileDataUpdater } from '../ProfileDataUpdater';
 import { FinancialDataUpdater } from '../FinancialDataUpdater';
-import { SmartSalaryUpdater } from '../SmartSalaryUpdater';
+import { UniversalPatcher } from '../UniversalPatcher';
 import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
 import { cleanText } from '../../../utils/profileUtils';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
@@ -551,7 +551,7 @@ export const TabManageEmployees = ({
                                     className="gap-2 border-border/50 hover:bg-muted/20 hover:border-blue-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
                                 >
                                     <DatabaseZap className="w-4 h-4 text-blue-500" />
-                                    المحدث الشهري الذكي
+                                    المحدث العام ⚡
                                 </Button>
 
                                 <Button
@@ -605,7 +605,7 @@ export const TabManageEmployees = ({
                                 <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} />
                             )}
                             {showSmartUpdater && (
-                                <SmartSalaryUpdater onClose={() => setShowSmartUpdater(false)} />
+                                <UniversalPatcher onClose={() => setShowSmartUpdater(false)} />
                             )}
                             {showFieldPermissionsModal && (
                                 <FieldPermissionsModal
