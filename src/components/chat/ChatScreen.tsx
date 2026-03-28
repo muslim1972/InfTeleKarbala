@@ -6,7 +6,9 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ArrowRight, Palette, Check, RotateCcw } from 'lucide-react';
 import { SelectionHeader } from './SelectionHeader';
+import { MessageInfoModal } from './MessageInfoModal';
 import { useChatSettings, type FontSize } from '../../hooks/useChatSettings';
+import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 
 // Simple Avatar Component if not exists
@@ -24,8 +26,10 @@ function SimpleAvatar({ src, fallback }: { src?: string, fallback: string }) {
 export function ChatScreen() {
     const { conversationId } = useParams<{ conversationId: string }>();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [showSettings, setShowSettings] = useState(false);
     const [showParticipants, setShowParticipants] = useState(false);
+    const [showInfoModal, setShowInfoModal] = useState(false);
     const { settings, updateSettings, resetSettings } = useChatSettings();
 
 
@@ -76,6 +80,7 @@ export function ChatScreen() {
                     selectedCount={selectedMessages.length}
                     onCancel={clearSelection}
                     onDelete={deleteMessages}
+                    onShowDetails={() => setShowInfoModal(true)}
                 />
             ) : (
                 <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-[60] sticky top-0 transition-all">
@@ -285,7 +290,6 @@ export function ChatScreen() {
                 onToggleReaction={toggleReaction}
             />
 
-            {/* Input */}
             <MessageInput
                 key={conversationId}
                 value={newMessage}
@@ -296,6 +300,15 @@ export function ChatScreen() {
                 onSendFile={sendFileMessage}
                 onSendBuzz={sendBuzzMessage}
                 disabled={selectedMessages.length > 0 || isSending}
+                members={details?.member_profiles}
+            />
+
+            {/* Info Modal */}
+            <MessageInfoModal
+                isOpen={showInfoModal}
+                onClose={() => setShowInfoModal(false)}
+                message={messages.find(m => m.id === selectedMessages[0]) || null}
+                currentUserId={user?.id}
                 members={details?.member_profiles}
             />
         </div>
