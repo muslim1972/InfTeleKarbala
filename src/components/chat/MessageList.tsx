@@ -111,6 +111,7 @@ export function MessageList({
                             isGroup={isGroup}
                             isSelected={selectedMessages.includes(msg.id)}
                             isSelectionMode={selectedMessages.length > 0}
+                            selectedCount={selectedMessages.length}
                             onToggleSelection={onToggleSelection}
                             onToggleReaction={onToggleReaction}
                             onImageLoad={handleImageLoad}

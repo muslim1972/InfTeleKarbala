@@ -10,12 +10,15 @@ import { useChatSettings } from '../../hooks/useChatSettings';
 import { ImageMessage } from './bubbles/ImageMessage';
 import { TextMessage } from './bubbles/TextMessage';
 import { FileMessage } from './bubbles/FileMessage';
+import { Copy } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface MessageBubbleProps {
     message: Message;
     isGroup?: boolean;
     isSelected?: boolean;
     isSelectionMode?: boolean;
+    selectedCount?: number;
     onToggleSelection?: (id: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onImageLoad?: () => void;
@@ -23,7 +26,7 @@ interface MessageBubbleProps {
 
 const REACTION_EMOJIS = ['❤️', '👍', '🌹', '😂', '😢'];
 
-export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, onToggleSelection, onToggleReaction, onImageLoad }: MessageBubbleProps) => {
+export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelectionMode, selectedCount = 0, onToggleSelection, onToggleReaction, onImageLoad }: MessageBubbleProps) => {
     const { user } = useAuth();
     const { settings } = useChatSettings();
     const [showReactions, setShowReactions] = React.useState(false);
@@ -32,13 +35,14 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
     const isVoice = !!message.audio_url;
     const isImage = !!message.image_url;
     const isFile = !!message.file_url || (message.file_name && message.is_sending);
+    const isText = !isVoice && !isImage && !isFile;
 
-    // Close reactions if message is deselected
+    // Close reactions if message is deselected or multiple are selected
     React.useEffect(() => {
-        if (!isSelected) {
+        if (!isSelected || selectedCount > 1) {
             setShowReactions(false);
         }
-    }, [isSelected]);
+    }, [isSelected, selectedCount]);
 
     const onLongPress = () => {
         if (!isSelectionMode) {
@@ -136,7 +140,7 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                     )}
                 </div>
 
-                {/* Reaction Picker Popover */}
+                {/* Reaction Picker & Actions Popover */}
                 {showReactions && (
                     <div 
                         className={cn(
@@ -158,6 +162,24 @@ export const MessageBubble = React.memo(({ message, isGroup, isSelected, isSelec
                                 {emoji}
                             </button>
                         ))}
+                        
+                        {isText && (
+                            <>
+                                <div className="w-[1px] h-6 bg-gray-200 mx-1"></div>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(message.text);
+                                        toast.success('تم نسخ النص');
+                                        setShowReactions(false);
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors group"
+                                    title="نسخ النص"
+                                >
+                                    <Copy size={16} className="group-hover:scale-110 transition-transform" />
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
 

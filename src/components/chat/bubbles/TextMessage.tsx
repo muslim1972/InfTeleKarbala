@@ -13,16 +13,24 @@ const renderMessageText = (text: string, isMe: boolean, textColorMe: string, tex
     // If no text, return empty
     if (!text) return null;
 
-    // 1. First, split by URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    // 1. First, split by URLs (http, https, www, naked domain, email)
+    const urlRegex = /((?:https?:\/\/[^\s]+)|(?:[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})|(?:www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})|(?:[a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|io|co|me|info|biz)\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)))/gi;
     const partsByUrl = text.split(urlRegex);
 
     return partsByUrl.map((part, i) => {
+        // If this part matches the regex
         if (part.match(urlRegex)) {
+            let href = part;
+            if (part.includes('@')) {
+                href = `mailto:${part}`;
+            } else if (!part.startsWith('http://') && !part.startsWith('https://')) {
+                href = `https://${part}`;
+            }
+
             return (
                 <a
                     key={`url-${i}`}
-                    href={part}
+                    href={href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn(
