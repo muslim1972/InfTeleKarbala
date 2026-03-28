@@ -99,12 +99,14 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
         setIsLoading(false);
     };
 
+    const getLinkType = () => category === 'training' ? 'poll_link_training' : 'poll_link';
+
     const fetchPollLink = async () => {
         try {
             const { data } = await supabase
                 .from('media_content')
                 .select('*')
-                .eq('type', 'poll_link')
+                .eq('type', getLinkType())
                 .limit(1)
                 .maybeSingle();
             
@@ -125,7 +127,7 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
         setIsSavingLink(true);
         try {
             const payload = {
-                type: 'poll_link',
+                type: getLinkType(),
                 title: pollLinkTitle.trim() || null,
                 content: pollLink,
                 is_active: pollLinkActive,
@@ -136,7 +138,7 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                 const { error } = await supabase
                     .from('media_content')
                     .update(payload)
-                    .eq('type', 'poll_link');
+                    .eq('type', getLinkType());
                 if (error) throw error;
             } else {
                 const { error } = await supabase

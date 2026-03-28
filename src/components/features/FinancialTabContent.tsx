@@ -199,6 +199,8 @@ export const FinancialTabContent = ({
                                             val = departmentInfo.managerName;
                                         } else if (field.key === 'permission_level') {
                                             val = getRoleLabel(user);
+                                        } else if (field.key === 'job_number') {
+                                            val = user?.job_number || user?.username;
                                         } else {
                                             val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
                                             

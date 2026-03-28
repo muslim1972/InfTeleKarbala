@@ -12,6 +12,7 @@ interface MediaContent {
     directive: { id: string; content: string } | null;
     conference: { id: string; content: string } | null;
     pollLink: { id: string; content: string; title: string | null; is_active: boolean } | null;
+    pollLinkTraining: { id: string; content: string; title: string | null; is_active: boolean } | null;
     isDirectiveAcknowledged: boolean;
 }
 
@@ -32,7 +33,7 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
     const startTime = Date.now();
 
     // جلب كل شيء بالتوازي (أسرع بكثير!)
-    const [directiveResult, conferenceResult, allAcknowledgments, pollLinkResult] = await Promise.all([
+    const [directiveResult, conferenceResult, allAcknowledgments, pollLinkResult, pollLinkTrainingResult] = await Promise.all([
         // التوجيه النشط
         supabase
             .from('media_content')
@@ -63,6 +64,14 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
             .select('id, content, title, is_active')
             .eq('type', 'poll_link')
             .limit(1)
+            .maybeSingle(),
+            
+        // رابط استبيان التدريب الصيفي
+        supabase
+            .from('media_content')
+            .select('id, content, title, is_active')
+            .eq('type', 'poll_link_training')
+            .limit(1)
             .maybeSingle()
     ]);
 
@@ -76,6 +85,7 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
         directive: directiveResult.data,
         conference: conferenceResult.data,
         pollLink: pollLinkResult.data || null,
+        pollLinkTraining: pollLinkTrainingResult.data || null,
         isDirectiveAcknowledged
     };
 
