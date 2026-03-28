@@ -4,6 +4,7 @@ import { VoiceRecorderInput } from './inputs/VoiceRecorderInput';
 import { ImagePreviewInput } from './inputs/ImagePreviewInput';
 import { FilePreviewInput } from './inputs/FilePreviewInput';
 import { TextInput } from './inputs/TextInput';
+import type { ParticipantProfile } from '../../hooks/useConversationDetails';
 
 interface MessageInputProps {
     onSend: (e?: React.FormEvent) => void;
@@ -14,9 +15,10 @@ interface MessageInputProps {
     value: string;
     onChange: (val: string) => void;
     disabled?: boolean;
+    members?: ParticipantProfile[];
 }
 
-export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, onSendBuzz, value, onChange, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, onSendBuzz, value, onChange, disabled, members }: MessageInputProps) {
     const [isSendingVoice, setIsSendingVoice] = useState(false);
     
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -147,6 +149,7 @@ export function MessageInput({ onSend, onSendVoice, onSendImage, onSendFile, onS
             onFileSelect={handleFileSelect}
             onSendBuzz={onSendBuzz}
             disabled={disabled}
+            members={members}
         />
     );
 }

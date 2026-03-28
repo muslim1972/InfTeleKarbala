@@ -57,6 +57,11 @@ export function useConversationDetails(conversationId: string) {
           if (profile) {
             name = profile.full_name || 'مستخدم';
             avatar_url = profile.avatar;
+            member_profiles = [{
+              id: profile.id,
+              full_name: profile.full_name || 'مستخدم',
+              avatar: profile.avatar
+            }];
           }
         }
       } else if (conv.is_group && conv.participants && conv.participants.length > 0) {
@@ -81,7 +86,7 @@ export function useConversationDetails(conversationId: string) {
         avatar_url,
         is_group: conv.is_group,
         participants: conv.participants,
-        member_profiles: conv.is_group ? member_profiles : undefined
+        member_profiles: member_profiles
       });
       setLoading(false);
     }

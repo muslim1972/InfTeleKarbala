@@ -296,6 +296,7 @@ export function ChatScreen() {
                 onSendFile={sendFileMessage}
                 onSendBuzz={sendBuzzMessage}
                 disabled={selectedMessages.length > 0 || isSending}
+                members={details?.member_profiles}
             />
         </div>
     );

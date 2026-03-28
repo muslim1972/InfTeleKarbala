@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Send, Mic, Paperclip, Image as ImageIcon, FileText, BellRing } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useChatSettings } from '../../../hooks/useChatSettings';
+import type { ParticipantProfile } from '../../../hooks/useConversationDetails';
 
 interface TextInputProps {
     value: string;
@@ -12,6 +13,7 @@ interface TextInputProps {
     onFileSelect: (file: File) => void;
     onSendBuzz: () => void;
     disabled?: boolean;
+    members?: ParticipantProfile[];
 }
 
 export const TextInput: React.FC<TextInputProps> = ({
@@ -23,10 +25,16 @@ export const TextInput: React.FC<TextInputProps> = ({
     onFileSelect,
     onSendBuzz,
     disabled = false,
+    members = [],
 }) => {
     const { settings } = useChatSettings();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
+    
+    // Mentions State
+    const [showMentions, setShowMentions] = useState(false);
+    const [mentionSearch, setMentionSearch] = useState('');
+    const [mentionIndex, setMentionIndex] = useState(0);
     
     const imageInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,12 +47,79 @@ export const TextInput: React.FC<TextInputProps> = ({
         }
     }, [value]);
 
+    const filteredMembers = members?.filter(m => m.full_name?.toLowerCase().includes(mentionSearch.toLowerCase())) || [];
+
+    const insertMention = (memberName: string) => {
+        if (!textareaRef.current) return;
+        const cursorPosition = textareaRef.current.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPosition);
+        const textAfterCursor = value.substring(cursorPosition);
+        
+        // Find the start of the mention before cursor
+        const match = textBeforeCursor.match(/@([a-zA-Z\u0600-\u06FF\s_]*)$/);
+        if (match) {
+            const beforeMention = textBeforeCursor.substring(0, match.index);
+            const newValue = beforeMention + '@' + memberName + ' ' + textAfterCursor;
+            onChange(newValue);
+            setShowMentions(false);
+            
+            // Focus back and set cursor
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    const newPos = beforeMention.length + memberName.length + 2; // +2 for @ and space
+                    textareaRef.current.setSelectionRange(newPos, newPos);
+                }
+            }, 0);
+        }
+    };
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        onChange(val);
+
+        const cursorPosition = e.target.selectionStart;
+        const textBeforeCursor = val.substring(0, cursorPosition);
+        const match = textBeforeCursor.match(/@([a-zA-Z\u0600-\u06FF\s_]*)$/);
+
+        if (match) {
+            setShowMentions(true);
+            setMentionSearch(match[1]);
+            setMentionIndex(0);
+        } else {
+            setShowMentions(false);
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         // Try to unlock audio on first interaction
         const silentAudio = new Audio();
         silentAudio.play().catch(() => {});
 
-        if (e.key === 'Enter' && !e.shiftKey) {
+        // Mentions Navigation
+        if (showMentions && filteredMembers.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setMentionIndex(prev => (prev + 1) % filteredMembers.length);
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setMentionIndex(prev => (prev - 1 + filteredMembers.length) % filteredMembers.length);
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                insertMention(filteredMembers[mentionIndex].full_name);
+                return;
+            }
+            if (e.key === 'Escape') {
+                setShowMentions(false);
+                return;
+            }
+        }
+
+        if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
             const cursorPosition = e.currentTarget.selectionStart;
             const text = e.currentTarget.value;
 
@@ -66,16 +141,20 @@ export const TextInput: React.FC<TextInputProps> = ({
         }
     };
 
-    // Click outside handler for dropdown
+    // Click outside handler for dropdowns
     useEffect(() => {
         const handleClickOutside = (e: globalThis.MouseEvent) => {
-            if (isAttachmentOpen && !(e.target as Element).closest('.attachment-dropdown-container')) {
+            const target = e.target as Element;
+            if (isAttachmentOpen && !target.closest('.attachment-dropdown-container')) {
                 setIsAttachmentOpen(false);
+            }
+            if (showMentions && !target.closest('.mentions-dropdown-container')) {
+                setShowMentions(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isAttachmentOpen]);
+    }, [isAttachmentOpen, showMentions]);
 
     const handleInputClick = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
         const file = e.target.files?.[0];
@@ -90,7 +169,39 @@ export const TextInput: React.FC<TextInputProps> = ({
     };
 
     return (
-        <div className="p-3 bg-white border-t flex items-end gap-2">
+        <div className="p-3 bg-white border-t flex items-end gap-2 relative">
+            {/* Mentions Dropdown */}
+            {showMentions && filteredMembers.length > 0 && (
+                <div className="absolute bottom-full mb-2 right-4 w-64 mentions-dropdown-container bg-white border border-gray-100 shadow-2xl rounded-2xl overflow-hidden z-[60] animate-in slide-in-from-bottom-2 fade-in duration-200">
+                    <div className="p-2 border-b bg-gray-50 text-xs font-bold text-gray-500">
+                        إشارة إلى...
+                    </div>
+                    <div className="max-h-48 overflow-y-auto scrollbar-none flex flex-col p-1">
+                        {filteredMembers.map((member, idx) => (
+                            <button
+                                key={member.id}
+                                onClick={() => insertMention(member.full_name)}
+                                className={cn(
+                                    "px-3 py-2 flex items-center gap-3 w-full text-right rounded-xl transition-colors",
+                                    idx === mentionIndex ? "bg-emerald-50 text-emerald-700" : "hover:bg-gray-50 text-gray-700"
+                                )}
+                            >
+                                {member.avatar ? (
+                                    <img src={member.avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-700">
+                                        {member.full_name.substring(0, 2)}
+                                    </div>
+                                )}
+                                <span className={cn("text-sm font-medium", idx === mentionIndex && "font-bold")}>
+                                    {member.full_name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Hidden inputs */}
             <input
                 ref={imageInputRef}
@@ -154,7 +265,7 @@ export const TextInput: React.FC<TextInputProps> = ({
                 <textarea
                     ref={textareaRef}
                     value={value}
-                    onChange={(e) => onChange(e.target.value)}
+                    onChange={handleTextChange}
                     onKeyDown={handleKeyDown}
                     placeholder="اكتب رسالة..."
                     className={cn(

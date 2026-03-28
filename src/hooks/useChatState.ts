@@ -68,6 +68,7 @@ export interface Message {
   file_name?: string;
   file_size?: number;
   read_by?: string[];
+  mentions?: string[];
   reactions?: Record<string, string>; // { user_id: emoji }
   buzz_count?: number;
   created_at: string;
@@ -275,28 +276,59 @@ export function useChatState(conversationId: string) {
     setNewMessage('');
     setIsSending(true);
 
-    // Optimistic Update
-    const optimisticId = uuidv4();
-    const optimisticMsg: Message = {
-      id: optimisticId,
-      conversation_id: conversationId,
-      sender_id: user.id,
-      text: text,
-      created_at: new Date().toISOString(),
-      is_sending: true
-    };
-
-    setMessages(prev => [...prev, optimisticMsg]);
-
     try {
+      // 0. Resolve Mentions by checking participants' names in the text
+      let mentionsIds: string[] = [];
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+
+      if (convData?.participants) {
+        // Fetch profiles for participants to check names
+        const cleanParticipants = (convData.participants as string[]).filter(id => id !== user.id);
+        if (cleanParticipants.length > 0) {
+           const { data: profiles } = await supabase
+             .from('profiles')
+             .select('id, full_name')
+             .in('id', cleanParticipants);
+           
+           if (profiles) {
+             profiles.forEach(p => {
+               if (text.includes(`@${p.full_name}`)) {
+                 mentionsIds.push(p.id);
+               }
+             });
+           }
+        }
+      }
+
+      // Optimistic Update
+      const optimisticId = uuidv4();
+      const optimisticMsg: Message = {
+        id: optimisticId,
+        conversation_id: conversationId,
+        sender_id: user.id,
+        text: text,
+        mentions: mentionsIds.length > 0 ? mentionsIds : undefined,
+        created_at: new Date().toISOString(),
+        is_sending: true
+      };
+
+      setMessages(prev => [...prev, optimisticMsg]);
+
+      const payload = {
+            id: optimisticId,
+            conversation_id: conversationId,
+            sender_id: user.id,
+            text: text,
+            mentions: mentionsIds.length > 0 ? mentionsIds : null
+      };
+
       const { error } = await supabase
         .from('messages')
-        .insert({
-          id: optimisticId,
-          conversation_id: conversationId,
-          sender_id: user.id,
-          text: text
-        });
+        .insert(payload);
 
       if (error) throw error;
 
@@ -320,17 +352,15 @@ export function useChatState(conversationId: string) {
       // 5. Send Push Notification to recipients (Fire and forget in background)
       (async () => {
         try {
-          const { data: convData } = await supabase
-            .from('conversations')
-            .select('participants')
-            .eq('id', conversationId)
-            .single();
-
           if (convData?.participants) {
             const recipients = (convData.participants as string[]).filter(id => id !== user.id);
             recipients.forEach(recipientId => {
+              // Highlight mention in push notification if the recipient is mentioned
+              const isMentioned = mentionsIds.includes(recipientId);
+              const notifTitle = isMentioned ? `🔔 أشار إليك ${user.full_name}` : user.full_name;
+              
               sendPushNotification(recipientId, text, { 
-                title: user.full_name, 
+                title: notifTitle, 
                 url: `${window.location.origin}/chat/${conversationId}`,
                 data: { conversationId }
               });
@@ -344,8 +374,6 @@ export function useChatState(conversationId: string) {
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('فشل إرسال الرسالة');
-      // Remove optimistic message on failure ONLY if insertion failed
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
       setNewMessage(text); // Restore text
       setIsSending(false); // Ensure cleared
     }
