@@ -17,8 +17,8 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const { user } = useAuth();
 
     const baseTabs = [
-        { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
+        { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },

@@ -4,6 +4,8 @@ import { AccordionSection } from "../ui/AccordionSection";
 import { RecordList } from "./RecordList";
 import { GlassCard } from "../ui/GlassCard";
 import { cn } from "../../lib/utils";
+import { getRoleLabel } from "../../utils/formatRoles";
+import { cleanText } from "../../utils/profileUtils";
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -18,6 +20,17 @@ const itemVariants = {
     show: { opacity: 1, y: 0 }
 };
 
+interface BasicInfoField {
+    key: string;
+    label: string;
+    isMoney?: boolean;
+    isDate?: boolean;
+    suffix?: string;
+    highlight?: boolean;
+    superHighlight?: boolean;
+    isProfile?: boolean;
+}
+
 interface AdministrativeTabContentProps {
     currentYearRecord: any;
     expandedDetail: 'thanks' | 'committees' | 'penalties' | 'leaves' | null;
@@ -29,7 +42,30 @@ interface AdministrativeTabContentProps {
     leavesList: any[];
     selectedLeave: any;
     setSelectedLeave: (leave: any | null) => void;
+    user: any;
+    departmentInfo: { name: string; managerName: string };
+    openSection: string | null;
+    toggleSection: (section: string) => void;
 }
+
+const basicInfoFields: BasicInfoField[] = [
+    { key: 'permission_level', label: 'مستوى الصلاحية', superHighlight: true },
+    { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
+    { key: 'full_name', label: 'الاسم الكامل', isProfile: true },
+    { key: 'specialization', label: 'التخصص (PROF)', isProfile: true },
+    { key: 'graduation_year', label: 'سنة التخرج', isProfile: true },
+    { key: 'appointment_date', label: 'تاريخ التعيين', isProfile: true, isDate: true },
+    { key: 'work_nature', label: 'طبيعة العمل', isProfile: true },
+    { key: 'dept_text', label: 'القسم', isProfile: true },
+    { key: 'section_text', label: 'الشعبة', isProfile: true },
+    { key: 'unit_text', label: 'الوحدة', isProfile: true },
+    { key: 'department_name', label: 'مكان العمل' },
+    { key: 'direct_manager', label: 'المسؤول المباشر' },
+    { key: 'job_title', label: 'العنوان الوظيفي' },
+    { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
+    { key: 'salary_stage', label: 'المرحلة في الدرجة الوظيفية' },
+    { key: 'certificate_text', label: 'الشهادة' },
+];
 
 export const AdministrativeTabContent = ({
     currentYearRecord,
@@ -41,7 +77,11 @@ export const AdministrativeTabContent = ({
     selectedYear,
     leavesList,
     selectedLeave,
-    setSelectedLeave
+    setSelectedLeave,
+    user,
+    departmentInfo,
+    openSection,
+    toggleSection
 }: AdministrativeTabContentProps) => {
     return (
         <motion.div
@@ -50,6 +90,80 @@ export const AdministrativeTabContent = ({
             animate="show"
             className="space-y-4"
         >
+            {/* Basic Info Section - moved from Financial tab */}
+            <motion.div variants={itemVariants}>
+                <AccordionSection
+                    id="hr-basic-info"
+                    title="المعلومات الاساسية"
+                    icon={User}
+                    color="from-blue-600 to-blue-500"
+                    isOpen={openSection === 'basic'}
+                    onToggle={() => toggleSection('basic')}
+                >
+                    <div className="table w-full border-separate border-spacing-y-3 p-1">
+                        {basicInfoFields.map((field) => {
+                            let val;
+                            if (field.key === 'department_name') {
+                                val = departmentInfo.name;
+                            } else if (field.key === 'direct_manager') {
+                                val = departmentInfo.managerName;
+                            } else if (field.key === 'permission_level') {
+                                val = getRoleLabel(user);
+                            } else if (field.key === 'job_number') {
+                                val = user?.job_number || user?.username;
+                            } else {
+                                val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? undefined : financialData?.[field.key]);
+                                if (['dept_text', 'section_text', 'unit_text'].includes(field.key)) {
+                                    val = cleanText(val);
+                                }
+                            }
+
+                            const displayVal = field.isMoney
+                                ? Math.round(Number(val || 0)).toLocaleString()
+                                : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
+
+                            return (
+                                <div
+                                    key={field.key}
+                                    className={cn(
+                                        "table-row",
+                                        field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "table-cell align-middle pl-4 w-px whitespace-nowrap",
+                                        field.superHighlight && "rounded-r-lg py-2 pr-2"
+                                    )}>
+                                        <span className={cn(
+                                            "text-xs font-bold block",
+                                            field.superHighlight ? "text-brand-green" : "text-muted-foreground"
+                                        )}>
+                                            {field.label}
+                                        </span>
+                                    </div>
+
+                                    <div className={cn(
+                                        "table-cell align-middle w-full",
+                                        field.superHighlight && "rounded-l-lg py-2 pl-2"
+                                    )}>
+                                        <div className={cn(
+                                            "px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all text-center",
+                                            field.superHighlight
+                                                ? "bg-brand-green text-white border-brand-green shadow-md"
+                                                : field.highlight
+                                                    ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
+                                                    : "bg-muted/50 border-input text-foreground hover:bg-muted"
+                                        )}>
+                                            {displayVal}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </AccordionSection>
+            </motion.div>
+
             {/* Thanks Books */}
             <motion.div variants={itemVariants}>
                 <AccordionSection

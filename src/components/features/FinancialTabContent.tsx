@@ -1,12 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Wallet, Scissors, Calculator, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Scissors, Calculator, Loader2, Eye, EyeOff } from 'lucide-react';
 import { AccordionSection } from "../ui/AccordionSection";
 import { SalaryCalculator } from "./SalaryCalculator";
 import { formatDateTime } from "../../utils/formatDate";
-import { getRoleLabel } from "../../utils/formatRoles";
 import { cn } from "../../lib/utils";
-import { cleanText } from "../../utils/profileUtils";
-
 interface FinancialField {
     key: string;
     label: string;
@@ -37,7 +34,6 @@ interface FinancialTabContentProps {
     loading: boolean;
     showIban: boolean;
     setShowIban: (val: boolean) => void;
-    departmentInfo: { name: string, managerName: string };
     adminData: any;
     openSection: string | null;
     toggleSection: (section: string) => void;
@@ -49,7 +45,6 @@ export const FinancialTabContent = ({
     loading,
     showIban,
     setShowIban,
-    departmentInfo,
     adminData,
     openSection,
     toggleSection
@@ -60,39 +55,12 @@ export const FinancialTabContent = ({
 
     const financialGroups = [
         {
-            id: 'basic',
-            title: 'المعلومات الاساسية والرواتب',
-            icon: User,
-            color: 'from-blue-600 to-blue-500',
-            fields: [
-                { key: 'permission_level', label: 'مستوى الصلاحية', superHighlight: true },
-                { key: 'job_number', label: 'الرقم الوظيفي', isProfile: true, superHighlight: true },
-                { key: 'full_name', label: 'الاسم الكامل', isProfile: true },
-                { key: 'specialization', label: 'التخصص (PROF)', isProfile: true },
-                { key: 'graduation_year', label: 'سنة التخرج', isProfile: true },
-                { key: 'appointment_date', label: 'تاريخ التعيين', isProfile: true, isDate: true },
-                { key: 'work_nature', label: 'طبيعة العمل', isProfile: true },
-                { key: 'dept_text', label: 'القسم', isProfile: true },
-                { key: 'section_text', label: 'الشعبة', isProfile: true },
-                { key: 'unit_text', label: 'الوحدة', isProfile: true },
-                { key: 'department_name', label: 'مكان العمل' },
-                { key: 'direct_manager', label: 'المسؤول المباشر' },
-                { key: 'job_title', label: 'العنوان الوظيفي' },
-                { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
-                { key: 'salary_stage', label: 'المرحلة في الدرجة الوظيفية' },
-                { key: 'certificate_text', label: 'الشهادة' },
-                { key: 'certificate_percentage', label: 'النسبة المستحقة للشهادة', suffix: '%' },
-                { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
-                { key: 'gross_salary', label: 'الراتب قبل الاستقطاع', isMoney: true },
-                { key: 'net_salary', label: 'الراتب الصافي', isMoney: true, superHighlight: true },
-            ] as FinancialField[]
-        },
-        {
             id: 'allowances',
             title: 'المخصصات',
             icon: Wallet,
             color: 'from-green-600 to-green-500',
             fields: [
+                { key: 'certificate_percentage', label: 'النسبة المستحقة للشهادة', suffix: '%' },
                 { key: 'certificate_allowance', label: 'مخصصات الشهادة', isMoney: true },
                 { key: 'engineering_allowance', label: 'مخصصات هندسية', isMoney: true },
                 { key: 'legal_allowance', label: 'مخصصات القانونية', isMoney: true },
@@ -164,6 +132,32 @@ export const FinancialTabContent = ({
                 animate="show"
                 className="space-y-4"
             >
+                <motion.div variants={itemVariants} className="space-y-3 mb-2">
+                    {/* الراتب الاسمي */}
+                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80">
+                        <span className="text-muted-foreground text-sm font-bold">الراتب الاسمي</span>
+                        <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
+                            {Math.round(Number(financialData?.nominal_salary || 0)).toLocaleString()}
+                        </span>
+                    </div>
+
+                    {/* الراتب قبل الاستقطاع */}
+                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80">
+                        <span className="text-muted-foreground text-sm font-bold">الراتب قبل الاستقطاع</span>
+                        <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
+                            {Math.round(Number(financialData?.gross_salary || 0)).toLocaleString()}
+                        </span>
+                    </div>
+
+                    {/* الراتب الصافي */}
+                    <div className="flex justify-between items-center bg-[#24b85c] text-white p-3 px-4 rounded-xl shadow-md border border-[#20a352] ring-1 ring-white/20">
+                        <span className="text-white/90 text-sm font-bold">الراتب الصافي</span>
+                        <span className="font-mono font-black text-xl tracking-tight drop-shadow-sm dir-ltr">
+                            {Math.round(Number(financialData?.net_salary || 0)).toLocaleString()}
+                        </span>
+                    </div>
+                </motion.div>
+
                 {financialGroups.map((group) => (
                     <motion.div key={group.id} variants={itemVariants}>
                         <AccordionSection
@@ -192,23 +186,7 @@ export const FinancialTabContent = ({
                                     </div>
                                 ) : (
                                     group.fields.map((field) => {
-                                        let val;
-                                        if (field.key === 'department_name') {
-                                            val = departmentInfo.name;
-                                        } else if (field.key === 'direct_manager') {
-                                            val = departmentInfo.managerName;
-                                        } else if (field.key === 'permission_level') {
-                                            val = getRoleLabel(user);
-                                        } else if (field.key === 'job_number') {
-                                            val = user?.job_number || user?.username;
-                                        } else {
-                                            val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
-                                            
-                                            // Apply cleaning to organizational fields
-                                            if (['dept_text', 'section_text', 'unit_text'].includes(field.key)) {
-                                                val = cleanText(val);
-                                            }
-                                        }
+                                        let val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
 
                                         const displayVal = field.isMoney
                                             ? Math.round(Number(val || 0)).toLocaleString()

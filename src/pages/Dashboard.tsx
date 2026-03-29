@@ -16,7 +16,7 @@ import { useAuth } from "../context/AuthContext";
 export const Dashboard = () => {
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio'>('financial');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio'>('administrative');
 
     const {
         financialData, loading, showIban, setShowIban, departmentInfo,
@@ -91,7 +91,6 @@ export const Dashboard = () => {
                         loading={loading}
                         showIban={showIban}
                         setShowIban={setShowIban}
-                        departmentInfo={departmentInfo}
                         adminData={adminData}
                         openSection={openSection}
                         toggleSection={toggleSection}
@@ -108,6 +107,10 @@ export const Dashboard = () => {
                         leavesList={leavesList}
                         selectedLeave={selectedLeave}
                         setSelectedLeave={setSelectedLeave}
+                        user={user}
+                        departmentInfo={departmentInfo}
+                        openSection={openSection}
+                        toggleSection={toggleSection}
                     />
                 )}
             </div>
