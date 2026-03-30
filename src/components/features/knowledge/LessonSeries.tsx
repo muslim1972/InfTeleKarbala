@@ -39,7 +39,10 @@ export const LessonSeries = () => {
                     <ArrowRight className="w-5 h-5 rtl:hidden" />
                     <span className="font-semibold">العودة لسلسلة الدروس</span>
                 </button>
-                <LessonViewer fileName={activeLessonFile} />
+                <LessonViewer 
+                    fileName={activeLessonFile} 
+                    onBack={() => setActiveLessonFile(null)} 
+                />
             </div>
         );
     }

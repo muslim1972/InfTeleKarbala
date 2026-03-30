@@ -27,23 +27,25 @@ export interface LessonMeta {
 }
 
 // These interfaces match the JSON structure inside lesson_beg_01.json
-export type LessonSectionType = 'text' | 'image' | 'alert' | 'quote' | 'title' | 'math';
+export type LessonBlockType = 'text' | 'image' | 'heading' | 'equation' | 'list' | 'note' | 'alert' | 'quote' | 'math';
 
-export interface LessonSection {
-    id: string;
-    type: LessonSectionType;
-    content: string; // Text content, image URL, or alert body
-    metadata?: {
-        alertType?: 'info' | 'warning' | 'success'; 
-        imageCaption?: string;
-    };
+export interface LessonBlock {
+    id?: string;
+    type: LessonBlockType;
+    data: string | any; // For text, data is string. For list, data is array of strings.
+    title?: string; // For list or note titles
+    items?: string[]; // Specifically for list items
+    image_url?: string; // For images
+    caption?: string; // For image captions
 }
 
 export interface LessonContent {
-    id: string;
+    id: string; // lesson_id
     level: KnowledgeLevel;
     title: string;
-    sections: LessonSection[];
+    description: string;
+    content_blocks: LessonBlock[];
+    footer_summary?: string;
 }
 
 export interface KnowledgeProgress {
