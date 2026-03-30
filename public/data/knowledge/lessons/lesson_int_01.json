@@ -1,0 +1,35 @@
+{
+  "id": "lesson_int_01",
+  "level": "intermediate",
+  "title": "تقسيم الشبكات (Subnetting)",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في تقسيم الشبكات (Subnetting)"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    },
+    {
+      "id": "s-math-1",
+      "type": "text",
+      "content": "مثال على معادلات السابنيتنج (Subnetting):"
+    },
+    {
+      "id": "s-math-2",
+      "type": "math",
+      "content": "\\text{Hosts per Subnet} = 2^{32 - \\text{CIDR}} - 2"
+    }
+  ]
+}

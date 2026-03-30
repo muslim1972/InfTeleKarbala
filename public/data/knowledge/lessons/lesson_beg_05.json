@@ -1,0 +1,25 @@
+{
+  "id": "lesson_beg_05",
+  "level": "beginner",
+  "title": "عناوين الـ IPv4",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في عناوين الـ IPv4"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    }
+  ]
+}

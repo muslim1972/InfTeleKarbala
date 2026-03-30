@@ -1,0 +1,25 @@
+{
+  "id": "lesson_int_09",
+  "level": "intermediate",
+  "title": "الحوسبة السحابية (Cloud Basics)",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في الحوسبة السحابية (Cloud Basics)"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "lesson_int_07",
+  "level": "intermediate",
+  "title": "جودة الخدمة (QoS)",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في جودة الخدمة (QoS)"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    }
+  ]
+}

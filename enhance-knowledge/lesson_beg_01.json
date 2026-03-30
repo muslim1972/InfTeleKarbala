@@ -1,0 +1,85 @@
+{
+  "lesson_id": "beg_01",
+  "level": "beginner",
+  "title": "الدرس الأول: التحليل الهندسي للإشارات والتحول الرقمي",
+  "description": "دراسة الخصائص الفيزيائية للموجات، قوانين التردد، والمعادلات الحاكمة لتحويل الإشارة (PCM).",
+  "content_blocks": [
+    {
+      "type": "heading",
+      "data": "1. الخصائص الرياضية للموجة التماثلية"
+    },
+    {
+      "type": "text",
+      "data": "تُمثل الإشارة التماثلية البسيطة (Sine Wave) رياضياً بالعلاقة التالية، حيث تعبر عن تغير الجهد $V$ بالنسبة للزمن $t$:"
+    },
+    {
+      "type": "equation",
+      "data": "$$V(t) = A \cdot \sin(2\pi f t + \phi)$$"
+    },
+    {
+      "type": "list",
+      "title": "دلالات الرموز:",
+      "items": [
+        "$A$ (Amplitude): السعة أو أقصى جهد تصل إليه الإشارة.",
+        "$f$ (Frequency): التردد ويقاس بالهرتز (Hz).",
+        "$\phi$ (Phase): الإزاحة الطورية للموجة."
+      ]
+    },
+    {
+      "type": "image",
+      "image_url": "https://storage.karbala-tele.gov/assets/beginner/lesson1/sine_wave_components.png",
+      "caption": "الشكل (1): التمثيل البياني للموجة الجيبية وعناصرها الرياضية."
+    },
+    {
+      "type": "heading",
+      "data": "2. العلاقة بين الزمن والتردد"
+    },
+    {
+      "type": "text",
+      "data": "في العمل الميداني، نحتاج دائماً لحساب الزمن الدوري $T$ (الوقت المستغرق لدورة واحدة) بمعلومية التردد:"
+    },
+    {
+      "type": "equation",
+      "data": "$$T = \frac{1}{f}$$"
+    },
+    {
+      "type": "heading",
+      "data": "3. قانون ناي كويست لأخذ العينات (Nyquist Sampling Theorem)"
+    },
+    {
+      "type": "text",
+      "data": "عند تحويل الصوت إلى نظام رقمي، لضمان عدم فقدان البيانات، يجب أن يكون تردد أخذ العينات $f_s$ على الأقل ضعف أعلى تردد موجود في الإشارة الأصلية $f_{max}$:"
+    },
+    {
+      "type": "equation",
+      "data": "$$f_s \ge 2 \cdot f_{max}$$"
+    },
+    {
+      "type": "image",
+      "image_url": "https://storage.karbala-tele.gov/assets/beginner/lesson1/sampling_nyquist.png",
+      "caption": "الشكل (2): توضيح لمبدأ Sampling وكيفية اختيار النقاط لاسترجاع الإشارة."
+    },
+    {
+      "type": "heading",
+      "data": "4. حساب عدد مستويات الكمنتة (Quantization Levels)"
+    },
+    {
+      "type": "text",
+      "data": "في مرحلة الـ Encoding، إذا استخدمنا عدد بتات $n$ لتمثيل كل عينة، فإن عدد المستويات المتاحة $L$ يُحسب كالتالي:"
+    },
+    {
+      "type": "equation",
+      "data": "$$L = 2^n$$"
+    },
+    {
+      "type": "note",
+      "data": "مثال تطريبي: في نظام الهاتف التقليدي، نستخدم $n=8$ بت لكل عينة، مما يعطينا $256$ مستوى مختلف لتمثيل شدة الصوت بدقة."
+    },
+    {
+      "type": "image",
+      "image_url": "https://storage.karbala-tele.gov/assets/beginner/lesson1/pcm_steps.png",
+      "caption": "الشكل (3): المراحل الثلاث للـ PCM: العينة، الكمنتة، والترميز."
+    }
+  ],
+  "footer_summary": "التمثيل الرياضي هو الضمان الوحيد لاسترجاع إشارة صوتية نقية بعد نقلها عبر مئات الكيلومترات."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "lesson_beg_04",
+  "level": "beginner",
+  "title": "نموذج OSI السبعة طبقات",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في نموذج OSI السبعة طبقات"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    }
+  ]
+}

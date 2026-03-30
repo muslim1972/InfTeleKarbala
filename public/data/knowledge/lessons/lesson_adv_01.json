@@ -1,0 +1,35 @@
+{
+  "id": "lesson_adv_01",
+  "level": "advanced",
+  "title": "تقنية DWDM السعوية",
+  "sections": [
+    {
+      "id": "s1",
+      "type": "title",
+      "content": "مرحبًا بك في تقنية DWDM السعوية"
+    },
+    {
+      "id": "s2",
+      "type": "text",
+      "content": "هذا الدرس هو جزء من المنظومة المعرفية الموسعة."
+    },
+    {
+      "id": "s3",
+      "type": "alert",
+      "content": "قم بقراءة الدرس للاستفادة الكاملة من المادة التقنية.",
+      "metadata": {
+        "alertType": "info"
+      }
+    },
+    {
+      "id": "s-math-1",
+      "type": "text",
+      "content": "معادلة سعة كابل الألياف نظرياً وفق قانون شانون-هارتلي:"
+    },
+    {
+      "id": "s-math-2",
+      "type": "math",
+      "content": "C = B \\log_2 \\left(1 + \\frac{S}{N}\\right)"
+    }
+  ]
+}

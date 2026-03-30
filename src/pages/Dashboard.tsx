@@ -10,13 +10,14 @@ import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { AudioHub } from "../components/features/AudioHub";
 import { FinancialTabContent } from "../components/features/FinancialTabContent";
 import { AdministrativeTabContent } from "../components/features/AdministrativeTabContent";
+import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeTabContent";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
 
 export const Dashboard = () => {
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio'>('administrative');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge'>('administrative');
 
     const {
         financialData, loading, showIban, setShowIban, departmentInfo,
@@ -82,6 +83,8 @@ export const Dashboard = () => {
                     <RequestsTabContent />
                 ) : activeTab === 'training' ? (
                     <TrainingTabContent />
+                ) : activeTab === 'knowledge' ? (
+                    <KnowledgeTabContent />
                 ) : activeTab === 'audio' ? (
                     <AudioHub />
                 ) : activeTab === 'financial' ? (
