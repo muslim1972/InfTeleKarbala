@@ -29,6 +29,13 @@ export const LessonSeries = () => {
         fetchLessons();
     }, [progress.currentLevel]);
 
+    // Scroll to top when moving back to the lesson list
+    useEffect(() => {
+        if (!activeLessonFile) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [activeLessonFile]);
+
     if (activeLessonFile) {
         return (
             <div className="w-full">

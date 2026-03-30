@@ -4,7 +4,7 @@ import type { LessonContent, LessonBlock } from "../../../types/knowledge";
 import { Loader2, AlertCircle, Info, CheckCircle, Quote } from "lucide-react";
 import { motion } from "framer-motion";
 import 'katex/dist/katex.min.css';
-import { BlockMath } from 'react-katex';
+import { BlockMath, InlineMath } from 'react-katex';
 
 interface LessonViewerProps {
     fileName: string;
@@ -21,8 +21,15 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
         const fetchLesson = async () => {
             try {
                 const res = await fetch(`/data/knowledge/lessons/${fileName}?v=${Date.now()}`);
-                const data: LessonContent = await res.json();
-                setLessonData(data);
+                const data: any = await res.json();
+                
+                // Ensure ID is present regardless of naming (id vs lesson_id)
+                const normalizedData: LessonContent = {
+                    ...data,
+                    id: data.id || data.lesson_id
+                };
+                
+                setLessonData(normalizedData);
                 
                 // If it's short, allow completion immediately
                 if (window.innerHeight > document.body.scrollHeight) {
@@ -67,6 +74,18 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
 
     const completed = isLessonCompleted(lessonData.id);
 
+    const renderTextWithMath = (text: string) => {
+        if (!text) return "";
+        // Split by inline math markers $...$
+        const parts = text.split(/(\$.*?\$)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('$') && part.endsWith('$')) {
+                return <InlineMath key={i} math={part.slice(1, -1)} />;
+            }
+            return part;
+        });
+    };
+
     const renderBlock = (block: LessonBlock, index: number) => {
         const key = block.id || `block-${index}`;
         
@@ -79,7 +98,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                 return (
                     <motion.h3 key={key} initial={initial} animate={animate} transition={transition} 
                                className="text-2xl md:text-3xl font-black text-blue-600 dark:text-blue-400 mt-12 mb-6 border-r-4 border-blue-500 pr-4 pb-1 tracking-tight">
-                        {block.data}
+                        {renderTextWithMath(block.data)}
                     </motion.h3>
                 );
 
@@ -87,7 +106,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                 return (
                     <motion.p key={key} initial={initial} animate={animate} transition={transition} 
                               className="text-slate-700 dark:text-white/80 leading-relaxed text-lg md:text-xl mb-8 font-medium">
-                        {block.data}
+                        {renderTextWithMath(block.data)}
                     </motion.p>
                 );
 
@@ -104,12 +123,12 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
             case 'list':
                 return (
                     <motion.div key={key} initial={initial} animate={animate} transition={transition} className="mb-10 mr-4">
-                        {block.title && <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{block.title}</h4>}
+                        {block.title && <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{renderTextWithMath(block.title)}</h4>}
                         <ul className="space-y-4">
                             {block.items?.map((item, i) => (
                                 <li key={i} className="flex items-start gap-3 text-slate-700 dark:text-white/80 text-lg">
                                     <div className="w-2 h-2 rounded-full bg-blue-500 mt-2.5 shrink-0" />
-                                    <span>{item}</span>
+                                    <span>{renderTextWithMath(item)}</span>
                                 </li>
                             ))}
                         </ul>
@@ -127,7 +146,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                         />
                         {block.caption && (
                             <figcaption className="p-4 text-slate-500 dark:text-white/70 text-sm md:text-base font-bold text-center">
-                                {block.caption}
+                                {renderTextWithMath(block.caption)}
                             </figcaption>
                         )}
                     </motion.figure>
@@ -141,9 +160,9 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                             <Info className="w-6 h-6" />
                             <span className="font-black text-lg">ملاحظة تطبيقية</span>
                         </div>
-                        <p className="text-slate-800 dark:text-amber-50/90 leading-relaxed text-xl font-bold">
-                            {block.data}
-                        </p>
+                        <div className="text-slate-800 dark:text-amber-50/90 leading-relaxed text-xl font-bold">
+                            {renderTextWithMath(block.data)}
+                        </div>
                     </motion.div>
                 );
 
@@ -152,7 +171,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                     <motion.div key={key} initial={initial} animate={animate} transition={transition} 
                                 className="flex items-start gap-5 p-6 rounded-2xl border-2 my-8 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-200">
                         <AlertCircle className="w-7 h-7 shrink-0 mt-0.5" />
-                        <p className="text-base md:text-lg leading-relaxed font-bold">{block.data}</p>
+                        <div className="text-base md:text-lg leading-relaxed font-bold">{renderTextWithMath(block.data)}</div>
                     </motion.div>
                 );
 
@@ -161,9 +180,9 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                     <motion.blockquote key={key} initial={initial} animate={animate} transition={transition} 
                                        className="border-r-8 border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 p-8 my-8 rounded-l-[2rem] relative shadow-lg shadow-emerald-500/5 dark:shadow-none">
                         <Quote className="absolute top-6 right-6 w-8 h-8 text-emerald-500/20 dark:text-emerald-500/30 rotate-180" />
-                        <p className="text-emerald-800 dark:text-emerald-100 italic pr-10 relative z-10 leading-relaxed text-xl font-bold">
-                            {block.data}
-                        </p>
+                        <div className="text-emerald-800 dark:text-emerald-100 italic pr-10 relative z-10 leading-relaxed text-xl font-bold">
+                            {renderTextWithMath(block.data)}
+                        </div>
                     </motion.blockquote>
                 );
 
@@ -177,10 +196,10 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
             {/* Header */}
             <header className="mb-14 text-center">
                 <h1 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-l dark:from-blue-400 dark:to-emerald-400 mb-4 leading-tight tracking-tight">
-                    {lessonData.title}
+                    {renderTextWithMath(lessonData.title)}
                 </h1>
                 <p className="text-slate-500 dark:text-white/60 text-lg mb-8 max-w-2xl mx-auto font-medium">
-                    {lessonData.description}
+                    {renderTextWithMath(lessonData.description)}
                 </p>
                 <div className="inline-flex items-center gap-3 bg-white dark:bg-slate-800/50 px-6 py-2 rounded-full border border-slate-200 dark:border-white/5 shadow-xl">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
@@ -210,7 +229,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
                         <h4 className="text-sm uppercase tracking-widest font-black mb-3 opacity-80">زبدة الدرس :</h4>
                         <p className="text-xl md:text-2xl font-bold leading-relaxed relative z-10">
-                            {lessonData.footer_summary}
+                            {renderTextWithMath(lessonData.footer_summary)}
                         </p>
                     </div>
                 )}
