@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { recipientId, callId, callerName } = await req.json()
+    const { recipientId, callId, callerName, url } = await req.json()
     console.log(`🔔 Sending call notification to ${recipientId}`);
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
@@ -36,6 +36,7 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
+        app_url: url, // 🌟 هذا هو المفتاح لمنع التطبيق من عمل Restart، سيركز النافذة المفتوحة بنفس الرابط
         // استخدام الطريقة الحديثة لتحديد المستلم
         include_aliases: { external_id: [recipientId] },
         // التوافق الرجعي

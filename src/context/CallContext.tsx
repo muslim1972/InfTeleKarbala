@@ -190,10 +190,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: pendingCall, error } = await supabase
         .from('calls')
-        .select(`
-          *,
-          sender:profiles!calls_sender_id_fkey(*)
-        `)
+        .select('*')
         .eq('recipient_id', user.id)
         .eq('status', 'calling')
         .order('created_at', { ascending: false })
@@ -206,12 +203,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         setCallId(pendingCall.id);
         setStatus('ringing');
         
-        // جلب بيانات المتصل (تم جلبها مسبقاً عبر Join)
-        const callerProfile = Array.isArray(pendingCall.sender) ? pendingCall.sender[0] : pendingCall.sender;
+        // جلب بيانات المتصل بطريقة مضمونة
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', pendingCall.sender_id).single();
+        
         setRemotePeer({
           id: pendingCall.sender_id,
-          name: callerProfile?.username || 'زميل',
-          avatar: callerProfile?.avatar_url
+          name: profile?.username || 'زميل',
+          avatar: profile?.avatar_url
         });
         
         // تشغيل النغمة إذا لم تكن تعمل
@@ -526,7 +524,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         body: { 
           recipientId, 
           callId: currentCallId,
-          callerName: profile?.username || 'زميل'
+          callerName: profile?.username || 'زميل',
+          url: window.location.origin // رابط التطبيق الرئيسي لضمان التركيز على الـ PWA
         }
       }).then(res => {
         console.log('🔔 Notification result:', res.data);
