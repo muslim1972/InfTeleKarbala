@@ -35,6 +35,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
+        target_channel: "push",
+        // استخدام الطريقة الحديثة لتحديد المستلم
+        include_aliases: { external_id: [recipientId] },
+        // التوافق الرجعي
         include_external_user_ids: [recipientId],
         headings: { en: "مكالمة واردة 📞", ar: "مكالمة واردة 📞" },
         contents: { 
@@ -45,7 +49,6 @@ serve(async (req) => {
           type: "voice_call", 
           callId 
         },
-        android_channel_id: "calls-channel",
         priority: 10,
         ttl: 30, // تنتهي صلاحية الإشعار بعد 30 ثانية
       })
