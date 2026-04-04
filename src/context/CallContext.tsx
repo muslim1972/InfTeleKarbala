@@ -115,21 +115,47 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setStatus('ringing');
       setIsIncoming(false);
       
-      // 1. استدعاء الدالة السحابية التي برمجناها قبلاً
+      // 1. إنشاء RTCPeerConnection وتهيئة الصوت
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      
+      // 2. التقاط صوت الميكروفون
+      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStream.getTracks().forEach(track => {
+        pc.addTrack(track, localStream);
+      });
+      
+      // 3. إنشاء SDP Offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      
+      console.log('🎙️ SDP Offer created, sending to server...');
+      
+      // 4. إرسال الـ Offer للدالة السحابية
       const { data, error } = await supabase.functions.invoke('start-call', {
-        body: { recipientId, conversationId }
+        body: { 
+          recipientId, 
+          conversationId,
+          sdpOffer: offer.sdp,
+          senderId: user.id
+        }
       });
       
       if (error) throw error;
       
+      // 5. تطبيق SDP Answer من Cloudflare
+      if (data.sdpAnswer) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdpAnswer));
+        console.log('✅ Remote description set from Cloudflare');
+      }
+      
+      // 6. حفظ المراجع
       setCallId(data.callId);
       cfServiceRef.current = new CloudflareCallsService(data.sessionId);
-      
-      // 2. بدء بث الصوت (Push)
-      const trackName = await cfServiceRef.current.startPush();
-      
-      // 3. تحديث سجل المكالمة بالـ trackName ليتمكن الطرف الآخر من سحبه
-      await supabase.from('calls').update({ offer_sdp: { audioTrack: trackName } }).eq('id', data.callId);
+      // حفظ الـ PeerConnection بداخل الخدمة
+      (cfServiceRef.current as any)._externalPc = pc;
+      (cfServiceRef.current as any)._externalStream = localStream;
       
       toast.success('جاري الاتصال بزميلك...');
     } catch (err) {

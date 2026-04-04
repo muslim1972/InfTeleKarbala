@@ -12,11 +12,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log('🌟 Function loaded');
+
 serve(async (req) => {
-  // 1. معالجة الـ CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  console.log('📡 Request received');
 
   try {
     const supabaseClient = createClient(
@@ -24,77 +27,103 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 2. التحقق من هوية المتصل
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (authError || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    // 1. استلام البيانات من المتصفح (بما فيها SDP Offer)
+    const { recipientId, conversationId, sdpOffer, senderId } = await req.json()
+    console.log(`📞 Call: ${senderId} → ${recipientId}`);
 
-    const { recipientId, conversationId } = await req.json()
+    // 2. إنشاء جلسة + إضافة Track في Cloudflare (طلب واحد)
+    const cfUrl = `https://rtc.live.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/new`
+    console.log(`📧 Cloudflare URL: ${cfUrl}`);
 
-    // 3. إنشاء جلسة في Cloudflare Calls
-    const cfResponse = await fetch(
-      `https://rtc.live.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      }
-    )
+    const cfBody = {
+      sessionDescription: {
+        type: 'offer',
+        sdp: sdpOffer
+      },
+      tracks: [{
+        location: 'local',
+        trackName: `audio-${senderId}`,
+      }]
+    }
 
-    const cfData = await cfResponse.json()
-    if (!cfResponse.ok) throw new Error(`Cloudflare Error: ${JSON.stringify(cfData)}`)
+    const cfResponse = await fetch(cfUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cfBody)
+    })
 
+    const cfRawText = await cfResponse.text()
+    console.log(`📧 CF Status: ${cfResponse.status}`);
+    console.log(`📧 CF Body: ${cfRawText.substring(0, 500)}`);
+
+    if (!cfResponse.ok) {
+      throw new Error(`Cloudflare Error (${cfResponse.status}): ${cfRawText}`)
+    }
+
+    const cfData = JSON.parse(cfRawText)
     const sessionId = cfData.sessionId
+    const sdpAnswer = cfData.sessionDescription
+    console.log(`✅ CF Session: ${sessionId}`);
 
-    // 4. إنشاء سجل المكالمة في قاعدة البيانات
+    // 3. حفظ سجل المكالمة في قاعدة البيانات
+    console.log('💾 Saving to DB...');
     const { data: callRecord, error: callError } = await supabaseClient
       .from('calls')
       .insert({
-        sender_id: user.id,
+        sender_id: senderId,
         recipient_id: recipientId,
         conversation_id: conversationId,
         cloudflare_session_id: sessionId,
-        status: 'calling'
+        status: 'calling',
+        offer_sdp: { audioTrack: `audio-${senderId}` }
       })
       .select()
       .single()
 
-    if (callError) throw callError
+    if (callError) {
+      console.error('❌ DB Error:', callError);
+      throw callError;
+    }
+    console.log(`✅ DB Record: ${callRecord.id}`);
 
-    // 5. إرسال الإشعار عبر OneSignal لإيقاظ المستقبل
-    const osResponse = await fetch('https://onesignal.com/api/v1/notifications', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        app_id: ONESIGNAL_APP_ID,
-        include_external_user_ids: [recipientId],
-        headings: { en: "مكالمة واردة", ar: "مكالمة واردة" },
-        contents: { en: "لديك اتصال صوتي جديد...", ar: "لديك اتصال صوتي جديد..." },
-        data: { 
-          type: "voice_call", 
-          callId: callRecord.id, 
-          sessionId: sessionId,
-          conversationId: conversationId
+    // 4. إرسال إشعار OneSignal (لا نوقف الدالة إذا فشل)
+    try {
+      console.log('🔔 Sending notification...');
+      const osResponse = await fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        // أندرويد يحتاج صوت تنبيه طويل (يمكنك تخصيصه لاحقاً)
-        android_channel_id: "calls-channel", 
-        ios_badgeType: "Increase",
-        ios_badgeCount: 1
+        body: JSON.stringify({
+          app_id: ONESIGNAL_APP_ID,
+          include_external_user_ids: [recipientId],
+          headings: { en: "مكالمة واردة", ar: "مكالمة واردة" },
+          contents: { en: "لديك اتصال صوتي جديد...", ar: "لديك اتصال صوتي جديد..." },
+          data: { type: "voice_call", callId: callRecord.id, sessionId, conversationId },
+          android_channel_id: "calls-channel",
+        })
       })
-    })
+      console.log(`🔔 Notification: ${osResponse.status}`);
+    } catch (notifError) {
+      console.error('⚠️ Notification failed (non-blocking):', notifError);
+    }
 
+    // 5. إرجاع كل شيء للمتصفح
     return new Response(
-      JSON.stringify({ callId: callRecord.id, sessionId }),
+      JSON.stringify({ 
+        callId: callRecord.id, 
+        sessionId,
+        sdpAnswer // الـ SDP Answer من Cloudflare
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
+    console.error(`🚨 Error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
