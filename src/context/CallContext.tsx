@@ -182,6 +182,72 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
+   * التحقق من وجود مكالمة عالقة/واردة قيد الانتظار في قاعدة البيانات
+   * (مهم جداً في حالة PWA عندما ينقطع اتصال WebSocket في الخلفية)
+   */
+  const checkPendingCalls = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: pendingCall, error } = await supabase
+        .from('calls')
+        .select(`
+          *,
+          sender:profiles!calls_sender_id_fkey(*)
+        `)
+        .eq('recipient_id', user.id)
+        .eq('status', 'calling')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (!error && pendingCall && status === 'idle') {
+        console.log('🔄 Recovered pending call from DB:', pendingCall.id);
+        setIsIncoming(true);
+        setCallId(pendingCall.id);
+        setStatus('ringing');
+        
+        // جلب بيانات المتصل (تم جلبها مسبقاً عبر Join)
+        const callerProfile = Array.isArray(pendingCall.sender) ? pendingCall.sender[0] : pendingCall.sender;
+        setRemotePeer({
+          id: pendingCall.sender_id,
+          name: callerProfile?.username || 'زميل',
+          avatar: callerProfile?.avatar_url
+        });
+        
+        // تشغيل النغمة إذا لم تكن تعمل
+        if (!ringtoneRef.current) {
+          const ringtone = createRingtone();
+          ringtoneRef.current = ringtone;
+          ringtone.start();
+        }
+      }
+    } catch (err) {
+      // تجاهل إذا لم توجد مكالمة عالقة
+    }
+  }, [user, status]);
+
+  // فحص المكالمات العالقة عند استعادة التطبيق من الخلفية (Focus/Visibility)
+  useEffect(() => {
+    if (!user) return;
+
+    checkPendingCalls(); // فحص مبدئي عند فتح التطبيق
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkPendingCalls();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkPendingCalls);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkPendingCalls);
+    };
+  }, [user, checkPendingCalls]);
+
+  /**
    * الاستماع للمكالمات الواردة
    */
   useEffect(() => {
