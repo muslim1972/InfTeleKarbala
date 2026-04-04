@@ -88,10 +88,32 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const ringtoneRef = useRef<ReturnType<typeof createRingtone> | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const remoteDescSetRef = useRef(false);
 
   /**
    * تنظيف كامل لجميع موارد المكالمة
    */
+  /**
+   * تفريغ ICE candidates المخزنة مؤقتاً
+   */
+  const flushPendingCandidates = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc || !remoteDescSetRef.current) return;
+    
+    const pending = [...pendingCandidatesRef.current];
+    pendingCandidatesRef.current = [];
+    
+    console.log(`🧊 Flushing ${pending.length} pending ICE candidates`);
+    for (const candidate of pending) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('❌ Error adding buffered ICE candidate:', err);
+      }
+    }
+  }, []);
+
   const cleanupCall = useCallback(() => {
     console.log('🧹 Cleaning up call resources...');
     
@@ -118,6 +140,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       pcRef.current = null;
       console.log('🔌 PeerConnection closed');
     }
+    
+    // إعادة ضبط المخزن المؤقت
+    pendingCandidatesRef.current = [];
+    remoteDescSetRef.current = false;
     
     // إعادة ضبط الحالة
     setStatus('idle');
@@ -202,8 +228,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                   type: 'answer',
                   sdp: updated.answer_sdp.sdp
                 }));
+                remoteDescSetRef.current = true;
+                // تفريغ المخزن المؤقت لـ ICE candidates
+                await flushPendingCandidates();
                 setStatus('active');
-                // إيقاف النغمة عند الرد
                 ringtoneRef.current?.stop();
                 console.log('✅ Call ACTIVE (sender side)');
               }
@@ -224,11 +252,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           const candidate = payload.new;
           if (candidate.sender_id !== user.id && pcRef.current) {
             try {
-              if (pcRef.current.remoteDescription) {
-                console.log('🧊 Adding ICE candidate');
+              if (remoteDescSetRef.current && pcRef.current.remoteDescription) {
+                console.log('🧊 Adding ICE candidate directly');
                 await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate.candidate));
               } else {
-                console.log('🧊 Skipping ICE candidate (no remote description yet)');
+                console.log('🧊 Buffering ICE candidate (waiting for remote description)');
+                pendingCandidatesRef.current.push(candidate.candidate);
               }
             } catch (err) {
               console.error('❌ Error adding ICE candidate:', err);
@@ -414,7 +443,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         type: 'offer',
         sdp: callData.offer_sdp.sdp
       }));
-      console.log('📥 Offer set as remote description');
+      remoteDescSetRef.current = true;
+      await flushPendingCandidates();
+      console.log('📥 Offer set as remote description + flushed candidates');
 
       // 4. إنشاء Answer
       const answer = await pc.createAnswer();
