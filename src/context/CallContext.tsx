@@ -148,12 +148,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     ringtoneRef.current?.stop();
     ringtoneRef.current = null;
     
-    // إغلاق الإشعار المحلي إذا كان موجوداً
-    if ((window as any)._currentCallNotification) {
-      (window as any)._currentCallNotification.close();
-      (window as any)._currentCallNotification = null;
-    }
-    
     // إيقاف الميكروفون
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
@@ -216,33 +210,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             ringtoneRef.current = ringtone;
             ringtone.start();
             
-            // جلب بيانات المتصل
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', newCall.sender_id).single();
-            const callerName = profile?.username || 'زميل';
             setRemotePeer({
               id: newCall.sender_id,
-              name: callerName,
+              name: profile?.username || 'زميل',
               avatar: profile?.avatar_url
             });
-
-            // إظهار إشعار محلي إذا كان التطبيق في الخلفية
-            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-              const notification = new Notification('مكالمة واردة 📞', {
-                body: `يتصل بك ${callerName}... انقر للرد أو الرفض`,
-                icon: profile?.avatar_url || '/icon-192.png',
-                requireInteraction: true // يبقى الإشعار حتى ينقر عليه المستخدم
-              });
-              
-              notification.onclick = () => {
-                window.focus();
-                // في حالة PWA قد نحتاج للـ focus عدة مرات
-                parent?.focus();
-                notification.close();
-              };
-              
-              // حفظ الإشعار في النافذة لإغلاقه لاحقاً عند التنظيف
-              (window as any)._currentCallNotification = notification;
-            }
           }
         }
       )
