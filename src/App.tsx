@@ -12,6 +12,7 @@ import { AudioProvider } from "./context/AudioContext";
 import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
 import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
+import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -95,20 +96,22 @@ function App() {
       <AuthProvider>
         <AudioProvider>
           <ChatProvider>
-            <KnowledgeProvider>
-              <Toaster position="top-center" reverseOrder={false} />
-              <Suspense fallback={<LoadingScreen />}>
-                <Routes>
-                  <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
-                    <Route path=":conversationId" element={null} />
-                  </Route>
-                  <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
-                  <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
-                  <Route path="/*" element={<AppContent />} />
-                </Routes>
-              </Suspense>
-              <FloatingAudioPlayer />
-            </KnowledgeProvider>
+            <CallProvider> {/* ✨ نظام المكالمات أصبح نشطاً الآن */}
+              <KnowledgeProvider>
+                <Toaster position="top-center" reverseOrder={false} />
+                <Suspense fallback={<LoadingScreen />}>
+                  <Routes>
+                    <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
+                      <Route path=":conversationId" element={null} />
+                    </Route>
+                    <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
+                    <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
+                    <Route path="/*" element={<AppContent />} />
+                  </Routes>
+                </Suspense>
+                <FloatingAudioPlayer />
+              </KnowledgeProvider>
+            </CallProvider>
           </ChatProvider>
         </AudioProvider>
       </AuthProvider>

@@ -4,11 +4,12 @@ import { useChatState } from '../../hooks/useChatState';
 import { useConversationDetails } from '../../hooks/useConversationDetails';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { ArrowRight, Palette, Check, RotateCcw } from 'lucide-react';
+import { ArrowRight, Palette, Check, RotateCcw, Phone } from 'lucide-react';
 import { SelectionHeader } from './SelectionHeader';
 import { MessageInfoModal } from './MessageInfoModal';
 import { useChatSettings, type FontSize } from '../../hooks/useChatSettings';
 import { useAuth } from '../../context/AuthContext';
+import { useCall } from '../../context/CallContext'; // ✨ أضفنا سياق المكالمات
 import { cn } from '../../lib/utils';
 
 // Simple Avatar Component if not exists
@@ -31,6 +32,7 @@ export function ChatScreen() {
     const [showParticipants, setShowParticipants] = useState(false);
     const [showInfoModal, setShowInfoModal] = useState(false);
     const { settings, updateSettings, resetSettings } = useChatSettings();
+    const { startCall, status } = useCall(); // ✨ جلب وظائف الاتصال
 
 
     const {
@@ -168,8 +170,28 @@ export function ChatScreen() {
                             )}
                             title="تنسيق المحادثة"
                         >
-                            <Palette className="w-5 h-5" />
+                        <Palette className="w-5 h-5" />
                         </button>
+
+                        {/* Voice Call Button ✨ */}
+                        {!details?.is_group && (
+                            <button
+                                onClick={() => {
+                                    const recipient = details?.member_profiles?.find(p => p.id !== user?.id);
+                                    if (recipient && conversationId) {
+                                        startCall(recipient.id, conversationId);
+                                    }
+                                }}
+                                disabled={status !== 'idle'}
+                                className={cn(
+                                    "p-2 hover:bg-gray-100 rounded-full transition-all text-gray-600",
+                                    status !== 'idle' && "opacity-50 cursor-not-allowed"
+                                )}
+                                title="اتصال صوتي مباشر"
+                            >
+                                <Phone className="w-5 h-5" />
+                            </button>
+                        )}
 
                         {/* Settings Popover */}
                         {showSettings && (
