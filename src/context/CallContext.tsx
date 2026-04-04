@@ -231,6 +231,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 remoteDescSetRef.current = true;
                 // تفريغ المخزن المؤقت لـ ICE candidates
                 await flushPendingCandidates();
+                
+                // ★ جلب ICE candidates الموجودة مسبقاً (أرسلها المستقبل)
+                if (user) {
+                  const { data: existingCandidates } = await supabase
+                    .from('call_candidates')
+                    .select('*')
+                    .eq('call_id', callId)
+                    .neq('sender_id', user.id);
+                  
+                  if (existingCandidates && existingCandidates.length > 0) {
+                    console.log(`🧊 Found ${existingCandidates.length} existing ICE candidates from receiver`);
+                    for (const c of existingCandidates) {
+                      try {
+                        await pcRef.current!.addIceCandidate(new RTCIceCandidate(c.candidate));
+                      } catch (err) {
+                        console.error('❌ Error adding existing ICE candidate:', err);
+                      }
+                    }
+                  }
+                }
+                
                 setStatus('active');
                 ringtoneRef.current?.stop();
                 console.log('✅ Call ACTIVE (sender side)');
@@ -445,7 +466,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }));
       remoteDescSetRef.current = true;
       await flushPendingCandidates();
-      console.log('📥 Offer set as remote description + flushed candidates');
+      console.log('📥 Offer set as remote description + flushed buffered candidates');
+
+      // 3.5 ★ جلب ICE candidates الموجودة مسبقاً في DB (أرسلها المتصل قبل اشتراكنا)
+      const { data: existingCandidates } = await supabase
+        .from('call_candidates')
+        .select('*')
+        .eq('call_id', callId)
+        .neq('sender_id', user.id);
+      
+      if (existingCandidates && existingCandidates.length > 0) {
+        console.log(`🧊 Found ${existingCandidates.length} existing ICE candidates in DB`);
+        for (const c of existingCandidates) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(c.candidate));
+          } catch (err) {
+            console.error('❌ Error adding existing ICE candidate:', err);
+          }
+        }
+      }
 
       // 4. إنشاء Answer
       const answer = await pc.createAnswer();
