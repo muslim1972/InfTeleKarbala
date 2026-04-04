@@ -19,6 +19,8 @@ interface CallContextType {
   startCall: (recipientId: string, conversationId: string) => Promise<void>;
   acceptCall: () => Promise<void>;
   endCall: () => Promise<void>;
+  toggleMute: () => void;
+  isMuted: boolean;
   remoteStream: MediaStream | null;
 }
 
@@ -32,10 +34,11 @@ const ICE_SERVERS: RTCConfiguration = {
   ]
 };
 
-// نغمة رنين بسيطة باستخدام Web Audio API
+// نغمة رنين واقعية (تردد مزدوج 440Hz + 480Hz مع إيقاع هاتف)
 function createRingtone(): { start: () => void; stop: () => void } {
   let audioCtx: AudioContext | null = null;
-  let oscillator: OscillatorNode | null = null;
+  let osc1: OscillatorNode | null = null;
+  let osc2: OscillatorNode | null = null;
   let gainNode: GainNode | null = null;
   let intervalId: number | null = null;
 
@@ -47,29 +50,53 @@ function createRingtone(): { start: () => void; stop: () => void } {
         gainNode.connect(audioCtx.destination);
         gainNode.gain.value = 0;
 
-        oscillator = audioCtx.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 440;
-        oscillator.connect(gainNode);
-        oscillator.start();
+        // تردد مزدوج لنغمة أكثر واقعية
+        osc1 = audioCtx.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.value = 440;
+        
+        osc2 = audioCtx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.value = 480;
 
-        // نمط رنين: تشغيل/إيقاف كل ثانية
-        let isOn = false;
+        // خلط الترددين
+        const merger = audioCtx.createGain();
+        merger.gain.value = 0.5;
+        merger.connect(gainNode);
+        
+        osc1.connect(merger);
+        osc2.connect(merger);
+        osc1.start();
+        osc2.start();
+
+        // نمط رنين هاتف: 1 ثانية تشغيل → 2 ثانية صمت
+        let step = 0;
         intervalId = window.setInterval(() => {
-          if (gainNode) {
-            isOn = !isOn;
-            gainNode.gain.setTargetAtTime(isOn ? 0.3 : 0, audioCtx!.currentTime, 0.05);
+          if (gainNode && audioCtx) {
+            const t = audioCtx.currentTime;
+            if (step % 3 === 0) {
+              // تشغيل مع تلاشي ناعم
+              gainNode.gain.setTargetAtTime(0.25, t, 0.02);
+            } else {
+              // إيقاف مع تلاشي ناعم
+              gainNode.gain.setTargetAtTime(0, t, 0.05);
+            }
+            step++;
           }
-        }, 800);
+        }, 700);
       } catch (e) {
         console.warn('Ringtone failed:', e);
       }
     },
     stop: () => {
       if (intervalId) clearInterval(intervalId);
-      oscillator?.stop();
-      audioCtx?.close();
-      oscillator = null;
+      try {
+        osc1?.stop();
+        osc2?.stop();
+        audioCtx?.close();
+      } catch (_) { /* ignore */ }
+      osc1 = null;
+      osc2 = null;
       gainNode = null;
       audioCtx = null;
       intervalId = null;
@@ -427,6 +454,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }).eq('id', currentCallId);
 
       console.log('📤 Offer sent, waiting for answer...');
+
+      // 6. إرسال إشعار للمستقبل (non-blocking)
+      supabase.functions.invoke('start-call', {
+        body: { 
+          recipientId, 
+          callId: currentCallId,
+          callerName: profile?.username || 'زميل'
+        }
+      }).then(res => {
+        console.log('🔔 Notification result:', res.data);
+      }).catch(err => {
+        console.warn('⚠️ Notification failed (non-blocking):', err);
+      });
     } catch (err) {
       console.error('Failed to start call:', err);
       toast.error('لم نتمكن من بدء المكالمة حالياً');
@@ -507,11 +547,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * كتم/تشغيل الميكروفون
+   */
+  const [isMuted, setIsMuted] = useState(false);
+  
+  const toggleMute = useCallback(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(prev => !prev);
+      console.log(`🎙️ Microphone ${isMuted ? 'unmuted' : 'muted'}`);
+    }
+  }, [isMuted]);
+
+  /**
    * إنهاء المكالمة
    */
   const endCall = async () => {
     const currentCallId = callId;
     cleanupCall();
+    setIsMuted(false);
     if (currentCallId) {
       await supabase.from('calls').update({ 
         status: 'ended', 
@@ -523,7 +579,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   return (
     <CallContext.Provider value={{ 
       callId, status, isIncoming, remotePeer, remoteStream,
-      startCall, acceptCall, endCall 
+      startCall, acceptCall, endCall, toggleMute, isMuted 
     }}>
       {children}
       <CallOverlay />
