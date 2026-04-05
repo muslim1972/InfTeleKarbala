@@ -21,6 +21,8 @@ interface CallContextType {
   endCall: () => Promise<void>;
   toggleMute: () => void;
   isMuted: boolean;
+  isSpeakerPhone: boolean;
+  toggleSpeaker: () => void;
   remoteStream: MediaStream | null;
 }
 
@@ -101,6 +103,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [remotePeer, setRemotePeer] = useState<{ id: string, name: string, avatar?: string } | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerPhone, setIsSpeakerPhone] = useState(false);
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -396,6 +399,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const toggleSpeaker = useCallback(() => {
+    setIsSpeakerPhone(prev => !prev);
+  }, []);
+
   const endCall = async () => {
     const currentCallId = callId;
     cleanupCall();
@@ -410,7 +417,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   return (
     <CallContext.Provider value={{ 
       callId, status, isIncoming, remotePeer, remoteStream,
-      startCall, acceptCall, endCall, toggleMute, isMuted 
+      startCall, acceptCall, endCall, toggleMute, isMuted,
+      isSpeakerPhone, toggleSpeaker 
     }}>
       {children}
       <CallOverlay />

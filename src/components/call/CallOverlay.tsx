@@ -12,7 +12,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, User, Clock } from 'lucide-react';
 
 export const CallOverlay: React.FC = () => {
-  const { status, isIncoming, remotePeer, remoteStream, acceptCall, endCall, toggleMute, isMuted } = useCall();
+  const { 
+    status, isIncoming, remotePeer, remoteStream, 
+    acceptCall, endCall, toggleMute, isMuted,
+    isSpeakerPhone, toggleSpeaker 
+  } = useCall();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<number | null>(null);
@@ -26,6 +30,40 @@ export const CallOverlay: React.FC = () => {
       });
     }
   }, [remoteStream]);
+
+  // التحكم في مخرج الصوت (Speaker vs Earpiece)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !('setSinkId' in audio)) return;
+
+    const updateOutputDevice = async () => {
+      try {
+        if (isSpeakerPhone) {
+          // محاولة البحث عن مكبر الصوت في قائمة الأجهزة
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const speaker = devices.find(d => 
+            d.kind === 'audiooutput' && 
+            (d.label.toLowerCase().includes('speaker') || d.label.toLowerCase().includes('loudspeaker'))
+          );
+          
+          if (speaker) {
+            await (audio as any).setSinkId(speaker.deviceId);
+            console.log('Switched to speaker:', speaker.label);
+          } else {
+            console.warn('Speaker device not found, keeping default');
+          }
+        } else {
+          // العودة للسماعة الافتراضية (عادة هي Earpiece في الهواتف عند وجود مكالمة)
+          await (audio as any).setSinkId('');
+          console.log('Switched to earpiece (default)');
+        }
+      } catch (err) {
+        console.error('Error switching audio output:', err);
+      }
+    };
+
+    updateOutputDevice();
+  }, [isSpeakerPhone]);
 
   // مؤقت المكالمة
   useEffect(() => {
@@ -178,7 +216,12 @@ export const CallOverlay: React.FC = () => {
             <motion.button
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="w-14 h-14 rounded-full bg-slate-700/60 border-2 border-slate-600/30 flex items-center justify-center text-slate-300 hover:bg-slate-600/60 transition-colors"
+              onClick={toggleSpeaker}
+              className={`w-14 h-14 rounded-full border-2 transition-all flex items-center justify-center ${
+                isSpeakerPhone 
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' 
+                  : 'bg-slate-700/60 border-slate-600/30 text-slate-300 hover:bg-slate-600/60'
+              }`}
             >
               <Volume2 className="w-6 h-6" />
             </motion.button>

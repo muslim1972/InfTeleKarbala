@@ -51,6 +51,9 @@ serve(async (req) => {
           callId 
         },
         priority: 10,
+        android_visibility: 1,
+        lock_screen_visibility: 1,
+        require_interaction: true, // الإشعار يبقى ظاهراً حتى يتفاعل معه المستخدم
         ttl: 30, // تنتهي صلاحية الإشعار بعد 30 ثانية
       })
     })
