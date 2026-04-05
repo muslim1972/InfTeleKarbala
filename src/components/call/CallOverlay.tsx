@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useCall } from '../../context/CallContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, User, Clock } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export const CallOverlay: React.FC = () => {
   const { 
@@ -34,36 +35,72 @@ export const CallOverlay: React.FC = () => {
   // التحكم في مخرج الصوت (Speaker vs Earpiece)
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !('setSinkId' in audio)) return;
+    if (!audio) return;
 
     const updateOutputDevice = async () => {
+      // التحقق من دعم المتصفح
+      if (!('setSinkId' in audio)) {
+        console.warn('setSinkId is not supported by this browser');
+        return;
+      }
+
       try {
+        // ننتظر قليلاً للتأكد من أن الأجهزة محملة
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+
         if (isSpeakerPhone) {
-          // محاولة البحث عن مكبر الصوت في قائمة الأجهزة
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const speaker = devices.find(d => 
-            d.kind === 'audiooutput' && 
-            (d.label.toLowerCase().includes('speaker') || d.label.toLowerCase().includes('loudspeaker'))
+          // محاولة البحث عن مكبر الصوت (Speaker) بكلمات مفتاحية متعددة
+          const speaker = outputs.find(d => 
+            d.label.toLowerCase().includes('speaker') || 
+            d.label.toLowerCase().includes('loud') || 
+            d.label.toLowerCase().includes('مكبر') ||
+            d.label.toLowerCase().includes('خارجي')
           );
           
           if (speaker) {
             await (audio as any).setSinkId(speaker.deviceId);
-            console.log('Switched to speaker:', speaker.label);
+            toast.success(`تم تحويل الصوت إلى: ${speaker.label}`);
+          } else if (outputs.length > 1) {
+            // إذا لم نجد التسمية (labels قد تكون فارغة) ولكن يوجد أكثر من جهاز
+            // نجرب الجهاز الثاني الذي غالباً ما يكون هو الـ Loudspeaker في الأندرويد
+            await (audio as any).setSinkId(outputs[1].deviceId);
+            toast.success('تم التحويل لمخرج الصوت البديل (مكبر)');
           } else {
-            console.warn('Speaker device not found, keeping default');
+            // محاولة فرض السبيكر عبر AudioContext إذا لزم الأمر مستقبلاً
+            toast.error('لم نجد مكبر صوت خارجي، قد يكون جهازك لا يسمح بالتبديل');
           }
         } else {
-          // العودة للسماعة الافتراضية (عادة هي Earpiece في الهواتف عند وجود مكالمة)
-          await (audio as any).setSinkId('');
-          console.log('Switched to earpiece (default)');
+          // العودة للسماعة الافتراضية (Earpiece)
+          const earpiece = outputs.find(d => 
+            d.label.toLowerCase().includes('earpiece') || 
+            d.label.toLowerCase().includes('receiver') || 
+            d.label.toLowerCase().includes('handset') ||
+            d.label.toLowerCase().includes('internal') ||
+            d.label.toLowerCase().includes('سماعة الهاتف') ||
+            d.label.toLowerCase().includes('داخلية')
+          );
+
+          if (earpiece) {
+            await (audio as any).setSinkId(earpiece.deviceId);
+            toast.success(`تم تحويل الصوت لسماعة الهاتف: ${earpiece.label}`);
+          } else {
+            // العودة للوضع الافتراضي للنظام
+            await (audio as any).setSinkId('');
+            toast.success('تم العودة لسماعة الهاتف الافتراضية');
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error switching audio output:', err);
+        toast.error(`تعذر التبديل: ${err.message}`);
       }
     };
 
-    updateOutputDevice();
-  }, [isSpeakerPhone]);
+    // نقوم بالتحديث فقط عند نشاط المكالمة
+    if (status === 'active') {
+      updateOutputDevice();
+    }
+  }, [isSpeakerPhone, status]);
 
   // مؤقت المكالمة
   useEffect(() => {

@@ -259,8 +259,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const sessionId = sessionData.sessionId;
     myCfSessionIdRef.current = sessionId;
 
-    // 2. التقاط الصوت
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    // 2. التقاط الصوت بقيود تجعل المتصفح يعرف أنها مكالمة صوتية (Communication Mode)
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }, 
+      video: false 
+    });
     localStreamRef.current = stream;
 
     // 3. إعداد PC
