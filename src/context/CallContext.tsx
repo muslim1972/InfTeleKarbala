@@ -1,8 +1,8 @@
 /**
  * CallContext.tsx
  * 
- * نظام المكالمات الصوتية - WebRTC مباشر (P2P)
- * يستخدم Supabase Realtime كـ Signaling Server لتبادل SDP و ICE Candidates
+ * نظام المكالمات الصوتية - تم تحويله بالكامل إلى Cloudflare Calls SFU
+ * يعتمد على جدول 'hr_audio_calls' لتبادل معرفات الجلسات (Session IDs)
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -28,10 +28,10 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
+    { urls: 'stun:stun.cloudflare.com:3478' },
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-  ]
+  ],
+  bundlePolicy: 'max-bundle',
 };
 
 // نغمة رنين واقعية (تردد مزدوج 440Hz + 480Hz مع إيقاع هاتف)
@@ -50,7 +50,6 @@ function createRingtone(): { start: () => void; stop: () => void } {
         gainNode.connect(audioCtx.destination);
         gainNode.gain.value = 0;
 
-        // تردد مزدوج لنغمة أكثر واقعية
         osc1 = audioCtx.createOscillator();
         osc1.type = 'sine';
         osc1.frequency.value = 440;
@@ -59,7 +58,6 @@ function createRingtone(): { start: () => void; stop: () => void } {
         osc2.type = 'sine';
         osc2.frequency.value = 480;
 
-        // خلط الترددين
         const merger = audioCtx.createGain();
         merger.gain.value = 0.5;
         merger.connect(gainNode);
@@ -69,16 +67,13 @@ function createRingtone(): { start: () => void; stop: () => void } {
         osc1.start();
         osc2.start();
 
-        // نمط رنين هاتف: 1 ثانية تشغيل → 2 ثانية صمت
         let step = 0;
         intervalId = window.setInterval(() => {
           if (gainNode && audioCtx) {
             const t = audioCtx.currentTime;
             if (step % 3 === 0) {
-              // تشغيل مع تلاشي ناعم
               gainNode.gain.setTargetAtTime(0.25, t, 0.02);
             } else {
-              // إيقاف مع تلاشي ناعم
               gainNode.gain.setTargetAtTime(0, t, 0.05);
             }
             step++;
@@ -91,15 +86,9 @@ function createRingtone(): { start: () => void; stop: () => void } {
     stop: () => {
       if (intervalId) clearInterval(intervalId);
       try {
-        osc1?.stop();
-        osc2?.stop();
-        audioCtx?.close();
-      } catch (_) { /* ignore */ }
-      osc1 = null;
-      osc2 = null;
-      gainNode = null;
-      audioCtx = null;
-      intervalId = null;
+        osc1?.stop(); osc2?.stop(); audioCtx?.close();
+      } catch (_) { }
+      osc1 = null; osc2 = null; gainNode = null; audioCtx = null; intervalId = null;
     }
   };
 }
@@ -111,165 +100,73 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isIncoming, setIsIncoming] = useState(false);
   const [remotePeer, setRemotePeer] = useState<{ id: string, name: string, avatar?: string } | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const ringtoneRef = useRef<ReturnType<typeof createRingtone> | null>(null);
-  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const remoteDescSetRef = useRef(false);
+  
+  // حفظ Session ID المحلي والبعيد
+  const myCfSessionIdRef = useRef<string | null>(null);
+  const isPulledRef = useRef(false);
+
+  // --- دوال مساعدة لطلب Cloudflare عبر Vercel API ---
+  const handleCFAPI = async (action: string, payload: any = {}, sessionId?: string) => {
+    const res = await fetch('/api/cloudflare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, sessionId, payload })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  };
 
   /**
-   * تنظيف كامل لجميع موارد المكالمة
+   * تنظيف كامل لجميع الموارد
    */
-  /**
-   * تفريغ ICE candidates المخزنة مؤقتاً
-   */
-  const flushPendingCandidates = useCallback(async () => {
-    const pc = pcRef.current;
-    if (!pc || !remoteDescSetRef.current) return;
-    
-    const pending = [...pendingCandidatesRef.current];
-    pendingCandidatesRef.current = [];
-    
-    console.log(`🧊 Flushing ${pending.length} pending ICE candidates`);
-    for (const candidate of pending) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        console.error('❌ Error adding buffered ICE candidate:', err);
-      }
-    }
-  }, []);
-
   const cleanupCall = useCallback(() => {
-    console.log('🧹 Cleaning up call resources...');
-    
-    // إيقاف النغمة
     ringtoneRef.current?.stop();
     ringtoneRef.current = null;
     
-    // إيقاف الميكروفون
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log(`🎙️ Track stopped: ${track.kind}`);
-      });
+      localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
     
-    // إغلاق PeerConnection
     if (pcRef.current) {
-      pcRef.current.ontrack = null;
-      pcRef.current.onicecandidate = null;
-      pcRef.current.onconnectionstatechange = null;
-      pcRef.current.oniceconnectionstatechange = null;
       pcRef.current.close();
       pcRef.current = null;
-      console.log('🔌 PeerConnection closed');
     }
     
-    // إعادة ضبط المخزن المؤقت
-    pendingCandidatesRef.current = [];
-    remoteDescSetRef.current = false;
-    
-    // إعادة ضبط الحالة
     setStatus('idle');
     setCallId(null);
     setRemotePeer(null);
     setRemoteStream(null);
     setIsIncoming(false);
-    console.log('✅ Call cleanup complete');
+    setIsMuted(false);
+    myCfSessionIdRef.current = null;
+    isPulledRef.current = false;
   }, []);
 
   /**
-   * التحقق من وجود مكالمة عالقة/واردة قيد الانتظار في قاعدة البيانات
-   * (مهم جداً في حالة PWA عندما ينقطع اتصال WebSocket في الخلفية)
-   */
-  const checkPendingCalls = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data: pendingCall, error } = await supabase
-        .from('calls')
-        .select('*')
-        .eq('recipient_id', user.id)
-        .eq('status', 'calling')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-        
-      if (!error && pendingCall && status === 'idle') {
-        console.log('🔄 Recovered pending call from DB:', pendingCall.id);
-        setIsIncoming(true);
-        setCallId(pendingCall.id);
-        setStatus('ringing');
-        
-        // جلب بيانات المتصل بطريقة مضمونة
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', pendingCall.sender_id).single();
-        
-        setRemotePeer({
-          id: pendingCall.sender_id,
-          name: profile?.username || 'زميل',
-          avatar: profile?.avatar_url
-        });
-        
-        // تشغيل النغمة إذا لم تكن تعمل
-        if (!ringtoneRef.current) {
-          const ringtone = createRingtone();
-          ringtoneRef.current = ringtone;
-          ringtone.start();
-        }
-      }
-    } catch (err) {
-      // تجاهل إذا لم توجد مكالمة عالقة
-    }
-  }, [user, status]);
-
-  // فحص المكالمات العالقة عند استعادة التطبيق من الخلفية (Focus/Visibility)
-  useEffect(() => {
-    if (!user) return;
-
-    checkPendingCalls(); // فحص مبدئي عند فتح التطبيق
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkPendingCalls();
-      }
-    };
-
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkPendingCalls);
-
-    return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkPendingCalls);
-    };
-  }, [user, checkPendingCalls]);
-
-  /**
-   * الاستماع للمكالمات الواردة
+   * الاستماع للمكالمات الواردة (Realtime)
    */
   useEffect(() => {
     if (!user) return;
 
-    console.log('📡 Listening for incoming calls for', user.id);
     const channel = supabase
       .channel('calls-inbound')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'calls', filter: `recipient_id=eq.${user.id}` },
+        { event: 'INSERT', schema: 'public', table: 'hr_audio_calls', filter: `recipient_id=eq.${user.id}` },
         async (payload) => {
           const newCall = payload.new;
           if (newCall.status === 'calling') {
-            console.log('🔔 Incoming call detected!', newCall.id);
-            
-            // تنظيف أي مكالمة سابقة أولاً
             cleanupCall();
-            
             setIsIncoming(true);
             setCallId(newCall.id);
             setStatus('ringing');
             
-            // تشغيل نغمة الرنين
             const ringtone = createRingtone();
             ringtoneRef.current = ringtone;
             ringtone.start();
@@ -277,7 +174,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', newCall.sender_id).single();
             setRemotePeer({
               id: newCall.sender_id,
-              name: profile?.username || 'زميل',
+              name: profile?.username || 'مستخدم',
               avatar: profile?.avatar_url
             });
           }
@@ -289,210 +186,123 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [user, cleanupCall]);
 
   /**
-   * الاستماع لتحديثات حالة المكالمة + ICE Candidates
+   * سحب مسار الطرف الآخر عند توفر الـ Session الخاص به
+   */
+  const pullRemoteTrack = useCallback(async (mySessionId: string, remoteSessionId: string) => {
+    if (isPulledRef.current || !pcRef.current) return;
+    isPulledRef.current = true; // منع التكرار
+
+    try {
+      const data = await handleCFAPI('addTracks', {
+        tracks: [{ location: 'remote', sessionId: remoteSessionId, trackName: 'audio-main' }]
+      }, mySessionId);
+
+      // Cloudflare SFU يعيد SDP Offer في حالة السحب (Pull)
+      if (data.sessionDescription && data.sessionDescription.type === 'offer') {
+        const pc = pcRef.current;
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        // إرسال Answer للسيرفر عبر renegotiate
+        await handleCFAPI('renegotiate', {
+          sessionDescription: { type: 'answer', sdp: answer.sdp }
+        }, mySessionId);
+      }
+    } catch (err) {
+      console.error('Failed to pull remote track:', err);
+      isPulledRef.current = false;
+    }
+  }, []);
+
+  /**
+   * تحديثات حالة المكالمة
    */
   useEffect(() => {
     if (!callId || !user) return;
-
-    console.log(`📡 Subscribing to call updates: ${callId}`);
 
     const statusChannel = supabase
       .channel(`call-status-${callId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'calls', filter: `id=eq.${callId}` },
+        { event: 'UPDATE', schema: 'public', table: 'hr_audio_calls', filter: `id=eq.${callId}` },
         async (payload) => {
           const updated = payload.new;
           
-          if (updated.status === 'ended' || updated.status === 'missed') {
-            console.log('📞 Call ended by remote');
+          if (updated.status === 'ended' || updated.status === 'missed' || updated.status === 'rejected') {
             cleanupCall();
             return;
           }
           
-          // المرسل يستقبل الـ Answer
-          if (updated.status === 'active' && updated.answer_sdp?.sdp && pcRef.current) {
-            try {
-              if (pcRef.current.signalingState === 'have-local-offer') {
-                console.log('📥 Received Answer SDP, setting remote description...');
-                await pcRef.current.setRemoteDescription(new RTCSessionDescription({
-                  type: 'answer',
-                  sdp: updated.answer_sdp.sdp
-                }));
-                remoteDescSetRef.current = true;
-                // تفريغ المخزن المؤقت لـ ICE candidates
-                await flushPendingCandidates();
-                
-                // ★ جلب ICE candidates الموجودة مسبقاً (أرسلها المستقبل)
-                if (user) {
-                  const { data: existingCandidates } = await supabase
-                    .from('call_candidates')
-                    .select('*')
-                    .eq('call_id', callId)
-                    .neq('sender_id', user.id);
-                  
-                  if (existingCandidates && existingCandidates.length > 0) {
-                    console.log(`🧊 Found ${existingCandidates.length} existing ICE candidates from receiver`);
-                    for (const c of existingCandidates) {
-                      try {
-                        await pcRef.current!.addIceCandidate(new RTCIceCandidate(c.candidate));
-                      } catch (err) {
-                        console.error('❌ Error adding existing ICE candidate:', err);
-                      }
-                    }
-                  }
-                }
-                
-                setStatus('active');
-                ringtoneRef.current?.stop();
-                console.log('✅ Call ACTIVE (sender side)');
-              }
-            } catch (err) {
-              console.error('❌ Error setting remote description:', err);
-            }
+          // إذا كنت أنا المُتصل، والمستقبل رد ووضع الـ session الخاص به
+          if (!isIncoming && updated.status === 'active' && updated.receiver_cf_session_id && myCfSessionIdRef.current) {
+            setStatus('active');
+            ringtoneRef.current?.stop();
+            await pullRemoteTrack(myCfSessionIdRef.current, updated.receiver_cf_session_id);
           }
         }
       )
       .subscribe();
 
-    const iceChannel = supabase
-      .channel(`ice-${callId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'call_candidates', filter: `call_id=eq.${callId}` },
-        async (payload) => {
-          const candidate = payload.new;
-          if (candidate.sender_id !== user.id && pcRef.current) {
-            try {
-              if (remoteDescSetRef.current && pcRef.current.remoteDescription) {
-                console.log('🧊 Adding ICE candidate directly');
-                await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate.candidate));
-              } else {
-                console.log('🧊 Buffering ICE candidate (waiting for remote description)');
-                pendingCandidatesRef.current.push(candidate.candidate);
-              }
-            } catch (err) {
-              console.error('❌ Error adding ICE candidate:', err);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log(`📡 Unsubscribing from call: ${callId}`);
-      supabase.removeChannel(statusChannel);
-      supabase.removeChannel(iceChannel);
-    };
-  }, [callId, user, cleanupCall]);
+    return () => { supabase.removeChannel(statusChannel); };
+  }, [callId, user, isIncoming, cleanupCall, pullRemoteTrack]);
 
   /**
-   * إعداد PeerConnection
+   * التقاط المايكروفون ودفع المسار لـ Cloudflare
    */
-  const createPeerConnection = useCallback((currentCallId: string, userId: string) => {
-    // تنظيف أي PeerConnection قديم
-    if (pcRef.current) {
-      pcRef.current.ontrack = null;
-      pcRef.current.onicecandidate = null;
-      pcRef.current.onconnectionstatechange = null;
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+  const pushLocalTrack = async () => {
+    // 1. إنشاء Session
+    const sessionData = await handleCFAPI('createSession');
+    const sessionId = sessionData.sessionId;
+    myCfSessionIdRef.current = sessionId;
 
+    // 2. التقاط الصوت
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    localStreamRef.current = stream;
+
+    // 3. إعداد PC
     const pc = new RTCPeerConnection(ICE_SERVERS);
+    pcRef.current = pc;
     
     pc.ontrack = (event) => {
-      console.log('🔊 Remote audio track received!');
-      if (event.streams[0]) {
+      if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
       }
     };
-    
-    pc.onicecandidate = async (event) => {
-      if (event.candidate) {
-        try {
-          await supabase.from('call_candidates').insert({
-            call_id: currentCallId,
-            sender_id: userId,
-            candidate: event.candidate.toJSON()
-          });
-        } catch (err) {
-          console.error('❌ Failed to send ICE candidate:', err);
-        }
-      }
-    };
 
-    pc.onconnectionstatechange = () => {
-      console.log(`📶 Connection: ${pc.connectionState}`);
-      if (pc.connectionState === 'connected') {
-        console.log('✅ WebRTC Connected! Audio flowing.');
-      }
-      if (pc.connectionState === 'failed') {
-        console.error('❌ WebRTC Connection failed');
-        toast.error('فشل الاتصال، حاول مرة أخرى');
-        cleanupCall();
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log(`🧊 ICE: ${pc.iceConnectionState}`);
-    };
-
-    pcRef.current = pc;
-    return pc;
-  }, [cleanupCall]);
-
-  /**
-   * التقاط الصوت من الميكروفون
-   */
-  const captureAudio = useCallback(async (pc: RTCPeerConnection) => {
-    // إيقاف أي ميكروفون سابق
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => t.stop());
+    const audioTrack = stream.getAudioTracks()[0];
+    if (audioTrack) {
+      pc.addTrack(audioTrack, stream);
     }
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStreamRef.current = stream;
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-    console.log('🎙️ Microphone captured');
-    return stream;
-  }, []);
+
+    // 4. إنشاء SDP Offer ودفعه لـ CF
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const pushData = await handleCFAPI('addTracks', {
+      sessionDescription: { type: 'offer', sdp: offer.sdp },
+      tracks: [{ location: 'local', trackName: 'audio-main', mid: pc.getTransceivers()[0]?.mid }]
+    }, sessionId);
+
+    // 5. استقبال SDP Answer
+    if (pushData.sessionDescription) {
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: pushData.sessionDescription.sdp }));
+    }
+
+    return sessionId;
+  };
 
   /**
-   * بدء مكالمة (المرسل)
+   * بدء مكالمة (المُرسل)
    */
   const startCall = async (recipientId: string, conversationId: string) => {
     if (!user) return;
-    
-    // تنظيف أي مكالمة سابقة
     cleanupCall();
-    
-    // انتظار قصير للسماح بتنظيف القنوات
-    await new Promise(r => { const id = window.setTimeout(() => { clearTimeout(id); r(undefined); }, 100); });
     
     try {
       setStatus('ringing');
       setIsIncoming(false);
       
-      // 1. حفظ سجل المكالمة
-      const { data: callRecord, error: dbError } = await supabase
-        .from('calls')
-        .insert({
-          sender_id: user.id,
-          recipient_id: recipientId,
-          conversation_id: conversationId,
-          status: 'calling'
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      const currentCallId = callRecord.id;
-      setCallId(currentCallId);
-      console.log(`📞 Call created: ${currentCallId}`);
-
-      // 2. جلب بيانات المستقبل
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', recipientId).single();
       setRemotePeer({
         id: recipientId,
@@ -500,141 +310,97 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         avatar: profile?.avatar_url
       });
 
-      // 3. تشغيل نغمة انتظار
       const ringtone = createRingtone();
       ringtoneRef.current = ringtone;
       ringtone.start();
 
-      // 4. إعداد PeerConnection + التقاط الصوت
-      const pc = createPeerConnection(currentCallId, user.id);
-      await captureAudio(pc);
+      // دفع الصوت لـ CF
+      const sessionId = await pushLocalTrack();
       
-      // 5. إنشاء SDP Offer وحفظها في DB
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      
-      await supabase.from('calls').update({
-        offer_sdp: { type: 'offer', sdp: offer.sdp }
-      }).eq('id', currentCallId);
+      // حفظ الجلسة في الجدول الجديد hr_audio_calls
+      const { data: callRecord, error: dbError } = await supabase
+        .from('hr_audio_calls')
+        .insert({
+          sender_id: user.id,
+          recipient_id: recipientId,
+          conversation_id: conversationId,
+          status: 'calling',
+          cf_session_id: sessionId
+        })
+        .select()
+        .single();
 
-      console.log('📤 Offer sent, waiting for answer...');
+      if (dbError) throw dbError;
+      setCallId(callRecord.id);
 
-      // 6. إرسال إشعار للمستقبل (non-blocking)
+      // إرسال إشعار للمستقبل (لا يوقف العملية)
       supabase.functions.invoke('start-call', {
         body: { 
           recipientId, 
-          callId: currentCallId,
-          callerName: profile?.username || 'زميل',
-          url: window.location.origin // رابط التطبيق الرئيسي لضمان التركيز على الـ PWA
+          callId: callRecord.id,
+          callerName: user.full_name || 'زميل',
+          url: window.location.origin,
+          isHrAudioCall: true
         }
-      }).then(res => {
-        console.log('🔔 Notification result:', res.data);
-      }).catch(err => {
-        console.warn('⚠️ Notification failed (non-blocking):', err);
-      });
+      }).catch(() => {});
+
     } catch (err) {
-      console.error('Failed to start call:', err);
-      toast.error('لم نتمكن من بدء المكالمة حالياً');
+      toast.error('لم نتمكن من بدء المكالمة');
       cleanupCall();
     }
   };
 
   /**
-   * الرد على المكالمة (المستقبل)
+   * الرد على المكالمة (المُستقبِل)
    */
   const acceptCall = async () => {
     if (!callId || !user) return;
     try {
-      console.log('📞 Accepting call:', callId);
-      
-      // إيقاف النغمة
       ringtoneRef.current?.stop();
       
-      // 1. جلب بيانات المكالمة
       const { data: callData, error: fetchErr } = await supabase
-        .from('calls')
+        .from('hr_audio_calls')
         .select('*')
         .eq('id', callId)
         .single();
 
-      if (fetchErr || !callData) throw fetchErr || new Error('Call not found');
-      if (!callData.offer_sdp?.sdp) throw new Error('No offer SDP found');
+      if (fetchErr || !callData) throw new Error('Call not found');
 
-      // 2. إعداد PeerConnection + التقاط الصوت
-      const pc = createPeerConnection(callId, user.id);
-      await captureAudio(pc);
+      // 1. دفع صوتي الشخصي للـ SFU 
+      const mySessionId = await pushLocalTrack();
 
-      // 3. تعيين الـ Offer كـ Remote Description
-      await pc.setRemoteDescription(new RTCSessionDescription({
-        type: 'offer',
-        sdp: callData.offer_sdp.sdp
-      }));
-      remoteDescSetRef.current = true;
-      await flushPendingCandidates();
-      console.log('📥 Offer set as remote description + flushed buffered candidates');
-
-      // 3.5 ★ جلب ICE candidates الموجودة مسبقاً في DB (أرسلها المتصل قبل اشتراكنا)
-      const { data: existingCandidates } = await supabase
-        .from('call_candidates')
-        .select('*')
-        .eq('call_id', callId)
-        .neq('sender_id', user.id);
-      
-      if (existingCandidates && existingCandidates.length > 0) {
-        console.log(`🧊 Found ${existingCandidates.length} existing ICE candidates in DB`);
-        for (const c of existingCandidates) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(c.candidate));
-          } catch (err) {
-            console.error('❌ Error adding existing ICE candidate:', err);
-          }
-        }
+      // 2. سحب صوت المُرسل
+      if (callData.cf_session_id) {
+        await pullRemoteTrack(mySessionId, callData.cf_session_id);
       }
 
-      // 4. إنشاء Answer
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      console.log('📤 Answer created and set as local description');
-
-      // 5. حفظ الـ Answer في DB + تحديث الحالة
-      await supabase.from('calls').update({
+      // 3. إبلاغ المرسل بـ session الخاصي بي
+      await supabase.from('hr_audio_calls').update({
         status: 'active',
-        answer_sdp: { type: 'answer', sdp: answer.sdp }
+        receiver_cf_session_id: mySessionId
       }).eq('id', callId);
 
       setStatus('active');
-      console.log('✅ Call ACTIVE (receiver side)');
     } catch (err) {
-      console.error('Error accepting call:', err);
-      toast.error('حدث خطأ أثناء الرد على المكالمة');
+      toast.error('حدث خطأ أثناء الاتصال');
       cleanupCall();
     }
   };
 
-  /**
-   * كتم/تشغيل الميكروفون
-   */
-  const [isMuted, setIsMuted] = useState(false);
-  
   const toggleMute = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = !track.enabled;
       });
       setIsMuted(prev => !prev);
-      console.log(`🎙️ Microphone ${isMuted ? 'unmuted' : 'muted'}`);
     }
-  }, [isMuted]);
+  }, []);
 
-  /**
-   * إنهاء المكالمة
-   */
   const endCall = async () => {
     const currentCallId = callId;
     cleanupCall();
-    setIsMuted(false);
     if (currentCallId) {
-      await supabase.from('calls').update({ 
+      await supabase.from('hr_audio_calls').update({ 
         status: 'ended', 
         ended_at: new Date().toISOString() 
       }).eq('id', currentCallId);
