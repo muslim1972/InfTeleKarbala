@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CallOverlay.tsx
  * 
  * الواجهة الرسومية للمكالمة.
@@ -6,103 +6,17 @@
  * تتضمن: مؤقت المكالمة، كتم الميكروفون، مكبر الصوت
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { useCall } from '../../context/CallContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, User, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-export const CallOverlay: React.FC = () => {
-  const { 
-    status, isIncoming, remotePeer, remoteStream, 
-    acceptCall, endCall, toggleMute, isMuted,
-    isSpeakerPhone, toggleSpeaker 
-  } = useCall();
-  const audioRef = useRef<HTMLAudioElement>(null);
+// مكون فرعي لمؤقت المكالمة (استخدام Memo لمنع إعادة تصيير الشاشة بالكامل كل ثانية)
+const CallTimer = memo(({ status }: { status: string }) => {
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<number | null>(null);
 
-  // ربط الصوت القادم بمحرك الـ Audio للمتصفح
-  useEffect(() => {
-    if (remoteStream && audioRef.current) {
-      audioRef.current.srcObject = remoteStream;
-      audioRef.current.play().catch(err => {
-        console.warn('Audio autoplay blocked:', err);
-      });
-    }
-  }, [remoteStream]);
-
-  // التحكم في مخرج الصوت (Speaker vs Earpiece)
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const updateOutputDevice = async () => {
-      // التحقق من دعم المتصفح
-      if (!('setSinkId' in audio)) {
-        console.warn('setSinkId is not supported by this browser');
-        return;
-      }
-
-      try {
-        // ننتظر قليلاً للتأكد من أن الأجهزة محملة
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const outputs = devices.filter(d => d.kind === 'audiooutput');
-
-        if (isSpeakerPhone) {
-          // محاولة البحث عن مكبر الصوت (Speaker) بكلمات مفتاحية متعددة
-          const speaker = outputs.find(d => 
-            d.label.toLowerCase().includes('speaker') || 
-            d.label.toLowerCase().includes('loud') || 
-            d.label.toLowerCase().includes('مكبر') ||
-            d.label.toLowerCase().includes('خارجي')
-          );
-          
-          if (speaker) {
-            await (audio as any).setSinkId(speaker.deviceId);
-            toast.success(`تم تحويل الصوت إلى: ${speaker.label}`);
-          } else if (outputs.length > 1) {
-            // إذا لم نجد التسمية (labels قد تكون فارغة) ولكن يوجد أكثر من جهاز
-            // نجرب الجهاز الثاني الذي غالباً ما يكون هو الـ Loudspeaker في الأندرويد
-            await (audio as any).setSinkId(outputs[1].deviceId);
-            toast.success('تم التحويل لمخرج الصوت البديل (مكبر)');
-          } else {
-            // محاولة فرض السبيكر عبر AudioContext إذا لزم الأمر مستقبلاً
-            toast.error('لم نجد مكبر صوت خارجي، قد يكون جهازك لا يسمح بالتبديل');
-          }
-        } else {
-          // العودة للسماعة الافتراضية (Earpiece)
-          const earpiece = outputs.find(d => 
-            d.label.toLowerCase().includes('earpiece') || 
-            d.label.toLowerCase().includes('receiver') || 
-            d.label.toLowerCase().includes('handset') ||
-            d.label.toLowerCase().includes('internal') ||
-            d.label.toLowerCase().includes('سماعة الهاتف') ||
-            d.label.toLowerCase().includes('داخلية')
-          );
-
-          if (earpiece) {
-            await (audio as any).setSinkId(earpiece.deviceId);
-            toast.success(`تم تحويل الصوت لسماعة الهاتف: ${earpiece.label}`);
-          } else {
-            // العودة للوضع الافتراضي للنظام
-            await (audio as any).setSinkId('');
-            toast.success('تم العودة لسماعة الهاتف الافتراضية');
-          }
-        }
-      } catch (err: any) {
-        console.error('Error switching audio output:', err);
-        toast.error(`تعذر التبديل: ${err.message}`);
-      }
-    };
-
-    // نقوم بالتحديث فقط عند نشاط المكالمة
-    if (status === 'active') {
-      updateOutputDevice();
-    }
-  }, [isSpeakerPhone, status]);
-
-  // مؤقت المكالمة
   useEffect(() => {
     if (status === 'active') {
       setElapsed(0);
@@ -124,12 +38,114 @@ export const CallOverlay: React.FC = () => {
     };
   }, [status]);
 
-  // تنسيق الوقت
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }, []);
+
+  if (status !== 'active') return null;
+
+  return (
+    <div className="flex items-center gap-2 text-emerald-400">
+      <Clock className="w-4 h-4" />
+      <span className="font-mono text-lg font-semibold tracking-wider">
+        {formatTime(elapsed)}
+      </span>
+    </div>
+  );
+});
+
+export const CallOverlay: React.FC = () => {
+  const { 
+    status, isIncoming, remotePeer, remoteStream, 
+    acceptCall, endCall, toggleMute, isMuted,
+    isSpeakerPhone, toggleSpeaker 
+  } = useCall();
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // ربط الصوت القادم بمحرك الـ Audio للمتصفح
+  useEffect(() => {
+    if (remoteStream && audioRef.current) {
+      audioRef.current.srcObject = remoteStream;
+      audioRef.current.play().catch(err => {
+        console.warn('Audio autoplay blocked:', err);
+      });
+    }
+  }, [remoteStream]);
+
+  // التحكم في مخرج الصوت (Speaker vs Earpiece)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateOutputDevice = async () => {
+      try {
+        // 1. محاولة استخدام إضافة cordova-plugin-audiotoggle الأصلية
+        const audioToggle = (window as any).AudioToggle;
+        if (audioToggle) {
+          if (isSpeakerPhone) {
+            audioToggle.setAudioMode(audioToggle.SPEAKER);
+            toast.success('تم تحويل الصوت لمكبر الصوت الخارجي');
+          } else {
+            audioToggle.setAudioMode(audioToggle.EARPIECE);
+            toast.success('تم تحويل الصوت لسماعة الهاتف الداخلية');
+          }
+          return; // الخروج مبكراً عند النجاح في التوجيه الأصلي
+        }
+
+        // 2. استخدام setSinkId لمتصفحات الويب 
+        if (!('setSinkId' in audio)) {
+          console.warn('setSinkId is not supported by this browser');
+          return;
+        }
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+
+        if (isSpeakerPhone) {
+          const speaker = outputs.find(d => 
+            d.label.toLowerCase().includes('speaker') || 
+            d.label.toLowerCase().includes('loud') || 
+            d.label.toLowerCase().includes('مكبر') ||
+            d.label.toLowerCase().includes('خارجي')
+          );
+          
+          if (speaker) {
+            await (audio as any).setSinkId(speaker.deviceId);
+            toast.success(`تم تحويل الصوت إلى: ${speaker.label}`);
+          } else if (outputs.length > 1) {
+            await (audio as any).setSinkId(outputs[1].deviceId);
+            toast.success('تم التحويل لمخرج الصوت البديل');
+          }
+        } else {
+          const earpiece = outputs.find(d => 
+            d.label.toLowerCase().includes('earpiece') || 
+            d.label.toLowerCase().includes('receiver') || 
+            d.label.toLowerCase().includes('handset') ||
+            d.label.toLowerCase().includes('internal') ||
+            d.label.toLowerCase().includes('سماعة الهاتف') ||
+            d.label.toLowerCase().includes('داخلية')
+          );
+
+          if (earpiece) {
+            await (audio as any).setSinkId(earpiece.deviceId);
+            toast.success(`تم تحويل الصوت لسماعة الهاتف: ${earpiece.label}`);
+          } else {
+            await (audio as any).setSinkId('');
+            toast.success('تم العودة لسماعة الهاتف الافتراضية');
+          }
+        }
+      } catch (err: any) {
+        console.error('Error switching audio output:', err);
+      }
+    };
+
+    if (status === 'active') {
+      updateOutputDevice();
+    }
+  }, [isSpeakerPhone, status]);
 
   if (status === 'idle') return null;
 
@@ -144,10 +160,8 @@ export const CallOverlay: React.FC = () => {
           background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)'
         }}
       >
-        {/* صوت الطرف الآخر (مخفي) */}
         <audio ref={audioRef} autoPlay playsInline />
 
-        {/* تأثير خلفي متحرك */}
         {status === 'ringing' && (
           <>
             <motion.div
@@ -171,7 +185,6 @@ export const CallOverlay: React.FC = () => {
           />
         )}
 
-        {/* معلومات الطرف الآخر */}
         <div className="flex flex-col items-center mb-10 relative z-10">
           <motion.div 
             animate={status === 'ringing' ? { scale: [1, 1.05, 1] } : {}}
@@ -199,18 +212,11 @@ export const CallOverlay: React.FC = () => {
               {isIncoming ? '📞 يكلمك الآن...' : '📞 جاري الاتصال...'}
             </motion.p>
           ) : (
-            <div className="flex items-center gap-2 text-emerald-400">
-              <Clock className="w-4 h-4" />
-              <span className="font-mono text-lg font-semibold tracking-wider">
-                {formatTime(elapsed)}
-              </span>
-            </div>
+            <CallTimer status={status} />
           )}
         </div>
 
-        {/* أزرار التحكم */}
         <div className="flex items-center gap-6 relative z-10">
-          {/* كتم الميكروفون (أثناء المكالمة فقط) */}
           {status === 'active' && (
             <motion.button
               initial={{ opacity: 0, scale: 0.5 }}
@@ -226,7 +232,6 @@ export const CallOverlay: React.FC = () => {
             </motion.button>
           )}
 
-          {/* زر القبول */}
           {status === 'ringing' && isIncoming && (
             <motion.button
               initial={{ scale: 0 }}
@@ -239,7 +244,6 @@ export const CallOverlay: React.FC = () => {
             </motion.button>
           )}
 
-          {/* زر الإنهاء */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={endCall}
@@ -248,7 +252,6 @@ export const CallOverlay: React.FC = () => {
             <PhoneOff className="w-8 h-8 text-white" />
           </motion.button>
 
-          {/* مكبر الصوت (أثناء المكالمة فقط) */}
           {status === 'active' && (
             <motion.button
               initial={{ opacity: 0, scale: 0.5 }}

@@ -26,7 +26,7 @@ export class CloudflareCallsService {
   async startPush(_onTrack?: (track: MediaStreamTrack) => void) {
     try {
       // 1. طلب الإذن للميكروفون
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       
       // 2. إضافة المسار الصوتي للاتصال
       this.localStream.getTracks().forEach(track => {
