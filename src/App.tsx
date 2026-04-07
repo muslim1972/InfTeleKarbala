@@ -61,7 +61,11 @@ const AppContent = () => {
     return sessionStorage.getItem('hasChosenWeb') === 'true';
   });
 
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+  // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK)
+  const isStandalone = 
+    window.matchMedia('(display-mode: standalone)').matches || 
+    (window.navigator as any).standalone ||
+    (window as any).Capacitor?.isNativePlatform();
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
