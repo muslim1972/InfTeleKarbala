@@ -109,9 +109,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const localStreamRef = useRef<MediaStream | null>(null);
   const ringtoneRef = useRef<ReturnType<typeof createRingtone> | null>(null);
   
-  // حفظ Session ID المحلي والبعيد
+  // حفظ Session ID المحلي والبعيد ومعرف المكالمة الحالي للوصول السريع داخل المستمعين
   const myCfSessionIdRef = useRef<string | null>(null);
   const isPulledRef = useRef(false);
+  const callIdRef = useRef<string | null>(null);
 
   // --- دوال مساعدة لطلب Cloudflare عبر Vercel API ---
   const handleCFAPI = async (action: string, payload: any = {}, sessionId?: string) => {
@@ -143,6 +144,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     
     setStatus('idle');
     setCallId(null);
+    callIdRef.current = null;
     setRemotePeer(null);
     setRemoteStream(null);
     setIsIncoming(false);
@@ -152,11 +154,60 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * الاستماع للمكالمات الواردة (Realtime)
+   * الاستماع للمكالمات الواردة (Realtime) + جلب المكالمات المعلقة
    */
   useEffect(() => {
     if (!user) return;
 
+    // دالة لجلب المكالمات المعلقة منذ فترة قريبة (مثلاً آخر دقيقتين)
+    const checkPendingCall = async () => {
+      try {
+        const twoMinsAgo = new Date(Date.now() - 120000).toISOString();
+        const { data } = await supabase
+          .from('hr_audio_calls')
+          .select('*')
+          .eq('recipient_id', user.id)
+          .eq('status', 'calling')
+          .gte('created_at', twoMinsAgo)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data && data.id !== callIdRef.current && !pcRef.current) {
+          cleanupCall();
+          setIsIncoming(true);
+          setCallId(data.id);
+          callIdRef.current = data.id;
+          setStatus('ringing');
+          
+          const ringtone = createRingtone();
+          ringtoneRef.current = ringtone;
+          ringtone.start();
+          
+          const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.sender_id).single();
+          setRemotePeer({
+            id: data.sender_id,
+            name: profile?.username || 'مستخدم',
+            avatar: profile?.avatar_url
+          });
+        }
+      } catch (err) {
+        // لا توجد مكالمات معلقة
+      }
+    };
+
+    // 1. فحص مبدئي عند فتح التطبيق
+    checkPendingCall();
+
+    // 2. مستمع للعودة من الخلفية
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkPendingCall();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 3. مستمع Realtime طبيعي للجديد
     const channel = supabase
       .channel('calls-inbound')
       .on(
@@ -164,10 +215,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         { event: 'INSERT', schema: 'public', table: 'hr_audio_calls', filter: `recipient_id=eq.${user.id}` },
         async (payload) => {
           const newCall = payload.new;
-          if (newCall.status === 'calling') {
+          if (newCall.status === 'calling' && newCall.id !== callIdRef.current && !pcRef.current) {
             cleanupCall();
             setIsIncoming(true);
             setCallId(newCall.id);
+            callIdRef.current = newCall.id;
             setStatus('ringing');
             
             const ringtone = createRingtone();
@@ -185,7 +237,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel); 
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user, cleanupCall]);
 
   /**
@@ -342,6 +397,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       if (dbError) throw dbError;
       setCallId(callRecord.id);
+      callIdRef.current = callRecord.id;
 
       // إرسال إشعار للمستقبل (لا يوقف العملية)
       supabase.functions.invoke('start-call', {
