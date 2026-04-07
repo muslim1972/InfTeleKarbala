@@ -12,7 +12,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
             {/* Line 1: News Ticker */}
             <TipsMarquee appName="InfTeleKarbala" />
 
-            <div className="max-w-7xl mx-auto px-6 pt-[2px] pb-4 w-full border-t border-blue-500/20">
+            <div className="max-w-7xl mx-auto px-6 pt-[2px] pb-[calc(1.2rem+env(safe-area-inset-bottom))] w-full border-t border-blue-500/20">
                 <div className="flex flex-col gap-1">
                     {/* Line 2: System Title */}
                     <div className="text-center relative max-w-full overflow-hidden">

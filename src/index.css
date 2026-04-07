@@ -104,10 +104,12 @@ html.dark .dark,
 html {
   padding: 0;
   width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* Force a standard base size to prevent system scaling issues */
   font-size: 14px;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
@@ -121,16 +123,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   direction: rtl;
   font-family: 'Tajawal', sans-serif;
-  overflow-x: hidden;
+  overflow: hidden;
+  position: fixed; /* Prevent bouncy scrolling on mobile */
   transition: background-color 0.3s ease, color 0.3s ease;
-  padding-top: var(--safe-area-top, 0);
-  padding-bottom: var(--safe-area-bottom, 0);
 }
 
 @keyframes highlight {
@@ -151,8 +153,9 @@ body {
 
 #root {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 * {
