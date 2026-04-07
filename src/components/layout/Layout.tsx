@@ -20,7 +20,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
     const { totalUnreadCount } = useChat();
 
     return (
-        <div className="min-h-screen w-full relative bg-background text-foreground font-tajawal transition-colors duration-300">
+        <div className="absolute inset-0 overflow-y-auto overflow-x-hidden bg-background text-foreground font-tajawal transition-colors duration-300">
             {/* Cosmic Background Effects - Dynamic for both modes */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 dark:bg-purple-500/10 light:bg-purple-200/20 blur-[100px]" />

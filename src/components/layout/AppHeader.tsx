@@ -21,9 +21,9 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
 
     return (
         <>
-            <header className="sticky top-0 z-[60] py-1 px-2 w-full">
+            <header className="sticky top-0 z-[60] px-2 w-full pt-[max(env(safe-area-inset-top),0.5rem)] pb-1">
                 <GlassCard className={`flex flex-col p-2 !rounded-2xl backdrop-blur-xl transition-colors duration-300 !overflow-visible ${theme === 'light'
-                    ? '!bg-white/95 !border-gray-200'
+                    ? 'bg-brand-cream/80 border-gray-200/50 shadow-sm'
                     : '!bg-[#0f172a]/80 !border-white/10'
                     }`}>
                     <div className="flex items-center justify-between w-full relative">
