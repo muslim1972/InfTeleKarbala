@@ -3,6 +3,13 @@
 
 Write-Host "🚀 بدء عملية بناء التطبيق الشاملة..." -ForegroundColor Cyan
 
+# 0. حذف ملف APK قديم لتجنب تضخم حجم الملف (النسخة داخل النسخة)
+Write-Host "🧹 0/4: تنظيف ملفات APK القديم..." -ForegroundColor Yellow
+if (Test-Path "public/app.apk") {
+    Remove-Item "public/app.apk" -Force
+    Write-Host "✅ تم حذف الملف القديم لضمان صغر الحجم." -ForegroundColor Gray
+}
+
 # 1. بناء نسخة الويب (React/Vite)
 Write-Host "📦 1/4: بناء نسخة الويب..." -ForegroundColor Yellow
 npm run build

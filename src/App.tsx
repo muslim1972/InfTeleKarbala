@@ -65,7 +65,8 @@ const AppContent = () => {
   const isStandalone = 
     window.matchMedia('(display-mode: standalone)').matches || 
     (window.navigator as any).standalone ||
-    (window as any).Capacitor?.isNativePlatform();
+    (window as any).Capacitor?.isNativePlatform() ||
+    window.location.protocol === 'capacitor:';
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
