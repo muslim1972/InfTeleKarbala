@@ -12,6 +12,19 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@300;400;500;700;900&family=Tajawal:wght@300;400;500;700;800;900&family=Poppins:wght@300;400;500;700&display=swap"
     rel="stylesheet">
+  <script>
+    // منع التكبير التلقائي ومنع تضخم الخطوط برمجياً في الأندرويد
+    (function() {
+      const meta = document.querySelector('meta[name="viewport"]');
+      if (meta) {
+        meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no";
+      }
+      // تصفير أي زووم قد يقوم به النظام
+      try {
+        document.body.style.zoom = "1.0";
+      } catch(e) {}
+    })();
+  </script>
   <title>مديرية اتصالات كربلاء</title>
 
   <!-- OneSignal SDK ensures init completes before App mounts -->

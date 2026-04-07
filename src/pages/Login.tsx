@@ -77,12 +77,12 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
         )}
 
         {/* Header / Logo Section */}
-        <div className="text-center mb-10 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <h1 className="text-3xl md:text-4xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide">
+        <div className="text-center mb-6 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <h1 className="text-xl md:text-4xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide px-4">
             مديرية الاتصالات ومعلوماتية كربلاء المقدسة
           </h1>
-          <div className="h-1.5 w-24 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
-          <h2 className="text-white/90 text-xl font-medium drop-shadow-md tracking-wider">
+          <div className="h-1 w-16 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
+          <h2 className="text-white/90 text-base font-medium drop-shadow-md tracking-wider">
             نظام الادارة الموحد
           </h2>
         </div>
@@ -110,7 +110,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
                 required
                 maxLength={6}
                 autoComplete="current-password"
-                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner text-xl"
+                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner text-lg"
                 placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

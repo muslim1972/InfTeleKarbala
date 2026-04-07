@@ -44,14 +44,14 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
 
             {/* Header */}
-            <div className="relative z-10 flex flex-col items-center pt-16 pb-8 animate-in fade-in slide-in-from-top-8 duration-1000">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-4 bg-slate-900 p-1">
+            <div className="relative z-10 flex flex-col items-center pt-8 md:pt-16 pb-6 animate-in fade-in slide-in-from-top-8 duration-1000">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-4 bg-slate-900 p-1">
                      <img src="/icon-512.png" alt="المديرية" className="w-full h-full object-cover rounded-full" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow-md text-center px-4 leading-tight">
+                <h1 className="text-2xl md:text-4xl font-bold text-white drop-shadow-md text-center px-4 leading-tight">
                     مديرية الاتصالات ومعلوماتية<br className="md:hidden" /> كربلاء المقدسة
                 </h1>
-                <p className="text-emerald-400 mt-2 text-lg">نظام الإدارة الموحد</p>
+                <p className="text-emerald-400 mt-2 text-base md:text-lg">نظام الإدارة الموحد</p>
                 <div className="h-1 w-16 bg-emerald-500 rounded-full mt-4" />
             </div>
 

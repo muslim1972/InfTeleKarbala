@@ -106,6 +106,14 @@ html {
   width: 100%;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Force a standard base size to prevent system scaling issues */
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
 }
 
 body {
