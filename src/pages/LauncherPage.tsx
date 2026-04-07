@@ -65,7 +65,9 @@ export const LauncherPage = ({ onProceed }: LauncherPageProps) => {
                     {/* Android APK Button */}
                     <button 
                         onClick={() => {
-                            window.location.href = '/app.apk';
+                            // التنزيل من السورس الخاص بـ Github مباشرة لتجاوز ذاكرة الكاش في Vercel (Cache-Busting)
+                            const timestamp = new Date().getTime();
+                            window.location.href = `https://raw.githubusercontent.com/muslim1972/InfTeleKarbala/main/public/app.apk?v=${timestamp}`;
                         }}
                         className={`group relative flex flex-col items-center gap-4 p-8 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
                             ${os === 'android' 
