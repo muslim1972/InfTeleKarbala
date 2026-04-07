@@ -5,11 +5,12 @@ import { useAuth } from "../context/AuthContext";
 
 interface LauncherPageProps {
     onProceed?: () => void;
+    initialShowLogin?: boolean;
 }
 
-export const LauncherPage = ({ onProceed }: LauncherPageProps) => {
+export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPageProps) => {
     const { user } = useAuth();
-    const [showLogin, setShowLogin] = useState(false);
+    const [showLogin, setShowLogin] = useState(initialShowLogin);
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
 
     useEffect(() => {

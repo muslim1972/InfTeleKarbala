@@ -72,17 +72,20 @@ const AppContent = () => {
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
 
-  // إذا لم يكن في وضع التثبيت (الـ PWA أو APK) ولم يقم بالاختيار بعد، نظهر صفحة الهبوط
-  if (!isStandalone && !hasProceeded) {
-    return <LauncherPage onProceed={() => {
-      setHasProceeded(true);
-      sessionStorage.setItem('hasChosenWeb', 'true');
-    }} />;
+  // إذا لم يكن هناك مستخدم، نعرض LauncherPage ونحدد هل تظهر صفحة الاختيار أم صفحة الدخول فوراً
+  if (!user) {
+    return (
+      <LauncherPage 
+        onProceed={() => {
+          setHasProceeded(true);
+          sessionStorage.setItem('hasChosenWeb', 'true');
+        }}
+        initialShowLogin={isStandalone || hasProceeded}
+      />
+    );
   }
 
-  if (!user) return <LauncherPage />;
-
-  // توجيه المستخدم حسب الصلاحية
+  // توجيه المستخدم حسب الصلاحية (للمستخدمين المسجلين فقط)
   if (user.role === 'admin') {
     // If choice not made, show selector
     if (!adminViewMode) {
