@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { Login } from "./Login";
 import { Smartphone, MonitorPlay, ChevronLeft, Download } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
-export const LauncherPage = () => {
-    // تخطي صفحة الهبوط فوراً إذا كان المستخدم يستخدم الـ PWA المثبت (Standalone)
-    const [showLogin, setShowLogin] = useState(() => {
-        return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    });
-    
+interface LauncherPageProps {
+    onProceed?: () => void;
+}
+
+export const LauncherPage = ({ onProceed }: LauncherPageProps) => {
+    const { user } = useAuth();
+    const [showLogin, setShowLogin] = useState(false);
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
 
     useEffect(() => {
@@ -16,6 +18,14 @@ export const LauncherPage = () => {
         else if (/iPhone|iPad|iPod/i.test(ua)) setOs('ios');
         else setOs('desktop');
     }, []);
+
+    const handleWebProceed = () => {
+        if (onProceed) {
+            onProceed();
+        } else {
+            setShowLogin(true);
+        }
+    };
 
     if (showLogin) {
         return <Login onBack={() => setShowLogin(false)} />;
@@ -55,7 +65,6 @@ export const LauncherPage = () => {
                     {/* Android APK Button */}
                     <button 
                         onClick={() => {
-                            // التحميل المباشر من ملف الـ APK الموجود في مجلد public
                             window.location.href = '/app.apk';
                         }}
                         className={`group relative flex flex-col items-center gap-4 p-8 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
@@ -65,7 +74,6 @@ export const LauncherPage = () => {
                             }
                         `}
                     >
-                        {/* Recommendation badge */}
                         {os === 'android' && (
                             <div className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-bl-xl shadow-lg">
                                 يوصى به لجهازك
@@ -87,7 +95,7 @@ export const LauncherPage = () => {
 
                     {/* Desktop / iOS Web App Button */}
                     <button 
-                        onClick={() => setShowLogin(true)}
+                        onClick={handleWebProceed}
                         className={`group relative flex flex-col items-center gap-4 p-8 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
                             ${os !== 'android' 
                                 ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.2)] hover:bg-blue-600/30 hover:border-blue-400' 
@@ -95,7 +103,6 @@ export const LauncherPage = () => {
                             }
                         `}
                     >
-                        {/* Recommendation badge */}
                         {os !== 'android' && (
                             <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-4 py-1 rounded-bl-xl shadow-lg">
                                 يوصى به لجهازك
@@ -114,7 +121,7 @@ export const LauncherPage = () => {
                             </p>
                         </div>
                         <div className={`mt-2 flex items-center text-sm font-bold ${os !== 'android' ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'}`}>
-                            الدخول للتطبيق <ChevronLeft className="w-4 h-4 mr-1" />
+                            {user ? 'الاستمرار إلى لوحة التحكم' : 'الدخول للتطبيق'} <ChevronLeft className="w-4 h-4 mr-1" />
                         </div>
                     </button>
 

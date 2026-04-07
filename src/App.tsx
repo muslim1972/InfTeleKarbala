@@ -57,8 +57,22 @@ const AppContent = () => {
     }
   }, [adminViewMode]);
 
+  const [hasProceeded, setHasProceeded] = useState(() => {
+    return sessionStorage.getItem('hasChosenWeb') === 'true';
+  });
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
+
+  // إذا لم يكن في وضع التثبيت (الـ PWA أو APK) ولم يقم بالاختيار بعد، نظهر صفحة الهبوط
+  if (!isStandalone && !hasProceeded) {
+    return <LauncherPage onProceed={() => {
+      setHasProceeded(true);
+      sessionStorage.setItem('hasChosenWeb', 'true');
+    }} />;
+  }
 
   if (!user) return <LauncherPage />;
 
