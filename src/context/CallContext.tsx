@@ -36,63 +36,75 @@ const ICE_SERVERS: RTCConfiguration = {
   bundlePolicy: 'max-bundle',
 };
 
-// نغمة رنين واقعية (تردد مزدوج 440Hz + 480Hz مع إيقاع هاتف)
-function createRingtone(): { start: () => void; stop: () => void } {
-  let audioCtx: AudioContext | null = null;
-  let osc1: OscillatorNode | null = null;
-  let osc2: OscillatorNode | null = null;
-  let gainNode: GainNode | null = null;
-  let intervalId: number | null = null;
-
-  return {
-    start: () => {
-      try {
-        audioCtx = new AudioContext();
-        gainNode = audioCtx.createGain();
-        gainNode.connect(audioCtx.destination);
-        gainNode.gain.value = 0;
-
-        osc1 = audioCtx.createOscillator();
-        osc1.type = 'sine';
-        osc1.frequency.value = 440;
+// دالة لتوليد نغمة مكالمات واقعية باستخدام Data URI، لتفادي مشكلة الـ AudioContext مع الـ Earpiece
+function createTone(type: 'incoming' | 'outgoing'): { start: () => void; stop: () => void } {
+  try {
+    const sampleRate = 8000;
+    const duration = type === 'incoming' ? 3.0 : 2.0;
+    const numSamples = sampleRate * duration;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    
+    const writeString = (offset: number, string: string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+    
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        let sample = 0;
         
-        osc2 = audioCtx.createOscillator();
-        osc2.type = 'sine';
-        osc2.frequency.value = 480;
-
-        const merger = audioCtx.createGain();
-        merger.gain.value = 0.5;
-        merger.connect(gainNode);
-        
-        osc1.connect(merger);
-        osc2.connect(merger);
-        osc1.start();
-        osc2.start();
-
-        let step = 0;
-        intervalId = window.setInterval(() => {
-          if (gainNode && audioCtx) {
-            const t = audioCtx.currentTime;
-            if (step % 3 === 0) {
-              gainNode.gain.setTargetAtTime(0.25, t, 0.02);
-            } else {
-              gainNode.gain.setTargetAtTime(0, t, 0.05);
+        if (type === 'incoming') {
+            const cycleT = t % 3.0; 
+            if ((cycleT > 0 && cycleT < 0.4) || (cycleT > 0.6 && cycleT < 1.0)) {
+                sample = (Math.sin(2 * Math.PI * 400 * t) + Math.sin(2 * Math.PI * 450 * t)) * 0.5;
             }
-            step++;
-          }
-        }, 700);
-      } catch (e) {
-        console.warn('Ringtone failed:', e);
-      }
-    },
-    stop: () => {
-      if (intervalId) clearInterval(intervalId);
-      try {
-        osc1?.stop(); osc2?.stop(); audioCtx?.close();
-      } catch (_) { }
-      osc1 = null; osc2 = null; gainNode = null; audioCtx = null; intervalId = null;
+        } else {
+            const cycleT = t % 2.0; 
+            if (cycleT > 0 && cycleT < 0.4) {
+                sample = (Math.sin(2 * Math.PI * 425 * t) + Math.sin(2 * Math.PI * 475 * t)) * 0.5;
+            }
+        }
+        
+        const intSample = Math.max(-1, Math.min(1, sample)) * 32767;
+        view.setInt16(offset, intSample, true);
+        offset += 2;
     }
-  };
+    
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 8192;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+    }
+    const dataUri = 'data:audio/wav;base64,' + btoa(binary);
+    
+    const audio = new Audio(dataUri);
+    audio.loop = true;
+    
+    return {
+      start: () => { audio.play().catch(() => {}); },
+      stop: () => { audio.pause(); audio.src = ''; }
+    };
+  } catch(e) {
+    return { start: () => {}, stop: () => {} };
+  }
 }
 
 export function CallProvider({ children }: { children: React.ReactNode }) {
@@ -107,7 +119,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const ringtoneRef = useRef<ReturnType<typeof createRingtone> | null>(null);
+  const ringtoneRef = useRef<ReturnType<typeof createTone> | null>(null);
   
   // حفظ Session ID المحلي والبعيد ومعرف المكالمة الحالي للوصول السريع داخل المستمعين
   const myCfSessionIdRef = useRef<string | null>(null);
@@ -180,7 +192,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           callIdRef.current = data.id;
           setStatus('ringing');
           
-          const ringtone = createRingtone();
+          const ringtone = createTone('incoming');
           ringtoneRef.current = ringtone;
           ringtone.start();
           
@@ -222,7 +234,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             callIdRef.current = newCall.id;
             setStatus('ringing');
             
-            const ringtone = createRingtone();
+            const ringtone = createTone('incoming');
             ringtoneRef.current = ringtone;
             ringtone.start();
             
@@ -375,7 +387,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         avatar: profile?.avatar_url
       });
 
-      const ringtone = createRingtone();
+      const ringtone = createTone('outgoing');
       ringtoneRef.current = ringtone;
       ringtone.start();
 
