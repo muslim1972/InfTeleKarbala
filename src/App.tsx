@@ -13,6 +13,7 @@ import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
 import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
+import { Capacitor } from '@capacitor/core';
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -61,12 +62,11 @@ const AppContent = () => {
     return sessionStorage.getItem('hasChosenWeb') === 'true';
   });
 
-  // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK)
+  // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK) عن طريق المكتبة الرسمية
   const isStandalone = 
     window.matchMedia('(display-mode: standalone)').matches || 
     (window.navigator as any).standalone ||
-    (window as any).Capacitor?.isNativePlatform() ||
-    window.location.protocol === 'capacitor:';
+    Capacitor.isNativePlatform();
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة
   if (loading) return <LoadingScreen />;
