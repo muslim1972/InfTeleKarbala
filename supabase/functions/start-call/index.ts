@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { recipientId, callId, callerName, url } = await req.json()
+    const { recipientId, callId, callerName } = await req.json()
     console.log(`🔔 Sending call notification to ${recipientId}`);
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
@@ -36,7 +36,8 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
-        app_url: url, // 🌟 هذا هو المفتاح لمنع التطبيق من عمل Restart، سيركز النافذة المفتوحة بنفس الرابط
+        // تمت إزالة app_url: url لمنع مشكلة فتح علامة تبويب PWA إضافية، 
+        // بدون رابط سيقوم المتصفح/الهاتف بوضع التركيز Focus على التطبيق المفتوح حالياً
         // استخدام الطريقة الحديثة لتحديد المستلم
         include_aliases: { external_id: [recipientId] },
         // التوافق الرجعي
@@ -65,10 +66,10 @@ serve(async (req) => {
       JSON.stringify({ sent: response.ok, status: response.status }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+  } catch (err: any) {
+    console.error(`❌ Error: ${err.message}`);
     return new Response(
-      JSON.stringify({ sent: false, error: error.message }),
+      JSON.stringify({ sent: false, error: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
