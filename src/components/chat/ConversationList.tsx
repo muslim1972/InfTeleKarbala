@@ -105,7 +105,7 @@ export const ConversationList = () => {
 
     return (
         <div className="w-full md:w-80 border-l bg-white flex flex-col h-full relative">
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50 min-h-[64px]">
+            <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] border-b flex justify-between items-center bg-gray-50/50 min-h-[calc(64px+env(safe-area-inset-top))]">
                 {selectedIds.length > 0 ? (
                     <>
                         <div className="flex items-center gap-3">

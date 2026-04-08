@@ -169,7 +169,7 @@ export const TextInput: React.FC<TextInputProps> = ({
     };
 
     return (
-        <div className="p-3 bg-white border-t flex items-end gap-2 relative">
+        <div className="p-3 pb-[calc(1.2rem+env(safe-area-inset-bottom))] bg-white border-t flex items-end gap-2 relative">
             {/* Mentions Dropdown */}
             {showMentions && filteredMembers.length > 0 && (
                 <div className="absolute bottom-full mb-2 right-4 w-64 mentions-dropdown-container bg-white border border-gray-100 shadow-2xl rounded-2xl overflow-hidden z-[60] animate-in slide-in-from-bottom-2 fade-in duration-200">

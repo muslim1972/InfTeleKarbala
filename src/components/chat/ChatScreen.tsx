@@ -85,7 +85,7 @@ export function ChatScreen() {
                     onShowDetails={() => setShowInfoModal(true)}
                 />
             ) : (
-                <div className="bg-white px-4 py-3 border-b flex items-center justify-between shadow-sm z-[60] sticky top-0 transition-all">
+                <div className="bg-white px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b flex items-center justify-between shadow-sm z-[60] sticky top-0 transition-all min-h-[calc(64px+env(safe-area-inset-top))]">
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => navigate('/chat')}

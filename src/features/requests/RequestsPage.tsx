@@ -18,7 +18,7 @@ const RequestsPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+    <div className="p-4 md:p-8 pt-[calc(1.5rem+env(safe-area-inset-top))] max-w-7xl mx-auto animate-in fade-in duration-300">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">الطلبات</h1>
         <p className="text-gray-600 dark:text-gray-300">

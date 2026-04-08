@@ -44,7 +44,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
 
             {/* Header */}
-            <div className="relative z-10 flex flex-col items-center pt-8 md:pt-16 pb-6 animate-in fade-in slide-in-from-top-8 duration-1000">
+            <div className="relative z-10 flex flex-col items-center pt-[calc(2rem+env(safe-area-inset-top))] md:pt-16 pb-6 animate-in fade-in slide-in-from-top-8 duration-1000">
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-4 bg-slate-900 p-1">
                      <img src="/icon-512.png" alt="المديرية" className="w-full h-full object-cover rounded-full" />
                 </div>
