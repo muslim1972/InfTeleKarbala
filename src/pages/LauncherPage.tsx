@@ -21,11 +21,8 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
     }, []);
 
     const handleWebProceed = () => {
-        if (onProceed) {
-            onProceed();
-        } else {
-            setShowLogin(true);
-        }
+        if (onProceed) onProceed();
+        setShowLogin(true);
     };
 
     if (showLogin) {
