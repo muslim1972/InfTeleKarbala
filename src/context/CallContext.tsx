@@ -132,17 +132,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   // --- دوال مساعدة لطلب Cloudflare عبر Vercel API ---
   const handleCFAPI = async (action: string, payload: any = {}, sessionId?: string) => {
-    // تحديد ما إذا كان يجب استخدام رابط مطلق (في حالة APK) أو نسبي (في حالة PWA)
+    // تحديد ما إذا كان يجب استخدام رابط مطلق (في حالة APK أو تجربة على رابط مختلف)
     const isNative = Capacitor.isNativePlatform();
-    const baseUrl = isNative ? PROD_API_URL : '';
+    const isDifferentOrigin = typeof window !== 'undefined' && !window.location.host.includes('inf-tele-karbala.vercel.app');
+    const baseUrl = (isNative || isDifferentOrigin) ? PROD_API_URL : '';
     
-    const res = await fetch(`${baseUrl}/api/cloudflare`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, sessionId, payload })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      const res = await fetch(`${baseUrl}/api/cloudflare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, sessionId, payload })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API Error: ${res.status} - ${text}`);
+      }
+      return res.json();
+    } catch (err: any) {
+      console.error('CF API Failure:', err);
+      throw err;
+    }
   };
 
   /**
@@ -430,8 +439,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       }).catch(() => {});
 
-    } catch (err) {
-      toast.error('لم نتمكن من بدء المكالمة');
+    } catch (err: any) {
+      const msg = err?.message || 'خطأ غير معروف';
+      toast.error(`لم نتمكن من بدء المكالمة: ${msg}`);
       cleanupCall();
     }
   };
