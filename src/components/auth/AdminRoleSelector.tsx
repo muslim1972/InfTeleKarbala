@@ -10,39 +10,40 @@ export const AdminRoleSelector = ({ onSelect }: AdminRoleSelectorProps) => {
     const { user } = useAuth();
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gray-900 font-tao">
-            {/* Smart Background Layer */}
+        <div className="h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden bg-gray-900 font-tao scroll-smooth">
+            {/* Smart Background Layer - Fixed */}
             <div
-                className="absolute inset-0 z-0 bg-cover bg-center scale-105"
+                className="fixed inset-0 z-0 bg-cover bg-center scale-105"
                 style={{ backgroundImage: `url('/sign-in.jpg')` }}
             >
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
             </div>
 
-            {/* Main Content */}
-            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center">
+            {/* Main Content Container */}
+            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(3rem+env(safe-area-inset-top))] pb-40">
 
                 <div className="text-center mb-6 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <h1 className="text-2xl md:text-3xl font-bold text-white font-tajawal drop-shadow-lg">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white font-tajawal drop-shadow-lg leading-relaxed">
                         مرحباً بك، {user?.full_name}
                     </h1>
-                    <p className="text-white/80 text-base">
+                    <p className="text-white/80 text-base italic">
                         يرجى اختيار طريقة الدخول
                     </p>
+                    <div className="h-1 w-12 bg-brand-green mx-auto rounded-full mt-2 shadow-[0_0_20px_rgba(34,197,94,0.5)]" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
                     {/* User Role Button */}
                     <button
                         onClick={() => onSelect('user')}
-                        className="group relative flex flex-col items-center justify-center p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                        className="group relative flex flex-col items-center justify-center p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,197,94,0.2)] active:scale-[0.98]"
                     >
                         <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center mb-4 group-hover:bg-brand-green/30 transition-colors border border-brand-green/30">
                             <User className="w-8 h-8 text-brand-green" />
                         </div>
                         <h3 className="text-lg font-bold text-white mb-2">مستخدم</h3>
-                        <p className="text-xs text-white/60 text-center">
+                        <p className="text-xs text-white/60 text-center leading-relaxed">
                             الدخول للصلاحيات الشخصية ومتابعة السجلات
                         </p>
                     </button>
@@ -50,13 +51,13 @@ export const AdminRoleSelector = ({ onSelect }: AdminRoleSelectorProps) => {
                     {/* Admin Role Button */}
                     <button
                         onClick={() => onSelect('admin')}
-                        className="group relative flex flex-col items-center justify-center p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+                        className="group relative flex flex-col items-center justify-center p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] active:scale-[0.98]"
                     >
                         <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 group-hover:bg-blue-500/30 transition-colors border border-blue-500/30">
                             <ShieldCheck className="w-8 h-8 text-blue-400" />
                         </div>
                         <h3 className="text-lg font-bold text-white mb-2">مشرف</h3>
-                        <p className="text-xs text-white/60 text-center">
+                        <p className="text-xs text-white/60 text-center leading-relaxed">
                             الدخول للوحة الإدارة والتحكم بالنظام
                         </p>
                     </button>
