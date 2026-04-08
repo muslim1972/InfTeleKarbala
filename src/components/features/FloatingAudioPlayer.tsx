@@ -56,8 +56,8 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
                 className={cn(
                     "fixed z-[100] group transition-all duration-500 cursor-pointer",
                     isChat 
-                        ? "top-[10px] left-14" 
-                        : "bottom-[6px] left-4",
+                        ? "top-[calc(10px+env(safe-area-inset-top))] left-14" 
+                        : "bottom-[calc(1.8rem+env(safe-area-inset-bottom))] left-4",
                     className
                 )}
             >

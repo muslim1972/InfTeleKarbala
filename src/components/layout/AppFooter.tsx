@@ -20,7 +20,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                         <div className="absolute top-1/2 left-0 w-1/4 h-px bg-gradient-to-r from-transparent to-blue-500/20"></div>
                         <div className="absolute top-1/2 right-0 w-1/4 h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
 
-                        <span className="text-blue-400 font-bold text-[clamp(9px,3vw,16px)] tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)] whitespace-nowrap block truncate sm:text-sm md:text-base px-4">
+                        <span className="text-blue-400 font-bold text-[clamp(8px,3.8vw,16px)] tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)] whitespace-nowrap block px-4 sm:text-sm md:text-base">
                             نظام الادارة الموحد / اتصالات ومعلوماتية كربلاء المقدسة
                         </span>
                     </div>
@@ -28,26 +28,26 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                     {/* Line 3: Credits & Version - Grid layout for better responsiveness */}
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center text-[clamp(8px,2.5vw,11px)] md:text-xs text-white/50 font-mono relative pt-1 gap-2">
                         {/* Left: Credits */}
-                        <div className="flex items-center gap-1.5 overflow-hidden">
+                        <div className="flex items-center gap-1 overflow-hidden">
                             <Code2 className="w-2.5 h-2.5 shrink-0" />
-                            <span className="truncate">اعداد المهندس مسلم عقيل</span>
+                            <span className="whitespace-nowrap">اعداد م. مسلم عقيل</span>
                         </div>
 
                         {/* Center: Signature Image - Solar Halo */}
                         <div
                             onClick={onDeveloperClick}
-                            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 cursor-pointer group active:scale-95 transition-all z-[60]"
+                            className="flex items-center justify-center w-12 h-12 md:w-16 md:h-16 cursor-pointer group active:scale-95 transition-all z-[60]"
                         >
                             {/* Halo Effect - Sun Rays */}
-                            <div className="absolute w-8 h-8 md:w-10 md:h-10 bg-yellow-500/40 rounded-full blur-sm animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
-                            <div className="absolute w-8 h-8 md:w-10 md:h-10 bg-yellow-400/30 rounded-full blur-md animate-ripple group-hover:bg-blue-400/40" style={{ animationDelay: '0.6s' }} />
-                            <div className="absolute w-8 h-8 md:w-10 md:h-10 bg-orange-400/20 rounded-full blur-lg animate-ripple group-hover:bg-purple-400/30" style={{ animationDelay: '1.2s' }} />
+                            <div className="absolute w-10 h-10 md:w-14 md:h-14 bg-yellow-500/40 rounded-full blur-sm animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
+                            <div className="absolute w-10 h-10 md:w-14 md:h-14 bg-yellow-400/30 rounded-full blur-md animate-ripple group-hover:bg-blue-400/40" style={{ animationDelay: '0.6s' }} />
+                            <div className="absolute w-10 h-10 md:w-14 md:h-14 bg-orange-400/20 rounded-full blur-lg animate-ripple group-hover:bg-purple-400/30" style={{ animationDelay: '1.2s' }} />
 
                             {/* The Image */}
                             <img
                                 src="/MyName.png"
                                 alt="Signature"
-                                className="h-8 md:h-10 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500"
+                                className="h-10 md:h-14 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500"
                             />
                         </div>
 
