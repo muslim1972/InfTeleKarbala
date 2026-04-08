@@ -13,6 +13,11 @@ export interface PushNotificationOptions {
   isBuzz?: boolean;
 }
 
+import { Capacitor } from '@capacitor/core';
+
+// الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
+const PROD_API_URL = 'https://inf-tele-karbala.vercel.app';
+
 export const sendPushNotification = async (
   recipientId: string,
   message: string,
@@ -24,18 +29,21 @@ export const sendPushNotification = async (
     return;
   }
 
-  // Skip sending if we're on localhost to prevent console errors
-  // since the Vercel Serverless Function (/api/notify) isn't running locally by default
+  // تحديد ما إذا كان التطبيق يعمل كـ Native (APK)
+  const isNative = Capacitor.isNativePlatform();
+
+  // السماح بالإشعارات في حالة الـ APK حتى لو كان العنوان localhost
   const isLocalhost = typeof window !== 'undefined' && 
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-  if (isLocalhost) {
+  if (isLocalhost && !isNative) {
     console.log('📬 [Localhost Dev] Push notification blocked. Payload:', { recipientId, message, options });
     return;
   }
 
   try {
-    const response = await fetch('/api/notify', {
+    const baseUrl = isNative ? PROD_API_URL : '';
+    const response = await fetch(`${baseUrl}/api/notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

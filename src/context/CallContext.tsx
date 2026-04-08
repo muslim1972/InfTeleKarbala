@@ -10,6 +10,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { CallOverlay } from '../components/call/CallOverlay';
+import { Capacitor } from '@capacitor/core';
+
+// الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
+const PROD_API_URL = 'https://inf-tele-karbala.vercel.app';
 
 interface CallContextType {
   callId: string | null;
@@ -128,7 +132,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   // --- دوال مساعدة لطلب Cloudflare عبر Vercel API ---
   const handleCFAPI = async (action: string, payload: any = {}, sessionId?: string) => {
-    const res = await fetch('/api/cloudflare', {
+    // تحديد ما إذا كان يجب استخدام رابط مطلق (في حالة APK) أو نسبي (في حالة PWA)
+    const isNative = Capacitor.isNativePlatform();
+    const baseUrl = isNative ? PROD_API_URL : '';
+    
+    const res = await fetch(`${baseUrl}/api/cloudflare`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, sessionId, payload })
