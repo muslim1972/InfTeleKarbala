@@ -49,27 +49,27 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gray-900 font-tao">
-      {/* Smart Background Layer - Ready for dynamic rotation */}
+    <div className="h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden bg-gray-900 font-tao scroll-smooth pb-12">
+      {/* Smart Background Layer - Fixed to stay during scroll */}
       <div
-        className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105"
+        className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105"
         style={{ backgroundImage: `url('/sign-in.jpg')` }}
       >
         {/* Overlay for readability - slight dark tint & blur */}
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
 
-        {/* Optional: Gradient overlay from bottom to ensuring footer/bottom readability */}
+        {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30"></div>
       </div>
 
-      {/* Main Content Content */}
-      <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center">
+      {/* Main Content Container */}
+      <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] pb-40">
 
         {/* Back to Launcher Button */}
         {onBack && (
           <button
             onClick={onBack}
-            className="self-start mb-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 animate-in fade-in slide-in-from-right-4 duration-500"
+            className="self-start mb-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors text-xs font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 animate-in fade-in slide-in-from-right-4 duration-500"
           >
             <span>→</span>
             <span>العودة للبوابة</span>
@@ -77,18 +77,18 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
         )}
 
         {/* Header / Logo Section */}
-        <div className="text-center mb-6 space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <h1 className="text-xl md:text-4xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide px-4">
+        <div className="text-center mb-4 space-y-2 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <h1 className="text-lg md:text-3xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide px-4 leading-relaxed">
             مديرية الاتصالات ومعلوماتية كربلاء المقدسة
           </h1>
-          <div className="h-1 w-16 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
-          <h2 className="text-white/90 text-base font-medium drop-shadow-md tracking-wider">
+          <div className="h-1 w-12 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
+          <h2 className="text-white/80 text-sm font-medium drop-shadow-md tracking-wider italic">
             نظام الادارة الموحد
           </h2>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="w-full space-y-5 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl ring-1 ring-white/5">
+        <form onSubmit={handleLogin} className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl ring-1 ring-white/5">
 
           <div className="space-y-2">
             <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">اسم المستخدم</label>
