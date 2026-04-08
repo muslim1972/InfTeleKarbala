@@ -33,7 +33,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
     }
 
     return (
-        <div className="min-h-screen w-full flex flex-col relative overflow-hidden bg-slate-950 font-tajawal text-slate-100" dir="rtl">
+        <div className="min-h-screen w-full flex flex-col relative overflow-y-auto overflow-x-hidden bg-slate-950 font-tajawal text-slate-100 scroll-smooth" dir="rtl">
             {/* Background elements */}
             <div className="absolute inset-0 z-0 bg-cover bg-center opacity-40 scale-105"
                 style={{ backgroundImage: `url('/sign-in.jpg')` }} />
@@ -44,7 +44,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
 
             {/* Header */}
-            <div className="relative z-10 flex flex-col items-center pt-[calc(2rem+env(safe-area-inset-top))] md:pt-16 pb-6 animate-in fade-in slide-in-from-top-8 duration-1000">
+            <div className="relative z-10 flex flex-col items-center pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-16 pb-4 animate-in fade-in slide-in-from-top-8 duration-1000">
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-4 bg-slate-900 p-1">
                      <img src="/icon-512.png" alt="المديرية" className="w-full h-full object-cover rounded-full" />
                 </div>
@@ -131,7 +131,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                 </div>
 
                 {/* Legacy App Link */}
-                <div className="mt-12 pt-6 border-t border-white/10 w-full max-w-sm flex items-center justify-center animate-in fade-in duration-1000 delay-500">
+                <div className="mt-8 pt-4 border-t border-white/10 w-full max-w-sm flex items-center justify-center animate-in fade-in duration-1000 delay-500">
                     <a 
                         href="https://itpc-management-system.onrender.com/"
                         className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors duration-300 group"

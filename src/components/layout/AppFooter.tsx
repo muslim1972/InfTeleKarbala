@@ -20,7 +20,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                         <div className="absolute top-1/2 left-0 w-1/4 h-px bg-gradient-to-r from-transparent to-blue-500/20"></div>
                         <div className="absolute top-1/2 right-0 w-1/4 h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
 
-                        <span className="text-blue-400 font-bold text-[clamp(8px,3.8vw,16px)] tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)] whitespace-nowrap block px-4 sm:text-sm md:text-base">
+                        <span className="text-blue-400 font-bold text-[clamp(10px,4.5vw,15px)] tracking-wide drop-shadow-[0_2px_10px_rgba(96,165,250,0.3)] block px-4 sm:text-sm md:text-base leading-tight">
                             نظام الادارة الموحد / اتصالات ومعلوماتية كربلاء المقدسة
                         </span>
                     </div>
