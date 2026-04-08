@@ -43,29 +43,46 @@ export const sendPushNotification = async (
 
   try {
     const baseUrl = isNative ? PROD_API_URL : '';
-    const response = await fetch(`${baseUrl}/api/notify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipientId,
-        message,
-        title: options?.title || 'إشعار جديد',
-        url: options?.url,
-        data: options?.data,
-        isBuzz: options?.isBuzz
-      }),
-    });
+    const url = `${baseUrl}/api/notify`;
+    const payload = {
+      recipientId,
+      message,
+      title: options?.title || 'إشعار جديد',
+      url: options?.url,
+      data: options?.data,
+      isBuzz: options?.isBuzz
+    };
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.warn('OneSignal API Relay Error:', response.status, errorData);
-      // We don't throw an error here to prevent blocking the user's flow
-      // if notifications fail (e.g. they sent a message, they shouldn't see an error
-      // just because the notification didn't go through).
+    if (isNative) {
+      // استخدام CapacitorHttp لتخطي قيود CORS في الـ APK
+      const { CapacitorHttp } = await import('@capacitor/core');
+      const response = await CapacitorHttp.post({
+        url,
+        headers: { 'Content-Type': 'application/json' },
+        data: payload
+      });
+
+      if (response.status >= 300) {
+        console.warn('OneSignal API Relay Error (Native):', response.status, response.data);
+      } else {
+        console.log('📬 Push notification sent successfully to', recipientId);
+      }
     } else {
-      console.log('📬 Push notification sent successfully to', recipientId);
+      // استخدام fetch التقليدي في المتصفح (PWA)
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('OneSignal API Relay Error:', response.status, errorData);
+      } else {
+        console.log('📬 Push notification sent successfully to', recipientId);
+      }
     }
   } catch (error) {
     // Network errors or other unexpected exceptions

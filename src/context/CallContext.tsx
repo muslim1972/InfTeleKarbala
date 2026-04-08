@@ -136,18 +136,35 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const isNative = Capacitor.isNativePlatform();
     const isDifferentOrigin = typeof window !== 'undefined' && !window.location.host.includes('inf-tele-karbala.vercel.app');
     const baseUrl = (isNative || isDifferentOrigin) ? PROD_API_URL : '';
-    
+    const url = `${baseUrl}/api/cloudflare`;
+
     try {
-      const res = await fetch(`${baseUrl}/api/cloudflare`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, sessionId, payload })
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`API Error: ${res.status} - ${text}`);
+      if (isNative) {
+        // استخدام CapacitorHttp لتخطي قيود CORS في الـ APK
+        const { CapacitorHttp } = await import('@capacitor/core');
+        const response = await CapacitorHttp.post({
+          url,
+          headers: { 'Content-Type': 'application/json' },
+          data: { action, sessionId, payload }
+        });
+        
+        if (response.status >= 300) {
+          throw new Error(`API Error: ${response.status} - ${JSON.stringify(response.data)}`);
+        }
+        return response.data;
+      } else {
+        // استخدام fetch التقليدي في المتصفح (PWA)
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, sessionId, payload })
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`API Error: ${res.status} - ${text}`);
+        }
+        return res.json();
       }
-      return res.json();
     } catch (err: any) {
       console.error('CF API Failure:', err);
       throw err;
