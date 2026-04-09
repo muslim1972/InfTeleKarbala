@@ -36,6 +36,7 @@
     "katex": "^0.16.44",
     "localforage": "^1.10.0",
     "lucide-react": "^0.563.0",
+    "onesignal-cordova-plugin": "^5.3.6",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "127399452268",
+    "project_id": "info-tele-karbala",
+    "storage_bucket": "info-tele-karbala.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:127399452268:android:2e6c66f3eb994b03b8c249",
+        "android_client_info": {
+          "package_name": "com.inftelekarbala.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUhiF-phL1lRTsyeknFBBkBGS825tb3ZQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

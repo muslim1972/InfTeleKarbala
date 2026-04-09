@@ -1,12 +1,6 @@
-/**
- * OneSignalService.ts
- * 
- * Handles SDK initialization, user authentication (login/logout), 
- * and dynamic script injection to keep index.html clean.
- */
-
-
 import { Capacitor } from '@capacitor/core';
+
+const ONESIGNAL_APP_ID = "beae0757-7abe-46a8-b223-8f6c65e47fb5";
 
 /**
  * دالة لطلب الإذن بالإشعارات بشكل صريح (مفيدة للأندرويد 13+)
@@ -14,100 +8,117 @@ import { Capacitor } from '@capacitor/core';
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
   
-  const OneSignal = (window as any).OneSignal;
-  if (OneSignal && OneSignal.Notifications) {
-    try {
-      console.log('OneSignal: Requesting permission...');
-      const permission = await OneSignal.Notifications.requestPermission();
-      console.log('OneSignal: Permission result:', permission);
-      return permission;
-    } catch (err) {
-      console.error('OneSignal: Permission request failed:', err);
+  const isNative = Capacitor.isNativePlatform();
+  
+  if (isNative) {
+    // التعامل مع المشغل الأصلي (Cordova Plugin)
+    const OS = (window as any).OneSignal;
+    if (OS && OS.Notifications) {
+      console.log('OneSignal Native: Requesting permission...');
+      return await OS.Notifications.requestPermission(true);
     }
   } else {
-    // إذا لم تكن المكتبة جاهزة، نضعها في الانتظار
-    const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-    OneSignalDeferred.push(async (OS: any) => {
-      await OS.Notifications.requestPermission();
-    });
+    // التعامل مع نسخة الويب
+    const OS = (window as any).OneSignal;
+    if (OS && OS.Notifications) {
+      try {
+        console.log('OneSignal Web: Requesting permission...');
+        const permission = await OS.Notifications.requestPermission();
+        console.log('OneSignal Web: Permission result:', permission);
+        return permission;
+      } catch (err) {
+        console.error('OneSignal Web: Permission request failed:', err);
+      }
+    } else {
+      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
+      OneSignalDeferred.push(async (deferredOS: any) => {
+        await deferredOS.Notifications.requestPermission();
+      });
+    }
   }
 };
 
 /**
- * Initializes OneSignal for a specific user and requests permissions.
- * @param userId The UUID of the logged-in user
+ * تهيئة OneSignal للمستخدم
+ * @param userId معرف المستخدم في Supabase
  */
 export const initOneSignal = (userId: string) => {
   if (typeof window === 'undefined') return;
   
-  // السماح بالتشغيل في الـ APK حتى لو كان الرابط localhost
   const isNative = Capacitor.isNativePlatform();
-  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isNative) {
+
+  // منع التشغيل في المتصفح العادي على localhost (فقط للأغراض التطويرية)
+  if (!isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    console.log('OneSignal: Debug mode on localhost (Web)');
     return;
   }
 
-  const setupUser = async (OS: any) => {
-    try {
-      // 1. Identify User (Isolated to prevent it from blocking the prompt if it fails/hangs)
+  if (isNative) {
+    // --- تهيئة النسخة الأصلية (APK) ---
+    const OS = (window as any).OneSignal;
+    if (OS) {
+      try {
+        OS.initialize(ONESIGNAL_APP_ID);
+        OS.login(userId);
+        
+        // طلب الإذن فور تسجيل الدخول في الـ APK
+        OS.Notifications.requestPermission(true).then((accepted: boolean) => {
+          console.log("OneSignal Native: Permission accepted:", accepted);
+        });
+
+        // الاستماع لإشعارات المقدمة لتجنب تكرار الأصوات
+        OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
+          const notificationData = event.getNotification().getAdditionalData();
+          if (notificationData?.isBuzz === true || notificationData?.isBuzz === 'true') {
+            event.preventDefault(); // منع الإشعار الافتراضي لأن التطبيق سيهتز يدوياً
+          }
+        });
+
+      } catch (err) {
+        console.error("OneSignal Native Init Error:", err);
+      }
+    } else {
+      console.warn("OneSignal Native Plugin not found on window object.");
+    }
+  } else {
+    // --- تهيئة نسخة الويب (PWA) ---
+    const setupWebUser = async (OS: any) => {
       try {
         if (typeof OS.login === 'function') {
-          // Do NOT await this! If OneSignal backend hangs, it blocks the prompt forever.
-          OS.login(userId).catch((err: any) => console.error('OneSignal login failed:', err));
-          console.log('OneSignal: Login request sent for', userId);
+          OS.login(userId).catch((err: any) => console.error('OneSignal Web login failed:', err));
         }
-      } catch (loginErr) {
-        console.error('OneSignal: Login error (ignoring to proceed with prompt):', loginErr);
-      }
 
-      // 2. Polite Permission Prompt (Slidedown)
-      const permission = await OS.Notifications.permission;
-      
-      if (!permission) {
-          // canPrompt is not a function in OneSignal v16, removed to prevent TypeError
-          console.log('OneSignal: Attempting to show Slidedown prompt...');
+        const permission = await OS.Notifications.permission;
+        if (!permission) {
           OS.Slidedown.promptPush({ force: true });
-      } else {
-          console.log('OneSignal: Permission already granted naturally.');
+        }
+      } catch (e) {
+        console.error('OneSignal Web setup error:', e);
       }
+    };
 
-      // 3. Handle Foreground Notifications to avoid sound conflict
-      OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
-          const notificationData = event.notification.data;
-          // Robust check for isBuzz flag (handles boolean or string from OneSignal)
-          const isBuzz = notificationData?.isBuzz === true || notificationData?.isBuzz === 'true';
-          
-          if (isBuzz) {
-              // Prevent the system notification from showing when the app is open
-              // because ChatContext.tsx is already playing the custom buzz.wav sound.
-              event.preventDefault();
-              console.log('OneSignal: Suppressed foreground Buzz notification to prevent sound conflict.');
-          }
+    const OneSignal = (window as any).OneSignal;
+    if (OneSignal && typeof OneSignal.login === 'function') {
+      setupWebUser(OneSignal);
+    } else {
+      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
+      (window as any).OneSignalDeferred = OneSignalDeferred;
+      OneSignalDeferred.push((OS: any) => {
+        setupWebUser(OS);
       });
-    } catch (e) {
-      console.error('OneSignal setup error:', e);
     }
-  };
-
-  const OneSignal = (window as any).OneSignal;
-  if (OneSignal && typeof OneSignal.login === 'function') {
-    setupUser(OneSignal);
-  } else {
-    const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-    (window as any).OneSignalDeferred = OneSignalDeferred;
-    OneSignalDeferred.push((OS: any) => {
-      setupUser(OS);
-    });
   }
 };
 
 /**
- * Logs the user out of OneSignal (stopping notifications for this device).
+ * تسجيل الخروج من OneSignal
  */
 export const logoutOneSignal = () => {
   if (typeof window === 'undefined') return;
-  const OneSignal = (window as any).OneSignal;
-  if (OneSignal && typeof OneSignal.logout === 'function') {
-    OneSignal.logout();
+  const OS = (window as any).OneSignal;
+  
+  if (OS && typeof OS.logout === 'function') {
+    OS.logout();
     console.log('OneSignal: Logged out');
   }
 };
