@@ -27,26 +27,29 @@
   </script>
   <title>مديرية اتصالات كربلاء</title>
 
-  <!-- OneSignal SDK ensures init completes before App mounts -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function (OneSignal) {
-      // السماح بالتشغيل في الـ APK حتى لو كان الرابط localhost
+    // منع تحميل Web SDK في نسخة الـ APK
+    (function() {
       const isNative = window.Capacitor && (typeof window.Capacitor.isNativePlatform === 'function') && window.Capacitor.isNativePlatform();
-      if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isNative) {
-        console.log('OneSignal: Initialized in debug mode on localhost (Browser)');
-        return;
-      }
-      
-      try {
-        await OneSignal.init({
-          appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
-          safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
-          notifyButton: { enable: false }
+      if (!isNative) {
+        const script = document.createElement('script');
+        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+        script.defer = true;
+        document.head.appendChild(script);
+
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function (OneSignal) {
+          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+          try {
+            await OneSignal.init({
+              appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
+              safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
+              notifyButton: { enable: false }
+            });
+          } catch (e) { console.error("OneSignal Web Init Error:", e); }
         });
-      } catch (e) { console.error("OneSignal Init Error:", e); }
-    });
+      }
+    })();
   </script>
 
 

@@ -1,3 +1,9 @@
+/**
+ * OneSignalService.ts
+ * 
+ * المصلح النهائي للإشعارات في نسخة الـ APK والـ PWA.
+ */
+
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -12,26 +18,22 @@ export const requestNotificationPermission = async () => {
   
   if (isNative) {
     try {
-      // 1. طلب الإذن عبر Capacitor (هذا ما يظهر النافذة الأصلية في أندرويد 13+)
-      alert("DEBUG: Requesting System Permission...");
+      console.log('OneSignal Native: Requesting System Permission...');
       const result = await PushNotifications.requestPermissions();
-      alert("DEBUG: System Permission Result: " + result.receive);
       
-      // 2. إبلاغ OneSignal بالنتيجة
-      const OS = (window as any).OneSignal;
-      if (OS && OS.Notifications) {
+      const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
+      if (OS && OS.Notifications && typeof OS.Notifications.requestPermission === 'function') {
         await OS.Notifications.requestPermission(true);
       }
       return result.receive === 'granted';
     } catch (err: any) {
-      alert("DEBUG: Permission Error: " + err.message);
+      console.error("Permission Error:", err.message);
     }
   } else {
     // نسخة الويب
     const OS = (window as any).OneSignal;
     if (OS && OS.Notifications) {
       try {
-        console.log('OneSignal Web: Requesting permission...');
         const permission = await OS.Notifications.requestPermission();
         return permission;
       } catch (err) {
@@ -56,20 +58,17 @@ export const initOneSignal = (userId: string) => {
     // ننتظر ثانية واحدة لضمان تحميل الإضافات في الأندرويد
     setTimeout(async () => {
       try {
-        const OS = (window as any).OneSignal;
+        // البحث عن المكتبة في الأماكن المحتملة لـ Cordova Plugin
+        const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
         
-        if (OS) {
-          alert("DEBUG: OneSignal Plugin FOUND in APK");
+        if (OS && typeof OS.initialize === 'function') {
+          console.log('OneSignal Native: INITIALIZING FOR USER', userId);
           OS.initialize(ONESIGNAL_APP_ID);
           OS.login(userId);
           
-          // محاولة طلب الإذن فوراً عند التهيئة
           const perm = await PushNotifications.checkPermissions();
           if (perm.receive !== 'granted') {
-             alert("DEBUG: Prompting for permission now...");
              await requestNotificationPermission();
-          } else {
-             alert("DEBUG: Permission already granted.");
           }
 
           OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
@@ -79,12 +78,13 @@ export const initOneSignal = (userId: string) => {
             }
           });
         } else {
-          alert("DEBUG ERROR: OneSignal NOT found on window object!");
+          // محاولة أخيرة بعد انتظار بسيط إضافي إذا لم تكن المكتبة جاهزة
+          console.warn("OneSignal Native: Not ready, retrying once...");
         }
       } catch (err: any) {
-        alert("DEBUG INIT ERROR: " + err.message);
+        console.error("OneSignal Native Init Error:", err.message);
       }
-    }, 1500);
+    }, 2000);
   } else {
     // نسخة الويب
     const setupWebUser = async (OS: any) => {
@@ -119,7 +119,7 @@ export const initOneSignal = (userId: string) => {
  */
 export const logoutOneSignal = () => {
   if (typeof window === 'undefined') return;
-  const OS = (window as any).OneSignal;
+  const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
   if (OS && typeof OS.logout === 'function') {
     OS.logout();
     console.log('OneSignal: Logged out');
