@@ -41,6 +41,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const [showDropdown, setShowDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const detailsRef = useRef<HTMLDivElement>(null);
 
     // Click outside to close suggestions & dropdown
     useEffect(() => {
@@ -116,6 +117,16 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
             setDepartmentName('غير محدد');
             setManagerName('غير محدد');
         }
+
+        // Auto-scroll to ensure the entire card (especially save buttons) is visible relative to the footer
+        setTimeout(() => {
+            if (detailsRef.current) {
+                const rect = detailsRef.current.getBoundingClientRect();
+                const offset = 150; // Offset for the fixed footer
+                const targetY = window.scrollY + rect.top - offset;
+                window.scrollTo({ top: targetY, behavior: 'smooth' });
+            }
+        }, 400);
     };
 
     // Clear all fields
@@ -221,10 +232,13 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
             {/* Employee Info Card */}
             {selectedEmployee && (
-                <div className={cn(
-                    "rounded-xl border p-5 space-y-4 animate-in fade-in slide-in-from-top-3 duration-300",
-                    isLight ? "bg-white border-amber-200/60 shadow-sm" : "bg-white/5 border-white/10"
-                )}>
+                <div 
+                    ref={detailsRef}
+                    className={cn(
+                        "rounded-xl border p-5 space-y-4 animate-in fade-in slide-in-from-top-3 duration-300",
+                        isLight ? "bg-white border-amber-200/60 shadow-sm" : "bg-white/5 border-white/10"
+                    )}
+                >
                     {/* Employee Name */}
                     <div className="flex items-center gap-3">
                         <div className={cn(
@@ -349,7 +363,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex gap-3 pt-2 pb-10">
                         <button
                             onClick={handleSave}
                             disabled={saving}

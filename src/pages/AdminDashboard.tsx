@@ -67,6 +67,7 @@ export const AdminDashboard = () => {
     }, []);
 
 
+
     const detailsRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLDivElement>(null);
 
@@ -273,6 +274,7 @@ export const AdminDashboard = () => {
                     loading={loading}
                 />
             )}
+
 
             {/* News Ticker Tab */}
             {activeTab === 'admin_news' && (

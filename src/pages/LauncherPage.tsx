@@ -3,6 +3,8 @@ import { Login } from "./Login";
 import { Smartphone, MonitorPlay, ChevronLeft, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import { useTheme } from "../context/ThemeContext";
+import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 
 interface LauncherPageProps {
     onProceed?: () => void;
@@ -10,7 +12,8 @@ interface LauncherPageProps {
 }
 
 export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPageProps) => {
-    const {} = useAuth();
+    const { } = useAuth();
+    const { theme } = useTheme();
     const [showLogin, setShowLogin] = useState(initialShowLogin);
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
 
@@ -31,31 +34,52 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
     }
 
     return (
-        <div className="h-screen w-full flex flex-col relative overflow-y-auto overflow-x-hidden bg-slate-950 font-tajawal text-slate-100 scroll-smooth" dir="rtl">
+        <div className={`h-screen w-full flex flex-col relative overflow-y-auto overflow-x-hidden font-tajawal scroll-smooth transition-colors duration-500 ${
+            theme === 'light' ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'
+        }`} dir="rtl">
+            <ThemeToggleFloating />
+
             {/* Background elements - Fixed to prevent movement during scroll */}
-            <div className="fixed inset-0 z-0 bg-cover bg-center opacity-40 scale-105"
+            <div className={`fixed inset-0 z-0 bg-cover bg-center transition-opacity duration-1000 scale-105 ${
+                theme === 'light' ? 'opacity-20' : 'opacity-40'
+            }`}
                 style={{ backgroundImage: `url('/sign-in.jpg')` }} />
-            <div className="fixed inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950 z-0"></div>
+            
+            <div className={`fixed inset-0 z-0 transition-colors duration-700 ${
+                theme === 'light' 
+                    ? 'bg-gradient-to-b from-white/90 via-white/80 to-white' 
+                    : 'bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950'
+            }`}></div>
             
             {/* Animated glows - Fixed */}
-            <div className="fixed top-0 right-0 w-96 h-96 bg-emerald-500/20 rounded-full blur-[100px] pointer-events-none"></div>
-            <div className="fixed bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
+            <div className={`fixed top-0 right-0 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-colors duration-1000 ${
+                theme === 'light' ? 'bg-emerald-200/40' : 'bg-emerald-500/20'
+            }`}></div>
+            <div className={`fixed bottom-0 left-0 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-colors duration-1000 ${
+                theme === 'light' ? 'bg-blue-200/40' : 'bg-blue-500/20'
+            }`}></div>
 
             {/* Header */}
             <div className="relative z-10 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] md:pt-16 pb-2 animate-in fade-in slide-in-from-top-8 duration-1000">
-                <div className="w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-2 bg-slate-900 p-1">
+                <div className={`w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 shadow-xl mb-2 p-1 ${
+                    theme === 'light' ? 'border-brand-green/20 bg-white shadow-gray-200' : 'border-emerald-500/50 bg-slate-900 shadow-[0_0_30px_rgba(34,197,94,0.3)]'
+                }`}>
                      <img src="/icon-512.png" alt="المديرية" className="w-full h-full object-cover rounded-full" />
                 </div>
-                <h1 className="text-xl md:text-4xl font-bold text-white drop-shadow-md text-center px-4 leading-tight">
+                <h1 className={`text-xl md:text-4xl font-bold drop-shadow-md text-center px-4 leading-tight transition-colors duration-500 ${
+                    theme === 'light' ? 'text-slate-900' : 'text-white'
+                }`}>
                     مديرية الاتصالات ومعلوماتية<br className="md:hidden" /> كربلاء المقدسة
                 </h1>
-                <p className="text-emerald-400 mt-1 text-sm md:text-lg italic">نظام الإدارة الموحد</p>
-                <div className="h-1 w-12 bg-emerald-500 rounded-full mt-2" />
+                <p className="text-brand-green mt-1 text-sm md:text-lg italic font-medium">نظام الإدارة الموحد</p>
+                <div className="h-1.5 w-16 bg-brand-green rounded-full mt-2 shadow-lg" />
             </div>
 
             {/* Platform Selection */}
             <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col items-center px-6 pb-20">
-                <h2 className="text-lg text-slate-300 mb-6 text-center animate-in fade-in duration-1000 delay-150">
+                <h2 className={`text-lg mb-6 text-center animate-in fade-in duration-1000 delay-150 transition-colors ${
+                    theme === 'light' ? 'text-slate-600' : 'text-slate-300'
+                }`}>
                     اختر المنصة المناسبة لجهازك
                 </h2>
 
@@ -69,20 +93,24 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                         }}
                         className={`group relative flex flex-col items-center gap-3 p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
                             ${os === 'android' 
-                                ? 'bg-emerald-600/20 border-emerald-500/50 shadow-[0_0_40px_rgba(34,197,94,0.2)]' 
-                                : 'bg-white/5 border-white/10'
+                                ? theme === 'light'
+                                    ? 'bg-emerald-50 border-emerald-500/30'
+                                    : 'bg-emerald-600/20 border-emerald-500/50 shadow-[0_0_40px_rgba(34,197,94,0.2)]' 
+                                : theme === 'light'
+                                    ? 'bg-white border-gray-200 shadow-sm'
+                                    : 'bg-white/5 border-white/10'
                             }
                         `}
                     >
                         {os === 'android' && (
-                            <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">
+                            <div className="absolute top-0 right-0 bg-brand-green text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">
                                 يوصى به لجهازك
                             </div>
                         )}
-                        <Download className={`w-8 h-8 ${os === 'android' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                        <Download className={`w-8 h-8 ${theme === 'light' ? 'text-brand-green' : 'text-emerald-400'}`} />
                         <div className="text-center">
-                            <h3 className="text-lg font-bold text-white mb-1">تطبيق أندرويد</h3>
-                            <p className="text-slate-400 text-xs leading-relaxed">تثبيت التطبيق الأصلي للإشعارات والمكالمات المستقرة.</p>
+                            <h3 className={`text-lg font-bold mb-1 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>تطبيق أندرويد</h3>
+                            <p className={`${theme === 'light' ? 'text-slate-500' : 'text-slate-400'} text-xs leading-relaxed`}>تثبيت التطبيق الأصلي للإشعارات والمكالمات المستقرة.</p>
                         </div>
                     </button>
 
@@ -91,8 +119,12 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                         onClick={handleWebProceed}
                         className={`group relative flex flex-col items-center gap-3 p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
                             ${os !== 'android' 
-                                ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.2)]' 
-                                : 'bg-white/5 border-white/10'
+                                ? theme === 'light'
+                                    ? 'bg-blue-50 border-blue-500/30'
+                                    : 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_40px_rgba(59,130,246,0.2)]' 
+                                : theme === 'light'
+                                    ? 'bg-white border-gray-200 shadow-sm'
+                                    : 'bg-white/5 border-white/10'
                             }
                         `}
                     >
@@ -101,12 +133,12 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                                 يوصى به لجهازك
                             </div>
                         )}
-                        {os === 'ios' ? <Smartphone className="w-8 h-8 text-blue-400" /> : <MonitorPlay className="w-8 h-8 text-blue-400" />}
+                        {os === 'ios' ? <Smartphone className={`w-8 h-8 ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} /> : <MonitorPlay className={`w-8 h-8 ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />}
                         <div className="text-center">
-                            <h3 className="text-lg font-bold text-white mb-1">
+                            <h3 className={`text-lg font-bold mb-1 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                                 {os === 'ios' ? 'نسخة الويب (PWA)' : 'متصفح الكمبيوتر وهواتف iOS'}
                             </h3>
-                            <p className="text-slate-400 text-xs leading-relaxed">انتقل مباشرة للتطبيق كاختصار لشاشتك الرئيسية.</p>
+                            <p className={`${theme === 'light' ? 'text-slate-500' : 'text-slate-400'} text-xs leading-relaxed`}>انتقل مباشرة للتطبيق كاختصار لشاشتك الرئيسية.</p>
                         </div>
                     </button>
                 </div>

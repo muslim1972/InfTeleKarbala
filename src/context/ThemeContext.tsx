@@ -8,15 +8,26 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-    theme: "dark",
+    theme: "light",
     toggleTheme: () => { },
 });
 
+const THEME_VERSION = "v2_light_default";
+
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-    // Default to dark as requested ("assume current mode is dark")
+    // Default to light as requested
     const [theme, setTheme] = useState<Theme>(() => {
-        const stored = localStorage.getItem("app_theme");
-        return (stored as Theme) || "dark";
+        const storedVersion = localStorage.getItem("app_theme_version");
+        const storedTheme = localStorage.getItem("app_theme");
+
+        // Migration: If user hasn't seen the light-default version yet, force light
+        if (storedVersion !== THEME_VERSION) {
+            localStorage.setItem("app_theme_version", THEME_VERSION);
+            localStorage.setItem("app_theme", "light");
+            return "light";
+        }
+
+        return (storedTheme as Theme) || "light";
     });
 
     useEffect(() => {

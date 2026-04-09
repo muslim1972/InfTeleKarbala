@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { AppFooter } from "../components/layout/AppFooter";
+import { useTheme } from "../context/ThemeContext";
+import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 
 export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   const [username, setUsername] = useState("");
@@ -22,6 +24,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   } | null>(null);
 
   const { login, loginAsVisitor, forgotPassword } = useAuth();
+  const { theme } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,17 +52,28 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   };
 
   return (
-    <div className="h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden bg-gray-900 font-tao scroll-smooth pb-12">
+    <div className={`h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden font-tao scroll-smooth pb-12 transition-colors duration-500 ${
+      theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'
+    }`}>
+      <ThemeToggleFloating />
       {/* Smart Background Layer - Fixed to stay during scroll */}
       <div
-        className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105"
+        className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 ${
+          theme === 'light' ? 'opacity-20' : 'opacity-100'
+        }`}
         style={{ backgroundImage: `url('/sign-in.jpg')` }}
       >
-        {/* Overlay for readability - slight dark tint & blur */}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+        {/* Overlay for readability */}
+        <div className={`absolute inset-0 backdrop-blur-[2px] transition-colors duration-700 ${
+          theme === 'light' ? 'bg-white/60' : 'bg-black/40'
+        }`}></div>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30"></div>
+        <div className={`absolute inset-0 transition-colors duration-700 ${
+          theme === 'light' 
+            ? 'bg-gradient-to-t from-white/90 via-white/40 to-white/60' 
+            : 'bg-gradient-to-t from-black/80 via-black/20 to-black/30'
+        }`}></div>
       </div>
 
       {/* Main Content Container */}
@@ -78,39 +92,59 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
 
         {/* Header / Logo Section */}
         <div className="text-center mb-4 space-y-2 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <h1 className="text-lg md:text-3xl font-bold text-white font-tajawal drop-shadow-lg tracking-wide px-4 leading-relaxed">
+          <h1 className={`text-lg md:text-3xl font-bold font-tajawal drop-shadow-lg tracking-wide px-4 leading-relaxed transition-colors duration-500 ${
+            theme === 'light' ? 'text-slate-900' : 'text-white'
+          }`}>
             مديرية الاتصالات ومعلوماتية كربلاء المقدسة
           </h1>
-          <div className="h-1 w-12 bg-brand-green mx-auto rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)]" />
-          <h2 className="text-white/80 text-sm font-medium drop-shadow-md tracking-wider italic">
+          <div className="h-1.5 w-16 bg-brand-green mx-auto rounded-full shadow-lg" />
+          <h2 className={`text-sm font-medium drop-shadow-md tracking-wider italic transition-colors duration-500 ${
+            theme === 'light' ? 'text-slate-600' : 'text-white/80'
+          }`}>
             نظام الادارة الموحد
           </h2>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl ring-1 ring-white/5">
+        <form onSubmit={handleLogin} className={`w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-6 md:p-8 rounded-3xl border backdrop-blur-md transition-all duration-500 ${
+          theme === 'light' 
+            ? 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50' 
+            : 'bg-white/5 border-white/10 shadow-2xl ring-1 ring-white/5'
+        }`}>
 
           <div className="space-y-2">
-            <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">اسم المستخدم</label>
+            <label className={`block text-sm font-bold text-right px-1 drop-shadow-sm transition-colors ${
+              theme === 'light' ? 'text-slate-700' : 'text-white/90'
+            }`}>اسم المستخدم</label>
             <input
               type="text"
               required
               autoComplete="username"
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all text-right backdrop-blur-sm shadow-inner text-lg"
+              className={`w-full border rounded-xl px-4 py-4 transition-all text-right backdrop-blur-sm shadow-inner text-lg ${
+                theme === 'light'
+                  ? 'bg-white border-gray-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-green'
+                  : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-brand-green focus:bg-black/60'
+              }`}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 
           <div className="space-y-2 relative">
-            <label className="block text-white/90 text-sm font-bold text-right px-1 drop-shadow-md">كلمة المرور</label>
+            <label className={`block text-sm font-bold text-right px-1 drop-shadow-sm transition-colors ${
+              theme === 'light' ? 'text-slate-700' : 'text-white/90'
+            }`}>كلمة المرور</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 required
                 maxLength={6}
                 autoComplete="current-password"
-                className="w-full bg-black/40 border border-white/10 rounded-xl pr-4 pl-12 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green focus:bg-black/60 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner text-lg"
+                className={`w-full border rounded-xl pr-4 pl-12 py-3 transition-all font-mono tracking-[0.5em] text-center backdrop-blur-sm shadow-inner text-lg ${
+                  theme === 'light'
+                    ? 'bg-white border-gray-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-green'
+                    : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-brand-green focus:bg-black/60'
+                }`}
                 placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -118,7 +152,9 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-1 z-10"
+                className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors p-1 z-10 ${
+                  theme === 'light' ? 'text-slate-400 hover:text-slate-600' : 'text-white/50 hover:text-white'
+                }`}
                 title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -132,7 +168,9 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
                   setForgotResult(null);
                   setShowForgotModal(true);
                 }}
-                className="text-white/60 hover:text-brand-green text-xs font-bold transition-colors underline decoration-white/20 underline-offset-4"
+                className={`text-xs font-bold transition-colors underline underline-offset-4 ${
+                  theme === 'light' ? 'text-slate-500 hover:text-brand-green decoration-slate-200' : 'text-white/60 hover:text-brand-green decoration-white/20'
+                }`}
               >
                 نسيت كلمة المرور؟
               </button>

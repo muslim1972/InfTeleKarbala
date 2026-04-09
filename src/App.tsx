@@ -26,10 +26,10 @@ const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveReque
 
 // Loading Component
 const LoadingScreen = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+  <div className="min-h-screen bg-background flex items-center justify-center transition-colors duration-300">
     <div className="text-center">
-      <Loader2 className="w-12 h-12 animate-spin text-emerald-500 mx-auto mb-4" />
-      <p className="text-white/60 text-sm">جاري التحميل...</p>
+      <Loader2 className="w-12 h-12 animate-spin text-brand-green mx-auto mb-4" />
+      <p className="text-muted-foreground text-sm font-tajawal">جاري التحميل...</p>
     </div>
   </div>
 );
