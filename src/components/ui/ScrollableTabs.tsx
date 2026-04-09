@@ -144,13 +144,14 @@ export const ScrollableTabs = ({
         <div className={cn("relative flex items-center group", containerClassName)}>
             {/* Scroll Right Button (Visually on the Right) */}
             {showRightArrow && (
-                <button
-                    onClick={(e) => { e.preventDefault(); scroll("right"); }}
-                    className="absolute right-0 z-10 h-full px-1 bg-gradient-to-l from-black/20 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/30 transition-colors rounded-r-lg"
-                    style={{ backdropFilter: "blur(2px)" }}
-                >
-                    <ChevronRight className="w-5 h-5 drop-shadow-md" />
-                </button>
+                <div className="absolute right-0 z-10 h-full flex items-center pr-1 pointer-events-none">
+                    <button
+                        onClick={(e) => { e.preventDefault(); scroll("right"); }}
+                        className="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center text-red-600 animate-blink-red hover:bg-white dark:hover:bg-slate-800 transition-all pointer-events-auto active:scale-90"
+                    >
+                        <ChevronRight className="w-5 h-5" strokeWidth={3} />
+                    </button>
+                </div>
             )}
 
             {/* Tabs Container */}
@@ -181,13 +182,14 @@ export const ScrollableTabs = ({
 
             {/* Scroll Left Button (Visually on the Left) */}
             {showLeftArrow && (
-                <button
-                    onClick={(e) => { e.preventDefault(); scroll("left"); }}
-                    className="absolute left-0 z-10 h-full px-1 bg-gradient-to-r from-black/20 to-transparent flex items-center justify-center text-red-600 animate-blink-red hover:bg-black/30 transition-colors rounded-l-lg"
-                    style={{ backdropFilter: "blur(2px)" }}
-                >
-                    <ChevronLeft className="w-5 h-5 drop-shadow-md" />
-                </button>
+                <div className="absolute left-0 z-10 h-full flex items-center pl-1 pointer-events-none">
+                    <button
+                        onClick={(e) => { e.preventDefault(); scroll("left"); }}
+                        className="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center text-red-600 animate-blink-red hover:bg-white dark:hover:bg-slate-800 transition-all pointer-events-auto active:scale-90"
+                    >
+                        <ChevronLeft className="w-5 h-5" strokeWidth={3} />
+                    </button>
+                </div>
             )}
         </div>
     );

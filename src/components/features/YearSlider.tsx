@@ -57,11 +57,11 @@ export const YearSlider = ({
                 onClick={() => handleYearStep('newer')}
                 disabled={selectedYear >= endYear}
                 className={cn(
-                    "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
-                    "bg-secondary text-red-600 animate-blink-red hover:bg-secondary/80"
+                    "w-8 h-8 rounded-full transition-all z-10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-md border",
+                    "bg-white/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 text-red-600 animate-blink-red hover:bg-white dark:hover:bg-slate-800 active:scale-90"
                 )}
             >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" strokeWidth={3} />
             </button>
 
             <div className="relative flex-1 overflow-hidden">
@@ -97,16 +97,15 @@ export const YearSlider = ({
                 <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent pointer-events-none" />
             </div>
 
-            {/* Left Arrow: Older Years (End of List) */}
             <button
                 onClick={() => handleYearStep('older')}
                 disabled={selectedYear <= startYear}
                 className={cn(
-                    "p-1.5 rounded-full transition-colors z-10 disabled:opacity-30 disabled:cursor-not-allowed",
-                    "bg-secondary text-red-600 animate-blink-red hover:bg-secondary/80"
+                    "w-8 h-8 rounded-full transition-all z-10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-md border",
+                    "bg-white/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 text-red-600 animate-blink-red hover:bg-white dark:hover:bg-slate-800 active:scale-90"
                 )}
             >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" strokeWidth={3} />
             </button>
 
         </div >
