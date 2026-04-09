@@ -10,99 +10,84 @@ const ONESIGNAL_APP_ID = "beae0757-7abe-46a8-b223-8f6c65e47fb5";
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
   const isNative = Capacitor.isNativePlatform();
-  
   if (isNative) {
     try {
       const result = await PushNotifications.requestPermissions();
-      const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
-      if (OS && OS.Notifications && typeof OS.Notifications.requestPermission === 'function') {
-        await OS.Notifications.requestPermission(true);
-      }
       return result.receive === 'granted';
     } catch (err: any) {
-      console.error("Permission Error:", err.message);
+      console.error("Permission request failed", err);
     }
   } else {
-    // نسخة الويب
     const OS = (window as any).OneSignal;
-    if (OS && OS.Notifications) {
-      try {
-        return await OS.Notifications.requestPermission();
-      } catch (err) {
-        console.error('OneSignal Web Error:', err);
-      }
-    }
+    if (OS) return await OS.Notifications.requestPermission();
   }
+};
+
+/**
+ * البحث عن كائن OneSignal في كل مكان ممكن
+ */
+const findOneSignal = () => {
+  const win = window as any;
+  return win.OneSignal || (win.plugins && win.plugins.OneSignal) || (win.cordova && win.cordova.plugins && win.cordova.plugins.OneSignal);
 };
 
 export const initOneSignal = (userId: string) => {
   if (typeof window === 'undefined' || !userId) return;
   const isNative = Capacitor.isNativePlatform();
 
-  if (!isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+  if (!isNative) {
+    // منطق الويب (PWA)
+    const OneSignal = (window as any).OneSignal;
+    const setup = (OS: any) => {
+       OS.login(userId).catch(() => {});
+       if (!OS.Notifications.permission) OS.Slidedown.promptPush({ force: true });
+    };
+    if (OneSignal && typeof OneSignal.login === 'function') setup(OneSignal);
+    else {
+      (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
+      (window as any).OneSignalDeferred.push(setup);
+    }
     return;
   }
 
-  if (isNative) {
-    // ننتظر قليلاً لضمان استقرار النظام
-    setTimeout(async () => {
+  // --- منطق الـ APK (Native) مع محاولات البحث ---
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  const tryInitialize = () => {
+    attempts++;
+    const OS = findOneSignal();
+
+    if (OS && typeof OS.initialize === 'function') {
       try {
-        const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
+        OS.initialize(ONESIGNAL_APP_ID);
+        OS.login(userId);
+        alert("✅ SEARCH SUCCESS: OneSignal found and linked to " + userId);
         
-        if (OS && typeof OS.initialize === 'function') {
-          // 1. التهيئة الأساسية
-          OS.initialize(ONESIGNAL_APP_ID);
-          
-          // 2. ربط المستخدم بشكل صريح ومؤكد
-          // نستخدم logout قبل login أحياناً في الـ Native لضمان ريفريش الهوية
-          OS.login(userId);
-          
-          // تنبيه واحد فقط للتأكد من وصول الكود لهذه النقطة بنجاح
-          alert("OneSignal: تم ربط جهازك بنجاح للمستخدم " + userId);
-
-          // 3. التحقق من الأذونات
-          const perm = await PushNotifications.checkPermissions();
-          if (perm.receive !== 'granted') {
-             await requestNotificationPermission();
-          }
-
-          // 4. السماح بظهور الإشعارات في المقدمة (للاختبار)
-          OS.Notifications.addEventListener('foregroundWillDisplay', () => {
-            console.log("Notification in Foreground");
-          });
-          
-        }
-      } catch (err: any) {
-        alert("Internal Error: " + err.message);
+        // التحقق من الأذونات فوراً
+        PushNotifications.checkPermissions().then(perm => {
+          if (perm.receive !== 'granted') requestNotificationPermission();
+        });
+      } catch (e: any) {
+        alert("❌ INIT ERROR: " + e.message);
       }
-    }, 2500);
-  } else {
-    // نسخة الويب
-    const setupWebUser = async (OS: any) => {
-      try {
-        if (typeof OS.login === 'function') OS.login(userId).catch(() => {});
-        const permission = await OS.Notifications.permission;
-        if (!permission) OS.Slidedown.promptPush({ force: true });
-      } catch (e) {
-        console.error('OneSignal Web Error:', e);
-      }
-    };
-
-    const OneSignal = (window as any).OneSignal;
-    if (OneSignal && typeof OneSignal.login === 'function') {
-      setupWebUser(OneSignal);
     } else {
-      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-      (window as any).OneSignalDeferred = OneSignalDeferred;
-      OneSignalDeferred.push((OS: any) => setupWebUser(OS));
+      if (attempts < maxAttempts) {
+        console.log(`OneSignal search attempt ${attempts} failed, retrying...`);
+        setTimeout(tryInitialize, 2000);
+      } else {
+        // تشخيص نهائي للمبرمج
+        const keys = OS ? Object.keys(OS).join(', ') : 'null';
+        alert(`🚨 DIAGNOSIS: OneSignal not found after 10s.\nObject: ${OS ? "Exists but incomplete" : "Missing"}\nKeys: ${keys}`);
+      }
     }
-  }
+  };
+
+  tryInitialize();
 };
 
 export const logoutOneSignal = () => {
   if (typeof window === 'undefined') return;
-  const OS = (window as any).OneSignal || ((window as any).plugins && (window as any).plugins.OneSignal);
-  if (OS && typeof OS.logout === 'function') {
-    OS.logout();
-  }
+  const OS = findOneSignal();
+  if (OS && typeof OS.logout === 'function') OS.logout();
 };
