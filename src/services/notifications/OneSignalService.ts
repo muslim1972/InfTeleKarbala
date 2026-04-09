@@ -1,93 +1,97 @@
 import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 const ONESIGNAL_APP_ID = "beae0757-7abe-46a8-b223-8f6c65e47fb5";
 
 /**
- * دالة لطلب الإذن بالإشعارات بشكل صريح (مفيدة للأندرويد 13+)
+ * دالة لطلب الإذن بالإشعارات بشكل صريح
  */
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
-  
   const isNative = Capacitor.isNativePlatform();
   
   if (isNative) {
-    // التعامل مع المشغل الأصلي (Cordova Plugin)
-    const OS = (window as any).OneSignal;
-    if (OS && OS.Notifications) {
-      console.log('OneSignal Native: Requesting permission...');
-      return await OS.Notifications.requestPermission(true);
+    try {
+      // 1. طلب الإذن عبر Capacitor (هذا ما يظهر النافذة الأصلية في أندرويد 13+)
+      alert("DEBUG: Requesting System Permission...");
+      const result = await PushNotifications.requestPermissions();
+      alert("DEBUG: System Permission Result: " + result.receive);
+      
+      // 2. إبلاغ OneSignal بالنتيجة
+      const OS = (window as any).OneSignal;
+      if (OS && OS.Notifications) {
+        await OS.Notifications.requestPermission(true);
+      }
+      return result.receive === 'granted';
+    } catch (err: any) {
+      alert("DEBUG: Permission Error: " + err.message);
     }
   } else {
-    // التعامل مع نسخة الويب
+    // نسخة الويب
     const OS = (window as any).OneSignal;
     if (OS && OS.Notifications) {
       try {
         console.log('OneSignal Web: Requesting permission...');
         const permission = await OS.Notifications.requestPermission();
-        console.log('OneSignal Web: Permission result:', permission);
         return permission;
       } catch (err) {
         console.error('OneSignal Web: Permission request failed:', err);
       }
-    } else {
-      const OneSignalDeferred = (window as any).OneSignalDeferred || [];
-      OneSignalDeferred.push(async (deferredOS: any) => {
-        await deferredOS.Notifications.requestPermission();
-      });
     }
   }
 };
 
 /**
  * تهيئة OneSignal للمستخدم
- * @param userId معرف المستخدم في Supabase
  */
 export const initOneSignal = (userId: string) => {
   if (typeof window === 'undefined') return;
-  
   const isNative = Capacitor.isNativePlatform();
 
-  // منع التشغيل في المتصفح العادي على localhost (فقط للأغراض التطويرية)
   if (!isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    console.log('OneSignal: Debug mode on localhost (Web)');
     return;
   }
 
   if (isNative) {
-    // --- تهيئة النسخة الأصلية (APK) ---
-    const OS = (window as any).OneSignal;
-    if (OS) {
+    // ننتظر ثانية واحدة لضمان تحميل الإضافات في الأندرويد
+    setTimeout(async () => {
       try {
-        OS.initialize(ONESIGNAL_APP_ID);
-        OS.login(userId);
+        const OS = (window as any).OneSignal;
         
-        // طلب الإذن فور تسجيل الدخول في الـ APK
-        OS.Notifications.requestPermission(true).then((accepted: boolean) => {
-          console.log("OneSignal Native: Permission accepted:", accepted);
-        });
-
-        // الاستماع لإشعارات المقدمة لتجنب تكرار الأصوات
-        OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
-          const notificationData = event.getNotification().getAdditionalData();
-          if (notificationData?.isBuzz === true || notificationData?.isBuzz === 'true') {
-            event.preventDefault(); // منع الإشعار الافتراضي لأن التطبيق سيهتز يدوياً
+        if (OS) {
+          alert("DEBUG: OneSignal Plugin FOUND in APK");
+          OS.initialize(ONESIGNAL_APP_ID);
+          OS.login(userId);
+          
+          // محاولة طلب الإذن فوراً عند التهيئة
+          const perm = await PushNotifications.checkPermissions();
+          if (perm.receive !== 'granted') {
+             alert("DEBUG: Prompting for permission now...");
+             await requestNotificationPermission();
+          } else {
+             alert("DEBUG: Permission already granted.");
           }
-        });
 
-      } catch (err) {
-        console.error("OneSignal Native Init Error:", err);
+          OS.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
+            const notificationData = event.getNotification().getAdditionalData();
+            if (notificationData?.isBuzz === true || notificationData?.isBuzz === 'true') {
+              event.preventDefault();
+            }
+          });
+        } else {
+          alert("DEBUG ERROR: OneSignal NOT found on window object!");
+        }
+      } catch (err: any) {
+        alert("DEBUG INIT ERROR: " + err.message);
       }
-    } else {
-      console.warn("OneSignal Native Plugin not found on window object.");
-    }
+    }, 1500);
   } else {
-    // --- تهيئة نسخة الويب (PWA) ---
+    // نسخة الويب
     const setupWebUser = async (OS: any) => {
       try {
         if (typeof OS.login === 'function') {
-          OS.login(userId).catch((err: any) => console.error('OneSignal Web login failed:', err));
+          OS.login(userId).catch(() => {});
         }
-
         const permission = await OS.Notifications.permission;
         if (!permission) {
           OS.Slidedown.promptPush({ force: true });
@@ -116,7 +120,6 @@ export const initOneSignal = (userId: string) => {
 export const logoutOneSignal = () => {
   if (typeof window === 'undefined') return;
   const OS = (window as any).OneSignal;
-  
   if (OS && typeof OS.logout === 'function') {
     OS.logout();
     console.log('OneSignal: Logged out');
