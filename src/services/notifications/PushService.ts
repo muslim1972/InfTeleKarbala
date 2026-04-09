@@ -11,6 +11,7 @@ export interface PushNotificationOptions {
   url?: string;
   data?: Record<string, any>;
   isBuzz?: boolean;
+  type?: 'call' | 'chat' | 'buzz' | 'default';
 }
 
 import { Capacitor } from '@capacitor/core';
@@ -62,9 +63,11 @@ export const sendPushNotification = async (
       url: undefined, 
       data: {
         ...options?.data,
-        path: internalPath // نضع المسار هنا ليتم التعامل معه برمجياً
+        path: internalPath, // نضع المسار هنا ليتم التعامل معه برمجياً
+        type: options?.type 
       },
-      isBuzz: options?.isBuzz
+      isBuzz: options?.isBuzz,
+      type: options?.type
     };
 
     if (isNative) {

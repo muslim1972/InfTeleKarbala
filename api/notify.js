@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { recipientId, title, message, url, data, isBuzz } = req.body;
+  const { recipientId, title, message, url, data, isBuzz, type } = req.body;
 
   if (!recipientId || !message) {
     return res.status(400).json({ error: 'Missing recipientId or message' });
@@ -23,7 +23,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log(`OneSignal: Attempting to notify recipient ${recipientId}`);
+    console.log(`OneSignal: Attempting to notify recipient ${recipientId} [Type: ${type || 'default'}]`);
+    
+    // إعداد الـ Category لضمان معاملة الأندرويد للإشعار بشكل صحيح
+    let androidCategory = type === 'call' ? 'call' : 'msg';
     
     const response = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
@@ -40,7 +43,13 @@ export default async function handler(req, res) {
             ar: isBuzz ? "🚨 تنبيه عاجل 🚨" : (title || "تنبيه جديد") 
           },
           url: url || null,
-          data: { ...(data || {}), isBuzz: !!isBuzz },
+          data: { ...(data || {}), isBuzz: !!isBuzz, type: type || 'default' },
+          
+          // تأكيد استيقاظ الشاشة وعرض الإشعار بشكل طارئ
+          android_channel_id: "3baae7ba-ec2d-483a-8c60-8aaefcd2ff08",
+          android_category: androidCategory,
+          content_available: true,
+          
           // Custom sound and vibration ONLY for Buzz
           ...(isBuzz ? {
             android_sound: "buzz",

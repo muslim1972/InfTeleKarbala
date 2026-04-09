@@ -53,6 +53,9 @@ serve(async (req) => {
         },
         priority: 10,
         android_visibility: 1,
+        android_channel_id: "3baae7ba-ec2d-483a-8c60-8aaefcd2ff08",
+        android_category: "call",
+        content_available: true,
         lock_screen_visibility: 1,
         require_interaction: true, // الإشعار يبقى ظاهراً حتى يتفاعل معه المستخدم
         ttl: 30, // تنتهي صلاحية الإشعار بعد 30 ثانية
