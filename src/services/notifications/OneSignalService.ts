@@ -24,11 +24,17 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * البحث عن كائن OneSignal في كل مكان ممكن
+ * البحث عن كائن OneSignal الأصل في كل مكان ممكن مع دعم الـ Module
  */
 const findOneSignal = () => {
   const win = window as any;
-  return win.OneSignal || (win.plugins && win.plugins.OneSignal) || (win.cordova && win.cordova.plugins && win.cordova.plugins.OneSignal);
+  let OS = win.OneSignal || (win.plugins && win.plugins.OneSignal) || (win.cordova && win.cordova.plugins && win.cordova.plugins.OneSignal);
+  
+  // إذا وجدنا الكائن، نتأكد من الوصول للمستوى الذي يحتوي على الدوال (دعم الإصدار 5.x)
+  if (OS && !OS.initialize && OS.default && OS.default.initialize) {
+    return OS.default;
+  }
+  return OS;
 };
 
 export const initOneSignal = (userId: string) => {
@@ -36,21 +42,23 @@ export const initOneSignal = (userId: string) => {
   const isNative = Capacitor.isNativePlatform();
 
   if (!isNative) {
-    // منطق الويب (PWA)
     const OneSignal = (window as any).OneSignal;
     const setup = (OS: any) => {
-       OS.login(userId).catch(() => {});
-       if (!OS.Notifications.permission) OS.Slidedown.promptPush({ force: true });
+       if (OS && typeof OS.login === 'function') {
+         OS.login(userId).catch(() => {});
+         if (!OS.Notifications.permission) OS.Slidedown.promptPush({ force: true });
+       }
     };
-    if (OneSignal && typeof OneSignal.login === 'function') setup(OneSignal);
-    else {
+    if (OneSignal && (typeof OneSignal.login === 'function' || OneSignal.default)) {
+      setup(OneSignal.default || OneSignal);
+    } else {
       (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-      (window as any).OneSignalDeferred.push(setup);
+      (window as any).OneSignalDeferred.push((OS: any) => setup(OS));
     }
     return;
   }
 
-  // --- منطق الـ APK (Native) مع محاولات البحث ---
+  // --- منطق الـ APK (Native) ---
   let attempts = 0;
   const maxAttempts = 5;
 
@@ -62,23 +70,22 @@ export const initOneSignal = (userId: string) => {
       try {
         OS.initialize(ONESIGNAL_APP_ID);
         OS.login(userId);
-        alert("✅ SEARCH SUCCESS: OneSignal found and linked to " + userId);
         
-        // التحقق من الأذونات فوراً
+        // تنبيه نجاح نهائي
+        alert("🎉 مبروك! تم تفعيل نظام الإشعارات الأصلي وربطه بـ " + userId);
+        
         PushNotifications.checkPermissions().then(perm => {
           if (perm.receive !== 'granted') requestNotificationPermission();
         });
       } catch (e: any) {
-        alert("❌ INIT ERROR: " + e.message);
+        alert("❌ خطأ عند التشغيل: " + e.message);
       }
     } else {
       if (attempts < maxAttempts) {
-        console.log(`OneSignal search attempt ${attempts} failed, retrying...`);
         setTimeout(tryInitialize, 2000);
       } else {
-        // تشخيص نهائي للمبرمج
         const keys = OS ? Object.keys(OS).join(', ') : 'null';
-        alert(`🚨 DIAGNOSIS: OneSignal not found after 10s.\nObject: ${OS ? "Exists but incomplete" : "Missing"}\nKeys: ${keys}`);
+        alert(`🚨 فشل نهائي: لم نتمكن من العثور على دوال التشغيل.\nKeys: ${keys}`);
       }
     }
   };
