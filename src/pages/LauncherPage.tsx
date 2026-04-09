@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Login } from "./Login";
 import { Smartphone, MonitorPlay, ChevronLeft, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface LauncherPageProps {
     onProceed?: () => void;
@@ -103,7 +104,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                         {os === 'ios' ? <Smartphone className="w-8 h-8 text-blue-400" /> : <MonitorPlay className="w-8 h-8 text-blue-400" />}
                         <div className="text-center">
                             <h3 className="text-lg font-bold text-white mb-1">
-                                {os === 'ios' ? 'نسخة الويب (PWA)' : 'متصفح الكمبيوتر'}
+                                {os === 'ios' ? 'نسخة الويب (PWA)' : 'متصفح الكمبيوتر وهواتف iOS'}
                             </h3>
                             <p className="text-slate-400 text-xs leading-relaxed">انتقل مباشرة للتطبيق كاختصار لشاشتك الرئيسية.</p>
                         </div>
@@ -112,10 +113,21 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
 
                 {/* Legacy App Link */}
                 <div className="mt-8 pt-4 border-t border-white/10 w-full max-w-sm flex items-center justify-center mb-8 shrink-0">
-                    <a href="https://itpc-management-system.onrender.com/" className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors">
+                    <button 
+                        onClick={() => toast('نظام قسم السعات تحت التطوير حالياً', {
+                            icon: '🚧',
+                            style: {
+                                borderRadius: '12px',
+                                background: '#0f172a',
+                                color: '#f1f5f9',
+                                border: '1px solid #1e293b',
+                            },
+                        })}
+                        className="flex items-center gap-2 text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer"
+                    >
                         <span className="text-xs">الذهاب إلى "نظام قسم السعات"</span>
                         <ChevronLeft className="w-4 h-4" />
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
