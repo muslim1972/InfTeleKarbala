@@ -44,12 +44,26 @@ export const sendPushNotification = async (
   try {
     const baseUrl = isNative ? PROD_API_URL : '';
     const url = `${baseUrl}/api/notify`;
+    
+    // تحويل الرابط الكامل إلى مسار نسبي للتنقل الداخلي
+    let internalPath = options?.url;
+    if (internalPath && internalPath.startsWith('http')) {
+      try {
+        const urlObj = new URL(internalPath);
+        internalPath = urlObj.pathname + urlObj.search + urlObj.hash;
+      } catch (e) { /* اتركها كما هي إذا فشل التحليل */ }
+    }
+
     const payload = {
       recipientId,
       message,
       title: options?.title || 'إشعار جديد',
-      url: options?.url,
-      data: options?.data,
+      // نترك الـ url فارغاً لمنع المتصفح من الفتح التلقائي
+      url: undefined, 
+      data: {
+        ...options?.data,
+        path: internalPath // نضع المسار هنا ليتم التعامل معه برمجياً
+      },
       isBuzz: options?.isBuzz
     };
 

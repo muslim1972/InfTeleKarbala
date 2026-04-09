@@ -43,17 +43,29 @@ export const initOneSignal = (userId: string) => {
 
   if (!isNative) {
     const OneSignal = (window as any).OneSignal;
-    const setup = (OS: any) => {
-       if (OS && typeof OS.login === 'function') {
-         OS.login(userId).catch(() => {});
-         if (!OS.Notifications.permission) OS.Slidedown.promptPush({ force: true });
-       }
+    const setupWebUser = async (OS: any) => {
+      try {
+        if (typeof OS.login === 'function') OS.login(userId).catch(() => {});
+        const permission = await OS.Notifications.permission;
+        if (!permission) OS.Slidedown.promptPush({ force: true });
+
+        // مستمع النقر لنسخة الويب
+        OS.Notifications.addEventListener('click', (event: any) => {
+          const data = event.notification.additionalData;
+          if (data && data.path) {
+            // التنقل في الـ PWA
+            window.location.hash = data.path;
+          }
+        });
+      } catch (e) {
+        console.error('OneSignal Web Error:', e);
+      }
     };
     if (OneSignal && (typeof OneSignal.login === 'function' || OneSignal.default)) {
-      setup(OneSignal.default || OneSignal);
+      setupWebUser(OneSignal.default || OneSignal);
     } else {
       (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-      (window as any).OneSignalDeferred.push((OS: any) => setup(OS));
+      (window as any).OneSignalDeferred.push((OS: any) => setupWebUser(OS));
     }
     return;
   }
@@ -68,24 +80,32 @@ export const initOneSignal = (userId: string) => {
 
     if (OS && typeof OS.initialize === 'function') {
       try {
+        // 1. التهيئة الأساسية
         OS.initialize(ONESIGNAL_APP_ID);
+        
+        // 2. ربط المستخدم
         OS.login(userId);
         
-        // تنبيه نجاح نهائي
-        alert("🎉 مبروك! تم تفعيل نظام الإشعارات الأصلي وربطه بـ " + userId);
-        
+        // 3. التحقق من الأذونات
         PushNotifications.checkPermissions().then(perm => {
           if (perm.receive !== 'granted') requestNotificationPermission();
         });
+
+        // 4. مستمع النقر على الإشعار (للتنقل الداخلي)
+        OS.Notifications.addEventListener('click', (event: any) => {
+          const data = event.notification.additionalData;
+          if (data && data.path) {
+            // الانتقال داخلياً في التطبيق
+            window.location.hash = data.path; 
+          }
+        });
+        
       } catch (e: any) {
-        alert("❌ خطأ عند التشغيل: " + e.message);
+        console.error("OneSignal Init Error:", e.message);
       }
     } else {
       if (attempts < maxAttempts) {
         setTimeout(tryInitialize, 2000);
-      } else {
-        const keys = OS ? Object.keys(OS).join(', ') : 'null';
-        alert(`🚨 فشل نهائي: لم نتمكن من العثور على دوال التشغيل.\nKeys: ${keys}`);
       }
     }
   };
