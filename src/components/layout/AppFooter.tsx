@@ -14,8 +14,8 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
 
             <div className="max-w-7xl mx-auto px-4 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom))] w-full border-t border-blue-500/10">
                 <div className="flex flex-col gap-0.5 relative">
-                    {/* Line 2: System Title - Smart Scaling using SVG to force single line without cutoff */}
-                    <div className="relative w-full h-5 flex items-center justify-center overflow-hidden px-12">
+                    {/* Line 2: System Title - Expanded to fill more space */}
+                    <div className="relative w-full h-5 flex items-center justify-center overflow-hidden px-4">
                         <svg className="w-full h-full" viewBox="0 0 450 20" preserveAspectRatio="xMidYMid meet">
                             <text 
                                 x="50%" y="50%" 
@@ -28,9 +28,9 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                             </text>
                         </svg>
                         
-                        {/* Decorative lines - Shortened to give more space for SVG and moved slightly */}
-                        <div className="absolute top-1/2 left-0 w-[12%] h-px bg-gradient-to-r from-transparent to-blue-500/20"></div>
-                        <div className="absolute top-1/2 right-0 w-[12%] h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
+                        {/* Decorative lines - Minimized for maximum text space */}
+                        <div className="absolute top-1/2 left-0 w-[5%] h-px bg-gradient-to-r from-transparent to-blue-500/20"></div>
+                        <div className="absolute top-1/2 right-0 w-[5%] h-px bg-gradient-to-l from-transparent to-blue-500/20"></div>
                     </div>
 
                     {/* Line 3: Credits & Version - Grid layout for better responsiveness */}
@@ -41,10 +41,10 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                             <span className="whitespace-nowrap">اعداد م. مسلم عقيل</span>
                         </div>
 
-                        {/* Center: Signature Image - Solar Halo */}
+                        {/* Center: Signature Image - Lifted slightly to prevent cutoff */}
                         <div
                             onClick={onDeveloperClick}
-                            className="flex items-center justify-center w-14 h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[60] -my-4"
+                            className="flex items-center justify-center w-14 h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[60] -mt-6 -mb-2"
                         >
                             {/* Halo Effect - Sun Rays */}
                             <div className="absolute w-12 h-12 md:w-16 md:h-16 bg-yellow-500/30 rounded-full blur-[4px] animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
@@ -54,7 +54,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                             <img
                                 src="/MyName.png"
                                 alt="Signature"
-                                className="h-12 md:h-16 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500"
+                                className="h-12 md:h-16 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500 translate-y-[-2px]"
                             />
                         </div>
 
