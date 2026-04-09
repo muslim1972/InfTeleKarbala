@@ -3,7 +3,7 @@
  */
 
 import { Suspense, lazy, useState, useEffect } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -37,6 +37,15 @@ const LoadingScreen = () => (
 const AppContent = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // جسر التنقل: يسمح لخدمة OneSignal بالتنقل داخل التطبيق
+  useEffect(() => {
+    (window as any).navigateApp = (path: string) => {
+      if (path) navigate(path);
+    };
+  }, [navigate]);
+
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;

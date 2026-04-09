@@ -54,7 +54,11 @@ export const initOneSignal = (userId: string) => {
           const data = event.notification.additionalData;
           if (data && data.path) {
             // التنقل في الـ PWA
-            window.location.hash = data.path;
+            if ((window as any).navigateApp) {
+              (window as any).navigateApp(data.path);
+            } else {
+              window.location.hash = data.path;
+            }
           }
         });
       } catch (e) {
@@ -91,12 +95,15 @@ export const initOneSignal = (userId: string) => {
           if (perm.receive !== 'granted') requestNotificationPermission();
         });
 
-        // 4. مستمع النقر على الإشعار (للتنقل الداخلي)
+        // مستمع النقر على الإشعار (للتنقل الداخلي)
         OS.Notifications.addEventListener('click', (event: any) => {
           const data = event.notification.additionalData;
           if (data && data.path) {
-            // الانتقال داخلياً في التطبيق
-            window.location.hash = data.path; 
+            if ((window as any).navigateApp) {
+              (window as any).navigateApp(data.path);
+            } else {
+              window.location.hash = data.path;
+            }
           }
         });
         
