@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { initOneSignal, logoutOneSignal, sendPushNotification } from "../services/notifications";
+import { initOneSignal, logoutOneSignal, sendPushNotification, requestNotificationPermission } from "../services/notifications";
 
 export interface AppUser {
   id: string;
@@ -122,6 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(appUser);
             if (profile) {
               initOneSignal(profile.id);
+              requestNotificationPermission();
             }
             logVisit(appUser);
           }
@@ -216,6 +217,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(appUser);
       initOneSignal(appUser.id);
+      requestNotificationPermission();
       sessionStorage.removeItem('session_logged');
       logVisit(appUser);
 

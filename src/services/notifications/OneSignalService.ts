@@ -6,6 +6,32 @@
  */
 
 
+import { Capacitor } from '@capacitor/core';
+
+/**
+ * دالة لطلب الإذن بالإشعارات بشكل صريح (مفيدة للأندرويد 13+)
+ */
+export const requestNotificationPermission = async () => {
+  if (typeof window === 'undefined') return;
+  
+  const OneSignal = (window as any).OneSignal;
+  if (OneSignal && OneSignal.Notifications) {
+    try {
+      console.log('OneSignal: Requesting permission...');
+      const permission = await OneSignal.Notifications.requestPermission();
+      console.log('OneSignal: Permission result:', permission);
+      return permission;
+    } catch (err) {
+      console.error('OneSignal: Permission request failed:', err);
+    }
+  } else {
+    // إذا لم تكن المكتبة جاهزة، نضعها في الانتظار
+    const OneSignalDeferred = (window as any).OneSignalDeferred || [];
+    OneSignalDeferred.push(async (OS: any) => {
+      await OS.Notifications.requestPermission();
+    });
+  }
+};
 
 /**
  * Initializes OneSignal for a specific user and requests permissions.
@@ -14,8 +40,9 @@
 export const initOneSignal = (userId: string) => {
   if (typeof window === 'undefined') return;
   
-  // Skip on localhost
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  // السماح بالتشغيل في الـ APK حتى لو كان الرابط localhost
+  const isNative = Capacitor.isNativePlatform();
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isNative) {
     return;
   }
 

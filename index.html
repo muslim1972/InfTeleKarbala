@@ -32,8 +32,10 @@
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function (OneSignal) {
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.log('OneSignal: Initialized in debug mode on localhost');
+      // السماح بالتشغيل في الـ APK حتى لو كان الرابط localhost
+      const isNative = window.Capacitor && (typeof window.Capacitor.isNativePlatform === 'function') && window.Capacitor.isNativePlatform();
+      if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isNative) {
+        console.log('OneSignal: Initialized in debug mode on localhost (Browser)');
         return;
       }
       

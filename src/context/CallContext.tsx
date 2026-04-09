@@ -11,6 +11,7 @@ import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { CallOverlay } from '../components/call/CallOverlay';
 import { Capacitor } from '@capacitor/core';
+import { requestNotificationPermission } from '../services/notifications';
 
 // الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
 const PROD_API_URL = 'https://inf-tele-karbala.vercel.app';
@@ -409,8 +410,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const startCall = async (recipientId: string, conversationId: string) => {
     if (!user) return;
     cleanupCall();
-    
     try {
+      // التأكد من تفعيل الإشعارات لاستلام الردود
+      requestNotificationPermission();
+      
       setStatus('ringing');
       setIsIncoming(false);
       
