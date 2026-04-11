@@ -35,7 +35,7 @@ const LoadingScreen = () => (
 );
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -115,17 +115,16 @@ const AppContent = () => {
     }
   }, [user]);
 
-  // الاستماع لرسالة تسجيل الخروج من iframe السعات
+  // الاستماع لرسالة تسجيل الخروج من iframe السعات — خروج كامل من التطبيق
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'capacities-logout') {
-        setAdminViewMode(null);
-        localStorage.removeItem('adminViewMode');
+        logout();
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [logout]);
 
   // Persist view mode choice (لا نحفظ capacities لأنه وضع مؤقت)
   useEffect(() => {
@@ -180,14 +179,6 @@ const AppContent = () => {
             title="نظام قسم السعات"
             allow="fullscreen"
           />
-          {/* زر العودة العائم */}
-          <button
-            onClick={() => setAdminViewMode(null)}
-            className="fixed top-4 left-4 z-[10000] flex items-center gap-2 px-4 py-2.5 rounded-full bg-black/70 backdrop-blur-md text-white text-sm font-bold shadow-2xl border border-white/20 hover:bg-black/90 active:scale-95 transition-all duration-200"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-            <span>العودة للتطبيق</span>
-          </button>
         </div>
       );
     }
