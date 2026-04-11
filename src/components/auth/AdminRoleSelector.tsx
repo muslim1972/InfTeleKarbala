@@ -18,8 +18,8 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false }: AdminRole
     const { theme } = useTheme();
 
     const handleCapacitiesClick = () => {
-        // Open in same window — the external app will handle its own logout
-        window.open(CAPACITIES_URL, '_blank', 'noopener,noreferrer');
+        // فتح في نفس النافذة مع علامة المصدر — Int-Karbala سيعيد التوجيه عند الخروج
+        window.location.href = CAPACITIES_URL + '?from=inftele';
     };
 
     // Determine if admin card should appear (only if user is actually admin, not just capacities)
