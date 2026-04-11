@@ -5,22 +5,14 @@ import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
 }
 
-/** External URL for the ITPC Capacities Management System */
-const CAPACITIES_URL = "https://itpc-management-system.onrender.com";
-
 export const AdminRoleSelector = ({ onSelect, hasCapacities = false }: AdminRoleSelectorProps) => {
     const { user } = useAuth();
     const { theme } = useTheme();
-
-    const handleCapacitiesClick = () => {
-        // فتح في نفس النافذة مع علامة المصدر — Int-Karbala سيعيد التوجيه عند الخروج
-        window.location.href = CAPACITIES_URL + '?from=inftele';
-    };
 
     // Determine if admin card should appear (only if user is actually admin, not just capacities)
     const isAdmin = user?.role === 'admin';
@@ -110,7 +102,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false }: AdminRole
                     {/* Capacities Role Button — only for eligible employees */}
                     {hasCapacities ? (
                         <button
-                            onClick={handleCapacitiesClick}
+                            onClick={() => onSelect('capacities')}
                             className={`group relative flex flex-col items-center justify-center p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                                 theme === 'light'
                                     ? 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50 hover:bg-white'
