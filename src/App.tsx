@@ -52,6 +52,61 @@ const AppContent = () => {
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
   });
 
+  // ── فحص استحقاق "قسم السعات" ──────────────────────────────────────
+  // المعرف الثابت لقسم "تجهيز خدمات المعلوماتية" من seed_departments.sql
+  const CAPACITIES_DEPT_ID = '33333333-2222-2222-2222-222222222222';
+
+  const [hasCapacities, setHasCapacities] = useState(false);
+  const [capacitiesChecked, setCapacitiesChecked] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setHasCapacities(false);
+      setCapacitiesChecked(true);
+      return;
+    }
+
+    // 1. فحص صريح: إذا كان admin_role = 'capacities'
+    if (user.admin_role === 'capacities') {
+      setHasCapacities(true);
+      setCapacitiesChecked(true);
+      return;
+    }
+
+    // 2. فحص تلقائي: هل ينتمي لقسم تجهيز خدمات المعلوماتية أو أقسامه الفرعية؟
+    if (!user.department_id) {
+      setHasCapacities(false);
+      setCapacitiesChecked(true);
+      return;
+    }
+
+    const checkDepartment = async () => {
+      try {
+        const { supabase } = await import('./lib/supabase');
+        // جلب القسم الحالي للموظف
+        const { data: dept } = await supabase
+          .from('departments')
+          .select('id, parent_id')
+          .eq('id', user.department_id)
+          .single();
+
+        if (dept) {
+          // القسم نفسه أو القسم الأب هو "تجهيز خدمات المعلوماتية"
+          const isEligible =
+            dept.id === CAPACITIES_DEPT_ID ||
+            dept.parent_id === CAPACITIES_DEPT_ID;
+          setHasCapacities(isEligible);
+        }
+      } catch (err) {
+        console.error('فشل فحص استحقاق السعات:', err);
+      } finally {
+        setCapacitiesChecked(true);
+      }
+    };
+
+    checkDepartment();
+  }, [user]);
+
   // Reset view mode when user logs out
   useEffect(() => {
     if (!user) {
@@ -78,8 +133,8 @@ const AppContent = () => {
     (window.navigator as any).standalone ||
     isCapacitor;
 
-  // إظهار شاشة التحميل أثناء التحقق من الجلسة
-  if (loading) return <LoadingScreen />;
+  // إظهار شاشة التحميل أثناء التحقق من الجلسة أو فحص السعات
+  if (loading || !capacitiesChecked) return <LoadingScreen />;
 
   // إذا لم يكن هناك مستخدم، نعرض LauncherPage ونحدد هل تظهر صفحة الاختيار أم صفحة الدخول فوراً
   if (!user) {
@@ -94,15 +149,20 @@ const AppContent = () => {
     );
   }
 
-  // توجيه المستخدم حسب الصلاحية (للمستخدمين المسجلين فقط)
-  if (user.role === 'admin') {
-    // If choice not made, show selector
+  // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──
+  const isAdmin = user.role === 'admin';
+  const needsRoleSelection = isAdmin || hasCapacities;
+
+  if (needsRoleSelection) {
+    // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} />;
     }
-    // Render selected view
+    // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard />;
-    return <AdminDashboard />;
+    if (adminViewMode === 'admin' && isAdmin) return <AdminDashboard />;
+    // fallback
+    return <Dashboard />;
   }
 
   if (user.role === 'visitor') {

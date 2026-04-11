@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Login } from "./Login";
 import { Smartphone, MonitorPlay, ChevronLeft, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import toast from "react-hot-toast";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 
@@ -146,15 +145,9 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                 {/* Legacy App Link */}
                 <div className="mt-8 pt-4 border-t border-white/10 w-full max-w-sm flex items-center justify-center mb-8 shrink-0">
                     <button 
-                        onClick={() => toast('نظام قسم السعات تحت التطوير حالياً', {
-                            icon: '🚧',
-                            style: {
-                                borderRadius: '12px',
-                                background: '#0f172a',
-                                color: '#f1f5f9',
-                                border: '1px solid #1e293b',
-                            },
-                        })}
+                        onClick={() => {
+                            window.open('https://itpc-management-system.onrender.com', '_blank', 'noopener,noreferrer');
+                        }}
                         className="flex items-center gap-2 text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer"
                     >
                         <span className="text-xs">الذهاب إلى "نظام قسم السعات"</span>

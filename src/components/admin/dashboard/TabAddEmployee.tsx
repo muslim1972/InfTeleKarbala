@@ -135,6 +135,17 @@ export const TabAddEmployee = ({
                                         </div>
                                         عام
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        variant={formData.admin_role === 'capacities' ? 'default' : 'outline'}
+                                        onClick={() => setFormData({ ...formData, admin_role: 'capacities' })}
+                                        className="flex-1 min-w-[140px] gap-2"
+                                    >
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'capacities' ? "border-white" : "border-muted-foreground")}>
+                                            {formData.admin_role === 'capacities' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        </div>
+                                        السعات
+                                    </Button>
                                 </div>
                             </div>
                         )}
