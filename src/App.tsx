@@ -66,8 +66,13 @@ const AppContent = () => {
       return;
     }
 
-    // 1. فحص صريح: إذا كان admin_role = 'capacities'
-    if (user.admin_role === 'capacities') {
+    // 1. فحص صريح: إذا كان لديه صلاحية السعات مباشرة أو مشرف عام/مطور
+    if (
+      user.admin_role === 'capacities' || // للاحتياط في حال وجود بيانات قديمة
+      user.has_capacities_access || 
+      user.admin_role === 'developer' || 
+      user.admin_role === 'general'
+    ) {
       setHasCapacities(true);
       setCapacitiesChecked(true);
       return;

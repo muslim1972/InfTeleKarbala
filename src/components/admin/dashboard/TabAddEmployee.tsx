@@ -135,18 +135,29 @@ export const TabAddEmployee = ({
                                         </div>
                                         عام
                                     </Button>
-                                    <Button
-                                        type="button"
-                                        variant={formData.admin_role === 'capacities' ? 'default' : 'outline'}
-                                        onClick={() => setFormData({ ...formData, admin_role: 'capacities' })}
-                                        className="flex-1 min-w-[140px] gap-2"
-                                    >
-                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'capacities' ? "border-white" : "border-muted-foreground")}>
-                                            {formData.admin_role === 'capacities' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                        </div>
-                                        السعات
-                                    </Button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Separate Capacities Checkbox (Appears for all if needed, but here we can show it when role is admin or always, per design - let's show it always inside the Role area, or just when Admin. Actually, let's show it next to Admin role, or below it) */}
+                        {isRoleEditable && (
+                            <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300 col-span-1 md:col-span-2">
+                                <Label>صلاحية وصول إضافية</Label>
+                                <Button
+                                    type="button"
+                                    variant={formData.has_capacities_access ? 'default' : 'outline'}
+                                    onClick={() => setFormData({ ...formData, has_capacities_access: !formData.has_capacities_access })}
+                                    className={cn("w-full sm:w-auto min-w-[140px] gap-2", formData.has_capacities_access ? 'bg-purple-600 hover:bg-purple-700 text-white' : '')}
+                                >
+                                    <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors", formData.has_capacities_access ? "border-white bg-white/20" : "border-muted-foreground")} >
+                                        {formData.has_capacities_access && (
+                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    السعات
+                                </Button>
                             </div>
                         )}
                     </div>

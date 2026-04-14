@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2 } from "lucide-react";
+import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2, Network, Check } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../../lib/utils";
@@ -16,7 +16,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
     // البحث العالمي للموظفين
     const { query: searchQuery, setQuery: setSearchQuery, results: rawSuggestions } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, role, admin_role, department_id',
+        selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access',
         limit: 50,
         debounceMs: 300
     });
@@ -38,6 +38,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const [departmentName, setDepartmentName] = useState("غير محدد");
     const [managerName, setManagerName] = useState("غير محدد");
     const [selectedRoleLabel, setSelectedRoleLabel] = useState("موظف");
+    const [hasCapacitiesAccess, setHasCapacitiesAccess] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
         // Set current role label
         setSelectedRoleLabel(getRoleLabel(employee));
+        setHasCapacitiesAccess(employee.has_capacities_access || false);
 
         // Fetch department info
         if (employee.department_id) {
@@ -136,6 +138,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         setDepartmentName("غير محدد");
         setManagerName("غير محدد");
         setSelectedRoleLabel("موظف");
+        setHasCapacitiesAccess(false);
         setShowDropdown(false);
     };
 
@@ -149,7 +152,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
             const { error } = await supabase
                 .from('profiles')
-                .update({ role, admin_role })
+                .update({ role, admin_role, has_capacities_access: hasCapacitiesAccess })
                 .eq('id', selectedEmployee.id);
 
             if (error) throw error;
@@ -360,6 +363,35 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                                 </div>
                             )}
                         </div>
+
+                        {/* Capacities Boolean Toggle */}
+                        <div 
+                            onClick={() => setHasCapacitiesAccess(!hasCapacitiesAccess)}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-4 py-3 border cursor-pointer transition-all",
+                                hasCapacitiesAccess
+                                    ? "bg-purple-50 border-purple-200 hover:border-purple-300"
+                                    : isLight
+                                        ? "bg-gray-50 border-gray-100 hover:border-gray-200"
+                                        : "bg-white/5 border-white/5 hover:border-white/10"
+                            )}>
+                            <Network className={cn("w-4 h-4 shrink-0 transition-colors", hasCapacitiesAccess ? "text-purple-600" : isLight ? "text-gray-400" : "text-white/30")} />
+                            <div className="flex-1">
+                                <p className={cn("text-[10px] font-bold transition-colors", hasCapacitiesAccess ? "text-purple-600/70" : isLight ? "text-gray-400" : "text-white/30")}>صلاحية وصول إضافية</p>
+                                <p className={cn("text-sm font-bold transition-colors", hasCapacitiesAccess ? "text-purple-800" : isLight ? "text-gray-900" : "text-white")}>
+                                    نظام قسم السعات
+                                </p>
+                            </div>
+                            <div className={cn(
+                                "w-5 h-5 rounded flex items-center justify-center transition-colors border",
+                                hasCapacitiesAccess 
+                                    ? "bg-purple-600 border-purple-600 shadow-sm" 
+                                    : isLight ? "bg-white border-gray-300" : "bg-white/5 border-white/20"
+                            )}>
+                                {hasCapacitiesAccess && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                            </div>
+                        </div>
+
                     </div>
 
                     {/* Action Buttons */}
