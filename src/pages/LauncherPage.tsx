@@ -142,18 +142,6 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                     </button>
                 </div>
 
-                {/* Legacy App Link */}
-                <div className="mt-8 pt-4 border-t border-white/10 w-full max-w-sm flex items-center justify-center mb-8 shrink-0">
-                    <button 
-                        onClick={() => {
-                            window.open('https://itpc-management-system.onrender.com', '_blank', 'noopener,noreferrer');
-                        }}
-                        className="flex items-center gap-2 text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer"
-                    >
-                        <span className="text-xs">الذهاب إلى "نظام قسم السعات"</span>
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                </div>
             </div>
         </div>
     );
