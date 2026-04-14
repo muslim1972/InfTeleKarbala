@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Login } from "./Login";
-import { Smartphone, MonitorPlay, ChevronLeft, Download } from "lucide-react";
+import { Smartphone, MonitorPlay, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
