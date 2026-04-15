@@ -262,8 +262,12 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         if (!selectedEmployee || !financialData) return;
         if (!currentUser) return;
 
-        const { full_name, job_number, username, password } = selectedEmployee;
-        if (!full_name?.trim() || !job_number?.trim() || !username?.trim() || !password?.trim()) {
+        const full_name = selectedEmployee.full_name?.trim();
+        const job_number = selectedEmployee.job_number?.trim();
+        const username = selectedEmployee.username?.trim();
+        const password = selectedEmployee.password?.trim();
+
+        if (!full_name || !job_number || !username || !password) {
             toast.error("تأكد من ملء الحقول الأساسية");
             return;
         }
@@ -296,7 +300,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     full_name, job_number, username, password,
                     role: selectedEmployee.role,
                     admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
-                    iban: selectedEmployee.iban,
+                    iban: selectedEmployee.iban?.trim(),
                     department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar,
                     specialization: selectedEmployee.specialization,
@@ -364,7 +368,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     // Save New Employee
     const handleSaveEmployee = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.full_name || !formData.job_number || !formData.username || !formData.password) {
+        
+        const full_name = formData.full_name?.trim();
+        const job_number = formData.job_number?.trim();
+        const username = formData.username?.trim();
+        const password = formData.password?.trim();
+
+        if (!full_name || !job_number || !username || !password) {
             toast.error("يرجى ملء جميع الحقول الأساسية");
             return;
         }
@@ -374,33 +384,40 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             const { data: existingUsers } = await supabase
                 .from('profiles')
                 .select('job_number, username')
-                .or(`job_number.eq.${formData.job_number}, username.eq.${formData.username}`);
+                .or(`job_number.eq.${job_number}, username.eq.${username}`);
 
             if (existingUsers && existingUsers.length > 0) {
                 const existing = existingUsers[0];
-                if (existing.job_number === formData.job_number) toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
+                if (existing.job_number === job_number) toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
                 else toast.error("اسم المستخدم هذا موجود بالفعل!");
+                setLoading(false);
                 return;
             }
 
-            const email = `${formData.job_number}@inftele.com`;
+            const email = `${job_number}@inftele.com`;
             const newUserId = crypto.randomUUID();
 
             const { error: syncError } = await supabase.rpc('rpc_sync_user_auth', {
-                p_user_id: newUserId, p_email: email, p_password: formData.password
+                p_user_id: newUserId, p_email: email, p_password: password
             });
             if (syncError) throw syncError;
 
             const { data: user, error: userError } = await supabase
                 .from('profiles')
-                .insert([{ ...formData, id: newUserId, updated_at: new Date().toISOString() }])
+                .insert([{ 
+                    ...formData, 
+                    id: newUserId, 
+                    full_name, job_number, username, password,
+                    iban: formData.iban?.trim(),
+                    updated_at: new Date().toISOString() 
+                }])
                 .select().single();
             if (userError) throw userError;
 
             await supabase.from('financial_records').insert([{ user_id: user.id, nominal_salary: 0 }]);
 
             toast.success("تم إضافة الموظف بنجاح، جارِ الانتقال...");
-            setSearchJobNumber(formData.job_number);
+            setSearchJobNumber(job_number);
             if (setActiveTab) setActiveTab('admin_manage');
             
             setSelectedEmployee(user);

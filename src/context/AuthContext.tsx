@@ -155,30 +155,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (username: string, password: string) => {
     try {
-      // 1. Resolve Username -> Email (via Profiles)
-      // Since we don't know the email directly, we look up the profile by username first.
-      // This requires the 'profiles' table to be readable (publicly or via service role if RLS is strict).
-      // Assuming 'profiles' is readable by authenticated users OR anon (for login lookup).
-      // A better way for security: Use an Edge Function. But here we query directly.
+      const trimmedUsername = username.trim();
+      const trimmedPassword = password.trim();
 
+      // 1. Resolve Username -> Email (via Profiles)
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('job_number, id')
-        .eq('username', username)
+        .eq('username', trimmedUsername)
         .maybeSingle();
 
       if (profileErr || !profile || !profile.job_number) {
-        // Security: Don't reveal if user exists vs wrong password, but here we know user validation failed
         return { success: false, error: 'اسم المستخدم غير صحيح' };
       }
 
       // 2. Construct Email
-      const email = `${profile.job_number}@inftele.com`;
+      const email = `${profile.job_number.trim()}@inftele.com`;
 
       // 3. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password: trimmedPassword
       });
 
       if (authError || !authData.user) {

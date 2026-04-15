@@ -178,7 +178,11 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl bg-red-500/20 text-red-100 border border-red-500/30 text-sm text-center font-bold backdrop-blur-md animate-in zoom-in duration-300">
+            <div className={`p-3 rounded-xl border text-sm text-center font-bold backdrop-blur-md animate-in zoom-in duration-300 ${
+              theme === 'light' 
+                ? 'bg-red-50 border-red-200 text-red-600' 
+                : 'bg-red-500/20 border-red-500/30 text-red-100'
+            }`}>
               {error}
             </div>
           )}
