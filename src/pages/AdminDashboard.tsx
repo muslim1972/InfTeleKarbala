@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
-import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User } from "lucide-react";
+import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User, Loader2 } from "lucide-react";
 import { useEmployeeManager } from "../hooks/useEmployeeManager";
 import { cn } from "../lib/utils";
 import TipsEditor from "../components/admin/TipsEditor";
@@ -11,6 +11,8 @@ import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 import { CustomAudit } from "../components/admin/CustomAudit";
 import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
+import { lazy, Suspense } from "react";
+const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
 import { useTheme } from "../context/ThemeContext";
 import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
 import { AppNotifications } from "../components/features/AppNotifications";
@@ -41,7 +43,7 @@ export const AdminDashboard = () => {
     else if (canAddEmployee) baseTab = 'admin_add';
 
     const defaultTab = location.state?.activeTab || baseTab;
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion'>(defaultTab as any);
 
     // Handle initial tab from URL
     useEffect(() => {
@@ -98,6 +100,7 @@ export const AdminDashboard = () => {
 
     const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
     const [showRequestsPermissionsModal, setShowRequestsPermissionsModal] = useState(false);
+    const [showPromotionPermissionsModal, setShowPromotionPermissionsModal] = useState(false);
     const [showFixBalanceModal, setShowFixBalanceModal] = useState(false);
     const [showFinancialUpdater, setShowFinancialUpdater] = useState(false);
     const [highlightRequestId, setHighlightRequestId] = useState<string | null>(null);
@@ -247,6 +250,8 @@ export const AdminDashboard = () => {
                     setShowFixBalanceModal={setShowFixBalanceModal}
                     showFinancialUpdater={showFinancialUpdater}
                     setShowFinancialUpdater={setShowFinancialUpdater}
+                    showPromotionPermissionsModal={showPromotionPermissionsModal}
+                    setShowPromotionPermissionsModal={setShowPromotionPermissionsModal}
                     fetchFieldPermissions={fetchFieldPermissions}
                 />
             )}
@@ -427,6 +432,13 @@ export const AdminDashboard = () => {
                 <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                     <AudioHub />
                 </div>
+            )}
+
+            {/* ======= دورات الترفيع TAB ======= */}
+            {activeTab === 'admin_promotion' && (
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>}>
+                    <AdminPromotionTab />
+                </Suspense>
             )}
 
             <FiveYearLeaveDetailsModal

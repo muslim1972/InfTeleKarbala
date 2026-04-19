@@ -22,6 +22,7 @@ export interface AppUser {
   section_text?: string;
   unit_text?: string;
   has_capacities_access?: boolean;
+  can_access_promotion?: boolean;
 }
 
 interface AuthContextType {
@@ -119,7 +120,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               dept_text: profile.dept_text,
               section_text: profile.section_text,
               unit_text: profile.unit_text,
-              has_capacities_access: profile.has_capacities_access
+              has_capacities_access: profile.has_capacities_access,
+              can_access_promotion: profile.can_access_promotion
             };
             setUser(appUser);
             if (profile) {
@@ -212,7 +214,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         dept_text: fullProfile.dept_text,
         section_text: fullProfile.section_text,
         unit_text: fullProfile.unit_text,
-        has_capacities_access: fullProfile.has_capacities_access
+        has_capacities_access: fullProfile.has_capacities_access,
+        can_access_promotion: fullProfile.can_access_promotion
       };
 
       setUser(appUser);

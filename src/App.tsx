@@ -23,6 +23,7 @@ const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login }
 const LauncherPage = lazy(() => import("./pages/LauncherPage").then(m => ({ default: m.LauncherPage })));
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
+const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
 
 // Loading Component
 const LoadingScreen = () => (
@@ -46,7 +47,7 @@ const AppContent = () => {
     };
   }, [navigate]);
 
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | null>(() => {
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
@@ -131,9 +132,9 @@ const AppContent = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [logout]);
 
-  // Persist view mode choice (لا نحفظ capacities لأنه وضع مؤقت)
+  // Persist view mode choice (لا نحفظ capacities/promotion لأنهما وضع مؤقت)
   useEffect(() => {
-    if (adminViewMode && adminViewMode !== 'capacities') {
+    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion') {
       localStorage.setItem('adminViewMode', adminViewMode);
     }
   }, [adminViewMode]);
@@ -167,12 +168,13 @@ const AppContent = () => {
 
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──
   const isAdmin = user.role === 'admin';
-  const needsRoleSelection = isAdmin || hasCapacities;
+  const hasPromotion = user.can_access_promotion === true;
+  const needsRoleSelection = isAdmin || hasCapacities || hasPromotion;
 
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
     if (adminViewMode === 'capacities') {
@@ -186,6 +188,10 @@ const AppContent = () => {
           />
         </div>
       );
+    }
+    // عرض واجهة دورات الترفيع
+    if (adminViewMode === 'promotion') {
+      return <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />;
     }
     // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard />;

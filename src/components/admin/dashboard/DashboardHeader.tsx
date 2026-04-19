@@ -71,7 +71,8 @@ export const DashboardHeader = ({
             ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
             { id: 'admin_audio', label: 'القرآن الكريم' },
             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }])
+            ...(isFieldReadOnly('tab_training') ? [] : [{ id: 'admin_training', label: 'التدريب الصيفي' }]),
+            ...((currentUser?.admin_role === 'general' || currentUser?.admin_role === 'developer') ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : [])
         ];
 
         return allTabs;
