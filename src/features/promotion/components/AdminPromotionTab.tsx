@@ -289,24 +289,34 @@ export const AdminPromotionTab = () => {
                             onChange={val => setCurrSubject(val as SubjectKey)}
                         />
                     )}
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                         <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>ملف المحاضرات (PDF)</label>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => currFileRef.current?.click()}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all",
-                                    isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                )}
-                            >
-                                <Upload className="w-4 h-4" />
-                                تحميل
-                            </button>
-                            <input ref={currFileRef} type="file" accept=".pdf" className="hidden" onChange={e => setCurrFile(e.target.files?.[0] || null)} />
-                            {currFile && (
-                                <span className={cn("text-xs truncate max-w-[200px]", isDark ? "text-white/50" : "text-slate-500")}>{currFile.name}</span>
+                        <button
+                            onClick={() => currFileRef.current?.click()}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all",
+                                isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                             )}
-                        </div>
+                        >
+                            <Upload className="w-4 h-4" />
+                            تحميل
+                        </button>
+                        <input ref={currFileRef} type="file" accept=".pdf" className="hidden" onChange={e => setCurrFile(e.target.files?.[0] || null)} />
+                        {currFile && (
+                            <div className={cn(
+                                "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
+                                isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-200"
+                            )}>
+                                <FileSpreadsheet className="w-4 h-4 text-blue-500 shrink-0" />
+                                <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-blue-300" : "text-blue-700")}>{currFile.name}</span>
+                                <button
+                                    onClick={() => { setCurrFile(null); if (currFileRef.current) currFileRef.current.value = ''; }}
+                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-2 pt-2">
                         <button
@@ -355,27 +365,37 @@ export const AdminPromotionTab = () => {
                             onChange={val => setExamSubject(val as SubjectKey)}
                         />
                     )}
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                         <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>ملف الأسئلة والأجوبة (Excel)</label>
-                        <p className={cn("text-[10px] mb-1", isDark ? "text-white/40" : "text-slate-400")}>
+                        <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
                             صيغة الملف: 5 أعمدة (السؤال, الإجابة الأولى ✓, الثانية, الثالثة, الرابعة)
                         </p>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => examFileRef.current?.click()}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all",
-                                    isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                )}
-                            >
-                                <Upload className="w-4 h-4" />
-                                تحميل
-                            </button>
-                            <input ref={examFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setExamFile(e.target.files?.[0] || null)} />
-                            {examFile && (
-                                <span className={cn("text-xs truncate max-w-[200px]", isDark ? "text-white/50" : "text-slate-500")}>{examFile.name}</span>
+                        <button
+                            onClick={() => examFileRef.current?.click()}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all",
+                                isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                             )}
-                        </div>
+                        >
+                            <Upload className="w-4 h-4" />
+                            تحميل
+                        </button>
+                        <input ref={examFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setExamFile(e.target.files?.[0] || null)} />
+                        {examFile && (
+                            <div className={cn(
+                                "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
+                                isDark ? "bg-purple-500/10 border-purple-500/20" : "bg-purple-50 border-purple-200"
+                            )}>
+                                <FileSpreadsheet className="w-4 h-4 text-purple-500 shrink-0" />
+                                <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-purple-300" : "text-purple-700")}>{examFile.name}</span>
+                                <button
+                                    onClick={() => { setExamFile(null); if (examFileRef.current) examFileRef.current.value = ''; }}
+                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-2 pt-2">
                         <button
