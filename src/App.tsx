@@ -52,7 +52,7 @@ const AppContent = () => {
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
   });
 
-  // ── فحص استحقاق "قسم السعات" ──────────────────────────────────────
+  // ── فحص استحقاق "قسم تجهيز خدمات المعلوماتية" ───────────────────────
   // المعرف الثابت لقسم "تجهيز خدمات المعلوماتية" من seed_departments.sql
   const CAPACITIES_DEPT_ID = '33333333-2222-2222-2222-222222222222';
 
@@ -181,7 +181,7 @@ const AppContent = () => {
           <iframe
             src="https://itpc-management-system.onrender.com"
             className="w-full h-full border-none"
-            title="نظام قسم السعات"
+            title="نظام قسم تجهيز خدمات المعلوماتية"
             allow="fullscreen"
           />
         </div>

@@ -379,7 +379,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                             <div className="flex-1">
                                 <p className={cn("text-[10px] font-bold transition-colors", hasCapacitiesAccess ? "text-purple-600/70" : isLight ? "text-gray-400" : "text-white/30")}>صلاحية وصول إضافية</p>
                                 <p className={cn("text-sm font-bold transition-colors", hasCapacitiesAccess ? "text-purple-800" : isLight ? "text-gray-900" : "text-white")}>
-                                    نظام قسم السعات
+                                نظام قسم تجهيز خدمات المعلوماتية
                                 </p>
                             </div>
                             <div className={cn(

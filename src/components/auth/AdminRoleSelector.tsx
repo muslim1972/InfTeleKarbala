@@ -1,4 +1,4 @@
-import { User, ShieldCheck, BarChart3 } from "lucide-react";
+import { User, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
@@ -114,9 +114,9 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false }: AdminRole
                                     ? 'bg-purple-500/10 border-purple-500/20'
                                     : 'bg-purple-500/20 border-purple-500/30 group-hover:bg-purple-500/30'
                             }`}>
-                                <BarChart3 className="w-8 h-8 text-purple-500" />
+                                <img src="/itpc-logo.png" alt="ITPC" className="w-10 h-10 object-contain drop-shadow-sm" />
                             </div>
-                            <h3 className={`text-lg font-bold mb-2 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>قسم السعات</h3>
+                            <h3 className={`text-lg font-bold mb-2 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>قسم تجهيز خدمات المعلوماتية</h3>
                             <p className={`text-xs text-center leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-white/60'}`}>
                                 الدخول لنظام إدارة السعات والاشتراكات
                             </p>
