@@ -79,16 +79,37 @@ export function usePromotionData() {
     ): Promise<boolean> => {
         const path = `${folder}/${courseType}/${subject}.${ext}`;
         try {
-            // Delete existing file first (upsert)
-            await supabase.storage.from('Lectures').remove([path]);
+            const contentType = ext === 'pdf'
+                ? 'application/pdf'
+                : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
             const { error } = await supabase.storage.from('Lectures').upload(path, file, {
                 cacheControl: '0',
                 upsert: true,
+                contentType,
             });
             if (error) throw error;
             return true;
         } catch (err) {
             console.error('فشل رفع الملف:', err);
+            return false;
+        }
+    }, []);
+
+    // ── حذف ملف من Storage ──
+    const deleteFile = useCallback(async (
+        folder: 'curricula' | 'exams',
+        courseType: CourseType,
+        subject: SubjectKey,
+        ext: string
+    ): Promise<boolean> => {
+        const path = `${folder}/${courseType}/${subject}.${ext}`;
+        try {
+            const { error } = await supabase.storage.from('Lectures').remove([path]);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('فشل حذف الملف:', err);
             return false;
         }
     }, []);
@@ -195,6 +216,7 @@ export function usePromotionData() {
         getCurriculumUrl,
         checkFileExists,
         uploadFile,
+        deleteFile,
         loadExamQuestions,
         saveResult,
         fetchResults,
