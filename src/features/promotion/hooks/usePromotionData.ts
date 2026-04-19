@@ -76,23 +76,32 @@ export function usePromotionData() {
         subject: SubjectKey,
         file: File,
         ext: string
-    ): Promise<boolean> => {
+    ): Promise<{ success: boolean; error?: string }> => {
         const path = `${folder}/${courseType}/${subject}.${ext}`;
         try {
             const contentType = ext === 'pdf'
                 ? 'application/pdf'
                 : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-            const { error } = await supabase.storage.from('Lectures').upload(path, file, {
+            console.log('[Promotion Upload] Uploading to:', path, 'Size:', file.size, 'Type:', contentType);
+
+            const { data, error } = await supabase.storage.from('Lectures').upload(path, file, {
                 cacheControl: '0',
                 upsert: true,
                 contentType,
             });
-            if (error) throw error;
-            return true;
-        } catch (err) {
-            console.error('فشل رفع الملف:', err);
-            return false;
+
+            if (error) {
+                console.error('[Promotion Upload] Error:', error.message, error);
+                return { success: false, error: error.message };
+            }
+
+            console.log('[Promotion Upload] Success:', data);
+            return { success: true };
+        } catch (err: any) {
+            const msg = err?.message || 'خطأ غير معروف';
+            console.error('[Promotion Upload] Failed:', msg);
+            return { success: false, error: msg };
         }
     }, []);
 

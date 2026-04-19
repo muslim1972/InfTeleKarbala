@@ -102,9 +102,9 @@ export const AdminPromotionTab = () => {
             return;
         }
         setCurrUploading(true);
-        const success = await uploadFile('curricula', currCourseType, currSubject, currFile, 'pdf');
+        const result = await uploadFile('curricula', currCourseType, currSubject, currFile, 'pdf');
         setCurrUploading(false);
-        if (success) {
+        if (result.success) {
             toast.success(`تم رفع المنهاج بنجاح: ${SUBJECT_LABELS[currCourseType][currSubject]}`);
             // تفريغ الحقول مع الإبقاء على القسم مفتوح
             setCurrCourseType(null);
@@ -113,7 +113,7 @@ export const AdminPromotionTab = () => {
             setCurrExistingFile(false);
             if (currFileRef.current) currFileRef.current.value = '';
         } else {
-            toast.error('فشل رفع الملف');
+            toast.error(`فشل رفع الملف: ${result.error || 'خطأ غير معروف'}`);
         }
     };
 
@@ -137,9 +137,9 @@ export const AdminPromotionTab = () => {
             return;
         }
         setExamUploading(true);
-        const success = await uploadFile('exams', examCourseType, examSubject, examFile, 'xlsx');
+        const result = await uploadFile('exams', examCourseType, examSubject, examFile, 'xlsx');
         setExamUploading(false);
-        if (success) {
+        if (result.success) {
             toast.success(`تم رفع أسئلة الاختبار بنجاح: ${SUBJECT_LABELS[examCourseType][examSubject]}`);
             setExamCourseType(null);
             setExamSubject(null);
@@ -147,7 +147,7 @@ export const AdminPromotionTab = () => {
             setExamExistingFile(false);
             if (examFileRef.current) examFileRef.current.value = '';
         } else {
-            toast.error('فشل رفع الملف');
+            toast.error(`فشل رفع الملف: ${result.error || 'خطأ غير معروف'}`);
         }
     };
 
