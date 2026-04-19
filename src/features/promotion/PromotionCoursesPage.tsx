@@ -25,14 +25,14 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
 
     return (
         <div className={cn(
-            "min-h-screen transition-colors",
+            "h-screen flex flex-col transition-colors overflow-hidden",
             isDark
                 ? "bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"
                 : "bg-gradient-to-b from-slate-50 via-white to-slate-50"
         )}>
-            {/* Header */}
+            {/* Header - Fixed at Top */}
             <div className={cn(
-                "sticky top-0 z-20 backdrop-blur-xl border-b",
+                "flex-none backdrop-blur-xl border-b",
                 isDark ? "bg-slate-900/80 border-white/10" : "bg-white/80 border-slate-200"
             )}>
                 <div className="max-w-4xl mx-auto px-4 py-3">
@@ -85,9 +85,11 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="max-w-4xl mx-auto px-4 py-6">
-                {activeTab === 'curricula' ? <CurriculaTab /> : <ExamTab />}
+            {/* Content Area - Scrollable */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto px-4 py-6 pb-20">
+                    {activeTab === 'curricula' ? <CurriculaTab /> : <ExamTab />}
+                </div>
             </div>
         </div>
     );
