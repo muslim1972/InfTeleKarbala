@@ -85,15 +85,22 @@ export function usePromotionData() {
 
             console.log('[Promotion Upload] Uploading to:', path, 'Size:', file.size, 'Type:', contentType);
 
-            const { data, error } = await supabase.storage.from('Lectures').upload(path, file, {
-                cacheControl: '0',
-                upsert: true,
-                contentType,
-            });
+            const { data, error } = await supabase.storage
+                .from('Lectures')
+                .upload(path, file, {
+                    cacheControl: '0',
+                    upsert: true,
+                    contentType,
+                });
 
             if (error) {
-                console.error('[Promotion Upload] Error:', error.message, error);
+                console.error('[Promotion Upload] Error details:', error);
                 return { success: false, error: error.message };
+            }
+
+            if (!data) {
+                console.error('[Promotion Upload] No data returned');
+                return { success: false, error: 'لم يتم استلام تأكيد من الخادم' };
             }
 
             console.log('[Promotion Upload] Success:', data);
