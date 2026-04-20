@@ -181,7 +181,7 @@ const AppContent = () => {
       return (
         <div className="fixed inset-0 z-[9999] bg-black" dir="ltr">
           <iframe
-            src="https://itpc-management-system.onrender.com"
+            src="https://itpc-management-system.vercel.app"
             className="w-full h-full border-none"
             title="نظام قسم تجهيز خدمات المعلوماتية"
             allow="fullscreen"
