@@ -164,8 +164,8 @@ const AppContent = () => {
   // إظهار شاشة التحميل أثناء التحقق من الجلسة أو فحص السعات
   if (loading || !capacitiesChecked) return <LoadingScreen />;
 
-  // ── عرض الشاشة الافتتاحية (مرة واحدة لكل جلسة) ─────
-  if (!user && showSplash) {
+  // ── عرض الشاشة الافتتاحية (مرة واحدة لكل جلسة — لجميع الحالات) ──
+  if (showSplash) {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
