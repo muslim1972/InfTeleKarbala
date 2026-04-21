@@ -2,7 +2,7 @@
  * App.tsx
  */
 
-import { Suspense, lazy, useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
@@ -21,6 +21,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ 
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
 const LauncherPage = lazy(() => import("./pages/LauncherPage").then(m => ({ default: m.LauncherPage })));
+const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ default: m.SplashScreen })));
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
@@ -143,6 +144,16 @@ const AppContent = () => {
     return sessionStorage.getItem('hasChosenWeb') === 'true';
   });
 
+  // ── حالة الشاشة الافتتاحية (Splash Screen) ──────────
+  const [showSplash, setShowSplash] = useState(() => {
+    return sessionStorage.getItem('splashShown') !== 'true';
+  });
+
+  const handleSplashComplete = useCallback(() => {
+    sessionStorage.setItem('splashShown', 'true');
+    setShowSplash(false);
+  }, []);
+
   // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK) عن طريق المكتبة الرسمية أو الـ Hostname
   const isCapacitor = Capacitor.isNativePlatform() || (window.location.hostname === 'localhost' && /Android|iPhone|iPad/i.test(navigator.userAgent));
   const isStandalone = 
@@ -152,6 +163,11 @@ const AppContent = () => {
 
   // إظهار شاشة التحميل أثناء التحقق من الجلسة أو فحص السعات
   if (loading || !capacitiesChecked) return <LoadingScreen />;
+
+  // ── عرض الشاشة الافتتاحية (مرة واحدة لكل جلسة) ─────
+  if (!user && showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
 
   // إذا لم يكن هناك مستخدم، نعرض LauncherPage ونحدد هل تظهر صفحة الاختيار أم صفحة الدخول فوراً
   if (!user) {
