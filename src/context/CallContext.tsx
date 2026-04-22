@@ -112,7 +112,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             setStatus('ringing');
 
             // تشغيل صوت الرنين
-            globalAudioManager.startAlert().catch(err => {
+            globalAudioManager.startAlert().catch(() => {
               console.warn('Autoplay blocked, waiting for interaction');
             });
 

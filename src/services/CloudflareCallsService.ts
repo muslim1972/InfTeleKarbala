@@ -1,6 +1,5 @@
 // src/services/CloudflareCallsService.ts
-import { supabase } from './supabase';
-import { Capacitor } from '@capacitor/core';
+import { supabase } from '../lib/supabase';
 
 export class CloudflareCallsService {
   private pc: RTCPeerConnection | null = null;
