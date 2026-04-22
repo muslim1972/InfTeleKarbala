@@ -14,6 +14,7 @@ import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 import { Capacitor } from '@capacitor/core';
+import { geolocationManager } from "./utils/GeolocationManager";
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -132,6 +133,19 @@ const AppContent = () => {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [logout]);
+
+  // إدارة Geolocation: إيقاف التتبع عند تبديل التبويبة لضمان الخصوصية وتوفير الموارد
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log("🌓 Tab hidden: Stopping geolocation watches...");
+        geolocationManager.clearAllWatches();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Persist view mode choice (لا نحفظ capacities/promotion لأنهما وضع مؤقت)
   useEffect(() => {

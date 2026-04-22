@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { initOneSignal, logoutOneSignal, sendPushNotification, requestNotificationPermission } from "../services/notifications";
+import { geolocationManager } from "../utils/GeolocationManager";
 
 export interface AppUser {
   id: string;
@@ -248,6 +249,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     await supabase.auth.signOut();
     logoutOneSignal();
+    geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
     setUser(null);
     sessionStorage.removeItem("visitor_user");
     sessionStorage.removeItem("session_logged");
