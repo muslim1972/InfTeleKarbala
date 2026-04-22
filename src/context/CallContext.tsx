@@ -1,24 +1,24 @@
 /**
  * CallContext.tsx
  * 
- * نظام المكالمات الصوتية - تم تحويله بالكامل إلى Cloudflare Calls SFU
- * يعتمد على جدول 'hr_audio_calls' لتبادل معرفات الجلسات (Session IDs)
+ * نظام المكالمات الصوتية المطور - نسخة مقتبسة من ShamilApp
+ * يعتمد على Cloudflare Calls SFU و GlobalAudioManager
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { CallOverlay } from '../components/call/CallOverlay';
-import { Capacitor } from '@capacitor/core';
-import { requestNotificationPermission } from '../services/notifications';
+import { globalAudioManager } from '../services/GlobalAudioManager';
+import { RingbackToneGenerator } from '../services/RingbackToneGenerator';
+import { CloudflareCallsService } from '../services/CloudflareCallsService';
 
-// الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
-const PROD_API_URL = 'https://inf-tele-karbala.vercel.app';
+export type CallStatus = 'idle' | 'ringing' | 'active' | 'ended';
 
 interface CallContextType {
   callId: string | null;
-  status: 'idle' | 'ringing' | 'active' | 'ended';
+  status: CallStatus;
   isIncoming: boolean;
   remotePeer: { id: string, name: string, avatar?: string } | null;
   startCall: (recipientId: string, conversationId: string) => Promise<void>;
@@ -33,162 +33,48 @@ interface CallContextType {
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    { urls: 'stun:stun.l.google.com:19302' },
-  ],
-  bundlePolicy: 'max-bundle',
-};
-
-// دالة لتوليد نغمة مكالمات واقعية باستخدام Data URI، لتفادي مشكلة الـ AudioContext مع الـ Earpiece
-function createTone(type: 'incoming' | 'outgoing'): { start: () => void; stop: () => void } {
-  try {
-    const sampleRate = 8000;
-    const duration = type === 'incoming' ? 3.0 : 2.0;
-    const numSamples = sampleRate * duration;
-    const buffer = new ArrayBuffer(44 + numSamples * 2);
-    const view = new DataView(buffer);
-    
-    const writeString = (offset: number, string: string) => {
-        for (let i = 0; i < string.length; i++) {
-            view.setUint8(offset + i, string.charCodeAt(i));
-        }
-    };
-    
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + numSamples * 2, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, numSamples * 2, true);
-    
-    let offset = 44;
-    for (let i = 0; i < numSamples; i++) {
-        const t = i / sampleRate;
-        let sample = 0;
-        
-        if (type === 'incoming') {
-            const cycleT = t % 3.0; 
-            if ((cycleT > 0 && cycleT < 0.4) || (cycleT > 0.6 && cycleT < 1.0)) {
-                sample = (Math.sin(2 * Math.PI * 400 * t) + Math.sin(2 * Math.PI * 450 * t)) * 0.5;
-            }
-        } else {
-            const cycleT = t % 2.0; 
-            if (cycleT > 0 && cycleT < 0.4) {
-                sample = (Math.sin(2 * Math.PI * 425 * t) + Math.sin(2 * Math.PI * 475 * t)) * 0.5;
-            }
-        }
-        
-        const intSample = Math.max(-1, Math.min(1, sample)) * 32767;
-        view.setInt16(offset, intSample, true);
-        offset += 2;
-    }
-    
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunk = 8192;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-    }
-    const dataUri = 'data:audio/wav;base64,' + btoa(binary);
-    
-    const audio = new Audio(dataUri);
-    audio.loop = true;
-    
-    return {
-      start: () => { audio.play().catch(() => {}); },
-      stop: () => { audio.pause(); audio.src = ''; }
-    };
-  } catch(e) {
-    return { start: () => {}, stop: () => {} };
-  }
-}
-
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  
+  // States
   const [callId, setCallId] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'ringing' | 'active' | 'ended'>('idle');
+  const [status, setStatus] = useState<CallStatus>('idle');
   const [isIncoming, setIsIncoming] = useState(false);
   const [remotePeer, setRemotePeer] = useState<{ id: string, name: string, avatar?: string } | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerPhone, setIsSpeakerPhone] = useState(false);
-  
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const ringtoneRef = useRef<ReturnType<typeof createTone> | null>(null);
-  
-  // حفظ Session ID المحلي والبعيد ومعرف المكالمة الحالي للوصول السريع داخل المستمعين
-  const myCfSessionIdRef = useRef<string | null>(null);
-  const isPulledRef = useRef(false);
+
+  // Refs
+  const cfServiceRef = useRef<CloudflareCallsService | null>(null);
+  const ringbackRef = useRef<RingbackToneGenerator | null>(null);
+  const pullPcRef = useRef<RTCPeerConnection | null>(null);
   const callIdRef = useRef<string | null>(null);
 
-  // --- دوال مساعدة لطلب Cloudflare عبر Vercel API ---
-  const handleCFAPI = async (action: string, payload: any = {}, sessionId?: string) => {
-    // تحديد ما إذا كان يجب استخدام رابط مطلق (في حالة APK أو تجربة على رابط مختلف)
-    const isNative = Capacitor.isNativePlatform();
-    const isDifferentOrigin = typeof window !== 'undefined' && !window.location.host.includes('inf-tele-karbala.vercel.app');
-    const baseUrl = (isNative || isDifferentOrigin) ? PROD_API_URL : '';
-    const url = `${baseUrl}/api/cloudflare`;
-
-    try {
-      if (isNative) {
-        // استخدام CapacitorHttp لتخطي قيود CORS في الـ APK
-        const { CapacitorHttp } = await import('@capacitor/core');
-        const response = await CapacitorHttp.post({
-          url,
-          headers: { 'Content-Type': 'application/json' },
-          data: { action, sessionId, payload }
-        });
-        
-        if (response.status >= 300) {
-          throw new Error(`API Error: ${response.status} - ${JSON.stringify(response.data)}`);
-        }
-        return response.data;
-      } else {
-        // استخدام fetch التقليدي في المتصفح (PWA)
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, sessionId, payload })
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`API Error: ${res.status} - ${text}`);
-        }
-        return res.json();
-      }
-    } catch (err: any) {
-      console.error('CF API Failure:', err);
-      throw err;
-    }
-  };
-
   /**
-   * تنظيف كامل لجميع الموارد
+   * تنظيف كامل لجميع الموارد (Cleanup)
    */
   const cleanupCall = useCallback(() => {
-    ringtoneRef.current?.stop();
-    ringtoneRef.current = null;
+    console.log('📞 Cleaning up call resources...');
     
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
+    // إيقاف الأصوات
+    globalAudioManager.stopAllAudio();
+    if (ringbackRef.current) {
+      ringbackRef.current.stop();
+      ringbackRef.current = null;
     }
-    
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
+
+    // تنظيف WebRTC
+    if (cfServiceRef.current) {
+      cfServiceRef.current.stop();
+      cfServiceRef.current = null;
     }
-    
+    if (pullPcRef.current) {
+      pullPcRef.current.close();
+      pullPcRef.current = null;
+    }
+
+    // إعادة تعيين الحالة
     setStatus('idle');
     setCallId(null);
     callIdRef.current = null;
@@ -196,87 +82,50 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setRemoteStream(null);
     setIsIncoming(false);
     setIsMuted(false);
-    myCfSessionIdRef.current = null;
-    isPulledRef.current = false;
+    setIsSpeakerPhone(false);
   }, []);
 
   /**
-   * الاستماع للمكالمات الواردة (Realtime) + جلب المكالمات المعلقة
+   * الاستماع للمكالمات الواردة عبر Realtime
    */
   useEffect(() => {
     if (!user) return;
 
-    // دالة لجلب المكالمات المعلقة منذ فترة قريبة (مثلاً آخر دقيقتين)
-    const checkPendingCall = async () => {
-      try {
-        const twoMinsAgo = new Date(Date.now() - 120000).toISOString();
-        const { data } = await supabase
-          .from('hr_audio_calls')
-          .select('*')
-          .eq('recipient_id', user.id)
-          .eq('status', 'calling')
-          .gte('created_at', twoMinsAgo)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (data && data.id !== callIdRef.current && !pcRef.current) {
-          cleanupCall();
-          setIsIncoming(true);
-          setCallId(data.id);
-          callIdRef.current = data.id;
-          setStatus('ringing');
-          
-          const ringtone = createTone('incoming');
-          ringtoneRef.current = ringtone;
-          ringtone.start();
-          
-          const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.sender_id).single();
-          setRemotePeer({
-            id: data.sender_id,
-            name: profile?.username || 'مستخدم',
-            avatar: profile?.avatar_url
-          });
-        }
-      } catch (err) {
-        // لا توجد مكالمات معلقة
-      }
-    };
-
-    // 1. فحص مبدئي عند فتح التطبيق
-    checkPendingCall();
-
-    // 2. مستمع للعودة من الخلفية
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkPendingCall();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // 3. مستمع Realtime طبيعي للجديد
     const channel = supabase
-      .channel('calls-inbound')
+      .channel('hr-calls-inbound')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'hr_audio_calls', filter: `recipient_id=eq.${user.id}` },
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'hr_audio_calls', 
+          filter: `recipient_id=eq.${user.id}` 
+        },
         async (payload) => {
           const newCall = payload.new;
-          if (newCall.status === 'calling' && newCall.id !== callIdRef.current && !pcRef.current) {
-            cleanupCall();
-            setIsIncoming(true);
+          if (newCall.status === 'calling' && newCall.id !== callIdRef.current && status === 'idle') {
+            console.log('🔔 Incoming call detected:', newCall.id);
+            
             setCallId(newCall.id);
             callIdRef.current = newCall.id;
+            setIsIncoming(true);
             setStatus('ringing');
-            
-            const ringtone = createTone('incoming');
-            ringtoneRef.current = ringtone;
-            ringtone.start();
-            
-            const { data: profile } = await supabase.from('profiles').select('*').eq('id', newCall.sender_id).single();
+
+            // تشغيل صوت الرنين
+            globalAudioManager.startAlert().catch(err => {
+              console.warn('Autoplay blocked, waiting for interaction');
+            });
+
+            // جلب بيانات المتصل
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, username, avatar_url')
+              .eq('id', newCall.sender_id)
+              .single();
+
             setRemotePeer({
               id: newCall.sender_id,
-              name: profile?.username || 'مستخدم',
+              name: profile?.username || 'زميل',
               avatar: profile?.avatar_url
             });
           }
@@ -284,154 +133,101 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       )
       .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channel); 
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      supabase.removeChannel(channel);
     };
-  }, [user, cleanupCall]);
+  }, [user, status]);
 
   /**
-   * سحب مسار الطرف الآخر عند توفر الـ Session الخاص به
-   */
-  const pullRemoteTrack = useCallback(async (mySessionId: string, remoteSessionId: string) => {
-    if (isPulledRef.current || !pcRef.current) return;
-    isPulledRef.current = true; // منع التكرار
-
-    try {
-      const data = await handleCFAPI('addTracks', {
-        tracks: [{ location: 'remote', sessionId: remoteSessionId, trackName: 'audio-main' }]
-      }, mySessionId);
-
-      // Cloudflare SFU يعيد SDP Offer في حالة السحب (Pull)
-      if (data.sessionDescription && data.sessionDescription.type === 'offer') {
-        const pc = pcRef.current;
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        // إرسال Answer للسيرفر عبر renegotiate
-        await handleCFAPI('renegotiate', {
-          sessionDescription: { type: 'answer', sdp: answer.sdp }
-        }, mySessionId);
-      }
-    } catch (err) {
-      console.error('Failed to pull remote track:', err);
-      isPulledRef.current = false;
-    }
-  }, []);
-
-  /**
-   * تحديثات حالة المكالمة
+   * مراقبة تحديثات حالة المكالمة الحالية
    */
   useEffect(() => {
     if (!callId || !user) return;
 
     const statusChannel = supabase
-      .channel(`call-status-${callId}`)
+      .channel(`hr-call-status-${callId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'hr_audio_calls', filter: `id=eq.${callId}` },
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'hr_audio_calls', 
+          filter: `id=eq.${callId}` 
+        },
         async (payload) => {
           const updated = payload.new;
-          
-          if (updated.status === 'ended' || updated.status === 'missed' || updated.status === 'rejected') {
+          console.log('📞 Call record updated:', updated.status);
+
+          if (['ended', 'missed', 'rejected'].includes(updated.status)) {
             cleanupCall();
             return;
           }
-          
-          // إذا كنت أنا المُتصل، والمستقبل رد ووضع الـ session الخاص به
-          if (!isIncoming && updated.status === 'active' && updated.receiver_cf_session_id && myCfSessionIdRef.current) {
+
+          // إذا كنت أنا المُتصل (المرسل)، والمستقبل قبل المكالمة
+          if (!isIncoming && updated.status === 'active' && updated.receiver_track_name && cfServiceRef.current) {
+            console.log('✅ Recipient accepted! Pulling remote stream...');
             setStatus('active');
-            ringtoneRef.current?.stop();
-            await pullRemoteTrack(myCfSessionIdRef.current, updated.receiver_cf_session_id);
+            
+            if (ringbackRef.current) {
+              ringbackRef.current.stop();
+            }
+
+            try {
+              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, (stream) => {
+                setRemoteStream(stream);
+              });
+              pullPcRef.current = pc;
+            } catch (err) {
+              console.error('Failed to pull remote stream:', err);
+              toast.error('فشل جلب صوت الطرف الآخر');
+            }
           }
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(statusChannel); };
-  }, [callId, user, isIncoming, cleanupCall, pullRemoteTrack]);
-
-  /**
-   * التقاط المايكروفون ودفع المسار لـ Cloudflare
-   */
-  const pushLocalTrack = async () => {
-    // 1. إنشاء Session
-    const sessionData = await handleCFAPI('createSession');
-    const sessionId = sessionData.sessionId;
-    myCfSessionIdRef.current = sessionId;
-
-    // 2. التقاط الصوت بقيود تجعل المتصفح يعرف أنها مكالمة صوتية (Communication Mode)
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }, 
-      video: false 
-    });
-    localStreamRef.current = stream;
-
-    // 3. إعداد PC
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    pcRef.current = pc;
-    
-    pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        setRemoteStream(event.streams[0]);
-      }
+    return () => {
+      supabase.removeChannel(statusChannel);
     };
-
-    const audioTrack = stream.getAudioTracks()[0];
-    if (audioTrack) {
-      pc.addTrack(audioTrack, stream);
-    }
-
-    // 4. إنشاء SDP Offer ودفعه لـ CF
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    const pushData = await handleCFAPI('addTracks', {
-      sessionDescription: { type: 'offer', sdp: offer.sdp },
-      tracks: [{ location: 'local', trackName: 'audio-main', mid: pc.getTransceivers()[0]?.mid }]
-    }, sessionId);
-
-    // 5. استقبال SDP Answer
-    if (pushData.sessionDescription) {
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: pushData.sessionDescription.sdp }));
-    }
-
-    return sessionId;
-  };
+  }, [callId, user, isIncoming, cleanupCall]);
 
   /**
-   * بدء مكالمة (المُرسل)
+   * بدء مكالمة جديدة (المرسل)
    */
-  const startCall = async (recipientId: string, conversationId: string) => {
-    if (!user) return;
-    cleanupCall();
+  const startCall = useCallback(async (recipientId: string, conversationId: string) => {
+    if (!user || status !== 'idle') return;
+
     try {
-      // التأكد من تفعيل الإشعارات لاستلام الردود
-      requestNotificationPermission();
-      
+      console.log('📞 Starting voice call...');
       setStatus('ringing');
       setIsIncoming(false);
       
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', recipientId).single();
+      // جلب بيانات الطرف الآخر فوراً للواجهة
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .eq('id', recipientId)
+        .single();
+
       setRemotePeer({
         id: recipientId,
-        name: profile?.username || 'مستخدم',
+        name: profile?.username || 'زميل',
         avatar: profile?.avatar_url
       });
 
-      const ringtone = createTone('outgoing');
-      ringtoneRef.current = ringtone;
-      ringtone.start();
+      // 1. بدء تشغيل نغمة الانتظار
+      const ringback = new RingbackToneGenerator();
+      ringbackRef.current = ringback;
+      ringback.start();
 
-      // دفع الصوت لـ CF
-      const sessionId = await pushLocalTrack();
+      // 2. إعداد Cloudflare ودفع الصوت المحلي
+      const cfService = new CloudflareCallsService();
+      cfServiceRef.current = cfService;
       
-      // حفظ الجلسة في الجدول الجديد hr_audio_calls
+      const trackName = await cfService.startPush();
+      const sessionId = cfService.getSessionId();
+
+      // 3. إنشاء سجل المكالمة في القاعدة
       const { data: callRecord, error: dbError } = await supabase
         .from('hr_audio_calls')
         .insert({
@@ -439,7 +235,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           recipient_id: recipientId,
           conversation_id: conversationId,
           status: 'calling',
-          cf_session_id: sessionId
+          cf_session_id: sessionId,
+          metadata: { sender_track_name: trackName }
         })
         .select()
         .single();
@@ -448,32 +245,35 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setCallId(callRecord.id);
       callIdRef.current = callRecord.id;
 
-      // إرسال إشعار للمستقبل (لا يوقف العملية)
+      // 4. إرسال إشعار OneSignal (Edge Function)
       supabase.functions.invoke('start-call', {
-        body: { 
-          recipientId, 
+        body: {
+          recipientId,
           callId: callRecord.id,
-          callerName: user.full_name || 'زميل',
-          url: window.location.origin,
+          callerName: user.full_name || user.username || 'زميل',
           isHrAudioCall: true
         }
-      }).catch(() => {});
+      }).catch(err => console.error('Push notification failed:', err));
 
     } catch (err: any) {
-      const msg = err?.message || 'خطأ غير معروف';
-      toast.error(`لم نتمكن من بدء المكالمة: ${msg}`);
+      console.error('❌ startCall failed:', err);
+      toast.error('فشل بدء المكالمة');
       cleanupCall();
     }
-  };
+  }, [user, status, cleanupCall]);
 
   /**
-   * الرد على المكالمة (المُستقبِل)
+   * قبول المكالمة (المستقبل)
    */
-  const acceptCall = async () => {
+  const acceptCall = useCallback(async () => {
     if (!callId || !user) return;
+
     try {
-      ringtoneRef.current?.stop();
-      
+      console.log('📞 Accepting incoming call...');
+      globalAudioManager.stopAllAudio();
+      setStatus('active');
+
+      // 1. جلب بيانات المكالمة (للحصول على مسار المرسل)
       const { data: callData, error: fetchErr } = await supabase
         .from('hr_audio_calls')
         .select('*')
@@ -482,57 +282,93 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       if (fetchErr || !callData) throw new Error('Call not found');
 
-      // 1. دفع صوتي الشخصي للـ SFU 
-      const mySessionId = await pushLocalTrack();
+      // 2. إعداد Cloudflare ودفع الصوت المحلي
+      const cfService = new CloudflareCallsService();
+      cfServiceRef.current = cfService;
 
-      // 2. سحب صوت المُرسل
-      if (callData.cf_session_id) {
-        await pullRemoteTrack(mySessionId, callData.cf_session_id);
-      }
+      const trackName = await cfService.startPush();
+      const receiverSessionId = cfService.getSessionId();
 
-      // 3. إبلاغ المرسل بـ session الخاصي بي
-      await supabase.from('hr_audio_calls').update({
-        status: 'active',
-        receiver_cf_session_id: mySessionId
-      }).eq('id', callId);
+      // 3. تحديث السجل لإبلاغ المرسل
+      await supabase
+        .from('hr_audio_calls')
+        .update({
+          status: 'active',
+          receiver_cf_session_id: receiverSessionId,
+          receiver_track_name: trackName
+        })
+        .eq('id', callId);
 
-      setStatus('active');
-    } catch (err) {
-      toast.error('حدث خطأ أثناء الاتصال');
+      // 4. سحب صوت المرسل
+      const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
+      const pc = await cfService.startPull(senderTrackName, (stream) => {
+        setRemoteStream(stream);
+      });
+      pullPcRef.current = pc;
+
+    } catch (err: any) {
+      console.error('❌ acceptCall failed:', err);
+      toast.error('حدث خطأ أثناء قبول المكالمة');
       cleanupCall();
     }
-  };
+  }, [callId, user, cleanupCall]);
 
-  const toggleMute = useCallback(() => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMuted(prev => !prev);
+  /**
+   * إنهاء المكالمة
+   */
+  const endCall = useCallback(async () => {
+    const currentId = callIdRef.current;
+    cleanupCall();
+
+    if (currentId) {
+      await supabase
+        .from('hr_audio_calls')
+        .update({ 
+          status: 'ended', 
+          ended_at: new Date().toISOString() 
+        })
+        .eq('id', currentId);
     }
-  }, []);
+  }, [cleanupCall]);
 
+  /**
+   * كتم الميكروفون
+   */
+  const toggleMute = useCallback(() => {
+    if (cfServiceRef.current) {
+      const newMuted = !isMuted;
+      setIsMuted(newMuted);
+      
+      // الحصول على المسارات الصوتية وتعطيلها/تفعيلها
+      const stream = (cfServiceRef.current as any).localStream;
+      if (stream) {
+        stream.getAudioTracks().forEach((track: any) => {
+          track.enabled = !newMuted;
+        });
+      }
+    }
+  }, [isMuted]);
+
+  /**
+   * تحويل الصوت لمكبر الصوت
+   */
   const toggleSpeaker = useCallback(() => {
     setIsSpeakerPhone(prev => !prev);
   }, []);
 
-  const endCall = async () => {
-    const currentCallId = callId;
-    cleanupCall();
-    if (currentCallId) {
-      await supabase.from('hr_audio_calls').update({ 
-        status: 'ended', 
-        ended_at: new Date().toISOString() 
-      }).eq('id', currentCallId);
-    }
-  };
+  // المرجع للقيم المستقرة
+  const value = useMemo(() => ({
+    callId, status, isIncoming, remotePeer, remoteStream,
+    startCall, acceptCall, endCall, toggleMute, isMuted,
+    isSpeakerPhone, toggleSpeaker
+  }), [
+    callId, status, isIncoming, remotePeer, remoteStream,
+    startCall, acceptCall, endCall, toggleMute, isMuted,
+    isSpeakerPhone, toggleSpeaker
+  ]);
 
   return (
-    <CallContext.Provider value={{ 
-      callId, status, isIncoming, remotePeer, remoteStream,
-      startCall, acceptCall, endCall, toggleMute, isMuted,
-      isSpeakerPhone, toggleSpeaker 
-    }}>
+    <CallContext.Provider value={value}>
       {children}
       <CallOverlay />
     </CallContext.Provider>

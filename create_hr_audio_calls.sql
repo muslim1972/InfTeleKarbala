@@ -11,6 +11,8 @@ CREATE TABLE public.hr_audio_calls (
   -- الجلسة المشتركة للمكالمة في Cloudflare (كلا الطرفين يسحبان من نفس الـ session)
   cf_session_id TEXT,
   receiver_cf_session_id TEXT,
+  receiver_track_name TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
   
   -- حالة المكالمة: calling, active, ended, missed, rejected
   status TEXT NOT NULL DEFAULT 'calling',

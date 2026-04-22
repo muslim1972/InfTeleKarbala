@@ -1,139 +1,133 @@
-/**
- * CloudflareCallsService.ts
- * 
- * الملحق التقني لإدارة مكالمات WebRTC عبر Cloudflare Calls.
- * يتعامل مع الميكروفون، إنشاء الاتصال، وتبادل المسارات الصوتية.
- */
-
-const CLOUDFLARE_APP_ID = import.meta.env.VITE_CLOUDFLARE_APP_ID;
+// src/services/CloudflareCallsService.ts
+import { supabase } from './supabase';
+import { Capacitor } from '@capacitor/core';
 
 export class CloudflareCallsService {
   private pc: RTCPeerConnection | null = null;
-  private localStream: MediaStream | null = null;
   private sessionId: string | null = null;
+  private localStream: MediaStream | null = null;
 
-  constructor(sessionId: string) {
-    this.sessionId = sessionId;
-    // تهيئة الـ PeerConnection مع خوادم Google STUN لضمان تجاوز جدران الحماية
+  constructor() {
+    // تكوين PeerConnection
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
   }
 
   /**
-   * بدء بث الصوت من الميكروفون إلى Cloudflare
+   * استدعاء الـ Edge Function للتعامل مع Cloudflare
    */
-  async startPush(_onTrack?: (track: MediaStreamTrack) => void) {
+  private async handleCFAPI(action: string, sessionId?: string, payload?: any) {
+    const { data, error } = await supabase.functions.invoke('handle-cloudflare-call', {
+      body: { action, sessionId, payload }
+    });
+
+    if (error) {
+      console.error(`❌ Edge Function Error (${action}):`, error);
+      throw error;
+    }
+    return data;
+  }
+
+  /**
+   * بدء دفع الصوت (Local Mic)
+   */
+  async startPush(): Promise<string> {
     try {
-      // 1. طلب الإذن للميكروفون
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      // 1. الحصول على الميكروفون
+      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // 2. إضافة المسار الصوتي للاتصال
       this.localStream.getTracks().forEach(track => {
-        this.pc?.addTrack(track, this.localStream!);
+        if (this.pc && this.localStream) {
+          this.pc.addTrack(track, this.localStream);
+        }
       });
 
-      // 3. إنشاء الـ Offer التقني
+      // 2. إنشاء Offer
       const offer = await this.pc!.createOffer();
       await this.pc!.setLocalDescription(offer);
 
-      // 4. إرسال المسار لـ Cloudflare لفتحه (Indexing)
-      const response = await fetch(
-        `https://rtc.live.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/${this.sessionId}/tracks/new`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionDescription: {
-              type: 'offer',
-              sdp: offer.sdp
-            },
-            tracks: [{
-              location: 'local',
-              mid: this.pc!.getTransceivers().find(t => t.receiver.track.kind === 'audio')?.mid,
-              trackName: 'audio-main'
-            }]
-          })
+      // 3. إنشاء جلسة في Cloudflare
+      const sessionData = await this.handleCFAPI('createSession', undefined, {
+        sessionDescription: {
+          type: 'offer',
+          sdp: offer.sdp
         }
-      );
+      });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to push track');
+      this.sessionId = sessionData.sessionId;
 
-      // 5. استقبال الـ Answer من Cloudflare وتثبيته
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
-      
-      console.log('🎙️ Audio stream pushed to Cloudflare successfully');
-      return data.tracks[0].trackName; // سنحتاج هذا الاسم ليسحبه الطرف الآخر
+      // 4. ضبط الـ Answer من Cloudflare
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
+
+      // 5. إضافة المسار (Track) للجلسة
+      const trackData = await this.handleCFAPI('addTracks', this.sessionId!, {
+        tracks: [{
+          location: 'local',
+          mid: this.pc!.getTransceivers()[0].mid,
+          trackName: `audio-${Date.now()}`
+        }]
+      });
+
+      return trackData.tracks[0].trackName;
     } catch (error) {
-      console.error('❌ Error pushing audio to Cloudflare:', error);
+      console.error('❌ startPush failed:', error);
       throw error;
     }
   }
 
   /**
-   * سحب صوت الطرف الآخر (Pull)
+   * سحب صوت الطرف الآخر
    */
-  async startPull(remoteTrackName: string, onRemoteStream: (stream: MediaStream) => void) {
-    try {
-      const pullPc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
+  async startPull(remoteTrackName: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
+    const pullPc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+    });
 
-      // إعداد مستمع للمسارات القادمة
-      pullPc.ontrack = (event) => {
-        onRemoteStream(event.streams[0]);
-      };
+    pullPc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        onStream(event.streams[0]);
+      }
+    };
 
-      // طلب "سحب" المسار المعين
-      const response = await fetch(
-        `https://rtc.live.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/${this.sessionId}/tracks/new`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tracks: [{
-              location: 'remote',
-              trackName: remoteTrackName
-            }]
-          })
-        }
-      );
+    // 1. طلب سحب المسار من Cloudflare
+    const pullData = await this.handleCFAPI('addTracks', this.sessionId!, {
+      tracks: [{
+        location: 'remote',
+        trackName: remoteTrackName
+      }]
+    });
 
-      const data = await response.json();
-      await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
-      
-      const answer = await pullPc.createAnswer();
-      await pullPc.setLocalDescription(answer);
+    // 2. ضبط الـ Offer القادم من Cloudflare
+    await pullPc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
 
-      // تأكيد المصافحة (Answer)
-      await fetch(
-        `https://rtc.live.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/${this.sessionId}/tracks/${data.tracks[0].trackName}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionDescription: {
-              type: 'answer',
-              sdp: answer.sdp
-            }
-          })
-        }
-      );
+    // 3. إنشاء Answer
+    const answer = await pullPc.createAnswer();
+    await pullPc.setLocalDescription(answer);
 
-      console.log('🔊 Remote audio pulled and playing');
-    } catch (error) {
-      console.error('❌ Error pulling remote audio:', error);
-    }
+    // 4. إرسال الـ Answer لـ Cloudflare (Renegotiate)
+    await this.handleCFAPI('renegotiate', this.sessionId!, {
+      sessionDescription: {
+        type: 'answer',
+        sdp: answer.sdp
+      }
+    });
+
+    return pullPc;
   }
 
-  /**
-   * إنهاء المكالمة وتنظيف المصادر
-   */
+  getSessionId() {
+    return this.sessionId;
+  }
+
   stop() {
-    this.localStream?.getTracks().forEach(track => track.stop());
-    this.pc?.close();
-    this.pc = null;
-    this.localStream = null;
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream = null;
+    }
+    if (this.pc) {
+      this.pc.close();
+      this.pc = null;
+    }
   }
 }
