@@ -80,58 +80,61 @@ export class CloudflareCallsService {
 
   /**
    * سحب صوت الطرف الآخر (Pull)
+   * نستخدم RTCPeerConnection منفصل لكل عملية سحب كما في ShamilApp
    */
-  async startPull(remoteTrackName: string, remoteSessionId: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
-    if (!this.pc || !this.sessionId) {
-      throw new Error('Push session must be started before Pull');
-    }
+  async startPull(remoteTrackName: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
+    try {
+      console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName}`);
+      
+      const pullPc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
 
-    console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName} from session: ${remoteSessionId}`);
+      // إعداد مستمع المسارات القادمة
+      pullPc.ontrack = (event) => {
+        console.log('📡 [CF Service] Remote track received!');
+        if (event.streams && event.streams[0]) {
+          onStream(event.streams[0]);
+        }
+      };
 
-    // 1. إعداد مستمع المسارات
-    this.pc.ontrack = (event) => {
-      console.log('📡 [CF Service] Remote track event received');
-      if (event.streams && event.streams[0]) {
-        onStream(event.streams[0]);
+      // 1. طلب "سحب" المسار عبر Edge Function
+      // ملاحظة: لا نحتاج لتمرير remoteSessionId لأن أسماء المسارات فريدة في التطبيق
+      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
+        tracks: [{
+          location: 'remote',
+          trackName: remoteTrackName
+        }]
+      });
+
+      if (!data || !data.sessionDescription) {
+        throw new Error('Cloudflare did not return a sessionDescription for Pull');
       }
-    };
 
-    // 2. طلب سحب المسار من Cloudflare (مع تمرير sessionId للمصدر)
-    const pullData = await this.handleCFAPI('addTracks', this.sessionId, {
-      tracks: [{
-        location: 'remote',
-        trackName: remoteTrackName,
-        sessionId: remoteSessionId // الربط بين الجلستين
-      }]
-    });
+      // 2. تثبيت الـ Remote Description (Offer من Cloudflare)
+      console.log('📡 [CF Service] Setting remote offer');
+      await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      
+      // 3. إنشاء الـ Answer محلياً
+      console.log('📡 [CF Service] Creating answer');
+      const answer = await pullPc.createAnswer();
+      await pullPc.setLocalDescription(answer);
 
-    // 3. ضبط الـ Offer القادم من Cloudflare (كموصف بعيد)
-    console.log('📡 [CF Service] Pull request response:', { 
-      hasSDP: !!pullData.sessionDescription, 
-      requiresRenegotiation: pullData.requiresImmediateRenegotiation 
-    });
+      // 4. تأكيد المصافحة (Renegotiate) عبر Edge Function لإتمام الربط
+      console.log('📡 [CF Service] Sending renegotiate answer');
+      await this.handleCFAPI('renegotiate', this.sessionId!, {
+        sessionDescription: {
+          type: 'answer',
+          sdp: answer.sdp
+        }
+      });
 
-    if (!pullData.sessionDescription) {
-      console.error('❌ [CF Service] Cloudflare did not return a sessionDescription (Offer) for Pull');
-      throw new Error('Cloudflare failed to provide SDP for the remote track. This usually happens if the source session is invalid or closed.');
+      console.log('✅ [CF Service] Remote audio pull complete');
+      return pullPc;
+    } catch (error) {
+      console.error('❌ [CF Service] Error pulling remote audio:', error);
+      throw error;
     }
-
-    console.log('📡 [CF Service] Setting remote description (Offer from CF)');
-    await this.pc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
-
-    // 4. إنشاء الـ Answer محلياً
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-
-    // 5. إرسال الـ Answer لـ Cloudflare لإتمام الربط
-    await this.handleCFAPI('renegotiate', this.sessionId, {
-      sessionDescription: {
-        type: 'answer',
-        sdp: answer.sdp
-      }
-    });
-
-    return this.pc;
   }
 
   getSessionId() {

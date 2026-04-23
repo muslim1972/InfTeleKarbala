@@ -173,15 +173,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             }
 
             try {
-              const remoteSessionId = isIncoming ? updated.cf_session_id : updated.receiver_cf_session_id;
-              console.log(`📡 [Listener] Remote Session ID detected: ${remoteSessionId} for track: ${updated.receiver_track_name}`);
+              console.log(`📡 [Listener] Pulling track: ${updated.receiver_track_name}`);
               
-              if (!remoteSessionId) {
-                console.warn('⚠️ [Listener] Waiting for remote session ID...');
-                return;
-              }
-
-              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, remoteSessionId, (stream) => {
+              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, (stream) => {
                 setRemoteStream(stream);
               });
               pullPcRef.current = pc;
@@ -308,15 +302,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const receiverSessionId = cfService.getSessionId();
       console.log('📡 [Accept] Step 2 Success. Track:', trackName);
 
-      // 3. سحب صوت المرسل (مع تمرير رقم جلسة المرسل)
+      // 3. سحب صوت المرسل (ببساطة كما في ShamilApp)
       console.log('📡 [Accept] Step 3: Starting Pull from sender...');
       const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
-      const senderSessionId = callData.cf_session_id;
-      console.log(`📡 [Accept] Pulling from Sender Session: ${senderSessionId} / Track: ${senderTrackName}`);
       
-      if (!senderSessionId) throw new Error('Sender session ID not found in database');
-
-      const pc = await cfService.startPull(senderTrackName, senderSessionId, (stream) => {
+      const pc = await cfService.startPull(senderTrackName, (stream) => {
         console.log('📡 [Accept] Remote stream received!');
         setRemoteStream(stream);
       });
