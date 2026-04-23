@@ -17,14 +17,16 @@ export class CloudflareCallsService {
    * استدعاء الـ Edge Function للتعامل مع Cloudflare
    */
   private async handleCFAPI(action: string, sessionId?: string, payload?: any) {
+    console.log(`📡 [CF Service] Calling Edge Function: ${action}`, { sessionId, hasPayload: !!payload });
     const { data, error } = await supabase.functions.invoke('handle-cloudflare-call', {
       body: { action, sessionId, payload }
     });
 
     if (error) {
-      console.error(`❌ Edge Function Error (${action}):`, error);
+      console.error(`❌ [CF Service] Edge Function Error (${action}):`, error);
       throw error;
     }
+    console.log(`✅ [CF Service] Edge Function Success (${action}):`, data);
     return data;
   }
 

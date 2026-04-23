@@ -292,14 +292,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       if (fetchErr || !callData) throw new Error('Call not found');
 
       // 2. إعداد Cloudflare ودفع الصوت المحلي
+      console.log('📡 [Accept] Step 2: Starting Push...');
       const cfService = new CloudflareCallsService();
       cfServiceRef.current = cfService;
 
       const trackName = await cfService.startPush();
       const receiverSessionId = cfService.getSessionId();
+      console.log('📡 [Accept] Step 2 Success. Track:', trackName);
 
-      // 3. تحديث السجل لإبلاغ المرسل
-      await supabase
+      // 3. سحب صوت المرسل (قبل إرسال Active لضمان الجاهزية)
+      console.log('📡 [Accept] Step 3: Starting Pull from sender...');
+      const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
+      const pc = await cfService.startPull(senderTrackName, (stream) => {
+        console.log('📡 [Accept] Remote stream received!');
+        setRemoteStream(stream);
+      });
+      pullPcRef.current = pc;
+
+      // 4. الآن فقط نقوم بتحديث السجل لإبلاغ المرسل بالبدء
+      console.log('📡 [Accept] Step 4: Updating DB to Active...');
+      const { error: updateErr } = await supabase
         .from('hr_audio_calls')
         .update({
           status: 'active',
@@ -308,16 +320,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         })
         .eq('id', callId);
 
-      // 4. سحب صوت المرسل
-      const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
-      const pc = await cfService.startPull(senderTrackName, (stream) => {
-        setRemoteStream(stream);
-      });
-      pullPcRef.current = pc;
+      if (updateErr) throw updateErr;
 
     } catch (err: any) {
-      console.error('❌ acceptCall failed:', err);
-      toast.error('حدث خطأ أثناء قبول المكالمة');
+      console.error('❌ acceptCall failed at some step:', err);
+      toast.error(`فشل قبول المكالمة: ${err.message || 'خطأ تقني'}`);
       cleanupCall();
     }
   }, [callId, user, cleanupCall]);
