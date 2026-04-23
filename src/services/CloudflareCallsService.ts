@@ -85,16 +85,29 @@ export class CloudflareCallsService {
 
       const finalOffer = this.pc!.localDescription;
 
-      // 3. إنشاء الجلسة وإضافة المسار في خطوة واحدة (أكثر استقراراً عند اكتمال ICE)
-      console.log('📡 [CF Service] Creating session with local track...');
+      // 3. إنشاء الجلسة فارغة أولاً لضمان الاستقرار (كما في ShamilApp)
+      console.log('📡 [CF Service] Step 1: Creating Empty Session...');
+      const sessionData = await this.handleCFAPI('createSession', undefined, {
+        sessionDescription: { type: 'offer', sdp: finalOffer?.sdp }
+      });
+      
+      this.sessionId = sessionData.sessionId;
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
+      
+      // 4. إضافة المسار المحلي (Push) في خطوة ثانية
+      console.log('📡 [CF Service] Step 2: Adding Local Track...');
       const trackId = `audio-${Date.now()}`;
       
       const audioTransceiver = this.pc!.getTransceivers().find(t => 
         t.sender.track && t.sender.track.kind === 'audio'
       );
 
-      const sessionData = await this.handleCFAPI('createSession', undefined, {
-        sessionDescription: { type: 'offer', sdp: finalOffer?.sdp },
+      // نحتاج لـ Offer جديد بعد إضافة المسار
+      const newOffer = await this.pc!.createOffer();
+      await this.pc!.setLocalDescription(newOffer);
+
+      const pushData = await this.handleCFAPI('addTracks', this.sessionId!, {
+        sessionDescription: { type: 'offer', sdp: this.pc!.localDescription?.sdp },
         tracks: [{
           location: 'local',
           mid: audioTransceiver?.mid,
@@ -102,12 +115,10 @@ export class CloudflareCallsService {
         }]
       });
 
-      this.sessionId = sessionData.sessionId;
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(pushData.sessionDescription));
       
       console.log('✅ [CF Service] Push successful. Track:', trackId);
       
-      // مراقبة حالة الاتصال
       this.pc!.oniceconnectionstatechange = () => {
         console.log(`📡 [ICE State] ${this.pc!.iceConnectionState}`);
       };
@@ -137,17 +148,30 @@ export class CloudflareCallsService {
         }
       };
 
-      // 1. طلب السحب مع تمرير sessionId المصدر (هذا هو مفتاح حل 406 في مشروعك)
-      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
+      // 1. طلب السحب مع محاولة إعادة الطلب في حال تأخر Cloudflare
+      let data = await this.handleCFAPI('addTracks', this.sessionId!, {
         tracks: [{
           location: 'remote',
           trackName: remoteTrackName,
-          sessionId: remoteSessionId // الربط الإلزامي بين الجلستين
+          sessionId: remoteSessionId
         }]
       });
 
       if (!data || !data.sessionDescription) {
-        throw new Error('No sessionDescription returned for Pull');
+        console.warn('⚠️ [CF Service] No sessionDescription returned for Pull, retrying in 1s...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        data = await this.handleCFAPI('addTracks', this.sessionId!, {
+          tracks: [{
+            location: 'remote',
+            trackName: remoteTrackName,
+            sessionId: remoteSessionId
+          }]
+        });
+      }
+
+      if (!data || !data.sessionDescription) {
+        console.error('❌ [CF Service] Pull failed: Full response from CF:', data);
+        throw new Error('No sessionDescription returned for Pull after retry');
       }
 
       // 2. تثبيت العرض (Offer من Cloudflare)
