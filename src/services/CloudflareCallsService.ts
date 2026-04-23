@@ -8,10 +8,19 @@ export class CloudflareCallsService {
 
   constructor(sessionId?: string | null) {
     this.sessionId = sessionId || null;
-    // استخدام خوادم Google STUN كما في ShamilApp لضمان أفضل توافق
+    // إضافة iceCandidatePoolSize لتسريع عملية الربط
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceCandidatePoolSize: 10
     });
+
+    this.pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        console.log(`📡 [ICE] New candidate: ${e.candidate.type} (${e.candidate.protocol})`);
+      } else {
+        console.log('📡 [ICE] Gathering complete');
+      }
+    };
   }
 
   /**
@@ -43,6 +52,8 @@ export class CloudflareCallsService {
       
       this.localStream.getTracks().forEach(track => {
         if (this.pc && this.localStream) {
+          track.enabled = true;
+          console.log(`🎙️ [Mic] Track active: ${track.label}, State: ${track.readyState}`);
           this.pc.addTrack(track, this.localStream);
         }
       });
