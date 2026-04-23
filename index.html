@@ -37,16 +37,27 @@
         script.defer = true;
         document.head.appendChild(script);
 
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
         window.OneSignalDeferred.push(async function (OneSignal) {
-          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+          const expectedHost = 'inf-tele-karbala.vercel.app';
+          const currentHost = window.location.hostname;
+          
+          if (currentHost === 'localhost' || currentHost === '127.0.0.1') return;
+          
+          if (currentHost !== expectedHost && currentHost !== 'itpc-hr.vercel.app') {
+            console.warn(`⚠️ OneSignal: Domain mismatch. Current: ${currentHost}. Expected: ${expectedHost}. Please update OneSignal Dashboard.`);
+          }
+
           try {
             await OneSignal.init({
               appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
               safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
-              notifyButton: { enable: false }
+              notifyButton: { enable: false },
+              allowLocalhostAsSecureOrigin: true
             });
-          } catch (e) { console.error("Web OS Error:", e); }
+          } catch (e) { 
+            console.error("Web OS Error:", e); 
+            // منع انهيار التطبيق في حال فشل OneSignal بسبب النطاق
+          }
         });
       }
     })();

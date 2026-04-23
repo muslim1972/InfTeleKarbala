@@ -257,7 +257,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
     } catch (err: any) {
       console.error('❌ startCall failed:', err);
-      toast.error('فشل بدء المكالمة');
+      
+      let errorMsg = 'فشل بدء المكالمة';
+      if (err.message?.includes('Failed to fetch') || err.name === 'FunctionsFetchError') {
+        errorMsg = 'فشل الاتصال بخدمة المكالمات (Edge Function). يرجى التأكد من نشر الوظائف.';
+      } else if (err.message?.includes('getUserMedia')) {
+        errorMsg = 'يرجى السماح بالوصول للميكروفون للمتابعة';
+      }
+
+      toast.error(errorMsg, { duration: 5000 });
       cleanupCall();
     }
   }, [user, status, cleanupCall]);

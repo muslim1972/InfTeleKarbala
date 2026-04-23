@@ -4,25 +4,30 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 
 serve(async (req) => {
-  // Handle CORS
+  // معالجة طلبات OPTIONS (Preflight) بشكل صريح لضمان نجاح الـ Handshake
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { 
+      status: 200, 
+      headers: corsHeaders 
+    })
   }
 
   try {
     const { action, sessionId, payload } = await req.json()
     
-    // الحصول على المفاتيح من بيئة سوبابيس (يجب ضبطها مسبقاً عبر supabase secrets set)
-    // نستخدم VITE_CLOUDFLARE_APP_ID للتوافق مع ملف .env الموجود
     const APP_ID = Deno.env.get('VITE_CLOUDFLARE_APP_ID') || Deno.env.get('CLOUDFLARE_APP_ID')
     const API_TOKEN = Deno.env.get('CLOUDFLARE_API_TOKEN')
 
     if (!APP_ID || !API_TOKEN) {
       console.error('Missing Cloudflare credentials in environment')
-      return new Response(JSON.stringify({ error: 'Config error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Config error' }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
 
     const BASE_URL = `https://rtc.live.cloudflare.com/v1/apps/${APP_ID}`
@@ -45,7 +50,10 @@ serve(async (req) => {
       url = `${BASE_URL}/sessions/${sessionId}/renegotiate`
       method = 'PUT'
     } else {
-      return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Invalid action' }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
 
     console.log(`📡 Cloudflare Request: ${method} ${url}`)
