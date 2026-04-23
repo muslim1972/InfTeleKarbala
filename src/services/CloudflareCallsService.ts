@@ -6,10 +6,11 @@ export class CloudflareCallsService {
   private sessionId: string | null = null;
   private localStream: MediaStream | null = null;
 
-  constructor() {
-    // تكوين PeerConnection
+  constructor(sessionId?: string | null) {
+    this.sessionId = sessionId || null;
+    // استخدام خوادم Google STUN كما في ShamilApp لضمان أفضل توافق
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
   }
 
@@ -35,8 +36,10 @@ export class CloudflareCallsService {
    */
   async startPush(): Promise<string> {
     try {
-      // 1. الحصول على الميكروفون
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 1. الميكروفون
+      this.localStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+      });
       
       this.localStream.getTracks().forEach(track => {
         if (this.pc && this.localStream) {
@@ -44,36 +47,46 @@ export class CloudflareCallsService {
         }
       });
 
-      // 2. إنشاء Offer
-      const offer = await this.pc!.createOffer();
+      // 2. إنشاء الـ Offer الأولي
+      let offer = await this.pc!.createOffer();
       await this.pc!.setLocalDescription(offer);
 
-      // 3. توليد اسم المسار مسبقاً
-      const localTrackName = `audio-${Date.now()}`;
+      // 3. إنشاء الجلسة (بدون مسارات في البداية) كما في ShamilApp
+      if (!this.sessionId) {
+        console.log('📡 [CF Service] Step 1: Creating Session...');
+        const sessionData = await this.handleCFAPI('createSession', undefined, {
+          sessionDescription: { type: 'offer', sdp: offer.sdp }
+        });
+        this.sessionId = sessionData.sessionId;
+        await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
+        
+        // تحديث الـ Offer للتأكد من المزامنة قبل إضافة المسار
+        offer = await this.pc!.createOffer();
+        await this.pc!.setLocalDescription(offer);
+      }
 
-      // 4. إنشاء جلسة في Cloudflare مع المسارات مباشرة
-      console.log('📡 [CF Service] Creating session with track:', localTrackName);
-      const sessionData = await this.handleCFAPI('createSession', undefined, {
+      // 4. إضافة المسار في خطوة منفصلة (المرحلة الثانية)
+      console.log('📡 [CF Service] Step 2: Adding Local Track...');
+      const trackId = `audio-${Date.now()}`;
+      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
         sessionDescription: {
           type: 'offer',
           sdp: offer.sdp
         },
-        // إضافة المسار هنا مباشرة يجعل الجلسة مستقرة فوراً
         tracks: [{
           location: 'local',
-          mid: this.pc!.getTransceivers()[0].mid,
-          trackName: localTrackName
+          mid: this.pc!.getTransceivers().find(t => t.receiver.track.kind === 'audio')?.mid,
+          trackName: trackId
         }]
       });
 
-      this.sessionId = sessionData.sessionId;
-
-      // 5. ضبط الـ Answer من Cloudflare
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
-
-      return localTrackName;
+      // تثبيت الـ Answer النهائي للمرحلة الثانية
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      
+      console.log('✅ [CF Service] Push successful. Track:', data.tracks[0].trackName);
+      return data.tracks[0].trackName; 
     } catch (error) {
-      console.error('❌ startPush failed:', error);
+      console.error('❌ [CF Service] Error in startPush:', error);
       throw error;
     }
   }
