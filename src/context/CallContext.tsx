@@ -310,6 +310,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       // 3. سحب صوت المرسل (مع تمرير رقم جلسة المرسل)
       console.log('📡 [Accept] Step 3: Starting Pull from sender...');
+      const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
       const senderSessionId = callData.cf_session_id;
       console.log(`📡 [Accept] Pulling from Sender Session: ${senderSessionId} / Track: ${senderTrackName}`);
       
