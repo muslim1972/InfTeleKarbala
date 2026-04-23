@@ -65,11 +65,35 @@ export const CallOverlay: React.FC = () => {
   // ربط الصوت البعيد
   useEffect(() => {
     if (remoteStream && audioRef.current) {
-      console.log('🔊 Connecting remote stream to audio element');
-      audioRef.current.srcObject = remoteStream;
-      audioRef.current.play().catch(err => {
-        console.warn('⚠️ Audio autoplay blocked:', err);
+      const audioTracks = remoteStream.getAudioTracks();
+      console.log(`🔊 [CallOverlay] Connecting remote stream. Tracks found: ${audioTracks.length}`);
+      
+      audioTracks.forEach(track => {
+        console.log(`🔊 [CallOverlay] Track ID: ${track.id}, Label: ${track.label}, Enabled: ${track.enabled}, State: ${track.readyState}`);
+        track.enabled = true; // التأكد من تفعيل المسار
       });
+
+      const audio = audioRef.current;
+      audio.srcObject = remoteStream;
+      audio.muted = false; // التأكد من عدم الكتم
+      audio.volume = 1.0;  // رفع الصوت لأقصى درجة
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('✅ [CallOverlay] Remote audio playing successfully');
+        }).catch(err => {
+          console.warn('⚠️ [CallOverlay] Audio autoplay blocked or failed:', err);
+          // محاولة التشغيل مرة أخرى عند أول نقرة في الصفحة كحل احتياطي
+          const retryPlay = () => {
+            audio.play().then(() => {
+              console.log('✅ [CallOverlay] Remote audio started after interaction');
+              document.removeEventListener('click', retryPlay);
+            });
+          };
+          document.addEventListener('click', retryPlay);
+        });
+      }
     }
   }, [remoteStream]);
 
