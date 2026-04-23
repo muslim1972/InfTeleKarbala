@@ -106,6 +106,16 @@ export class CloudflareCallsService {
     });
 
     // 3. ضبط الـ Offer القادم من Cloudflare (كموصف بعيد)
+    console.log('📡 [CF Service] Pull request response:', { 
+      hasSDP: !!pullData.sessionDescription, 
+      requiresRenegotiation: pullData.requiresImmediateRenegotiation 
+    });
+
+    if (!pullData.sessionDescription) {
+      console.error('❌ [CF Service] Cloudflare did not return a sessionDescription (Offer) for Pull');
+      throw new Error('Cloudflare failed to provide SDP for the remote track. This usually happens if the source session is invalid or closed.');
+    }
+
     console.log('📡 [CF Service] Setting remote description (Offer from CF)');
     await this.pc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
 
