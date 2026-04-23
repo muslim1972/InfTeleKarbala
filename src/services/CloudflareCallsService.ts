@@ -54,9 +54,9 @@ export class CloudflareCallsService {
         if (this.pc && this.localStream) {
           track.enabled = true;
           console.log(`🎙️ [Mic] Track active: ${track.label}, State: ${track.readyState}`);
-          // استخدام addTransceiver لضمان الإرسال فقط وتجنب الخلط في الـ MIDs
+          // استخدام sendrecv بدلاً من sendonly لضمان نشاط القناة في بعض المتصفحات
           this.pc.addTransceiver(track, {
-            direction: 'sendonly',
+            direction: 'sendrecv',
             streams: [this.localStream]
           });
         }

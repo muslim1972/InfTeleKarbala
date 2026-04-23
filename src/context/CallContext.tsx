@@ -174,8 +174,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
             try {
               const remoteSessionId = isIncoming ? updated.cf_session_id : updated.receiver_cf_session_id;
-              console.log(`📡 [Listener] Pulling track: ${updated.receiver_track_name} from Session: ${remoteSessionId}`);
+              console.log(`📡 [Listener] Waiting 1s before pulling: ${updated.receiver_track_name}...`);
               
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
               if (!remoteSessionId) {
                 console.warn('⚠️ [Listener] Waiting for remote session ID...');
                 return;
@@ -308,11 +310,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const receiverSessionId = cfService.getSessionId();
       console.log('📡 [Accept] Step 2 Success. Track:', trackName);
 
-      // 3. سحب صوت المرسل (مع تمرير رقم جلسة المرسل لفك قفل 406)
-      console.log('📡 [Accept] Step 3: Starting Pull from sender...');
+      // 3. سحب صوت المرسل (مع تأخير ثانية لضمان الانتشار)
+      console.log('📡 [Accept] Step 3: Waiting 1s before Pull from sender...');
       const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
       const senderSessionId = callData.cf_session_id;
       
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       if (!senderSessionId) throw new Error('Sender session ID not found in database');
 
       const pc = await cfService.startPull(senderTrackName, senderSessionId, (stream) => {
