@@ -78,43 +78,49 @@ export class CloudflareCallsService {
   }
 
   /**
-   * سحب صوت الطرف الآخر
+   * سحب صوت الطرف الآخر (Pull)
+   * نستخدم نفس الاتصال (this.pc) لضمان توافق الجلسة مع Cloudflare
    */
   async startPull(remoteTrackName: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
-    const pullPc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
-    });
+    if (!this.pc || !this.sessionId) {
+      throw new Error('Push session must be started before Pull');
+    }
 
-    pullPc.ontrack = (event) => {
+    console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName}`);
+
+    // 1. إعداد مستمع المسارات (ontrack) على نفس الاتصال
+    this.pc.ontrack = (event) => {
+      console.log('📡 [CF Service] Remote track event received');
       if (event.streams && event.streams[0]) {
         onStream(event.streams[0]);
       }
     };
 
-    // 1. طلب سحب المسار من Cloudflare
-    const pullData = await this.handleCFAPI('addTracks', this.sessionId!, {
+    // 2. طلب سحب المسار من Cloudflare
+    const pullData = await this.handleCFAPI('addTracks', this.sessionId, {
       tracks: [{
         location: 'remote',
         trackName: remoteTrackName
       }]
     });
 
-    // 2. ضبط الـ Offer القادم من Cloudflare
-    await pullPc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
+    // 3. ضبط الـ Offer القادم من Cloudflare (كموصف بعيد)
+    console.log('📡 [CF Service] Setting remote description (Offer from CF)');
+    await this.pc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
 
-    // 3. إنشاء Answer
-    const answer = await pullPc.createAnswer();
-    await pullPc.setLocalDescription(answer);
+    // 4. إنشاء الـ Answer محلياً
+    const answer = await this.pc.createAnswer();
+    await this.pc.setLocalDescription(answer);
 
-    // 4. إرسال الـ Answer لـ Cloudflare (Renegotiate)
-    await this.handleCFAPI('renegotiate', this.sessionId!, {
+    // 5. إرسال الـ Answer لـ Cloudflare لإتمام الربط
+    await this.handleCFAPI('renegotiate', this.sessionId, {
       sessionDescription: {
         type: 'answer',
         sdp: answer.sdp
       }
     });
 
-    return pullPc;
+    return this.pc;
   }
 
   getSessionId() {
