@@ -93,48 +93,43 @@ export class CloudflareCallsService {
 
   /**
    * سحب صوت الطرف الآخر (Pull)
-   * نستخدم RTCPeerConnection منفصل لكل عملية سحب كما في ShamilApp
+   * نستخدم RTCPeerConnection منفصل + تمرير remoteSessionId لفك قفل 406
    */
-  async startPull(remoteTrackName: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
+  async startPull(remoteTrackName: string, remoteSessionId: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
     try {
-      console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName}`);
+      console.log(`📡 [CF Service] Starting Pull: ${remoteTrackName} from Source: ${remoteSessionId}`);
       
       const pullPc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
 
-      // إعداد مستمع المسارات القادمة
       pullPc.ontrack = (event) => {
-        console.log('📡 [CF Service] Remote track received!');
         if (event.streams && event.streams[0]) {
           onStream(event.streams[0]);
         }
       };
 
-      // 1. طلب "سحب" المسار عبر Edge Function
-      // ملاحظة: لا نحتاج لتمرير remoteSessionId لأن أسماء المسارات فريدة في التطبيق
+      // 1. طلب السحب مع تمرير sessionId المصدر (هذا هو مفتاح حل 406 في مشروعك)
       const data = await this.handleCFAPI('addTracks', this.sessionId!, {
         tracks: [{
           location: 'remote',
-          trackName: remoteTrackName
+          trackName: remoteTrackName,
+          sessionId: remoteSessionId // الربط الإلزامي بين الجلستين
         }]
       });
 
       if (!data || !data.sessionDescription) {
-        throw new Error('Cloudflare did not return a sessionDescription for Pull');
+        throw new Error('No sessionDescription returned for Pull');
       }
 
-      // 2. تثبيت الـ Remote Description (Offer من Cloudflare)
-      console.log('📡 [CF Service] Setting remote offer');
+      // 2. تثبيت العرض (Offer من Cloudflare)
       await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
       
-      // 3. إنشاء الـ Answer محلياً
-      console.log('📡 [CF Service] Creating answer');
+      // 3. إنشاء الرد (Answer)
       const answer = await pullPc.createAnswer();
       await pullPc.setLocalDescription(answer);
 
-      // 4. تأكيد المصافحة (Renegotiate) عبر Edge Function لإتمام الربط
-      console.log('📡 [CF Service] Sending renegotiate answer');
+      // 4. تأكيد المصافحة (Renegotiate)
       await this.handleCFAPI('renegotiate', this.sessionId!, {
         sessionDescription: {
           type: 'answer',
@@ -145,7 +140,7 @@ export class CloudflareCallsService {
       console.log('✅ [CF Service] Remote audio pull complete');
       return pullPc;
     } catch (error) {
-      console.error('❌ [CF Service] Error pulling remote audio:', error);
+      console.error('❌ [CF Service] Error in startPull:', error);
       throw error;
     }
   }

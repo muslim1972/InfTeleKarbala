@@ -173,9 +173,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             }
 
             try {
-              console.log(`📡 [Listener] Pulling track: ${updated.receiver_track_name}`);
+              const remoteSessionId = isIncoming ? updated.cf_session_id : updated.receiver_cf_session_id;
+              console.log(`📡 [Listener] Pulling track: ${updated.receiver_track_name} from Session: ${remoteSessionId}`);
               
-              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, (stream) => {
+              if (!remoteSessionId) {
+                console.warn('⚠️ [Listener] Waiting for remote session ID...');
+                return;
+              }
+
+              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, remoteSessionId, (stream) => {
                 setRemoteStream(stream);
               });
               pullPcRef.current = pc;
@@ -302,11 +308,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const receiverSessionId = cfService.getSessionId();
       console.log('📡 [Accept] Step 2 Success. Track:', trackName);
 
-      // 3. سحب صوت المرسل (ببساطة كما في ShamilApp)
+      // 3. سحب صوت المرسل (مع تمرير رقم جلسة المرسل لفك قفل 406)
       console.log('📡 [Accept] Step 3: Starting Pull from sender...');
       const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
+      const senderSessionId = callData.cf_session_id;
       
-      const pc = await cfService.startPull(senderTrackName, (stream) => {
+      if (!senderSessionId) throw new Error('Sender session ID not found in database');
+
+      const pc = await cfService.startPull(senderTrackName, senderSessionId, (stream) => {
         console.log('📡 [Accept] Remote stream received!');
         setRemoteStream(stream);
       });
