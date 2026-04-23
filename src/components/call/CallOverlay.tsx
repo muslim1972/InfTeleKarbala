@@ -93,39 +93,6 @@ export const CallOverlay: React.FC = () => {
       };
       resumeAudio();
 
-      // تشخيص: قياس قوة الصوت برمجياً
-      const analyzeVolume = () => {
-        try {
-          const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-          const audioCtx = new AudioContextClass();
-          const source = audioCtx.createMediaStreamSource(remoteStream);
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          source.connect(analyser);
-          
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          
-          const check = () => {
-            if (!remoteStream.active) {
-              console.log('🔊 [AudioMeter] Stream inactive');
-              return;
-            }
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for(let i = 0; i < bufferLength; i++) sum += dataArray[i];
-            const average = sum / bufferLength;
-            // طباعة الحالة دائماً للتشخيص
-            console.log(`🔊 [AudioMeter] Remote volume: ${average.toFixed(2)} | Tracks: ${remoteStream.getAudioTracks().length}`);
-            setTimeout(check, 2000); // فحص كل ثانيتين لتقليل الضجيج في الكونسول
-          };
-          check();
-        } catch (e) {
-          console.warn('⚠️ [AudioMeter] Failed to start:', e);
-        }
-      };
-      analyzeVolume();
-
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {

@@ -3,220 +3,137 @@ import { supabase } from '../lib/supabase';
 
 export class CloudflareCallsService {
   private pc: RTCPeerConnection | null = null;
-  private sessionId: string | null = null;
   private localStream: MediaStream | null = null;
+  private sessionId: string | null = null;
 
   constructor(sessionId?: string | null) {
     this.sessionId = sessionId || null;
-    // إضافة iceCandidatePoolSize لتسريع عملية الربط
+    // تهيئة الـ PeerConnection مع خوادم Google STUN لضمان تجاوز جدران الحماية
     this.pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      iceCandidatePoolSize: 10
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
+  }
 
-    this.pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        console.log(`📡 [ICE] New candidate: ${e.candidate.type} (${e.candidate.protocol})`);
-      } else {
-        console.log('📡 [ICE] Gathering complete');
-      }
-    };
+  getSessionId() {
+    return this.sessionId;
   }
 
   /**
-   * استدعاء الـ Edge Function للتعامل مع Cloudflare
+   * استدعاء الـ Edge Function
    */
   private async handleCFAPI(action: string, sessionId?: string, payload?: any) {
-    console.log(`📡 [CF Service] Calling Edge Function: ${action}`, { sessionId, hasPayload: !!payload });
     const { data, error } = await supabase.functions.invoke('handle-cloudflare-call', {
       body: { action, sessionId, payload }
     });
-
-    if (error) {
-      console.error(`❌ [CF Service] Edge Function Error (${action}):`, error);
-      throw error;
-    }
-    console.log(`✅ [CF Service] Edge Function Success (${action}):`, data);
+    if (error) throw error;
     return data;
   }
 
   /**
-   * بدء دفع الصوت (Local Mic)
+   * بدء بث الصوت من الميكروفون
    */
   async startPush(): Promise<string> {
     try {
-      // 1. الميكروفون - تبسيط الإعدادات لضمان التوافق الشامل
+      // 1. طلب الإذن للميكروفون
       this.localStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
       });
       
+      // 2. إضافة المسار الصوتي للاتصال
       this.localStream.getTracks().forEach(track => {
-        if (this.pc && this.localStream) {
-          track.enabled = true;
-          console.log(`🎙️ [Mic] Track active: ${track.label}, State: ${track.readyState}`);
-          // استخدام sendrecv بدلاً من sendonly لضمان نشاط القناة في بعض المتصفحات
-          this.pc.addTransceiver(track, {
-            direction: 'sendrecv',
-            streams: [this.localStream]
-          });
-        }
+        this.pc?.addTrack(track, this.localStream!);
       });
 
-      // 2. إنشاء الـ Offer الأولي والانتظار حتى اكتمال جمع الـ ICE Candidates (لحل تأخير الـ 17 ثانية)
-      const offer = await this.pc!.createOffer();
+      // 3. إنشاء الـ Offer التقني الأول
+      let offer = await this.pc!.createOffer();
       await this.pc!.setLocalDescription(offer);
 
-      console.log('📡 [CF Service] Gathering ICE candidates...');
-      await new Promise<void>((resolve) => {
-        if (this.pc!.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          const checkState = () => {
-            if (this.pc!.iceGatheringState === 'complete') {
-              this.pc!.removeEventListener('icegatheringstatechange', checkState);
-              resolve();
-            }
-          };
-          this.pc!.addEventListener('icegatheringstatechange', checkState);
-          // مهلة أمان 3 ثواني
-          setTimeout(resolve, 3000);
-        }
-      });
+      // 4. إنشاء الجلسة إذا لم تكن موجودة
+      if (!this.sessionId) {
+          const sessionData = await this.handleCFAPI('createSession', undefined, {
+            sessionDescription: { type: 'offer', sdp: offer.sdp }
+          });
+          this.sessionId = sessionData.sessionId;
+          await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
+          
+          // تحديث الـ Offer للتأكد من المزامنة قبل إضافة المسار
+          offer = await this.pc!.createOffer();
+          await this.pc!.setLocalDescription(offer);
+      }
 
-      const finalOffer = this.pc!.localDescription;
-
-      // 3. إنشاء الجلسة فارغة أولاً لضمان الاستقرار (كما في ShamilApp)
-      console.log('📡 [CF Service] Step 1: Creating Empty Session...');
-      const sessionData = await this.handleCFAPI('createSession', undefined, {
-        sessionDescription: { type: 'offer', sdp: finalOffer?.sdp }
-      });
-      
-      this.sessionId = sessionData.sessionId;
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
-      
-      // 4. إضافة المسار المحلي (Push) في خطوة ثانية
-      console.log('📡 [CF Service] Step 2: Adding Local Track...');
+      // 5. إرسال المسار
       const trackId = `audio-${Date.now()}`;
-      
-      const audioTransceiver = this.pc!.getTransceivers().find(t => 
-        t.sender.track && t.sender.track.kind === 'audio'
-      );
-
-      // نحتاج لـ Offer جديد بعد إضافة المسار
-      const newOffer = await this.pc!.createOffer();
-      await this.pc!.setLocalDescription(newOffer);
-
-      const pushData = await this.handleCFAPI('addTracks', this.sessionId!, {
-        sessionDescription: { type: 'offer', sdp: this.pc!.localDescription?.sdp },
+      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
+        sessionDescription: {
+          type: 'offer',
+          sdp: offer.sdp
+        },
         tracks: [{
           location: 'local',
-          mid: audioTransceiver?.mid,
+          mid: this.pc!.getTransceivers().find(t => t.receiver.track.kind === 'audio')?.mid,
           trackName: trackId
         }]
       });
 
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(pushData.sessionDescription));
+      // 6. استقبال الـ Answer وتثبيته
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
       
-      console.log('✅ [CF Service] Push successful. Track:', trackId);
-      
-      this.pc!.oniceconnectionstatechange = () => {
-        console.log(`📡 [ICE State] ${this.pc!.iceConnectionState}`);
-      };
-
+      console.log('🎙️ Audio stream pushed to Cloudflare successfully');
       return trackId; 
     } catch (error) {
-      console.error('❌ [CF Service] Error in startPush:', error);
+      console.error('❌ Error pushing audio:', error);
       throw error;
     }
   }
 
   /**
    * سحب صوت الطرف الآخر (Pull)
-   * نستخدم RTCPeerConnection منفصل + تمرير remoteSessionId لفك قفل 406
    */
-  async startPull(remoteTrackName: string, remoteSessionId: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
+  async startPull(remoteTrackName: string, remoteSessionId: string, onRemoteStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
     try {
-      console.log(`📡 [CF Service] Starting Pull: ${remoteTrackName} from Source: ${remoteSessionId}`);
-      
       const pullPc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
 
       pullPc.ontrack = (event) => {
+        console.log('🔊 Remote track received');
         if (event.streams && event.streams[0]) {
-          onStream(event.streams[0]);
+          onRemoteStream(event.streams[0]);
         }
       };
 
-      // 1. طلب السحب مع محاولة إعادة الطلب في حال تأخر Cloudflare
-      let data = await this.handleCFAPI('addTracks', this.sessionId!, {
+      // 1. طلب "سحب" المسار
+      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
         tracks: [{
           location: 'remote',
           trackName: remoteTrackName,
-          sessionId: remoteSessionId
+          sessionId: remoteSessionId // نحتفظ بها هنا لأننا نحتاج للربط بين جلستين مختلفتين
         }]
       });
 
-      if (!data || !data.sessionDescription) {
-        console.warn('⚠️ [CF Service] No sessionDescription returned for Pull, retrying in 1s...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        data = await this.handleCFAPI('addTracks', this.sessionId!, {
-          tracks: [{
-            location: 'remote',
-            trackName: remoteTrackName,
-            sessionId: remoteSessionId
-          }]
-        });
-      }
+      if (!data || !data.sessionDescription) throw new Error('Failed to pull track via relay');
 
-      if (!data || !data.sessionDescription) {
-        console.error('❌ [CF Service] Pull failed: Full response from CF:', data);
-        throw new Error('No sessionDescription returned for Pull after retry');
-      }
-
-      // 2. تثبيت العرض (Offer من Cloudflare)
+      // 2. تثبيت الـ Remote Description
       await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
       
-      // 3. إنشاء الرد والانتظار حتى اكتمال جمع الـ ICE Candidates
+      // 3. إنشاء الـ Answer
       const answer = await pullPc.createAnswer();
       await pullPc.setLocalDescription(answer);
 
-      console.log('📡 [CF Service] Gathering ICE candidates for Pull...');
-      await new Promise<void>((resolve) => {
-        if (pullPc.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          const checkState = () => {
-            if (pullPc.iceGatheringState === 'complete') {
-              pullPc.removeEventListener('icegatheringstatechange', checkState);
-              resolve();
-            }
-          };
-          pullPc.addEventListener('icegatheringstatechange', checkState);
-          setTimeout(resolve, 3000);
-        }
-      });
-
-      const finalAnswer = pullPc.localDescription;
-
-      // 4. إكمال عملية المصافحة (Renegotiate)
+      // 4. تأكيد المصافحة (Renegotiate)
       await this.handleCFAPI('renegotiate', this.sessionId!, {
         sessionDescription: {
           type: 'answer',
-          sdp: finalAnswer?.sdp
+          sdp: answer.sdp
         }
       });
 
-      console.log('✅ [CF Service] Remote audio pull complete');
+      console.log('🔊 Remote audio pull handshake complete');
       return pullPc;
     } catch (error) {
-      console.error('❌ [CF Service] Error in startPull:', error);
+      console.error('❌ Error pulling remote audio:', error);
       throw error;
     }
-  }
-
-  getSessionId() {
-    return this.sessionId;
   }
 
   stop() {
