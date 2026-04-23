@@ -78,6 +78,21 @@ export const CallOverlay: React.FC = () => {
       audio.muted = false; // التأكد من عدم الكتم
       audio.volume = 1.0;  // رفع الصوت لأقصى درجة
       
+      // تعويذة إضافية: استئناف محرك الصوت في المتصفح
+      const resumeAudio = async () => {
+        try {
+          const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const ctx = new AudioContextClass();
+            if (ctx.state === 'suspended') await ctx.resume();
+            console.log('✅ [CallOverlay] AudioContext resumed');
+          }
+        } catch (e) {
+          console.warn('⚠️ [CallOverlay] Could not resume AudioContext:', e);
+        }
+      };
+      resumeAudio();
+
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {

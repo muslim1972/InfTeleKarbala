@@ -68,6 +68,16 @@ export class CloudflareCallsService {
       // 4. إضافة المسار في خطوة منفصلة (المرحلة الثانية)
       console.log('📡 [CF Service] Step 2: Adding Local Track...');
       const trackId = `audio-${Date.now()}`;
+      
+      // نختار الـ mid الخاص بالمرسل (Sender) الذي يحمل مسار الصوت الفعلي
+      const audioTransceiver = this.pc!.getTransceivers().find(t => 
+        t.sender.track && t.sender.track.kind === 'audio'
+      );
+
+      if (!audioTransceiver || !audioTransceiver.mid) {
+        throw new Error('Could not find a valid audio transceiver MID');
+      }
+
       const data = await this.handleCFAPI('addTracks', this.sessionId!, {
         sessionDescription: {
           type: 'offer',
@@ -75,7 +85,7 @@ export class CloudflareCallsService {
         },
         tracks: [{
           location: 'local',
-          mid: this.pc!.getTransceivers().find(t => t.receiver.track.kind === 'audio')?.mid,
+          mid: audioTransceiver.mid,
           trackName: trackId
         }]
       });
