@@ -48,29 +48,30 @@ export class CloudflareCallsService {
       const offer = await this.pc!.createOffer();
       await this.pc!.setLocalDescription(offer);
 
-      // 3. إنشاء جلسة في Cloudflare
+      // 3. توليد اسم المسار مسبقاً
+      const localTrackName = `audio-${Date.now()}`;
+
+      // 4. إنشاء جلسة في Cloudflare مع المسارات مباشرة
+      console.log('📡 [CF Service] Creating session with track:', localTrackName);
       const sessionData = await this.handleCFAPI('createSession', undefined, {
         sessionDescription: {
           type: 'offer',
           sdp: offer.sdp
-        }
+        },
+        // إضافة المسار هنا مباشرة يجعل الجلسة مستقرة فوراً
+        tracks: [{
+          location: 'local',
+          mid: this.pc!.getTransceivers()[0].mid,
+          trackName: localTrackName
+        }]
       });
 
       this.sessionId = sessionData.sessionId;
 
-      // 4. ضبط الـ Answer من Cloudflare
+      // 5. ضبط الـ Answer من Cloudflare
       await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
 
-      // 5. إضافة المسار (Track) للجلسة
-      const trackData = await this.handleCFAPI('addTracks', this.sessionId!, {
-        tracks: [{
-          location: 'local',
-          mid: this.pc!.getTransceivers()[0].mid,
-          trackName: `audio-${Date.now()}`
-        }]
-      });
-
-      return trackData.tracks[0].trackName;
+      return localTrackName;
     } catch (error) {
       console.error('❌ startPush failed:', error);
       throw error;

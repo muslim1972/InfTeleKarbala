@@ -37,6 +37,7 @@
         script.defer = true;
         document.head.appendChild(script);
 
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
         window.OneSignalDeferred.push(async function (OneSignal) {
           const expectedHost = 'inf-tele-karbala.vercel.app';
           const currentHost = window.location.hostname;
