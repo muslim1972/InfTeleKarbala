@@ -173,7 +173,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             }
 
             try {
-              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, (stream) => {
+              const remoteSessionId = isIncoming ? updated.cf_session_id : updated.receiver_cf_session_id;
+              if (!remoteSessionId) throw new Error('Missing remote session ID');
+
+              const pc = await cfServiceRef.current.startPull(updated.receiver_track_name, remoteSessionId, (stream) => {
                 setRemoteStream(stream);
               });
               pullPcRef.current = pc;
@@ -300,10 +303,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const receiverSessionId = cfService.getSessionId();
       console.log('📡 [Accept] Step 2 Success. Track:', trackName);
 
-      // 3. سحب صوت المرسل (قبل إرسال Active لضمان الجاهزية)
+      // 3. سحب صوت المرسل (مع تمرير رقم جلسة المرسل)
       console.log('📡 [Accept] Step 3: Starting Pull from sender...');
       const senderTrackName = callData.metadata?.sender_track_name || 'audio-main';
-      const pc = await cfService.startPull(senderTrackName, (stream) => {
+      const senderSessionId = callData.cf_session_id;
+      
+      if (!senderSessionId) throw new Error('Sender session ID not found');
+
+      const pc = await cfService.startPull(senderTrackName, senderSessionId, (stream) => {
         console.log('📡 [Accept] Remote stream received!');
         setRemoteStream(stream);
       });

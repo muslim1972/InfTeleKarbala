@@ -80,16 +80,15 @@ export class CloudflareCallsService {
 
   /**
    * سحب صوت الطرف الآخر (Pull)
-   * نستخدم نفس الاتصال (this.pc) لضمان توافق الجلسة مع Cloudflare
    */
-  async startPull(remoteTrackName: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
+  async startPull(remoteTrackName: string, remoteSessionId: string, onStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
     if (!this.pc || !this.sessionId) {
       throw new Error('Push session must be started before Pull');
     }
 
-    console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName}`);
+    console.log(`📡 [CF Service] Starting Pull for track: ${remoteTrackName} from session: ${remoteSessionId}`);
 
-    // 1. إعداد مستمع المسارات (ontrack) على نفس الاتصال
+    // 1. إعداد مستمع المسارات
     this.pc.ontrack = (event) => {
       console.log('📡 [CF Service] Remote track event received');
       if (event.streams && event.streams[0]) {
@@ -97,11 +96,12 @@ export class CloudflareCallsService {
       }
     };
 
-    // 2. طلب سحب المسار من Cloudflare
+    // 2. طلب سحب المسار من Cloudflare (مع تمرير sessionId للمصدر)
     const pullData = await this.handleCFAPI('addTracks', this.sessionId, {
       tracks: [{
         location: 'remote',
-        trackName: remoteTrackName
+        trackName: remoteTrackName,
+        sessionId: remoteSessionId // الربط بين الجلستين
       }]
     });
 
