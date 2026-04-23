@@ -62,54 +62,57 @@ export class CloudflareCallsService {
         }
       });
 
-      // 2. إنشاء الـ Offer الأولي
-      let offer = await this.pc!.createOffer();
+      // 2. إنشاء الـ Offer الأولي والانتظار حتى اكتمال جمع الـ ICE Candidates (لحل تأخير الـ 17 ثانية)
+      const offer = await this.pc!.createOffer();
       await this.pc!.setLocalDescription(offer);
 
-      // 3. إنشاء الجلسة (بدون مسارات في البداية) كما في ShamilApp
-      if (!this.sessionId) {
-        console.log('📡 [CF Service] Step 1: Creating Session...');
-        const sessionData = await this.handleCFAPI('createSession', undefined, {
-          sessionDescription: { type: 'offer', sdp: offer.sdp }
-        });
-        this.sessionId = sessionData.sessionId;
-        await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
-        
-        // تحديث الـ Offer للتأكد من المزامنة قبل إضافة المسار
-        offer = await this.pc!.createOffer();
-        await this.pc!.setLocalDescription(offer);
-      }
+      console.log('📡 [CF Service] Gathering ICE candidates...');
+      await new Promise<void>((resolve) => {
+        if (this.pc!.iceGatheringState === 'complete') {
+          resolve();
+        } else {
+          const checkState = () => {
+            if (this.pc!.iceGatheringState === 'complete') {
+              this.pc!.removeEventListener('icegatheringstatechange', checkState);
+              resolve();
+            }
+          };
+          this.pc!.addEventListener('icegatheringstatechange', checkState);
+          // مهلة أمان 3 ثواني
+          setTimeout(resolve, 3000);
+        }
+      });
 
-      // 4. إضافة المسار في خطوة منفصلة (المرحلة الثانية)
-      console.log('📡 [CF Service] Step 2: Adding Local Track...');
+      const finalOffer = this.pc!.localDescription;
+
+      // 3. إنشاء الجلسة وإضافة المسار في خطوة واحدة (أكثر استقراراً عند اكتمال ICE)
+      console.log('📡 [CF Service] Creating session with local track...');
       const trackId = `audio-${Date.now()}`;
       
-      // نختار الـ mid الخاص بالـ Transceiver الذي أنشأناه للتو
       const audioTransceiver = this.pc!.getTransceivers().find(t => 
         t.sender.track && t.sender.track.kind === 'audio'
       );
 
-      if (!audioTransceiver || !audioTransceiver.mid) {
-        throw new Error('Could not find a valid audio transceiver MID');
-      }
-
-      const data = await this.handleCFAPI('addTracks', this.sessionId!, {
-        sessionDescription: {
-          type: 'offer',
-          sdp: offer.sdp
-        },
+      const sessionData = await this.handleCFAPI('createSession', undefined, {
+        sessionDescription: { type: 'offer', sdp: finalOffer?.sdp },
         tracks: [{
           location: 'local',
-          mid: audioTransceiver.mid,
+          mid: audioTransceiver?.mid,
           trackName: trackId
         }]
       });
 
-      // تثبيت الـ Answer النهائي للمرحلة الثانية
-      await this.pc!.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      this.sessionId = sessionData.sessionId;
+      await this.pc!.setRemoteDescription(new RTCSessionDescription(sessionData.sessionDescription));
       
-      console.log('✅ [CF Service] Push successful. Track:', data.tracks[0].trackName);
-      return data.tracks[0].trackName; 
+      console.log('✅ [CF Service] Push successful. Track:', trackId);
+      
+      // مراقبة حالة الاتصال
+      this.pc!.oniceconnectionstatechange = () => {
+        console.log(`📡 [ICE State] ${this.pc!.iceConnectionState}`);
+      };
+
+      return trackId; 
     } catch (error) {
       console.error('❌ [CF Service] Error in startPush:', error);
       throw error;
@@ -150,15 +153,33 @@ export class CloudflareCallsService {
       // 2. تثبيت العرض (Offer من Cloudflare)
       await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
       
-      // 3. إنشاء الرد (Answer)
+      // 3. إنشاء الرد والانتظار حتى اكتمال جمع الـ ICE Candidates
       const answer = await pullPc.createAnswer();
       await pullPc.setLocalDescription(answer);
 
-      // 4. تأكيد المصافحة (Renegotiate)
+      console.log('📡 [CF Service] Gathering ICE candidates for Pull...');
+      await new Promise<void>((resolve) => {
+        if (pullPc.iceGatheringState === 'complete') {
+          resolve();
+        } else {
+          const checkState = () => {
+            if (pullPc.iceGatheringState === 'complete') {
+              pullPc.removeEventListener('icegatheringstatechange', checkState);
+              resolve();
+            }
+          };
+          pullPc.addEventListener('icegatheringstatechange', checkState);
+          setTimeout(resolve, 3000);
+        }
+      });
+
+      const finalAnswer = pullPc.localDescription;
+
+      // 4. إكمال عملية المصافحة (Renegotiate)
       await this.handleCFAPI('renegotiate', this.sessionId!, {
         sessionDescription: {
           type: 'answer',
-          sdp: answer.sdp
+          sdp: finalAnswer?.sdp
         }
       });
 
