@@ -251,7 +251,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           recipientId,
           callId: callRecord.id,
           callerName: user.full_name || user.username || 'زميل',
-          isHrAudioCall: true
+          isHrAudioCall: true,
+          appUrl: window.location.origin // تمرير الرابط الحالي ديناميكياً
         }
       }).catch(err => console.error('Push notification failed:', err));
 

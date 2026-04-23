@@ -17,8 +17,8 @@ serve(async (req) => {
   }
 
   try {
-    const { recipientId, callId, callerName } = await req.json()
-    console.log(`🔔 Sending call notification to ${recipientId}`);
+    const { recipientId, callId, callerName, appUrl } = await req.json()
+    console.log(`🔔 Sending call notification to ${recipientId} with URL: ${appUrl}`);
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
       console.warn('⚠️ OneSignal not configured');
@@ -37,11 +37,8 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
-        // تمت إزالة app_url: url لمنع مشكلة فتح علامة تبويب PWA إضافية، 
-        // بدون رابط سيقوم المتصفح/الهاتف بوضع التركيز Focus على التطبيق المفتوح حالياً
-        // استخدام الطريقة الحديثة لتحديد المستلم
+        url: appUrl || "https://itpc-hr.vercel.app", // استخدام الرابط الممرر أو الافتراضي الجديد
         include_aliases: { external_id: [recipientId] },
-        // التوافق الرجعي
         include_external_user_ids: [recipientId],
         headings: { en: "مكالمة واردة 📞", ar: "مكالمة واردة 📞" },
         contents: { 
@@ -58,8 +55,8 @@ serve(async (req) => {
         android_category: "call",
         content_available: true,
         lock_screen_visibility: 1,
-        require_interaction: true, // الإشعار يبقى ظاهراً حتى يتفاعل معه المستخدم
-        ttl: 30, // تنتهي صلاحية الإشعار بعد 30 ثانية
+        require_interaction: true,
+        ttl: 30,
       })
     })
 
