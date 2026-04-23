@@ -107,15 +107,17 @@ export const CallOverlay: React.FC = () => {
           const dataArray = new Uint8Array(bufferLength);
           
           const check = () => {
-            if (!remoteStream.active) return;
+            if (!remoteStream.active) {
+              console.log('🔊 [AudioMeter] Stream inactive');
+              return;
+            }
             analyser.getByteFrequencyData(dataArray);
             let sum = 0;
             for(let i = 0; i < bufferLength; i++) sum += dataArray[i];
             const average = sum / bufferLength;
-            if (average > 0) {
-              console.log(`🔊 [AudioMeter] Remote volume level: ${average.toFixed(2)}`);
-            }
-            setTimeout(check, 1000); // فحص كل ثانية
+            // طباعة الحالة دائماً للتشخيص
+            console.log(`🔊 [AudioMeter] Remote volume: ${average.toFixed(2)} | Tracks: ${remoteStream.getAudioTracks().length}`);
+            setTimeout(check, 2000); // فحص كل ثانيتين لتقليل الضجيج في الكونسول
           };
           check();
         } catch (e) {

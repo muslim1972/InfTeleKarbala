@@ -45,16 +45,20 @@ export class CloudflareCallsService {
    */
   async startPush(): Promise<string> {
     try {
-      // 1. الميكروفون
+      // 1. الميكروفون - تبسيط الإعدادات لضمان التوافق الشامل
       this.localStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        audio: true 
       });
       
       this.localStream.getTracks().forEach(track => {
         if (this.pc && this.localStream) {
           track.enabled = true;
           console.log(`🎙️ [Mic] Track active: ${track.label}, State: ${track.readyState}`);
-          this.pc.addTrack(track, this.localStream);
+          // استخدام addTransceiver لضمان الإرسال فقط وتجنب الخلط في الـ MIDs
+          this.pc.addTransceiver(track, {
+            direction: 'sendonly',
+            streams: [this.localStream]
+          });
         }
       });
 
@@ -80,7 +84,7 @@ export class CloudflareCallsService {
       console.log('📡 [CF Service] Step 2: Adding Local Track...');
       const trackId = `audio-${Date.now()}`;
       
-      // نختار الـ mid الخاص بالمرسل (Sender) الذي يحمل مسار الصوت الفعلي
+      // نختار الـ mid الخاص بالـ Transceiver الذي أنشأناه للتو
       const audioTransceiver = this.pc!.getTransceivers().find(t => 
         t.sender.track && t.sender.track.kind === 'audio'
       );
