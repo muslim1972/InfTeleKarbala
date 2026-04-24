@@ -91,34 +91,33 @@ export class CloudflareCallsService {
    */
   async startPull(remoteTrackName: string, remoteSessionId: string, onRemoteStream: (stream: MediaStream) => void): Promise<RTCPeerConnection> {
     try {
-      const pullPc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
+      if (!this.pc) throw new Error('PeerConnection not initialized');
 
-      pullPc.ontrack = (event) => {
+      // إعداد مستمع للمسارات القادمة على نفس الاتصال
+      this.pc.ontrack = (event) => {
         console.log('🔊 Remote track received');
         if (event.streams && event.streams[0]) {
           onRemoteStream(event.streams[0]);
         }
       };
 
-      // 1. طلب "سحب" المسار
+      // 1. طلب "سحب" المسار عبر Edge Function
       const data = await this.handleCFAPI('addTracks', this.sessionId!, {
         tracks: [{
           location: 'remote',
           trackName: remoteTrackName,
-          sessionId: remoteSessionId // نحتفظ بها هنا لأننا نحتاج للربط بين جلستين مختلفتين
+          sessionId: remoteSessionId // الربط بين الجلسات
         }]
       });
 
       if (!data || !data.sessionDescription) throw new Error('Failed to pull track via relay');
 
-      // 2. تثبيت الـ Remote Description
-      await pullPc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      // 2. تثبيت الـ Remote Description (Offer القادم من Cloudflare)
+      await this.pc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
       
       // 3. إنشاء الـ Answer
-      const answer = await pullPc.createAnswer();
-      await pullPc.setLocalDescription(answer);
+      const answer = await this.pc.createAnswer();
+      await this.pc.setLocalDescription(answer);
 
       // 4. تأكيد المصافحة (Renegotiate)
       await this.handleCFAPI('renegotiate', this.sessionId!, {
@@ -128,8 +127,8 @@ export class CloudflareCallsService {
         }
       });
 
-      console.log('🔊 Remote audio pull handshake complete');
-      return pullPc;
+      console.log('🔊 Remote audio pull handshake complete on main PC');
+      return this.pc;
     } catch (error) {
       console.error('❌ Error pulling remote audio:', error);
       throw error;
@@ -145,5 +144,6 @@ export class CloudflareCallsService {
       this.pc.close();
       this.pc = null;
     }
+    this.sessionId = null;
   }
 }

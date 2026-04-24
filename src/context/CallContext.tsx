@@ -267,6 +267,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.error('❌ startCall failed:', err);
       
+      if (callIdRef.current) {
+        await supabase
+          .from('hr_audio_calls')
+          .update({ status: 'ended', metadata: { error: err.message } })
+          .eq('id', callIdRef.current);
+      }
+
       let errorMsg = 'فشل بدء المكالمة';
       if (err.message?.includes('Failed to fetch') || err.name === 'FunctionsFetchError') {
         errorMsg = 'فشل الاتصال بخدمة المكالمات (Edge Function). يرجى التأكد من نشر الوظائف.';
@@ -336,6 +343,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
     } catch (err: any) {
       console.error('❌ acceptCall failed at some step:', err);
+      
+      if (callId) {
+        await supabase
+          .from('hr_audio_calls')
+          .update({ status: 'ended', metadata: { error: err.message } })
+          .eq('id', callId);
+      }
+
       toast.error(`فشل قبول المكالمة: ${err.message || 'خطأ تقني'}`);
       cleanupCall();
     }
