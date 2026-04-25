@@ -2,51 +2,75 @@
  * SplashScreen.tsx
  * ─────────────────────────────────────────────────────────
  * واجهة افتتاحية فخمة لنظام الإدارة الموحد - ITPC كربلاء
- * مدتها 20 ثانية مع حركات SpaceLogos خلفية مستمرة.
+ * مدتها 20 ثانية مع خلفية مصفوفة رقمية (Binary Rain).
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 
-// ── الشعارات الطائرة (SpaceLogos) ───────────────────────
-const SPACE_LOGOS_COUNT = 18;
-const LOGO_SOURCES = ['/icon-192.png', '/logo-new.png'];
+// ── خلفية المصفوفة الرقمية (Binary Background) ──────────
+const BINARY_STREAMS_COUNT = 40;
 
-const SpaceLogos = () => {
+const BinaryBackground = () => {
+  const streams = useMemo(() => {
+    return Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
+      id: i,
+      left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
+      duration: Math.random() * 8 + 7,
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.3 + 0.1,
+      fontSize: Math.random() * 10 + 12,
+      binary: Array.from({ length: 20 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
+    }));
+  }, []);
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: SPACE_LOGOS_COUNT }).map((_, i) => {
-        // حركات محصورة في الزاوية اليسرى العليا
-        const targetX = Math.random() * 30; // ضمن أول 30% من العرض
-        const targetY = Math.random() * 30; // ضمن أول 30% من الارتفاع
-        
-        return (
-          <motion.img
-            key={i}
-            src={LOGO_SOURCES[Math.floor(Math.random() * LOGO_SOURCES.length)]}
-            className="absolute w-10 h-10 opacity-0 grayscale brightness-[2] mix-blend-screen"
-            initial={{ 
-              left: '2%', 
-              top: '2%', 
-              scale: 0, 
-              opacity: 0,
-            }}
-            animate={{ 
-              left: `${targetX}%`, 
-              top: `${targetY}%`, 
-              scale: [0, 1, 1.5], 
-              opacity: [0, 0.3, 0] 
-            }}
-            transition={{ 
-              duration: Math.random() * 5 + 5, 
-              repeat: Infinity, 
-              delay: Math.random() * 20,
-              ease: "easeInOut"
-            }}
-          />
-        );
-      })}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none mix-blend-screen opacity-40">
+      {streams.map((s) => (
+        <motion.div
+          key={s.id}
+          className="absolute text-emerald-500/40 font-mono whitespace-pre leading-none"
+          style={{ 
+            left: s.left, 
+            fontSize: s.fontSize,
+            opacity: s.opacity,
+            top: '-50%'
+          }}
+          initial={{ y: '-100%' }}
+          animate={{ y: '200%' }}
+          transition={{
+            duration: s.duration,
+            repeat: Infinity,
+            delay: s.delay,
+            ease: "linear"
+          }}
+        >
+          {s.binary}
+        </motion.div>
+      ))}
+      
+      {/* جسيمات عشوائية ثابتة (parallax effect) */}
+      {Array.from({ length: 30 }).map((_, i) => (
+        <motion.div
+          key={`static-${i}`}
+          className="absolute text-emerald-400/20 font-mono font-bold"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            fontSize: `${Math.random() * 20 + 10}px`
+          }}
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: [0, 0.4, 0], scale: [0.5, 1.2, 0.5] }}
+          transition={{
+            duration: Math.random() * 5 + 5,
+            repeat: Infinity,
+            delay: Math.random() * 10
+          }}
+        >
+          {Math.random() > 0.5 ? '1' : '0'}
+        </motion.div>
+      ))}
     </div>
   );
 };
@@ -111,7 +135,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           exit={{ opacity: 0 }}
           transition={{ duration: 1.5, ease: 'easeInOut' }}
           className="fixed inset-0 z-[99999] flex flex-col items-center justify-center overflow-hidden select-none"
-          style={{ background: '#05081a' }}
+          style={{ background: '#030510' }}
           dir="rtl"
           onClick={() => {
             if (!hasInteracted) {
@@ -137,8 +161,8 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             />
           </div>
 
-          {/* ── الشعارات الطائرة (خلفية مستمرة) ────────── */}
-          <SpaceLogos />
+          {/* ── خلفية الـ Binary Rain (الميزة الجديدة) ────────── */}
+          <BinaryBackground />
 
           {/* ── الشعار الرئيسي + الهالة الضوئية ──────────────────── */}
           <div className="relative flex items-center justify-center mb-10 md:mb-16">
