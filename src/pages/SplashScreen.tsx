@@ -10,18 +10,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
-const BINARY_STREAMS_COUNT = 60;
+const BINARY_STREAMS_COUNT = 50; // تقليل العدد قليلاً لتقليل التشتيت
 
 const BinaryBackground = () => {
   const streams = useMemo(() => {
     return Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
       id: i,
       left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
-      duration: Math.random() * 6 + 4, // أسرع قليلاً لتكون أوضح
-      delay: Math.random() * 15,
-      opacity: Math.random() * 0.5 + 0.3, // زيادة الشفافية لتكون مرئية
-      fontSize: Math.random() * 12 + 14,
-      binary: Array.from({ length: 30 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
+      duration: Math.random() * 10 + 15, // تقليل السرعة بشكل ملحوظ (أبطأ)
+      delay: Math.random() * 20,
+      opacity: Math.random() * 0.4 + 0.2, 
+      fontSize: Math.random() * 8 + 12,
+      // تقصير طول السلسلة إلى 10-15 رقماً فقط
+      binary: Array.from({ length: Math.floor(Math.random() * 6 + 10) }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
     }));
   }, []);
 
@@ -30,7 +31,7 @@ const BinaryBackground = () => {
       {streams.map((s) => (
         <motion.div
           key={s.id}
-          className="absolute text-sky-400 font-mono whitespace-pre leading-none blur-[0.5px]"
+          className="absolute text-sky-400 font-mono whitespace-pre leading-[1.8] blur-[0.4px]" // زيادة التباعد الرأسي
           style={{ 
             left: s.left, 
             fontSize: s.fontSize,
@@ -38,7 +39,7 @@ const BinaryBackground = () => {
             top: '-100%'
           }}
           initial={{ y: '-100%' }}
-          animate={{ y: '300%' }}
+          animate={{ y: '400%' }} // لضمان الخروج التام ببطء
           transition={{
             duration: s.duration,
             repeat: Infinity,
@@ -50,26 +51,26 @@ const BinaryBackground = () => {
         </motion.div>
       ))}
       
-      {/* جسيمات متوهجة إضافية لتعزيز الجمالية */}
-      {Array.from({ length: 40 }).map((_, i) => (
+      {/* جسيمات متوهجة هادئة */}
+      {Array.from({ length: 30 }).map((_, i) => (
         <motion.div
           key={`static-${i}`}
-          className="absolute text-white font-mono font-bold drop-shadow-[0_0_8px_rgba(56,189,248,0.8)]"
+          className="absolute text-white/60 font-mono font-bold drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]"
           style={{
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
-            fontSize: `${Math.random() * 25 + 10}px`
+            fontSize: `${Math.random() * 20 + 8}px`
           }}
           initial={{ opacity: 0, scale: 0 }}
           animate={{ 
-            opacity: [0, 0.6, 0], 
-            scale: [0.5, 1.3, 0.5],
-            filter: ['blur(2px)', 'blur(0px)', 'blur(2px)']
+            opacity: [0, 0.4, 0], 
+            scale: [0.6, 1.1, 0.6],
+            filter: ['blur(1px)', 'blur(0px)', 'blur(1px)']
           }}
           transition={{
-            duration: Math.random() * 4 + 3,
+            duration: Math.random() * 6 + 6,
             repeat: Infinity,
-            delay: Math.random() * 15
+            delay: Math.random() * 20
           }}
         >
           {Math.random() > 0.5 ? '1' : '0'}
