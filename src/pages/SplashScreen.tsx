@@ -10,35 +10,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
-const BINARY_STREAMS_COUNT = 40;
+const BINARY_STREAMS_COUNT = 60;
 
 const BinaryBackground = () => {
   const streams = useMemo(() => {
     return Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
       id: i,
       left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
-      duration: Math.random() * 8 + 7,
-      delay: Math.random() * 10,
-      opacity: Math.random() * 0.3 + 0.1,
-      fontSize: Math.random() * 10 + 12,
-      binary: Array.from({ length: 20 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
+      duration: Math.random() * 6 + 4, // أسرع قليلاً لتكون أوضح
+      delay: Math.random() * 15,
+      opacity: Math.random() * 0.5 + 0.3, // زيادة الشفافية لتكون مرئية
+      fontSize: Math.random() * 12 + 14,
+      binary: Array.from({ length: 30 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
     }));
   }, []);
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none mix-blend-screen opacity-40">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
       {streams.map((s) => (
         <motion.div
           key={s.id}
-          className="absolute text-emerald-500/40 font-mono whitespace-pre leading-none"
+          className="absolute text-sky-400 font-mono whitespace-pre leading-none blur-[0.5px]"
           style={{ 
             left: s.left, 
             fontSize: s.fontSize,
             opacity: s.opacity,
-            top: '-50%'
+            top: '-100%'
           }}
           initial={{ y: '-100%' }}
-          animate={{ y: '200%' }}
+          animate={{ y: '300%' }}
           transition={{
             duration: s.duration,
             repeat: Infinity,
@@ -50,22 +50,26 @@ const BinaryBackground = () => {
         </motion.div>
       ))}
       
-      {/* جسيمات عشوائية ثابتة (parallax effect) */}
-      {Array.from({ length: 30 }).map((_, i) => (
+      {/* جسيمات متوهجة إضافية لتعزيز الجمالية */}
+      {Array.from({ length: 40 }).map((_, i) => (
         <motion.div
           key={`static-${i}`}
-          className="absolute text-emerald-400/20 font-mono font-bold"
+          className="absolute text-white font-mono font-bold drop-shadow-[0_0_8px_rgba(56,189,248,0.8)]"
           style={{
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
-            fontSize: `${Math.random() * 20 + 10}px`
+            fontSize: `${Math.random() * 25 + 10}px`
           }}
           initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: [0, 0.4, 0], scale: [0.5, 1.2, 0.5] }}
+          animate={{ 
+            opacity: [0, 0.6, 0], 
+            scale: [0.5, 1.3, 0.5],
+            filter: ['blur(2px)', 'blur(0px)', 'blur(2px)']
+          }}
           transition={{
-            duration: Math.random() * 5 + 5,
+            duration: Math.random() * 4 + 3,
             repeat: Infinity,
-            delay: Math.random() * 10
+            delay: Math.random() * 15
           }}
         >
           {Math.random() > 0.5 ? '1' : '0'}
