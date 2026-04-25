@@ -17,11 +17,12 @@ const BinaryBackground = () => {
     return Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
       id: i,
       left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
-      duration: Math.random() * 10 + 15, // تقليل السرعة بشكل ملحوظ (أبطأ)
-      delay: Math.random() * 20,
-      opacity: Math.random() * 0.4 + 0.2, 
+      duration: Math.random() * 10 + 15,
+      // تقليل التأخير بشكل كبير وتوزيع البداية
+      delay: Math.random() * 2, 
+      initialY: Math.random() * 300 - 100, // تبدأ من مواقع مختلفة (بعضها داخل الشاشة فعلياً)
       fontSize: Math.random() * 8 + 12,
-      // تقصير طول السلسلة إلى 10-15 رقماً فقط
+      opacity: Math.random() * 0.4 + 0.2,
       binary: Array.from({ length: Math.floor(Math.random() * 6 + 10) }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
     }));
   }, []);
@@ -31,15 +32,14 @@ const BinaryBackground = () => {
       {streams.map((s) => (
         <motion.div
           key={s.id}
-          className="absolute text-sky-400 font-mono whitespace-pre leading-[1.8] blur-[0.4px]" // زيادة التباعد الرأسي
+          className="absolute text-sky-400 font-mono whitespace-pre leading-[1.8] blur-[0.4px]"
           style={{ 
             left: s.left, 
             fontSize: s.fontSize,
             opacity: s.opacity,
-            top: '-100%'
           }}
-          initial={{ y: '-100%' }}
-          animate={{ y: '400%' }} // لضمان الخروج التام ببطء
+          initial={{ y: `${s.initialY}%` }} // تبدأ من موقع عشوائي لضمان الامتلاء الفوري
+          animate={{ y: '400%' }} 
           transition={{
             duration: s.duration,
             repeat: Infinity,
