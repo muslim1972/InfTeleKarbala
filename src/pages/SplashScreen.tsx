@@ -17,35 +17,32 @@ const SpaceLogos = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {Array.from({ length: SPACE_LOGOS_COUNT }).map((_, i) => {
-        // تحديد اتجاه الخروج عشوائياً (أحد الجوانب الأربعة)
-        const side = ['top', 'bottom', 'left', 'right'][Math.floor(Math.random() * 4)];
-        const targetX = side === 'left' ? -120 : side === 'right' ? 120 : (Math.random() * 240 - 120);
-        const targetY = side === 'top' ? -120 : side === 'bottom' ? 120 : (Math.random() * 240 - 120);
+        // حركات محصورة في الزاوية اليسرى العليا
+        const targetX = Math.random() * 30; // ضمن أول 30% من العرض
+        const targetY = Math.random() * 30; // ضمن أول 30% من الارتفاع
         
         return (
           <motion.img
             key={i}
             src={LOGO_SOURCES[Math.floor(Math.random() * LOGO_SOURCES.length)]}
-            className="absolute w-12 h-12 opacity-0 grayscale brightness-[2] mix-blend-screen"
+            className="absolute w-10 h-10 opacity-0 grayscale brightness-[2] mix-blend-screen"
             initial={{ 
-              x: '50%', 
-              y: '50%', 
+              left: '2%', 
+              top: '2%', 
               scale: 0, 
               opacity: 0,
-              left: '-24px', 
-              top: '-24px' 
             }}
             animate={{ 
-              x: `${50 + targetX}%`, 
-              y: `${50 + targetY}%`, 
-              scale: [0, 1.5, 5], 
-              opacity: [0, 0.4, 0] 
+              left: `${targetX}%`, 
+              top: `${targetY}%`, 
+              scale: [0, 1, 1.5], 
+              opacity: [0, 0.3, 0] 
             }}
             transition={{ 
-              duration: Math.random() * 4 + 4, // سرعة متوسطة فخمة
+              duration: Math.random() * 5 + 5, 
               repeat: Infinity, 
               delay: Math.random() * 20,
-              ease: "easeIn"
+              ease: "easeInOut"
             }}
           />
         );
