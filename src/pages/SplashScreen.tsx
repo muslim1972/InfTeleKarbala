@@ -18,9 +18,9 @@ const BinaryBackground = () => {
       id: i,
       left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
       duration: Math.random() * 10 + 15,
-      // تقليل التأخير بشكل كبير وتوزيع البداية
-      delay: Math.random() * 2, 
-      initialY: Math.random() * 300 - 100, // تبدأ من مواقع مختلفة (بعضها داخل الشاشة فعلياً)
+      // تأخير عشوائي لكي لا تنزل كل السلاسل في نفس اللحظة
+      delay: Math.random() * 12, 
+      initialY: -100, // تبدأ دائماً من خارج الشاشة من الأعلى
       fontSize: Math.random() * 8 + 12,
       opacity: Math.random() * 0.4 + 0.2,
       binary: Array.from({ length: Math.floor(Math.random() * 6 + 10) }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
