@@ -1,0 +1,1 @@
+"$content = Get-Content -Path 'D:\noortech\src\app\dashboard\page.tsx' -Raw\n$content = $content -replace '\"import ParticipantSearchModal', 'import ParticipantSearchModal'\n$content = $content -replace 'NotificationsBell';\"\"', 'NotificationsBell';'\nSet-Content -Path 'D:\noortech\src\app\dashboard\page.tsx' -Value $content\nWrite-Output 'Fixed'\n"
