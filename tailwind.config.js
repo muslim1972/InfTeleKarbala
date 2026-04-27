@@ -32,7 +32,6 @@ export default {
           dark: '#1f2937'
         },
         'brand-cream': '#fffbeb',
-        'brand-cream': '#fffbeb',
 
         // SEMANTIC COLORS (Mapped to CSS Variables)
         background: "hsl(var(--background))",
