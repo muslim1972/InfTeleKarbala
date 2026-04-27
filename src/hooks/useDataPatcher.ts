@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import {
@@ -27,7 +27,7 @@ export function useDataPatcher() {
     const [allowMissingSkip, setAllowMissingSkip] = useState(false);
     const [matches, setMatches] = useState<MatchResult[]>([]);
 
-    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [workbook, setWorkbook] = useState<ExcelJS.Workbook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [selectedSheet, setSelectedSheet] = useState<string>('');
     const [headerRowIndex, setHeaderRowIndex] = useState<number>(0);
@@ -40,43 +40,54 @@ export function useDataPatcher() {
         if (!selectedFile) return;
 
         setFileName(selectedFile.name);
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const buffer = evt.target?.result;
-                const wb = XLSX.read(buffer, { type: 'array' });
+        try {
+            const arrayBuffer = await selectedFile.arrayBuffer();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(arrayBuffer);
 
-                setWorkbook(wb);
-                setSheetNames(wb.SheetNames);
-                setSelectedSheet(wb.SheetNames[0]);
-                setHeaderRowIndex(0);
+            setWorkbook(wb);
+            const names = wb.worksheets.map(ws => ws.name);
+            setSheetNames(names);
+            setSelectedSheet(names[0] || '');
+            setHeaderRowIndex(0);
 
-            } catch (error) {
-                console.error('Error parsing Excel:', error);
-                toast.error('حدث خطأ أثناء قراءة الملف');
-            }
-        };
-        reader.readAsArrayBuffer(selectedFile);
+        } catch (error) {
+            console.error('Error parsing Excel:', error);
+            toast.error('حدث خطأ أثناء قراءة الملف');
+        }
     };
 
     useEffect(() => {
         if (!workbook || !selectedSheet) return;
 
         try {
-            const ws = workbook.Sheets[selectedSheet];
-            const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-
-            if (!data || data.length === 0) {
+            const worksheet = workbook.getWorksheet(selectedSheet);
+            if (!worksheet) {
                 setHeaders([]);
                 setRows([]);
                 return;
             }
 
-            const safeIndex = Math.max(0, Math.min(headerRowIndex, data.length - 1));
-            const foundHeaders = data[safeIndex] || [];
+            const allRows: any[][] = [];
+            worksheet.eachRow((row) => {
+                const rowData: any[] = [];
+                row.eachCell((cell) => {
+                    rowData.push(cell.value);
+                });
+                allRows.push(rowData);
+            });
+
+            if (!allRows || allRows.length === 0) {
+                setHeaders([]);
+                setRows([]);
+                return;
+            }
+
+            const safeIndex = Math.max(0, Math.min(headerRowIndex, allRows.length - 1));
+            const foundHeaders = allRows[safeIndex] || [];
 
             setHeaders(foundHeaders.map(h => String(h || '').trim()));
-            setRows(data.slice(safeIndex + 1));
+            setRows(allRows.slice(safeIndex + 1));
 
             setKeyCol('');
             setValCol('');

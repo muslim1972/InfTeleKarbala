@@ -1,5 +1,4 @@
-
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
 
@@ -11,23 +10,37 @@ if (!fs.existsSync(FILE_PATH)) {
     process.exit(1);
 }
 
-const workbook = XLSX.readFile(FILE_PATH);
-const sheetName = workbook.SheetNames[0];
-const sheet = workbook.Sheets[sheetName];
+async function inspectLeavesExcel() {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(FILE_PATH);
+    
+    const sheet = workbook.worksheets[0];
+    
+    // Get headers (first row with data)
+    const headerRow = sheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+        headers.push(cell.value);
+    });
 
-// Get headers (first row with data)
-const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-if (rows.length === 0) {
-    console.error('File is empty');
-    process.exit(1);
+    if (headers.length === 0) {
+        console.error('File is empty');
+        process.exit(1);
+    }
+
+    console.log(`✅ Found ${headers.length} columns in "${FILE_NAME}":`);
+    console.log('--- Headers ---');
+    headers.forEach((h, i) => console.log(`[Col ${i}] ${h}`));
+
+    console.log('\n--- First 3 Data Rows Preview ---');
+    for (let i = 2; i <= 4; i++) {
+        const row = sheet.getRow(i);
+        const rowData = [];
+        row.eachCell((cell) => {
+            rowData.push(cell.value);
+        });
+        console.log(`Row ${i - 1}:`, JSON.stringify(rowData));
+    }
 }
 
-const headers = rows[0];
-console.log(`✅ Found ${headers.length} columns in "${FILE_NAME}":`);
-console.log('--- Headers ---');
-headers.forEach((h, i) => console.log(`[Col ${i}] ${h}`));
-
-console.log('\n--- First 3 Data Rows Preview ---');
-for (let i = 1; i <= 3 && i < rows.length; i++) {
-    console.log(`Row ${i}:`, JSON.stringify(rows[i]));
-}
+inspectLeavesExcel().catch(e => console.error(e));

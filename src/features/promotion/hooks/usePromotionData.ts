@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import type { CourseType, SubjectKey, MCQQuestion, PromotionSettings, PromotionResult } from '../types';
 
 /**
@@ -142,9 +142,19 @@ export function usePromotionData() {
             if (error) throw error;
 
             const arrayBuffer = await data.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(arrayBuffer);
+            const worksheet = workbook.worksheets[0];
+            if (!worksheet) return [];
+            
+            const rows: string[][] = [];
+            worksheet.eachRow((row) => {
+                const rowData: string[] = [];
+                row.eachCell((cell) => {
+                    rowData.push(String(cell.value || ''));
+                });
+                rows.push(rowData);
+            });
 
             // Filter out empty rows and header if exists
             const validRows = rows.filter(row =>

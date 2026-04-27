@@ -1,6 +1,5 @@
-
 import { supabase } from './utils/db.js';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
 
@@ -39,12 +38,17 @@ async function importPhase2() {
         process.exit(1);
     }
 
-    const workbook = XLSX.readFile(filePath);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sheet = workbook.worksheets[0];
 
-    // Dynamic Header Mapping
-    const headers = rows[0].map(h => String(h).trim());
+    // Get headers from first row
+    const headerRow = sheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+        headers.push(String(cell.value).trim());
+    });
+
     const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
     const colMap = {
@@ -109,12 +113,19 @@ async function importPhase2() {
     let skipped = 0;
     let notFound = 0;
 
-    for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
+    // Process data rows (starting from row 2)
+    sheet.eachRow(async (row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header row
+        
+        const rowValues = [];
+        row.eachCell((cell) => {
+            rowValues.push(cell.value);
+        });
 
-        const cardNumVal = row[colMap.excel_card_col];
-        if (!cardNumVal) { skipped++; continue; }
+        if (!rowValues || rowValues.length === 0) return;
+
+        const cardNumVal = rowValues[colMap.excel_card_col];
+        if (!cardNumVal) { skipped++; return; }
 
         const cardNum = String(cardNumVal).trim();
         const userId = cardToId.get(cardNum);
@@ -122,50 +133,50 @@ async function importPhase2() {
         if (!userId) {
             // console.warn(`⚠️ User not found for Card: ${cardNum}`);
             notFound++;
-            continue;
+            return;
         }
 
-        const certTextValue = parseStr(row[colMap.cert_text]);
+        const certTextValue = parseStr(rowValues[colMap.cert_text]);
         const certPercValue = getCertPerc(certTextValue);
 
         // Prepare Financial Record
         const financialData = {
             user_id: userId,
-            job_title: parseStr(row[colMap.job_title]),
+            job_title: parseStr(rowValues[colMap.job_title]),
 
             certificate_text: certTextValue,
             certificate_percentage: certPercValue,
 
-            salary_grade: parseStr(row[colMap.grade]),
-            salary_stage: parseStr(row[colMap.stage]),
-            tax_deduction_status: parseStr(row[colMap.tax_status]),
-            nominal_salary: parseNum(row[colMap.nominal]),
-            certificate_allowance: parseNum(row[colMap.cert_allow]),
-            position_allowance: parseNum(row[colMap.pos_allow]),
-            engineering_allowance: parseNum(row[colMap.eng_allow]),
-            risk_allowance: parseNum(row[colMap.risk_allow]),
-            legal_allowance: parseNum(row[colMap.legal_allow]),
-            additional_50_percent_allowance: parseNum(row[colMap.add_allow]),
-            transport_allowance: parseNum(row[colMap.trans_allow]),
-            marital_allowance: parseNum(row[colMap.mar_allow]),
-            children_allowance: parseNum(row[colMap.child_allow]),
-            loan_deduction: parseNum(row[colMap.loan_ded]),
-            execution_deduction: parseNum(row[colMap.exec_ded]),
-            tax_deduction_amount: parseNum(row[colMap.tax_ded]),
-            retirement_deduction: parseNum(row[colMap.retire_ded]),
-            social_security_deduction: parseNum(row[colMap.social_ded]),
-            school_stamp_deduction: parseNum(row[colMap.stamp_ded]),
-            total_deductions: parseNum(row[colMap.total_ded]),
-            net_salary: parseNum(row[colMap.net_sal]),
-            iban: parseStr(row[colMap.iban]),
+            salary_grade: parseStr(rowValues[colMap.grade]),
+            salary_stage: parseStr(rowValues[colMap.stage]),
+            tax_deduction_status: parseStr(rowValues[colMap.tax_status]),
+            nominal_salary: parseNum(rowValues[colMap.nominal]),
+            certificate_allowance: parseNum(rowValues[colMap.cert_allow]),
+            position_allowance: parseNum(rowValues[colMap.pos_allow]),
+            engineering_allowance: parseNum(rowValues[colMap.eng_allow]),
+            risk_allowance: parseNum(rowValues[colMap.risk_allow]),
+            legal_allowance: parseNum(rowValues[colMap.legal_allow]),
+            additional_50_percent_allowance: parseNum(rowValues[colMap.add_allow]),
+            transport_allowance: parseNum(rowValues[colMap.trans_allow]),
+            marital_allowance: parseNum(rowValues[colMap.mar_allow]),
+            children_allowance: parseNum(rowValues[colMap.child_allow]),
+            loan_deduction: parseNum(rowValues[colMap.loan_ded]),
+            execution_deduction: parseNum(rowValues[colMap.exec_ded]),
+            tax_deduction_amount: parseNum(rowValues[colMap.tax_ded]),
+            retirement_deduction: parseNum(rowValues[colMap.retire_ded]),
+            social_security_deduction: parseNum(rowValues[colMap.social_ded]),
+            school_stamp_deduction: parseNum(rowValues[colMap.stamp_ded]),
+            total_deductions: parseNum(rowValues[colMap.total_ded]),
+            net_salary: parseNum(rowValues[colMap.net_sal]),
+            iban: parseStr(rowValues[colMap.iban]),
             updated_at: new Date()
         };
 
         const yearlyData = {
             user_id: userId,
             year: 2025,
-            committees_count: parseNum(row[colMap.committees]),
-            thanks_books_count: parseNum(row[colMap.thanks]),
+            committees_count: parseNum(rowValues[colMap.committees]),
+            thanks_books_count: parseNum(rowValues[colMap.thanks]),
             updated_at: new Date()
         };
 
@@ -179,7 +190,7 @@ async function importPhase2() {
         }
 
         const { data: existingYearly } = await supabase.from('yearly_records')
-            .select('id').eq('user_id', userId).eq('year', 2025).single();
+            .select('id').eq('user_id', userId).eq('year', 2025).maybeSingle();
         if (existingYearly) {
             await supabase.from('yearly_records').update(yearlyData).eq('id', existingYearly.id);
         } else {
@@ -188,7 +199,10 @@ async function importPhase2() {
 
         updated++;
         if (updated % 10 === 0) process.stdout.write('.');
-    }
+    });
+
+    // Wait for all operations to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     console.log(`\n\n✅ Finished Phase 2 (via Card ID).`);
     console.log(`Updated: ${updated}`);

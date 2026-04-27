@@ -13,7 +13,7 @@ import {
     Database,
     Loader2
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
@@ -105,73 +105,88 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { query: searchQuery, setQuery: setSearchQuery, results, isSearching } = useEmployeeSearch();
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-                
-                if (data.length > 0) {
-                    const excelHeaders = data[0].map(h => String(h || '').trim());
-                    setHeaders(excelHeaders);
-                    
-                    const rows = data.slice(1).map(row => {
-                        const obj: any = {};
-                        excelHeaders.forEach((h, i) => {
-                            obj[h] = row[i];
-                        });
-                        return obj;
-                    });
-                    setExcelData(rows);
-
-                    // Auto-mapping based on hints
-                    const initialMapping: Record<string, string> = {};
-                    
-                    // 1. Mandatory match field
-                    const jobIdMatch = excelHeaders.find(h => 
-                        DEFAULT_MAPPING_HINTS['job_number'].some(hint => 
-                            h === hint || h.includes(hint) || normalizeForComparison(h) === normalizeForComparison(hint)
-                        )
-                    );
-                    if (jobIdMatch) initialMapping['job_number'] = jobIdMatch;
-
-                    // 2. All target fields
-                    [...TARGET_FIELDS, {key: 'job_number', label: 'الرقم الوظيفي'}].forEach(field => {
-                        const fieldHints = DEFAULT_MAPPING_HINTS[field.key] || [field.label];
-                        
-                        // Try EXACT matches first
-                        let match = excelHeaders.find(h => 
-                            fieldHints.some(hint => 
-                                h === hint || normalizeForComparison(h) === normalizeForComparison(hint)
-                            )
-                        );
-                        
-                        // Only then try includes
-                        if (!match) {
-                            match = excelHeaders.find(h => 
-                                fieldHints.some(hint => h.includes(hint))
-                            );
-                        }
-                        
-                        if (match) initialMapping[field.key] = match;
-                    });
-                    
-                    setMapping(initialMapping);
-                    toast.success(`تم تحميل ${rows.length} سجل مالي بنجاح`);
-                }
-            } catch (error) {
-                console.error(error);
-                toast.error('خطأ في قراءة ملف Excel');
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(arrayBuffer);
+            
+            const worksheet = workbook.worksheets[0];
+            if (!worksheet) {
+                toast.error('الملف فارغ');
+                return;
             }
-        };
-        reader.readAsBinaryString(file);
+
+            // Get headers from first row
+            const headerRow = worksheet.getRow(1);
+            const excelHeaders: string[] = [];
+            headerRow.eachCell((cell) => {
+                excelHeaders.push(String(cell.value || '').trim());
+            });
+
+            if (excelHeaders.length === 0) {
+                toast.error('لم يتم العثور على عناوين أعمدة');
+                return;
+            }
+
+            setHeaders(excelHeaders);
+
+            // Get data rows
+            const rows: any[] = [];
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return; // Skip header row
+                
+                const obj: any = {};
+                excelHeaders.forEach((h, i) => {
+                    const cell = row.getCell(i + 1);
+                    obj[h] = cell.value;
+                });
+                rows.push(obj);
+            });
+
+            setExcelData(rows);
+
+            // Auto-mapping based on hints
+            const initialMapping: Record<string, string> = {};
+            
+            // 1. Mandatory match field
+            const jobIdMatch = excelHeaders.find(h => 
+                DEFAULT_MAPPING_HINTS['job_number'].some(hint => 
+                    h === hint || h.includes(hint) || normalizeForComparison(h) === normalizeForComparison(hint)
+                )
+            );
+            if (jobIdMatch) initialMapping['job_number'] = jobIdMatch;
+
+            // 2. All target fields
+            [...TARGET_FIELDS, {key: 'job_number', label: 'الرقم الوظيفي'}].forEach(field => {
+                const fieldHints = DEFAULT_MAPPING_HINTS[field.key] || [field.label];
+                
+                // Try EXACT matches first
+                let match = excelHeaders.find(h => 
+                    fieldHints.some(hint => 
+                        h === hint || normalizeForComparison(h) === normalizeForComparison(hint)
+                    )
+                );
+                
+                // Only then try includes
+                if (!match) {
+                    match = excelHeaders.find(h => 
+                        fieldHints.some(hint => h.includes(hint))
+                    );
+                }
+                
+                if (match) initialMapping[field.key] = match;
+            });
+            
+            setMapping(initialMapping);
+            toast.success(`تم تحميل ${rows.length} سجل مالي بنجاح`);
+        } catch (error) {
+            console.error(error);
+            toast.error('خطأ في قراءة ملف Excel');
+        }
     };
 
     const handleStartPreview = async () => {

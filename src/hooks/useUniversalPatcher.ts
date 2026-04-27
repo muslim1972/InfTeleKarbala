@@ -5,7 +5,7 @@
  * يدير تدفق: رفع Excel → اختيار جدول → ربط أعمدة → معاينة → تنفيذ
  */
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import {
@@ -43,7 +43,7 @@ export function useUniversalPatcher() {
     const [step, setStep] = useState<PatcherStep>('upload');
 
     // Excel state
-    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [workbook, setWorkbook] = useState<ExcelJS.Workbook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [selectedSheet, setSelectedSheet] = useState('');
     const [headerRowIndex, setHeaderRowIndex] = useState(0);
@@ -75,25 +75,24 @@ export function useUniversalPatcher() {
 
     // ─── File Upload Handler ────────────────────
 
-    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         setFileName(file.name);
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const buffer = evt.target?.result;
-                const wb = XLSX.read(buffer, { type: 'array' });
-                setWorkbook(wb);
-                setSheetNames(wb.SheetNames);
-                setSelectedSheet(wb.SheetNames[0]);
-                setHeaderRowIndex(0);
-            } catch {
-                toast.error('حدث خطأ أثناء قراءة الملف');
-            }
-        };
-        reader.readAsArrayBuffer(file);
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(arrayBuffer);
+            
+            setWorkbook(wb);
+            const names = wb.worksheets.map(ws => ws.name);
+            setSheetNames(names);
+            setSelectedSheet(names[0] || '');
+            setHeaderRowIndex(0);
+        } catch {
+            toast.error('حدث خطأ أثناء قراءة الملف');
+        }
     }, []);
 
     // ─── Parse sheet when selection changes ─────
@@ -102,20 +101,33 @@ export function useUniversalPatcher() {
         if (!workbook || !selectedSheet) return;
 
         try {
-            const ws = workbook.Sheets[selectedSheet];
-            const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-
-            if (!data || data.length === 0) {
+            const worksheet = workbook.getWorksheet(selectedSheet);
+            if (!worksheet) {
                 setHeaders([]);
                 setRows([]);
                 return;
             }
 
-            const safeIdx = Math.max(0, Math.min(headerRowIndex, data.length - 1));
-            const hdrs = (data[safeIdx] || []).map((h: any) => String(h || '').trim());
+            const allRows: any[][] = [];
+            worksheet.eachRow((row) => {
+                const rowData: any[] = [];
+                row.eachCell((cell) => {
+                    rowData.push(cell.value);
+                });
+                allRows.push(rowData);
+            });
+
+            if (!allRows || allRows.length === 0) {
+                setHeaders([]);
+                setRows([]);
+                return;
+            }
+
+            const safeIdx = Math.max(0, Math.min(headerRowIndex, allRows.length - 1));
+            const hdrs = (allRows[safeIdx] || []).map((h: any) => String(h || '').trim());
 
             setHeaders(hdrs);
-            setRows(data.slice(safeIdx + 1).filter(r => r.length > 0 && r.some(cell => cell)));
+            setRows(allRows.slice(safeIdx + 1).filter(r => r.length > 0 && r.some(cell => cell)));
 
             // محاولة اكتشاف عمود الاسم تلقائياً
             const nameIdx = hdrs.findIndex((c: string) =>

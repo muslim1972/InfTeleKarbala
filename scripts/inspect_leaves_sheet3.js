@@ -1,29 +1,39 @@
-
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import path from 'path';
 
 const FILE_NAME = 'رصيد الاجازات.xlsx';
-const workbook = XLSX.readFile(path.resolve(process.cwd(), FILE_NAME));
 
-// Target Sheet: 'ورقة3' (Index 2)
-const sheetName = 'ورقة3';
-const sheet = workbook.Sheets[sheetName];
+async function inspectLeavesSheet3() {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(path.resolve(process.cwd(), FILE_NAME));
 
-if (!sheet) {
-    console.error(`Sheet "${sheetName}" not found.`);
-    process.exit(1);
+    // Target Sheet: 'ورقة3' (Index 2)
+    const sheetName = 'ورقة3';
+    const sheet = workbook.getWorksheet(sheetName);
+
+    if (!sheet) {
+        console.error(`Sheet "${sheetName}" not found.`);
+        process.exit(1);
+    }
+
+    console.log(`--- Inspecting Sheet: ${sheetName} ---`);
+    
+    const headerRow = sheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+        headers.push(cell.value);
+    });
+    console.log('Headers:', headers);
+
+    console.log('\n--- First 5 Data Rows ---');
+    for (let i = 2; i <= 6; i++) {
+        const row = sheet.getRow(i);
+        const rowData = [];
+        row.eachCell((cell) => {
+            rowData.push(cell.value);
+        });
+        console.log(`Row ${i - 1}:`, JSON.stringify(rowData));
+    }
 }
 
-console.log(`--- Inspecting Sheet: ${sheetName} ---`);
-const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-if (rows.length === 0) {
-    console.log('Sheet is empty.');
-    process.exit(0);
-}
-
-console.log('Headers:', rows[0]);
-console.log('\n--- First 5 Data Rows ---');
-for (let i = 1; i <= 5 && i < rows.length; i++) {
-    console.log(`Row ${i}:`, JSON.stringify(rows[i]));
-}
+inspectLeavesSheet3().catch(e => console.error(e));

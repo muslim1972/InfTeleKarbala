@@ -1,6 +1,5 @@
-
 import { supabase } from './utils/db.js';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
 import { normalizeArabic } from './utils/normalization.js';
@@ -27,9 +26,14 @@ async function importPhase3() {
         process.exit(1);
     }
 
-    const workbook = XLSX.readFile(filePath);
-    const sheet = workbook.Sheets[SHEET_NAME];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sheet = workbook.getWorksheet(SHEET_NAME);
+
+    if (!sheet) {
+        console.error(`❌ Sheet "${SHEET_NAME}" not found.`);
+        process.exit(1);
+    }
 
     // 1. Fetch Profiles
     console.log('🔄 Fetching profiles...');
@@ -52,10 +56,15 @@ async function importPhase3() {
     let notFound = 0;
     const notFoundList = [];
 
-    // Identify columns
-    const headers = rows[0];
-    const balanceIdx = headers.findIndex(h => h && String(h).includes('رصيد'));
-    const nameIdx = headers.findIndex(h => h && String(h).includes('اسم'));
+    // Identify columns from header row
+    const headerRow = sheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+        headers.push(String(cell.value).trim());
+    });
+
+    const balanceIdx = headers.findIndex(h => h.includes('رصيد'));
+    const nameIdx = headers.findIndex(h => h.includes('اسم'));
 
     if (balanceIdx === -1 || nameIdx === -1) {
         console.error('❌ Columns not identified.');
@@ -63,13 +72,19 @@ async function importPhase3() {
     }
 
     // Process Rows
-    for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || !row[nameIdx]) continue;
+    sheet.eachRow(async (row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header
 
-        const excelNameRaw = row[nameIdx];
+        const rowValues = [];
+        row.eachCell((cell) => {
+            rowValues.push(cell.value);
+        });
+
+        if (!rowValues || !rowValues[nameIdx]) return;
+
+        const excelNameRaw = rowValues[nameIdx];
         const excelNameNorm = normalizeName(excelNameRaw);
-        const balance = parseInt(row[balanceIdx]) || 0;
+        const balance = parseInt(rowValues[balanceIdx]) || 0;
 
         // Find ALL matches
         const matches = dbUsers.filter(u => isMatch(excelNameNorm, u.normName));
@@ -85,7 +100,7 @@ async function importPhase3() {
 
             if (fetchErr) {
                 console.error(`Error checking user ${match.id}:`, fetchErr.message);
-                continue;
+                return;
             }
 
             const payload = {
@@ -126,7 +141,10 @@ async function importPhase3() {
             notFoundList.push(excelNameRaw);
             process.stdout.write('x');
         }
-    }
+    });
+
+    // Wait for all operations to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     console.log(`\n\n✅ Finished Phase 3.`);
     console.log(`Matched & Updated: ${updated}`);

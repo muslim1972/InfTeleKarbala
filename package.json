@@ -46,7 +46,7 @@
     "react-router-dom": "^7.14.2",
     "tailwind-merge": "^3.4.1",
     "uuid": "^14.0.0",
-    "xlsx": "^0.18.5",
+    "exceljs": "^4.4.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
