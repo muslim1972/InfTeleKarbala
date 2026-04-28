@@ -89,7 +89,7 @@ serve(async (req: Request) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'security@inftelekarbala.com',
+          from: 'muslim@shamelapp.com',
           to: profile.email,
           subject: 'رمز التحقق الثنائي (2FA)',
           html: `<p>رمز التحقق الخاص بك هو: <strong>${code}</strong></p><p>صالح لمدة 5 دقائق.</p>`
