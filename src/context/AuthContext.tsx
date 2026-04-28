@@ -36,6 +36,7 @@ interface AuthContextType {
   changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
   forgotPassword: (username: string, confirm?: boolean) => Promise<{ success: boolean; supervisor_name?: string; action_required?: string; action_completed?: string; error?: string }>;
+  verify2FA: (code: string, tempUser: AppUser) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -48,6 +49,7 @@ const AuthContext = createContext<AuthContextType>({
   changePassword: async () => ({ success: false }),
   uploadAvatar: async () => ({ success: false }),
   forgotPassword: async () => ({ success: false }),
+  verify2FA: async () => ({ success: false }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -219,6 +221,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         can_access_promotion: fullProfile.can_access_promotion
       };
 
+      // Check if 2FA is enabled
+      if (fullProfile.two_factor_enabled) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          try {
+            const res = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-2fa-email`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            if (!res.ok) {
+              const errorData = await res.json();
+              // Prevent proceeding if we can't send the code, but session is valid
+              // So we should log out the user so they can try again properly
+              await supabase.auth.signOut();
+              return { success: false, error: errorData.error || 'فشل إرسال كود التحقق الثنائي' };
+            }
+            
+            // Return tempUser and requires2FA so the Login UI can prompt for the code
+            return { success: true, requires_2fa: true, tempUser: appUser } as any;
+          } catch (err) {
+            console.error("2FA Send Error:", err);
+            await supabase.auth.signOut();
+            return { success: false, error: 'تعذر الاتصال بخادم المصادقة الثنائية' };
+          }
+        }
+      }
+
       setUser(appUser);
       initOneSignal(appUser.id);
       requestNotificationPermission();
@@ -230,6 +266,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error("Login Error:", err);
       return { success: false, error: 'حدث خطأ غير متوقع' };
+    }
+  };
+
+  const verify2FA = async (code: string, tempUser: AppUser) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'انتهت الجلسة. يرجى تسجيل الدخول مجدداً' };
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-verify-2fa`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ code })
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        return { success: false, error: errorData.error || 'الكود غير صحيح' };
+      }
+
+      setUser(tempUser);
+      initOneSignal(tempUser.id);
+      requestNotificationPermission();
+      sessionStorage.removeItem('session_logged');
+      logVisit(tempUser);
+      
+      return { success: true };
+    } catch (err) {
+      console.error("2FA Verify Error:", err);
+      return { success: false, error: 'تعذر التحقق من الكود' };
     }
   };
 
@@ -391,7 +462,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword, verify2FA }}>
       {!loading && children}
     </AuthContext.Provider>
   );

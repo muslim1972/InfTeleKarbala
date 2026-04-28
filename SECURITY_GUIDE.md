@@ -1,20 +1,28 @@
 # دليل الأمان السيبراني الشامل
+
 # Comprehensive Cybersecurity Guide
 
 ## تقرير الثغرات الأمنية المكتشفة
 
-### 1. تسريب المفاتيح السرية في ملفات البناء
+### 1. إدارة مفاتيح الربط العامة (Public Keys)
 
-**الخطورة:** 🔴 عالية جداً
+**الحالة:** ✅ آمنة ومعيارية
 
-**الوصف:**
-تم اكتشاف أن مفاتيح Supabase الحساسة (VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY) تظهر في ملفات JavaScript المُجمّعة (bundle files) بنص واضح.
+**التوضيح:** تحتوي ملفات البناء (Build Files) على مفاتيح مثل `VITE_SUPABASE_URL`
+و `VITE_SUPABASE_ANON_KEY`.
 
-**السبب:**
-Vite يقوم بتضمين متغيرات البيئة التي تبدأ بـ `VITE_` في ملفات البناء للوصول إليها من المتصفح.
+- **هذه المفاتيح ليست سرية:** هي مفاتيح عامة (Publishable Keys) مصممة لتكون
+  مضمنة في المتصفح لتعريف هوية المشروع.
+- **معيار الأمان:** لا يعتمد الأمان على إخفاء هذه المفاتيح، بل يعتمد كلياً على تفعيل
+  **Row Level Security (RLS)** في قاعدة البيانات. بدون RLS، تكون البيانات مكشوفة
+  حتى بدون هذه المفاتيح.
 
-**الملفات المتأثرة:**
-- `dist/assets/*.js`
+**الممارسة الصحيحة:**
+
+- تأكد دائماً من تفعيل RLS على جميع الجداول.
+- لا تضع مفتاح **Service Role** أبداً في ملفات `.env` التي تبدأ بـ `VITE_`.
+- مفتاح `Service Role` هو المفتاح الوحيد الذي يجب أن يظل سرياً ويستخدم فقط في
+  خوادم Backend أو Edge Functions.
 
 ---
 
@@ -25,11 +33,13 @@ Vite يقوم بتضمين متغيرات البيئة التي تبدأ بـ `V
 **الملف:** `sql-files/secure_rls_policies.sql`
 
 تم إنشاء سياسات أمان شاملة تشمل:
+
 - دالة `is_admin()` آمنة مع `SECURITY DEFINER`
 - سياسات منفصلة لكل جدول (SELECT, INSERT, UPDATE, DELETE)
 - منع الوصول غير المصرح للبيانات الحساسة
 
 **التطبيق:**
+
 ```sql
 -- تنفيذ الملف في Supabase SQL Editor
 \i sql-files/secure_rls_policies.sql
@@ -40,12 +50,14 @@ Vite يقوم بتضمين متغيرات البيئة التي تبدأ بـ `V
 **الملف:** `sql-files/secure_password_encryption.sql`
 
 تم إنشاء:
+
 - دالة `hash_password()` باستخدام bcrypt (تكلفة 12)
 - دالة `verify_password()` للتحقق
 - دالة `authenticate_user()` للمصادقة الآمنة
 - دالة `change_password()` لتغيير كلمة المرور
 
 **التطبيق:**
+
 ```sql
 -- تفعيل امتداد التشفير
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -57,10 +69,12 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ### ✅ 3. نقل التفويض للخادم
 
 **الملفات:**
+
 - `supabase/functions/auth-login/index.ts`
 - `supabase/functions/auth-change-password/index.ts`
 
 تم إنشاء Edge Functions تعمل على الخادم:
+
 - المصادقة تتم على الخادم (ليس في المتصفح)
 - استخدام `SUPABASE_SERVICE_ROLE_KEY` (لا يُرسل للمتصفح)
 - إرجاع فقط البيانات الضرورية للمستخدم
@@ -108,21 +122,21 @@ supabase functions deploy auth-change-password
 // استخدم Edge Functions
 
 // تسجيل الدخول
-const response = await fetch('/functions/v1/auth-login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ job_number, password })
+const response = await fetch("/functions/v1/auth-login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ job_number, password }),
 });
 const { user } = await response.json();
 
 // تغيير كلمة المرور
-const response = await fetch('/functions/v1/auth-change-password', {
-  method: 'POST',
-  headers: { 
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
+const response = await fetch("/functions/v1/auth-change-password", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
   },
-  body: JSON.stringify({ user_id, old_password, new_password })
+  body: JSON.stringify({ user_id, old_password, new_password }),
 });
 ```
 
@@ -201,10 +215,10 @@ const rateLimiter = new Map<string, number[]>();
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const requests = rateLimiter.get(ip) || [];
-  const recent = requests.filter(t => t > now - 60000);
-  
+  const recent = requests.filter((t) => t > now - 300000);
+
   if (recent.length >= RATE_LIMIT) return false;
-  
+
   recent.push(now);
   rateLimiter.set(ip, recent);
   return true;
@@ -230,6 +244,7 @@ function checkRateLimit(ip: string): boolean {
 ## جهات الاتصال للطوارئ
 
 في حالة اكتشاف خرق أمني:
+
 1. إيقاف النظام فوراً
 2. تغيير جميع المفاتيح السرية
 3. مراجعة سجلات الأنشطة
@@ -237,4 +252,4 @@ function checkRateLimit(ip: string): boolean {
 
 ---
 
-*آخر تحديث: 2026-04-27*
+_آخر تحديث: 2026-04-27_

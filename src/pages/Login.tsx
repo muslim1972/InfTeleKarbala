@@ -23,7 +23,13 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     error?: string 
   } | null>(null);
 
-  const { login, loginAsVisitor, forgotPassword } = useAuth();
+  // 2FA States
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [tempUser, setTempUser] = useState<any>(null);
+
+  const { login, loginAsVisitor, forgotPassword, verify2FA } = useAuth();
   const { theme } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,11 +37,33 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     setLoading(true);
     setError(null);
 
-    const result = await login(username, password);
+    const result = await login(username, password) as any;
+
+    if (result.success && result.requires_2fa) {
+      setTempUser(result.tempUser);
+      setRequires2FA(true);
+      setLoading(false);
+      return;
+    }
 
     if (!result.success) {
       setError(result.error || "خطأ في الدخول");
-      setLoading(false);
+    }
+    setLoading(false);
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorCode.trim() || !tempUser) return;
+    
+    setTwoFactorLoading(true);
+    setError(null);
+
+    const result = await verify2FA(twoFactorCode, tempUser);
+    
+    if (!result.success) {
+      setError(result.error || "رمز غير صحيح");
+      setTwoFactorLoading(false);
     }
   };
 
@@ -105,13 +133,76 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
           </h2>
         </div>
 
-        {/* Login Form */}
+        {/* Login Form / 2FA Form */}
+        {requires2FA ? (
+          <form onSubmit={handleVerify2FA} className={`w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 p-6 md:p-8 rounded-3xl border backdrop-blur-md transition-all duration-500 ${
+            theme === 'light' 
+              ? 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50' 
+              : 'bg-white/5 border-white/10 shadow-2xl ring-1 ring-white/5'
+          }`}>
+            <div className="text-center mb-6">
+              <h3 className={`text-xl font-bold mb-2 ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>التحقق الثنائي</h3>
+              <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-white/70'}`}>
+                تم إرسال رمز تحقق إلى بريدك الإلكتروني. يرجى إدخاله أدناه.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className={`block text-sm font-bold text-right px-1 drop-shadow-sm transition-colors ${
+                theme === 'light' ? 'text-slate-700' : 'text-white/90'
+              }`}>رمز التحقق (6 أرقام)</label>
+              <input
+                type="text"
+                required
+                maxLength={6}
+                className={`w-full border rounded-xl px-4 py-4 transition-all text-center tracking-[0.5em] backdrop-blur-sm shadow-inner text-2xl font-mono ${
+                  theme === 'light'
+                    ? 'bg-white border-gray-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-green'
+                    : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-brand-green focus:bg-black/60'
+                }`}
+                placeholder="------"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+
+            {error && (
+              <div className={`p-3 rounded-xl border text-sm text-center font-bold backdrop-blur-md animate-in zoom-in duration-300 ${
+                theme === 'light' 
+                  ? 'bg-red-50 border-red-200 text-red-600' 
+                  : 'bg-red-500/20 border-red-500/30 text-red-100'
+              }`}>
+                {error}
+              </div>
+            )}
+
+            <div className="pt-4 space-y-3">
+              <button
+                type="submit"
+                disabled={twoFactorLoading || twoFactorCode.length !== 6}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(59,130,246,0.3)] border border-white/10"
+              >
+                {twoFactorLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
+                  <span>تحقق الآن</span>
+                  <CheckCircle className="w-5 h-5" />
+                </>}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => { setRequires2FA(false); setTwoFactorCode(""); setError(null); }}
+                className="w-full bg-transparent hover:bg-black/5 text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white font-bold py-3 px-6 rounded-xl transition-all"
+              >
+                إلغاء والعودة
+              </button>
+            </div>
+          </form>
+        ) : (
         <form onSubmit={handleLogin} className={`w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-6 md:p-8 rounded-3xl border backdrop-blur-md transition-all duration-500 ${
           theme === 'light' 
             ? 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50' 
             : 'bg-white/5 border-white/10 shadow-2xl ring-1 ring-white/5'
         }`}>
-
           <div className="space-y-2">
             <label className={`block text-sm font-bold text-right px-1 drop-shadow-sm transition-colors ${
               theme === 'light' ? 'text-slate-700' : 'text-white/90'
@@ -210,6 +301,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
             </button>
           </div>
         </form>
+        )}
       </div>
 
       {/* Forgot Password Modal */}
