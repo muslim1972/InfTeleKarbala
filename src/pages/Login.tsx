@@ -31,6 +31,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   const [userEmail, setUserEmail] = useState("");
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [tempUser, setTempUser] = useState<any>(null);
 
   const { login, loginAsVisitor, forgotPassword, verify2FA, request2FA } = useAuth();
   const { theme } = useTheme();
@@ -315,6 +316,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
               </div>
             </form>
           )
+        ) : (
         <form onSubmit={handleLogin} className={`w-full space-y-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 p-6 md:p-8 rounded-3xl border backdrop-blur-md transition-all duration-500 ${
           theme === 'light' 
             ? 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50' 
