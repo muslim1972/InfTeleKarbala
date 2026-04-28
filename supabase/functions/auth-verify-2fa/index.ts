@@ -62,7 +62,7 @@ serve(async (req: Request) => {
     if (!isCodeValid || !isNotExpired) {
       if (rlData) {
         let updates: any = { attempts: rlData.attempts + 1, last_attempt: new Date() };
-        if (updates.attempts >= 5) updates.blocked_until = new Date(Date.now() + 5 * 60000);
+        if (updates.attempts >= 5) updates.blocked_until = new Date(Date.now() + 30 * 60000);
         await supabaseAdmin.from('rate_limits').update(updates).eq('id', rlData.id);
       } else {
         await supabaseAdmin.from('rate_limits').insert({ identifier: `verify-2fa-${user.id}-${clientIp}`, endpoint: 'verify-2fa', attempts: 1 });

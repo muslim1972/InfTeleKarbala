@@ -24,6 +24,7 @@ export interface AppUser {
   unit_text?: string;
   has_capacities_access?: boolean;
   can_access_promotion?: boolean;
+  email?: string | null;
 }
 
 interface AuthContextType {
@@ -37,6 +38,7 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
   forgotPassword: (username: string, confirm?: boolean) => Promise<{ success: boolean; supervisor_name?: string; action_required?: string; action_completed?: string; error?: string }>;
   verify2FA: (code: string, tempUser: AppUser) => Promise<{ success: boolean; error?: string }>;
+  request2FA: (email: string, tempUser: AppUser) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -50,6 +52,7 @@ const AuthContext = createContext<AuthContextType>({
   uploadAvatar: async () => ({ success: false }),
   forgotPassword: async () => ({ success: false }),
   verify2FA: async () => ({ success: false }),
+  request2FA: async () => ({ success: false }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -174,8 +177,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, error: 'اسم المستخدم غير صحيح' };
       }
 
-      // 2. Construct Email
+      // 2. Construct Email & Check Rate Limit
       const email = `${profile.job_number.trim()}@inftele.com`;
+
+      // 2.5 Check Rate Limit Before Attempting Auth
+      const { data: blockedUntil } = await supabase.rpc('check_rate_limit', {
+        p_identifier: trimmedUsername,
+        p_endpoint: 'login'
+      });
+
+      if (blockedUntil && new Date(blockedUntil) > new Date()) {
+        const remainingTime = Math.ceil((new Date(blockedUntil).getTime() - new Date().getTime()) / 60000);
+        return { success: false, error: `استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد ${remainingTime} دقيقة.` };
+      }
 
       // 3. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -184,9 +198,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (authError || !authData.user) {
-        console.error("Auth Failed:", authError?.message);
+        // Record failed attempt
+        await supabase.rpc('update_rate_limit', {
+          p_identifier: trimmedUsername,
+          p_endpoint: 'login',
+          p_success: false
+        });
+        
+        // Re-check rate limit to show immediate 30-min block if they just hit the 5th attempt
+        const { data: newBlockedUntil } = await supabase.rpc('check_rate_limit', {
+          p_identifier: trimmedUsername,
+          p_endpoint: 'login'
+        });
+
+        if (newBlockedUntil && new Date(newBlockedUntil) > new Date()) {
+           return { success: false, error: `استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد 30 دقيقة.` };
+        }
+
         return { success: false, error: 'كلمة المرور غير صحيحة' };
       }
+
+      // Clear rate limit on success
+      await supabase.rpc('update_rate_limit', {
+        p_identifier: trimmedUsername,
+        p_endpoint: 'login',
+        p_success: true
+      });
 
       // 4. Fetch Full Profile Details (including newly added columns)
       const { data: fullProfile, error: fetchErr } = await supabase
@@ -218,50 +255,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         section_text: fullProfile.section_text,
         unit_text: fullProfile.unit_text,
         has_capacities_access: fullProfile.has_capacities_access,
-        can_access_promotion: fullProfile.can_access_promotion
+        can_access_promotion: fullProfile.can_access_promotion,
+        email: fullProfile.email
       };
 
-      // Check if 2FA is enabled
-      if (fullProfile.two_factor_enabled) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          try {
-            const res = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-2fa-email`,
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${session.access_token}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            );
-            
-            if (!res.ok) {
-              const errorData = await res.json();
-              // Prevent proceeding if we can't send the code, but session is valid
-              // So we should log out the user so they can try again properly
-              await supabase.auth.signOut();
-              return { success: false, error: errorData.error || 'فشل إرسال كود التحقق الثنائي' };
-            }
-            
-            // Return tempUser and requires2FA so the Login UI can prompt for the code
-            return { success: true, requires_2fa: true, tempUser: appUser } as any;
-          } catch (err) {
-            console.error("2FA Send Error:", err);
-            await supabase.auth.signOut();
-            return { success: false, error: 'تعذر الاتصال بخادم المصادقة الثنائية' };
-          }
-        }
-      }
-
-      setUser(appUser);
-      initOneSignal(appUser.id);
-      requestNotificationPermission();
-      sessionStorage.removeItem('session_logged');
-      logVisit(appUser);
-
-      return { success: true };
+      // 5. Enforce 2FA on Everyone
+      // Return requires_2fa but DO NOT send email automatically yet
+      // The Login UI will handle asking for the email or confirming it
+      return { success: true, requires_2fa: true, tempUser: appUser } as any;
 
     } catch (err) {
       console.error("Login Error:", err);
@@ -301,6 +302,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error("2FA Verify Error:", err);
       return { success: false, error: 'تعذر التحقق من الكود' };
+    }
+  };
+
+  const request2FA = async (email: string, tempUser: AppUser) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'انتهت الجلسة. يرجى تسجيل الدخول مجدداً' };
+
+      // تحديث الإيميل في الداتا بيز إذا كان جديداً أو مُعدلاً
+      if (tempUser.email !== email) {
+        const { error } = await supabase.from('profiles').update({ email }).eq('id', tempUser.id);
+        if (error) {
+          console.error("Email update error:", error);
+          return { success: false, error: 'تعذر حفظ البريد الإلكتروني المحدث' };
+        }
+        tempUser.email = email;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-2fa-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        if (res.status === 429) {
+           return { success: false, error: 'تم طلب الكود حديثاً، يرجى الانتظار بضع دقائق' };
+        }
+        return { success: false, error: errorData.error || 'فشل إرسال كود التحقق الثنائي' };
+      }
+      
+      return { success: true };
+    } catch (err) {
+      console.error("2FA Request Error:", err);
+      return { success: false, error: 'تعذر الاتصال بخادم المصادقة الثنائية' };
     }
   };
 
@@ -462,7 +504,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword, verify2FA }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword, verify2FA, request2FA }}>
       {!loading && children}
     </AuthContext.Provider>
   );
