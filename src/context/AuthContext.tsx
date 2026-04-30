@@ -199,6 +199,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 2. Construct Email & Check Rate Limit
       const email = `${profile.job_number.trim()}@inftele.com`;
 
+      // 2.1 Manual Password Check (as per your logic)
+      if (profile.password !== trimmedPassword) {
+         // Record failed attempt
+         await supabase.rpc('update_rate_limit', {
+           p_identifier: trimmedUsername,
+           p_endpoint: 'login',
+           p_success: false
+         });
+         return { success: false, error: 'كلمة المرور غير صحيحة' };
+      }
+
       // 2.5 Check Rate Limit Before Attempting Auth
       const { data: blockedUntil } = await supabase.rpc('check_rate_limit', {
         p_identifier: trimmedUsername,
