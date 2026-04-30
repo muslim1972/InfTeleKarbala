@@ -49,33 +49,33 @@ export function useConversationDetails(conversationId: string) {
         const otherUserId = conv.participants.find((id: string) => id !== user.id);
         if (otherUserId) {
           const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar')
+            .from('available_profiles')
+            .select('id, full_name, avatar_url')
             .eq('id', otherUserId)
             .single();
 
           if (profile) {
             name = profile.full_name || 'مستخدم';
-            avatar_url = profile.avatar;
+            avatar_url = profile.avatar_url;
             member_profiles = [{
               id: profile.id,
               full_name: profile.full_name || 'مستخدم',
-              avatar: profile.avatar
+              avatar: profile.avatar_url
             }];
           }
         }
       } else if (conv.is_group && conv.participants && conv.participants.length > 0) {
         // Fetch all participants for group chat
         const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar')
+          .from('available_profiles')
+          .select('id, full_name, avatar_url')
           .in('id', conv.participants);
         
         if (profiles) {
           member_profiles = profiles.map(p => ({
             id: p.id,
             full_name: p.full_name || 'مستخدم',
-            avatar: p.avatar
+            avatar: p.avatar_url
           }));
         }
       }

@@ -36,6 +36,8 @@ export interface UseEmployeeSearchOptions {
     excludeUserId?: string;
     /** هل يفعل البحث */
     enabled?: boolean;
+    /** استخدام النافذة العامة (available_profiles) بدلاً من الجدول الأصلي - للمحادثات */
+    usePublicView?: boolean;
 }
 
 export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
@@ -47,7 +49,8 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
         limit = 20,
         debounceMs = 300,
         excludeUserId,
-        enabled = true
+        enabled = true,
+        usePublicView = false
     } = options;
 
     const [query, setQuery] = useState('');
@@ -85,8 +88,11 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                 let orClause = `job_number.ilike.${trimmed}%,full_name.ilike.${trimmed}%`;
                 if (searchUsername) orClause += `,username.ilike.${trimmed}%`;
 
+                // تحديد مصدر البيانات: النافذة العامة للمحادثات أو الجدول الأصلي للمخوّلين
+                const tableName = usePublicView ? 'available_profiles' : 'profiles';
+
                 let queryBuilder = supabase
-                    .from('profiles')
+                    .from(tableName)
                     .select(select)
                     .or(orClause)
                     .order('full_name')

@@ -210,7 +210,7 @@ export function useChatState(conversationId: string) {
             // 2. Fetch sender profile async
             if (newMsg.sender_id && !newMsg.sender) {
               supabase
-                .from('profiles')
+                .from('available_profiles')
                 .select('full_name')
                 .eq('id', newMsg.sender_id)
                 .single()
@@ -290,7 +290,7 @@ export function useChatState(conversationId: string) {
         const cleanParticipants = (convData.participants as string[]).filter(id => id !== user.id);
         if (cleanParticipants.length > 0) {
            const { data: profiles } = await supabase
-             .from('profiles')
+             .from('available_profiles')
              .select('id, full_name')
              .in('id', cleanParticipants);
            

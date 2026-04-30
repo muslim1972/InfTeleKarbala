@@ -33,7 +33,8 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
         selectFields: 'id, full_name, avatar_url, role, job_number',
         excludeUserId: currentUser?.id,
         limit: 20,
-        debounceMs: 400
+        debounceMs: 400,
+        usePublicView: true
     });
 
     // Initial fetch of users (cached)
@@ -41,7 +42,7 @@ export const NewChatModal = ({ onClose, onStartDirectChat, onStartGroupChat }: N
         queryKey: ['chat-users-new-modal', currentUser?.id],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('profiles')
+                .from('available_profiles')
                 .select('id, full_name, avatar_url, role, job_number')
                 .neq('id', currentUser?.id)
                 .order('full_name')

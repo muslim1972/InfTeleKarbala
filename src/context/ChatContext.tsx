@@ -70,7 +70,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const profileMap: Record<string, any> = {};
             if (otherUserIds.length > 0) {
                 const { data: profiles } = await supabase
-                    .from('profiles')
+                    .from('available_profiles')
                     .select('id, full_name, avatar_url')
                     .in('id', otherUserIds);
                 profiles?.forEach(p => { profileMap[p.id] = p; });
@@ -221,11 +221,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!user) return null;
         try {
             // Logic from useConversations.ts...
-            const { data: partnerProfile } = await supabase.from('profiles').select('id, job_number').eq('id', partnerId).single();
+            const { data: partnerProfile } = await supabase.from('available_profiles').select('id, job_number').eq('id', partnerId).single();
             const partnerUuids = [partnerId];
             const jobNumber = partnerProfile?.job_number;
             if (jobNumber) {
-                const { data: siblings } = await supabase.from('profiles').select('id').eq('job_number', jobNumber);
+                const { data: siblings } = await supabase.from('available_profiles').select('id').eq('job_number', jobNumber);
                 if (siblings) siblings.forEach(s => { if (!partnerUuids.includes(s.id)) partnerUuids.push(s.id); });
             }
             const { data: possibles } = await supabase.from('conversations').select('*').eq('is_group', false).contains('participants', JSON.stringify([user.id]));
