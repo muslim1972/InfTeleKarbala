@@ -121,12 +121,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           // --- END 2FA BYPASS FIX ---
 
-          // Fetch full profile
+          // Fetch full profile via secure RPC (bypasses RLS safely)
           const { data: profile, error: profileErr } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+            .rpc('get_own_profile')
+            .single() as { data: any; error: any };
 
           if (profileErr) {
             console.error("Profile fetch error:", profileErr);
@@ -246,12 +244,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         p_success: true
       });
 
-      // 4. Fetch Full Profile Details (including newly added columns)
+      // 4. Fetch Full Profile Details via secure RPC (bypasses RLS safely)
       const { data: fullProfile, error: fetchErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
+        .rpc('get_own_profile')
+        .single() as { data: any; error: any };
 
       if (fetchErr || !fullProfile) {
         return { success: false, error: 'تعذر جلب بيانات الملف الشخصي' };
