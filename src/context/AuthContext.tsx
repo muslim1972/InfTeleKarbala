@@ -190,7 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 1. Resolve Username -> Email (via secure RPC - bypasses RLS safely)
       const { data: profile, error: profileErr } = await supabase
         .rpc('get_login_profile', { p_username: trimmedUsername })
-        .maybeSingle() as { data: { id: string; job_number: string } | null; error: any };
+        .maybeSingle() as { data: { id: string; job_number: string; password?: string } | null; error: any };
 
       if (profileErr || !profile || !profile.job_number) {
         return { success: false, error: 'اسم المستخدم غير صحيح' };
