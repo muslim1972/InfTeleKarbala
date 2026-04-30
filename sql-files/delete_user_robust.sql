@@ -1,6 +1,7 @@
 -- ===========================================
--- دالة الحذف الشاملة والآمنة للمستخدم (v4 - إصلاح شامل وإضافة جداول المحادثات)
--- Robust & Comprehensive User Deletion RPC (v4)
+-- دالة الحذف الشاملة والآمنة للمستخدم (v5 - النسخة النهائية المؤكدة)
+-- Robust & Comprehensive User Deletion RPC (v5)
+-- بناءً على فحص شامل للهيكل (Schema Inspection)
 -- ===========================================
 
 CREATE OR REPLACE FUNCTION public.rpc_delete_user_robust(p_user_id uuid)
@@ -31,9 +32,9 @@ BEGIN
         RAISE EXCEPTION 'لا يمكن حذف حساب مدير النظام المطور لدواعي أمنية.';
     END IF;
 
-    -- 3. حذف السجلات المرتبطة من الجداول التابعة
+    -- 3. حذف السجلات المرتبطة من الجداول التابعة (مؤكدة الوجود)
     
-    -- السجلات المالية والإدارية
+    -- السجلات المالية والإدارية والسنوية
     DELETE FROM public.financial_records WHERE user_id = p_user_id;
     DELETE FROM public.administrative_summary WHERE user_id = p_user_id;
     DELETE FROM public.yearly_records WHERE user_id = p_user_id;
@@ -44,48 +45,38 @@ BEGIN
     DELETE FROM public.penalties_details WHERE user_id = p_user_id;
     DELETE FROM public.leaves_details WHERE user_id = p_user_id;
     
-    -- الطلبات
+    -- الطلبات والإجازات
     DELETE FROM public.leave_requests WHERE user_id = p_user_id;
+    DELETE FROM public.five_year_leaves WHERE user_id = p_user_id;
     
     -- الرسائل والمحادثات
-    -- تم حذف receiver_id لأنه غير موجود في الجدول، نكتفي بالمرسل أو التواجد في المصفوفات
     DELETE FROM public.messages WHERE sender_id = p_user_id;
     
-    -- إزالة المستخدم من مصفوفة المشاركين في المحادثات (JSONB)
+    -- إزالة المستخدم من مصفوفة المشاركين في المحادثات (نوع JSONB)
     UPDATE public.conversations 
     SET participants = participants - p_user_id::text
     WHERE participants ? p_user_id::text;
 
-    -- حذف المحادثات التي لم يتبقَ فيها مشاركون
+    -- حذف المحادثات الفارغة
     DELETE FROM public.conversations 
     WHERE jsonb_array_length(participants) = 0 OR participants IS NULL;
 
     -- سجلات المكالمات
-    BEGIN
-        DELETE FROM public.hr_audio_calls WHERE sender_id = p_user_id OR recipient_id = p_user_id;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
-    
-    -- التنبيهات
-    BEGIN
-        DELETE FROM public.notifications WHERE user_id = p_user_id;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
+    DELETE FROM public.hr_audio_calls WHERE sender_id = p_user_id OR recipient_id = p_user_id;
     
     -- الاستطلاعات
-    BEGIN
-        DELETE FROM public.poll_responses WHERE user_id = p_user_id;
-    EXCEPTION WHEN OTHERS THEN NULL; END;
+    DELETE FROM public.poll_responses WHERE user_id = p_user_id;
     
-    -- الصلاحيات الخاصة
-    DELETE FROM public.supervisor_permissions WHERE user_id = p_user_id;
-    DELETE FROM public.field_permissions WHERE user_id = p_user_id;
+    -- 4. تحديث سجلات الأنشطة (بدلاً من الحذف للحفاظ على التاريخ)
+    -- ملاحظة: نستخدم EXCEPTION لضمان الاستمرار لو لم يوجد جدول الأنشطة
+    BEGIN UPDATE public.activity_logs SET user_id = NULL WHERE user_id = p_user_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN UPDATE public.field_change_logs SET changed_by = NULL WHERE changed_by = p_user_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN UPDATE public.leave_history SET actor_id = NULL WHERE actor_id = p_user_id; EXCEPTION WHEN OTHERS THEN NULL; END;
     
-    -- تحديث سجلات الأنشطة
-    UPDATE public.activity_logs SET user_id = NULL WHERE user_id = p_user_id;
-    
-    -- 4. حذف الملف الشخصي (Profile)
+    -- 5. حذف الملف الشخصي (Profile)
     DELETE FROM public.profiles WHERE id = p_user_id;
 
-    -- 5. حذف حساب المصادقة (Auth User)
+    -- 6. حذف حساب المصادقة (Auth User)
     DELETE FROM auth.users WHERE id = p_user_id;
 
 END;
@@ -94,4 +85,3 @@ $$;
 -- منح صلاحيات التنفيذ
 REVOKE ALL ON FUNCTION public.rpc_delete_user_robust(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.rpc_delete_user_robust(uuid) TO authenticated;
-
