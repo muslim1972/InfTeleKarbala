@@ -26,6 +26,7 @@ const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ defa
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
+import { NotFound } from "./pages/NotFound";
 
 // Loading Component
 const LoadingScreen = () => (
@@ -263,7 +264,9 @@ function App() {
                     </Route>
                     <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
                     <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
-                    <Route path="/*" element={<AppContent />} />
+                    <Route path="/" element={<AppContent />} />
+                    <Route path="/login" element={<AppContent />} />
+                    <Route path="/*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
                 <FloatingAudioPlayer />

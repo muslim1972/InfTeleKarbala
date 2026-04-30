@@ -33,7 +33,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   const [emailLoading, setEmailLoading] = useState(false);
   const [tempUser, setTempUser] = useState<any>(null);
 
-  const { login, loginAsVisitor, forgotPassword, verify2FA, request2FA } = useAuth();
+  const { login, loginAsVisitor, forgotPassword, verify2FA, request2FA, logout } = useAuth();
   const { theme } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -244,7 +244,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
 
                 <button
                   type="button"
-                  onClick={() => { setRequires2FA(false); setError(null); }}
+                  onClick={async () => { await logout(); setRequires2FA(false); setError(null); }}
                   className="w-full bg-transparent hover:bg-black/5 text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white font-bold py-3 px-6 rounded-xl transition-all"
                 >
                   إلغاء والعودة

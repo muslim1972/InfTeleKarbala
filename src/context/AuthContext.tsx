@@ -98,6 +98,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const session = data?.session;
         if (session?.user) {
+          // --- BEGIN 2FA BYPASS FIX ---
+          const verifiedAtStr = localStorage.getItem(`2fa_verified_${session.user.id}`);
+          let isVerified = false;
+          
+          if (verifiedAtStr) {
+             const verifiedAt = parseInt(verifiedAtStr, 10);
+             const ONE_DAY = 24 * 60 * 60 * 1000; // صلاحية الـ 2FA لمدة 24 ساعة
+             if (Date.now() - verifiedAt < ONE_DAY) {
+                isVerified = true;
+             } else {
+                localStorage.removeItem(`2fa_verified_${session.user.id}`);
+             }
+          }
+
+          if (!isVerified) {
+            console.warn("🛡️ Security: Session found but 2FA not verified or expired! Signing out...");
+            await supabase.auth.signOut();
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          // --- END 2FA BYPASS FIX ---
+
           // Fetch full profile
           const { data: profile, error: profileErr } = await supabase
             .from('profiles')
@@ -292,6 +315,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, error: errorData.error || 'الكود غير صحيح' };
       }
 
+      // --- ADD 2FA VERIFIED FLAG HERE ---
+      localStorage.setItem(`2fa_verified_${tempUser.id}`, Date.now().toString());
+      // ----------------------------------
+
       setUser(tempUser);
       initOneSignal(tempUser.id);
       requestNotificationPermission();
@@ -360,6 +387,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    if (user?.id) localStorage.removeItem(`2fa_verified_${user.id}`);
     await supabase.auth.signOut();
     logoutOneSignal();
     geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
