@@ -1,6 +1,6 @@
 -- ===========================================
--- دالة الحذف الشاملة والآمنة للمستخدم (v3 - إصلاح أسماء الأعمدة)
--- Robust & Comprehensive User Deletion RPC (v3)
+-- دالة الحذف الشاملة والآمنة للمستخدم (v4 - إصلاح شامل وإضافة جداول المحادثات)
+-- Robust & Comprehensive User Deletion RPC (v4)
 -- ===========================================
 
 CREATE OR REPLACE FUNCTION public.rpc_delete_user_robust(p_user_id uuid)
@@ -44,21 +44,35 @@ BEGIN
     DELETE FROM public.penalties_details WHERE user_id = p_user_id;
     DELETE FROM public.leaves_details WHERE user_id = p_user_id;
     
-    -- الطلبات (تم تصحيح اسم العمود من employee_id إلى user_id)
+    -- الطلبات
     DELETE FROM public.leave_requests WHERE user_id = p_user_id;
     
-    -- الرسائل (حذف الرسائل الصادرة والواردة لهذا المستخدم)
-    DELETE FROM public.messages WHERE sender_id = p_user_id OR receiver_id = p_user_id;
+    -- الرسائل والمحادثات
+    -- تم حذف receiver_id لأنه غير موجود في الجدول، نكتفي بالمرسل أو التواجد في المصفوفات
+    DELETE FROM public.messages WHERE sender_id = p_user_id;
     
-    -- التنبيهات (استخدام استعلام مرن للتأكد من وجود الجدول)
+    -- إزالة المستخدم من مصفوفة المشاركين في المحادثات
+    UPDATE public.conversations 
+    SET participants = array_remove(participants, p_user_id)
+    WHERE p_user_id = ANY(participants);
+
+    -- حذف المحادثات التي لم يتبقَ فيها مشاركون (اختياري)
+    DELETE FROM public.conversations WHERE array_length(participants, 1) IS NULL OR array_length(participants, 1) = 0;
+
+    -- سجلات المكالمات
+    BEGIN
+        DELETE FROM public.hr_audio_calls WHERE sender_id = p_user_id OR recipient_id = p_user_id;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+    
+    -- التنبيهات
     BEGIN
         DELETE FROM public.notifications WHERE user_id = p_user_id;
-    EXCEPTION WHEN OTHERS THEN
-        NULL; -- تجاهل إذا لم يكن الجدول موجوداً
-    END;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
     
     -- الاستطلاعات
-    DELETE FROM public.poll_responses WHERE user_id = p_user_id;
+    BEGIN
+        DELETE FROM public.poll_responses WHERE user_id = p_user_id;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
     
     -- الصلاحيات الخاصة
     DELETE FROM public.supervisor_permissions WHERE user_id = p_user_id;
@@ -79,3 +93,4 @@ $$;
 -- منح صلاحيات التنفيذ
 REVOKE ALL ON FUNCTION public.rpc_delete_user_robust(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.rpc_delete_user_robust(uuid) TO authenticated;
+
