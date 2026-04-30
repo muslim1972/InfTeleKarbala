@@ -189,11 +189,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const trimmedUsername = username.trim();
       const trimmedPassword = password.trim();
 
-      // 1. Resolve Username -> Email (via Profiles)
+      // 1. Resolve Username -> Email (via secure RPC - bypasses RLS safely)
       const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('job_number, id')
-        .eq('username', trimmedUsername)
+        .rpc('get_login_profile', { p_username: trimmedUsername })
         .maybeSingle();
 
       if (profileErr || !profile || !profile.job_number) {
