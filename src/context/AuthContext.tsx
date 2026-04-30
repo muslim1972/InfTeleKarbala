@@ -187,19 +187,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const trimmedUsername = username.trim();
       const trimmedPassword = password.trim();
 
-      // 1. Resolve Username -> Email (via secure RPC - bypasses RLS safely)
+      // 1. Resolve Username -> Profile (via secure RPC)
       const { data: profile, error: profileErr } = await supabase
         .rpc('get_login_profile', { p_username: trimmedUsername })
-        .maybeSingle() as { data: { id: string; job_number: string; password?: string } | null; error: any };
+        .maybeSingle() as { data: { id: string; job_number: string; password?: string; email?: string } | null; error: any };
 
       if (profileErr || !profile || !profile.job_number) {
         return { success: false, error: 'اسم المستخدم غير صحيح' };
       }
 
-      // 2. Construct Email & Check Rate Limit
-      const email = `${profile.job_number.trim()}@inftele.com`;
+      // 2. Resolve Email (Use stored email if exists, fallback to job_number format)
+      const email = profile.email ? profile.email.trim() : `${profile.job_number.trim()}@inftele.com`;
 
-      // 2.1 Manual Password Check (as per your logic)
+      // 2.1 Manual Password Check
       if (profile.password !== trimmedPassword) {
          // Record failed attempt
          await supabase.rpc('update_rate_limit', {

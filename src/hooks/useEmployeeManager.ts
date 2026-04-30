@@ -454,12 +454,22 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            await supabase.rpc('rpc_delete_user_auth', { p_user_id: selectedEmployee.id });
-            await supabase.from('profiles').delete().eq('id', selectedEmployee.id);
-            toast.success("تم حذف الموظف بنجاح");
-            setSelectedEmployee(null); setFinancialData(null); setAdminData(null); setYearlyData([]); setSearchJobNumber('');
+            // استخدام دالة الحذف الشاملة الجديدة
+            const { error: deleteError } = await supabase.rpc('rpc_delete_user_robust', { 
+                p_user_id: selectedEmployee.id 
+            });
+            
+            if (deleteError) throw deleteError;
+
+            toast.success("تم حذف الموظف وكافة متعلقاته بنجاح");
+            setSelectedEmployee(null); 
+            setFinancialData(null); 
+            setAdminData(null); 
+            setYearlyData([]); 
+            setSearchJobNumber('');
         } catch (error: any) {
-            toast.error(error.message || "فشل في حذف الموظف");
+            console.error("Delete Error:", error);
+            toast.error(error.message || "فشل في حذف الموظف. تأكد من تنفيذ سكربت الحذف الجديد في قاعدة البيانات.");
         } finally {
             setLoading(false);
         }
