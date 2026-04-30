@@ -51,13 +51,14 @@ BEGIN
     -- تم حذف receiver_id لأنه غير موجود في الجدول، نكتفي بالمرسل أو التواجد في المصفوفات
     DELETE FROM public.messages WHERE sender_id = p_user_id;
     
-    -- إزالة المستخدم من مصفوفة المشاركين في المحادثات
+    -- إزالة المستخدم من مصفوفة المشاركين في المحادثات (JSONB)
     UPDATE public.conversations 
-    SET participants = array_remove(participants, p_user_id)
-    WHERE p_user_id = ANY(participants);
+    SET participants = participants - p_user_id::text
+    WHERE participants ? p_user_id::text;
 
-    -- حذف المحادثات التي لم يتبقَ فيها مشاركون (اختياري)
-    DELETE FROM public.conversations WHERE array_length(participants, 1) IS NULL OR array_length(participants, 1) = 0;
+    -- حذف المحادثات التي لم يتبقَ فيها مشاركون
+    DELETE FROM public.conversations 
+    WHERE jsonb_array_length(participants) = 0 OR participants IS NULL;
 
     -- سجلات المكالمات
     BEGIN
