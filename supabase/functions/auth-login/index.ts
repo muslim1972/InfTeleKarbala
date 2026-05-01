@@ -5,12 +5,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// أبقينا على النجمة لتجنب تعطل تطبيق الموبايل (Capacitor)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req: Request) => {
+
   // التعامل مع طلبات CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -18,11 +21,13 @@ serve(async (req: Request) => {
 
   try {
     const { job_number, password } = await req.json()
-    const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+    // تأمين جلب IP لتجنب التلاعب (Spoofing) إذا كان ذلك ممكناً عبر Supabase
+    const clientIp = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
 
-    if (!job_number || !password) {
+    // التحقق الصارم من نوع البيانات لتجنب حقن الكائنات (Object Injection)
+    if (!job_number || !password || typeof job_number !== 'string' || typeof password !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'رقم الوظيفة وكلمة المرور مطلوبان' }),
+        JSON.stringify({ error: 'رقم الوظيفة وكلمة المرور مطلوبان وبصيغة صحيحة' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
