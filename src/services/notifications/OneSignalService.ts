@@ -39,6 +39,13 @@ const findOneSignal = () => {
 
 export const initOneSignal = (userId: string) => {
   if (typeof window === 'undefined' || !userId) return;
+
+  // Skip OneSignal on localhost to prevent "Web OS Error" and console noise
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('OneSignal: Skipped initialization on localhost');
+    return;
+  }
+
   const isNative = Capacitor.isNativePlatform();
 
   if (!isNative) {
