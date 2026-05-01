@@ -188,65 +188,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const trimmedPassword = password.trim();
 
       // 1. Resolve Username -> Profile (via secure RPC)
+      // The RPC now checks the password and rate limit internally for better security
       const { data: profile, error: profileErr } = await supabase
-        .rpc('get_login_profile', { p_username: trimmedUsername })
-        .maybeSingle() as { data: { id: string; job_number: string; password?: string; email?: string } | null; error: any };
+        .rpc('get_login_profile', { 
+          p_username: trimmedUsername,
+          p_password: trimmedPassword 
+        })
+        .maybeSingle() as { data: { id: string; job_number: string; email: string; real_email: string; role: string; full_name: string } | null; error: any };
 
-      if (profileErr || !profile || !profile.job_number) {
-        return { success: false, error: 'اسم المستخدم غير صحيح' };
+      if (profileErr) {
+        if (profileErr.message.includes('Blocked')) {
+          return { success: false, error: 'استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد 30 دقيقة.' };
+        }
+        return { success: false, error: 'حدث خطأ أثناء تسجيل الدخول' };
       }
 
-      // 2. Resolve Email (Use stored email if exists, fallback to job_number format)
-      const email = profile.email ? profile.email.trim() : `${profile.job_number.trim()}@inftele.com`;
-
-      // 2.1 Manual Password Check
-      if (profile.password !== trimmedPassword) {
-         // Record failed attempt
-         await supabase.rpc('update_rate_limit', {
-           p_identifier: trimmedUsername,
-           p_endpoint: 'login',
-           p_success: false
-         });
-         return { success: false, error: 'كلمة المرور غير صحيحة' };
+      if (!profile) {
+        return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
-      // 2.5 Check Rate Limit Before Attempting Auth
-      const { data: blockedUntil } = await supabase.rpc('check_rate_limit', {
-        p_identifier: trimmedUsername,
-        p_endpoint: 'login'
-      });
-
-      if (blockedUntil && new Date(blockedUntil) > new Date()) {
-        const remainingTime = Math.ceil((new Date(blockedUntil).getTime() - new Date().getTime()) / 60000);
-        return { success: false, error: `استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد ${remainingTime} دقيقة.` };
-      }
+      // 2. Use the email returned by the RPC (the generated email for login)
+      const loginEmail = profile.email;
 
       // 3. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password: trimmedPassword
       });
 
       if (authError || !authData.user) {
-        // Record failed attempt
-        await supabase.rpc('update_rate_limit', {
-          p_identifier: trimmedUsername,
-          p_endpoint: 'login',
-          p_success: false
-        });
-        
-        // Re-check rate limit to show immediate 30-min block if they just hit the 5th attempt
-        const { data: newBlockedUntil } = await supabase.rpc('check_rate_limit', {
-          p_identifier: trimmedUsername,
-          p_endpoint: 'login'
-        });
-
-        if (newBlockedUntil && new Date(newBlockedUntil) > new Date()) {
-           return { success: false, error: `استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد 30 دقيقة.` };
-        }
-
         return { success: false, error: 'كلمة المرور غير صحيحة' };
       }
+
 
       // Clear rate limit on success
       await supabase.rpc('update_rate_limit', {
