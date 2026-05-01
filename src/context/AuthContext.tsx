@@ -422,15 +422,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
       if (authError) throw authError;
 
-      // 2. Update 'password' column in profiles (Sync for reference/legacy/custom auth)
-      const { error: dbError } = await supabase
-        .from('profiles')
-        .update({ password: newPassword })
-        .eq('id', user.id);
+      // 2. Update profiles table via SECURE RPC (Hashed)
+      const { error: dbError } = await supabase.rpc('secure_change_password', { 
+        p_new_password: newPassword 
+      });
 
       if (dbError) {
-        console.warn("Updated Auth but failed to sync profile password column", dbError);
-        // Non-blocking, as Auth is primary now
+        console.warn("Updated Auth but failed to sync profile password", dbError);
       }
 
       return { success: true };
