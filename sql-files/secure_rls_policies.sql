@@ -3,8 +3,20 @@
 -- Comprehensive Secure RLS Policies
 -- ===========================================
 
+-- التأكد من وجود عمود admin_role في جدول profiles لربطه بالصلاحيات النوعية
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'profiles' 
+    AND column_name = 'admin_role'
+  ) THEN
+    ALTER TABLE public.profiles ADD COLUMN admin_role text;
+  END IF;
+END $$;
+
 -- 1. دالة آمنة للتحقق من صلاحيات المشرف
--- SECURE: Uses SECURITY DEFINER with minimal privileges
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean
 LANGUAGE plpgsql
@@ -13,10 +25,28 @@ SET search_path = public
 AS $$
 BEGIN
   RETURN EXISTS (
-    SELECT 1
-    FROM public.app_users
-    WHERE id = auth.uid()
-    AND role = 'admin'
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND (role = 'admin' OR admin_role IS NOT NULL)
+  );
+END;
+$$;
+
+-- دالة للتحقق من صلاحية الإدارة المالية
+-- تمنح الصلاحية للمدير العام (admin) أو المطور (developer) أو موظف المالية (finance)
+CREATE OR REPLACE FUNCTION public.is_finance_admin()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() 
+    AND (
+      role = 'admin' 
+      OR admin_role IN ('developer', 'finance')
+    )
   );
 END;
 $$;
@@ -24,6 +54,28 @@ $$;
 -- منح صلاحيات التنفيذ للدالة
 REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_finance_admin() TO authenticated;
+
+-- دالة للتحقق من صلاحية الموارد البشرية
+-- تمنح الصلاحية للمدير العام (admin) أو المطور (developer) أو موظفي الموارد البشرية (hr, hr_supervisor)
+CREATE OR REPLACE FUNCTION public.is_hr_admin()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() 
+    AND (
+      role = 'admin' 
+      OR admin_role IN ('developer', 'hr')
+    )
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.is_hr_admin() TO authenticated;
 
 -- 2. دالة للتحقق من ملكية السجل
 CREATE OR REPLACE FUNCTION public.is_own_record(record_user_id uuid)
@@ -74,13 +126,13 @@ CREATE POLICY "financial_records_select_policy" ON public.financial_records
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "financial_records_insert_policy" ON public.financial_records
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_finance_admin());
 
 CREATE POLICY "financial_records_update_policy" ON public.financial_records
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_finance_admin());
 
 CREATE POLICY "financial_records_delete_policy" ON public.financial_records
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_finance_admin());
 
 -- ===========================================
 -- yearly_records table
@@ -93,13 +145,13 @@ CREATE POLICY "yearly_records_select_policy" ON public.yearly_records
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "yearly_records_insert_policy" ON public.yearly_records
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "yearly_records_update_policy" ON public.yearly_records
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "yearly_records_delete_policy" ON public.yearly_records
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- administrative_summary table
@@ -112,13 +164,13 @@ CREATE POLICY "administrative_summary_select_policy" ON public.administrative_su
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "administrative_summary_insert_policy" ON public.administrative_summary
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "administrative_summary_update_policy" ON public.administrative_summary
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "administrative_summary_delete_policy" ON public.administrative_summary
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- thanks_details table
@@ -132,13 +184,13 @@ CREATE POLICY "thanks_details_select_policy" ON public.thanks_details
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "thanks_details_insert_policy" ON public.thanks_details
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "thanks_details_update_policy" ON public.thanks_details
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "thanks_details_delete_policy" ON public.thanks_details
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- committees_details table
@@ -152,13 +204,13 @@ CREATE POLICY "committees_details_select_policy" ON public.committees_details
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "committees_details_insert_policy" ON public.committees_details
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "committees_details_update_policy" ON public.committees_details
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "committees_details_delete_policy" ON public.committees_details
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- penalties_details table
@@ -172,13 +224,13 @@ CREATE POLICY "penalties_details_select_policy" ON public.penalties_details
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "penalties_details_insert_policy" ON public.penalties_details
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "penalties_details_update_policy" ON public.penalties_details
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "penalties_details_delete_policy" ON public.penalties_details
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- leaves_details table
@@ -192,13 +244,13 @@ CREATE POLICY "leaves_details_select_policy" ON public.leaves_details
   FOR SELECT USING (auth.uid() = user_id OR is_admin());
 
 CREATE POLICY "leaves_details_insert_policy" ON public.leaves_details
-  FOR INSERT WITH CHECK (is_admin());
+  FOR INSERT WITH CHECK (is_hr_admin());
 
 CREATE POLICY "leaves_details_update_policy" ON public.leaves_details
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 CREATE POLICY "leaves_details_delete_policy" ON public.leaves_details
-  FOR DELETE USING (is_admin());
+  FOR DELETE USING (is_hr_admin());
 
 -- ===========================================
 -- leave_requests table
@@ -215,7 +267,7 @@ CREATE POLICY "leave_requests_insert_policy" ON public.leave_requests
 
 -- فقط المشرفون يمكنهم التحديث (للموافقة/الرفض)
 CREATE POLICY "leave_requests_update_policy" ON public.leave_requests
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (is_hr_admin());
 
 -- المستخدمون يمكنهم حذف طلباتهم المعلقة فقط
 CREATE POLICY "leave_requests_delete_policy" ON public.leave_requests
