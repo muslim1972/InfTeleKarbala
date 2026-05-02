@@ -20,12 +20,14 @@ BEGIN
     SELECT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) INTO v_user_exists;
 
     IF v_user_exists THEN
-        -- 2. Update existing user password
+        -- 2. Update existing user password with compatible hashing (Cost 10)
         UPDATE auth.users 
         SET 
-            encrypted_password = crypt(p_password, gen_salt('bf')),
+            encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf', 10)),
             email = p_email,
-            last_sign_in_at = NULL -- Optional: force re-login if needed
+            email_confirmed_at = NOW(), -- Ensure email is confirmed
+            confirmed_at = NOW(),
+            last_sign_in_at = NULL 
         WHERE id = p_user_id;
         
         v_result := jsonb_build_object('success', true, 'action', 'updated');
@@ -37,6 +39,7 @@ BEGIN
             email,
             encrypted_password,
             email_confirmed_at,
+            confirmed_at,
             raw_app_meta_data,
             raw_user_meta_data,
             created_at,
@@ -49,7 +52,8 @@ BEGIN
             p_user_id,
             '00000000-0000-0000-0000-000000000000',
             p_email,
-            crypt(p_password, gen_salt('bf')),
+            extensions.crypt(p_password, extensions.gen_salt('bf', 10)),
+            now(),
             now(),
             '{"provider":"email","providers":["email"]}',
             '{}',
