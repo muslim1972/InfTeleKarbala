@@ -267,13 +267,24 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         const username = selectedEmployee.username?.trim();
         const password = selectedEmployee.password?.trim();
 
-        if (!full_name || !job_number || !username || !password) {
+        if (!full_name || !job_number || !username) {
             toast.error("تأكد من ملء الحقول الأساسية");
             return;
         }
 
         setLoading(true);
         try {
+            let passwordUpdatePayload: any = { password: null };
+            
+            // If a new password is provided, hash it
+            if (password) {
+                const { data: newHash, error: hashErr } = await supabase.rpc('hash_password', { 
+                    password: password 
+                });
+                if (hashErr) throw new Error("فشل تشفير كلمة المرور الجديدة");
+                passwordUpdatePayload.password_hash = newHash;
+            }
+
             const certText = financialData.certificate_text?.trim() || '';
             const certPerc = Number(financialData.certificate_percentage || 0);
             const stripAl = (t: string) => t.replace(/^ال/, '');
@@ -297,7 +308,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             const { error: userError } = await supabase
                 .from('profiles')
                 .update({
-                    full_name, job_number, username, password,
+                    full_name, job_number, username,
+                    ...passwordUpdatePayload,
                     role: selectedEmployee.role,
                     admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
                     iban: selectedEmployee.iban?.trim(),
@@ -352,11 +364,16 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 if (yError) throw yError;
             }
 
-            const email = `${job_number}@inftele.com`;
-            await supabase.rpc('rpc_sync_user_auth', {
-                p_user_id: selectedEmployee.id, p_email: email, p_password: password
-            });
+            // Sync with Auth only if password was provided
+            if (password) {
+                const email = `${job_number}@inftele.com`;
+                await supabase.rpc('rpc_sync_user_auth', {
+                    p_user_id: selectedEmployee.id, p_email: email, p_password: password
+                });
+            }
 
+            // Clear password field in UI
+            setSelectedEmployee({ ...selectedEmployee, password: "" });
             toast.success("تم حفظ التعديلات بنجاح");
         } catch (error: any) {
             toast.error(error.message || "فشل في حفظ التعديلات");
@@ -394,6 +411,12 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 return;
             }
 
+            // Hash password before saving to profiles
+            const { data: passwordHash, error: hashErr } = await supabase.rpc('hash_password', { 
+                password: password 
+            });
+            if (hashErr) throw new Error("فشل تشفير كلمة المرور");
+
             const email = `${job_number}@inftele.com`;
             const newUserId = crypto.randomUUID();
 
@@ -407,7 +430,9 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 .insert([{ 
                     ...formData, 
                     id: newUserId, 
-                    full_name, job_number, username, password,
+                    full_name, job_number, username, 
+                    password: null, // Don't store plain text
+                    password_hash: passwordHash,
                     iban: formData.iban?.trim(),
                     updated_at: new Date().toISOString() 
                 }])
