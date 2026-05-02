@@ -274,6 +274,24 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
+            let passwordUpdatePayload: any = { password: null };
+
+            // 1. Sync with Auth and Hash if password was provided
+            if (password) {
+                const { data: newHash, error: hashErr } = await supabase.rpc('hash_password', { password });
+                if (hashErr) throw new Error("فشل تشفير كلمة المرور: " + hashErr.message);
+
+                const { error: syncError } = await supabase.rpc('rpc_sync_user_auth', {
+                    p_user_id: selectedEmployee.id,
+                    p_email: `${job_number}@inftele.com`,
+                    p_password: password
+                });
+
+                if (syncError) throw new Error("فشل مزامنة بيانات الدخول: " + syncError.message);
+                
+                passwordUpdatePayload.password_hash = newHash;
+            }
+
             const certText = financialData.certificate_text?.trim() || '';
             const certPerc = Number(financialData.certificate_percentage || 0);
             const stripAl = (t: string) => t.replace(/^ال/, '');
@@ -298,7 +316,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 .from('profiles')
                 .update({
                     full_name, job_number, username,
-                    password: null,
+                    ...passwordUpdatePayload,
                     role: selectedEmployee.role,
                     admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
                     iban: selectedEmployee.iban?.trim(),
@@ -351,19 +369,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     .from('yearly_records')
                     .upsert(yearlyData.map(r => ({ ...r, updated_at: new Date().toISOString() })));
                 if (yError) throw yError;
-            }
-
-            // Sync with Auth only if password was provided
-            if (password) {
-                const { error: syncError } = await supabase.functions.invoke('admin-sync-auth', {
-                    body: {
-                        user_id: selectedEmployee.id,
-                        email: `${job_number}@inftele.com`,
-                        password: password
-                    }
-                });
-
-                if (syncError) throw new Error("فشل مزامنة بيانات الدخول: " + syncError.message);
             }
 
             // Clear password field in UI
