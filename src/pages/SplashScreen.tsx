@@ -2,7 +2,7 @@
  * SplashScreen.tsx
  * ─────────────────────────────────────────────────────────
  * واجهة افتتاحية فخمة لنظام الإدارة الموحد - ITPC كربلاء
- * مدتها 20 ثانية مع خلفية مصفوفة رقمية (Binary Rain).
+ * مدتها 15 ثانية مع خلفية مصفوفة رقمية (Binary Rain).
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -101,7 +101,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     const exitTimer = window.setTimeout(() => {
       setIsExiting(true);
       stopAudio();
-    }, 20000);
+    }, 15000);
 
     return () => {
       window.clearTimeout(exitTimer);
@@ -191,7 +191,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
                 }}
                 transition={{
                   duration: 5,
-                  delay: 7 + (i * 1.5), 
+                  delay: 5 + (i * 1.5), 
                   repeat: Infinity,
                   ease: 'easeOut',
                 }}
@@ -212,7 +212,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
               className="mx-auto h-px overflow-hidden"
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 280, opacity: 1 }}
-              transition={{ delay: 8, duration: 1.8, ease: 'easeOut' }}
+              transition={{ delay: 6, duration: 1.8, ease: 'easeOut' }}
             >
               <div className="h-full w-full bg-gradient-to-r from-transparent via-emerald-400/80 to-transparent" />
             </motion.div>
@@ -222,7 +222,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
               className="text-xl md:text-2xl font-bold text-white/95 font-tajawal tracking-wider"
               initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: 9.0, duration: 1.2, ease: 'easeOut' }}
+              transition={{ delay: 7.0, duration: 1.2, ease: 'easeOut' }}
             >
               وزارة الاتصالات
             </motion.h2>
@@ -232,7 +232,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
               className="text-lg md:text-xl font-semibold text-white/85 font-tajawal"
               initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: 10.2, duration: 1.2, ease: 'easeOut' }}
+              transition={{ delay: 8.2, duration: 1.2, ease: 'easeOut' }}
             >
               الشركة العامة للاتصالات والمعلوماتية
             </motion.h3>
@@ -242,7 +242,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
               className="text-lg md:text-xl font-semibold text-white/80 font-tajawal"
               initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: 11.4, duration: 1.2, ease: 'easeOut' }}
+              transition={{ delay: 9.4, duration: 1.2, ease: 'easeOut' }}
             >
               مديرية اتصالات ومعلوماتية كربلاء المقدسة
             </motion.h3>
@@ -252,7 +252,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
               className="pt-4"
               initial={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ delay: 13.0, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ delay: 11.0, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
             >
               <span className="inline-block px-8 py-3 rounded-xl text-2xl md:text-4xl font-black text-white font-tajawal border border-emerald-500/30 bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-emerald-700/20 backdrop-blur-sm shadow-[0_0_30px_rgba(34,197,94,0.15)]">
                 نظام الادارة الموحد
@@ -274,7 +274,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
                 backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
               }}
               transition={{
-                scaleX: { duration: 20, ease: 'linear' },
+                scaleX: { duration: 15, ease: 'linear' },
                 backgroundPosition: { duration: 6, repeat: Infinity, ease: 'linear' },
               }}
             />
