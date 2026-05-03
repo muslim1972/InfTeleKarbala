@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>معالج شعار ITPC - نسخة HTML</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .logo-preview {
+            transition: filter 0.3s ease, transform 0.3s ease;
+        }
+        input[type="range"] {
+            accent-color: #2563eb;
+        }
+        /* Grid background pattern */
+        .bg-grid {
+            background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0);
+            background-size: 30px 30px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-10 text-center">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">معالج شعار ITPC للواجهات الزرقاء</h1>
+            <p class="text-slate-600">أضف ظلاً أبيض (White Glow) للشعار لضمان الوضوح والتباين</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Controls Sidebar -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit space-y-6">
+                <div class="flex items-center gap-2 text-blue-600 font-bold mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span>إعدادات التأثير</span>
+                </div>
+
+                <!-- Upload -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">ارفع الشعار (PNG مفرغ)</label>
+                    <input type="file" id="logoInput" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                </div>
+
+                <!-- Spread Slider -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-medium">حجم الظل (التوهج)</label>
+                        <span id="spreadVal" class="text-xs font-mono text-blue-600">8px</span>
+                    </div>
+                    <input type="range" id="spreadInput" min="0" max="30" value="8" class="w-full" />
+                </div>
+
+                <!-- Opacity Slider -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-medium">قوة التباين (الشفافية)</label>
+                        <span id="opacityVal" class="text-xs font-mono text-blue-600">80%</span>
+                    </div>
+                    <input type="range" id="opacityInput" min="0" max="100" value="80" class="w-full" />
+                </div>
+
+                <!-- Color Picker -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">لون خلفية الواجهة</label>
+                    <div class="flex gap-2">
+                        <input type="color" id="colorInput" value="#1e3a8a" class="h-10 w-16 rounded cursor-pointer border-none" />
+                        <div class="flex flex-wrap gap-1">
+                            <button onclick="changeBg('#1e3a8a')" class="w-6 h-6 rounded-full bg-[#1e3a8a] border border-white/20"></button>
+                            <button onclick="changeBg('#1d4ed8')" class="w-6 h-6 rounded-full bg-[#1d4ed8] border border-white/20"></button>
+                            <button onclick="changeBg('#0f172a')" class="w-6 h-6 rounded-full bg-[#0f172a] border border-white/20"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <button onclick="copyCSS()" class="w-full py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    نسخ كود الـ CSS
+                </button>
+            </div>
+
+            <!-- Preview Main Area -->
+            <div class="lg:col-span-2">
+                <div id="previewContainer" class="relative rounded-3xl min-h-[450px] flex items-center justify-center bg-grid shadow-2xl transition-all duration-500 overflow-hidden" style="background-color: #1e3a8a;">
+                    
+                    <div id="logoWrapper" class="relative z-10 p-10 max-w-full">
+                        <div id="emptyState" class="text-white/40 text-center border-2 border-dashed border-white/20 p-12 rounded-2xl">
+                            <p class="text-lg font-bold">معاينة الشعار</p>
+                            <p class="text-sm">ارفع ملف logo-new.png لرؤية التأثير</p>
+                        </div>
+                        <img id="logoImage" src="" class="hidden max-w-full h-auto logo-preview" alt="ITPC Logo">
+                    </div>
+
+                    <div class="absolute bottom-4 left-4 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-white/70 border border-white/5 uppercase tracking-tighter">
+                        Live Render Mode
+                    </div>
+                </div>
+
+                <!-- Info Card -->
+                <div class="mt-6 bg-blue-50 border border-blue-100 p-5 rounded-2xl flex gap-4">
+                    <div class="bg-blue-600 text-white p-2 h-fit rounded-lg shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-blue-900">لماذا نستخدم هذا الظل؟</h4>
+                        <p class="text-sm text-blue-700 leading-relaxed">
+                            عند استخدام شعار كحلي غامق فوق خلفية زرقاء، تندمج الحروف مع الخلفية. إضافة <strong>drop-shadow</strong> باللون الأبيض تخلق حدوداً ناعمة (Glow) تجعل الشعار يبرز بوضوح فائق دون التأثير على جودة الصورة الأصلية.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const logoInput = document.getElementById('logoInput');
+        const logoImage = document.getElementById('logoImage');
+        const emptyState = document.getElementById('emptyState');
+        const previewContainer = document.getElementById('previewContainer');
+        const spreadInput = document.getElementById('spreadInput');
+        const opacityInput = document.getElementById('opacityInput');
+        const colorInput = document.getElementById('colorInput');
+
+        // Display Values
+        const spreadVal = document.getElementById('spreadVal');
+        const opacityVal = document.getElementById('opacityVal');
+
+        function updateFilter() {
+            const spread = spreadInput.value;
+            const opacity = opacityInput.value / 100;
+            
+            spreadVal.innerText = `${spread}px`;
+            opacityVal.innerText = `${Math.round(opacity * 100)}%`;
+
+            logoImage.style.filter = `drop-shadow(0 0 ${spread}px rgba(255, 255, 255, ${opacity}))`;
+        }
+
+        logoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    logoImage.src = event.target.result;
+                    logoImage.classList.remove('hidden');
+                    emptyState.classList.add('hidden');
+                    updateFilter();
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        spreadInput.addEventListener('input', updateFilter);
+        opacityInput.addEventListener('input', updateFilter);
+        
+        colorInput.addEventListener('input', function() {
+            previewContainer.style.backgroundColor = this.value;
+        });
+
+        function changeBg(color) {
+            colorInput.value = color;
+            previewContainer.style.backgroundColor = color;
+        }
+
+        function copyCSS() {
+            const spread = spreadInput.value;
+            const opacity = opacityInput.value / 100;
+            const css = `filter: drop-shadow(0 0 ${spread}px rgba(255, 255, 255, ${opacity}));`;
+            
+            const el = document.createElement('textarea');
+            el.value = css;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            alert('تم نسخ الكود بنجاح!');
+        }
+    </script>
+</body>
+</html>

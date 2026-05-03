@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
+import { LogoGlow } from '../components/visual/LogoGlow';
 
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
 const BINARY_STREAMS_COUNT = 50; // تقليل العدد قليلاً لتقليل التشتيت
@@ -198,31 +199,9 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             ))}
 
             {/* الشعار الرئيسي */}
-            <motion.div
-              className="relative z-10"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1.35 }} 
-              transition={{
-                delay: 7, 
-                duration: 2.8,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-            >
-              <motion.img
-                src="/logo-new.png"
-                alt="ITPC Logo"
-                className="max-w-[55vw] max-h-[40vh] md:max-h-[45vh] w-auto h-auto object-contain drop-shadow-[0_0_80px_rgba(34,197,94,0.45)]"
-                animate={{
-                  y: [0, -12, 0],
-                  filter: [
-                    'drop-shadow(0 0 45px rgba(34,197,94,0.35))',
-                    'drop-shadow(0 0 75px rgba(34,197,94,0.55))',
-                    'drop-shadow(0 0 45px rgba(34,197,94,0.35))',
-                  ],
-                }}
-                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
-              />
-            </motion.div>
+            <div className="relative z-10">
+              <LogoGlow />
+            </div>
           </div>
 
           {/* ── النصوص المتسلسلة ──────────────────────────── */}
