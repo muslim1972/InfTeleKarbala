@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
+import { toast } from "react-hot-toast";
 
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion') => void;
@@ -107,7 +108,21 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     {visibleCards.map(card => (
                         <button
                             key={card.id}
-                            onClick={() => onSelect(card.id)}
+                            onClick={() => {
+                                if (card.id === 'capacities') {
+                                    toast.error('القسم تحت التطوير', {
+                                        icon: '🛠️',
+                                        duration: 3000,
+                                        style: {
+                                            fontFamily: 'Tajawal, sans-serif',
+                                            fontSize: '14px',
+                                            fontWeight: '600'
+                                        }
+                                    });
+                                    return;
+                                }
+                                onSelect(card.id);
+                            }}
                             className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                                 isDark
                                     ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
@@ -117,6 +132,11 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors border ${card.iconBg}`}>
                                 {card.icon}
                             </div>
+                            {card.id === 'capacities' && (
+                                <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30 text-[8px] font-bold text-amber-600 animate-pulse">
+                                    تحت التطوير
+                                </div>
+                            )}
                             <h3 className={`text-sm font-bold mb-1 text-center leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                 {card.label}
                             </h3>
