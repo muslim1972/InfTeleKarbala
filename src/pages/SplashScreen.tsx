@@ -219,33 +219,43 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
             {/* السطر 1: وزارة الاتصالات */}
             <motion.h2
-              className="text-xl md:text-3xl font-bold text-white/95 font-tajawal tracking-wider"
-              initial={{ opacity: 0, y: 35, filter: 'blur(12px)' }}
+              className="text-xl md:text-2xl font-bold text-white/95 font-tajawal tracking-wider"
+              initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: 9.2, duration: 1.6, ease: 'easeOut' }}
+              transition={{ delay: 9.0, duration: 1.2, ease: 'easeOut' }}
             >
               وزارة الاتصالات
             </motion.h2>
 
-            {/* السطر 2: المديرية */}
+            {/* السطر 2: الشركة العامة */}
             <motion.h3
-              className="text-lg md:text-2xl font-semibold text-white/80 font-tajawal"
-              initial={{ opacity: 0, y: 35, filter: 'blur(12px)' }}
+              className="text-lg md:text-xl font-semibold text-white/85 font-tajawal"
+              initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ delay: 10.8, duration: 1.6, ease: 'easeOut' }}
+              transition={{ delay: 10.2, duration: 1.2, ease: 'easeOut' }}
+            >
+              الشركة العامة للاتصالات والمعلوماتية
+            </motion.h3>
+
+            {/* السطر 3: المديرية */}
+            <motion.h3
+              className="text-lg md:text-xl font-semibold text-white/80 font-tajawal"
+              initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ delay: 11.4, duration: 1.2, ease: 'easeOut' }}
             >
               مديرية اتصالات ومعلوماتية كربلاء المقدسة
             </motion.h3>
 
-            {/* السطر 3: قريبــــا */}
+            {/* السطر 4: اسم النظام */}
             <motion.div
-              className="pt-6"
-              initial={{ opacity: 0, scale: 0.5, filter: 'blur(15px)' }}
+              className="pt-4"
+              initial={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ delay: 12.8, duration: 2.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ delay: 13.0, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
             >
-              <span className="inline-block px-10 md:px-16 py-5 md:py-6 rounded-2xl text-3xl md:text-5xl font-black tracking-[0.25em] text-white font-tajawal border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-600/40 via-emerald-500/25 to-emerald-700/40 shadow-[0_0_60px_rgba(34,197,94,0.3),inset_0_2px_0_rgba(255,255,255,0.2)] backdrop-blur-md">
-                قريبــــاً
+              <span className="inline-block px-8 py-3 rounded-xl text-2xl md:text-4xl font-black text-white font-tajawal border border-emerald-500/30 bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-emerald-700/20 backdrop-blur-sm shadow-[0_0_30px_rgba(34,197,94,0.15)]">
+                نظام الادارة الموحد
               </span>
             </motion.div>
           </div>
