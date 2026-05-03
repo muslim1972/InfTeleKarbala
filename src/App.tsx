@@ -208,17 +208,11 @@ const AppContent = () => {
       return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
+    // عرض واجهة السعات كـ iframe داخلي (تم الإيقاف مؤقتاً للتطوير)
     if (adminViewMode === 'capacities') {
-      return (
-        <div className="fixed inset-0 z-[9999] bg-black" dir="ltr">
-          <iframe
-            src="https://itpc-band.vercel.app/"
-            className="w-full h-full border-none"
-            title="نظام قسم تجهيز خدمات المعلوماتية"
-            allow="fullscreen"
-          />
-        </div>
-      );
+      // إرجاع المستخدم للوحة التحكم كإجراء أمان إضافي
+      setAdminViewMode(null);
+      return <Dashboard />;
     }
     // عرض واجهة دورات الترفيع
     if (adminViewMode === 'promotion') {
