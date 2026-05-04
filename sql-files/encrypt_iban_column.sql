@@ -229,18 +229,22 @@ BEGIN
 
   SELECT * INTO v_result FROM public.profiles WHERE id = auth.uid();
 
-  -- فك تشفير IBAN من profiles
-  IF v_result.iban_encrypted IS NOT NULL AND v_result.iban_encrypted != '' THEN
-    v_result.iban := decrypt_iban_value(v_result.iban_encrypted);
-  ELSE
-    -- احتياطي: جلب IBAN المشفر من financial_records
-    SELECT iban_encrypted INTO v_fin_iban
-    FROM public.financial_records WHERE user_id = auth.uid();
-    
-    IF v_fin_iban IS NOT NULL AND v_fin_iban != '' THEN
-      v_result.iban := decrypt_iban_value(v_fin_iban);
+  -- محاولة فك تشفير IBAN (آمنة ضد الفشل - لا تعطّل تسجيل الدخول)
+  BEGIN
+    IF v_result.iban_encrypted IS NOT NULL AND v_result.iban_encrypted != '' THEN
+      v_result.iban := decrypt_iban_value(v_result.iban_encrypted);
+    ELSE
+      SELECT iban_encrypted INTO v_fin_iban
+      FROM public.financial_records WHERE user_id = auth.uid();
+      
+      IF v_fin_iban IS NOT NULL AND v_fin_iban != '' THEN
+        v_result.iban := decrypt_iban_value(v_fin_iban);
+      END IF;
     END IF;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- إذا فشل فك التشفير لأي سبب، لا تعطّل العملية
+    v_result.iban := NULL;
+  END;
 
   RETURN NEXT v_result;
 END;
