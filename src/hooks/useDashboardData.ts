@@ -174,8 +174,16 @@ export const useDashboardData = (activeTab: string) => {
                         const grossSalary = nominalSalary + totalAllowances;
                         const netSalary = grossSalary - totalDeductions;
 
+                        // فك تشفير IBAN من financial_records عبر RPC آمن
+                        let decryptedIban = data.iban; // fallback للبيانات غير المشفرة
+                        if (!decryptedIban) {
+                            const { data: ibanData } = await supabase.rpc('get_financial_iban', { p_user_id: user.id });
+                            if (ibanData) decryptedIban = ibanData;
+                        }
+
                         setFinancialData({
                             ...data,
+                            iban: decryptedIban,
                             total_allowances: totalAllowances,
                             gross_salary: grossSalary,
                             total_deductions: totalDeductions,
