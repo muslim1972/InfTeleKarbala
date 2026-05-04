@@ -1,0 +1,28 @@
+# استثناء ملفات البيئة والإعدادات
+.env
+.env.local
+.vercel
+.vscode
+.gemini
+.qodo
+
+# استثناء مجلدات التطوير
+node_modules/
+dist/
+android/
+tmp/
+scratch/
+
+# استثناء ملفات البناء والسكربتات
+build-splash.cjs
+build-splash.ps1
+build_splash_final.js
+publish-android.ps1
+
+# استثناء ملفات التوثيق والتقارير
+REPORT.md
+SECURITY_GUIDE.md
+*.xlsx
+*.pdf
+*.zip
+*.txt

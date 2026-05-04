@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "publish": "powershell -ExecutionPolicy Bypass -File publish-android.ps1"
+    "publish-app": "powershell -ExecutionPolicy Bypass -File publish-android.ps1"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
