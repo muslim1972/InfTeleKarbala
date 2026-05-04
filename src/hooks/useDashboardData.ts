@@ -177,13 +177,9 @@ export const useDashboardData = (activeTab: string) => {
                         // فك تشفير IBAN من financial_records عبر RPC آمن
                         let decryptedIban = data.iban; // fallback للبيانات غير المشفرة
                         if (!decryptedIban) {
-                            const { data: ibanData, error: ibanErr } = await supabase.rpc('get_financial_iban_secure', { p_uid: user.id });
-                            console.log('[IBAN Debug] RPC get_financial_iban_secure:', { ibanData, ibanErr, userId: user.id });
+                            const { data: ibanData } = await supabase.rpc('get_financial_iban_secure', { p_uid: user.id });
                             if (ibanData) decryptedIban = ibanData;
                         }
-                        console.log('[IBAN Debug] Final IBAN:', decryptedIban, '| user.iban:', user?.iban);
-                        console.log('[IBAN Debug] Final IBAN:', decryptedIban, '| user.iban:', user?.iban);
-
                         setFinancialData({
                             ...data,
                             iban: decryptedIban,
