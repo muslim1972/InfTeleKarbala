@@ -33,7 +33,7 @@ export const LogoGlow = ({
         ],
       }}
       transition={{
-        opacity: { delay: 5, duration: 2.8, ease: [0.16, 1, 0.3, 1] },
+        opacity: { delay: 3, duration: 2.5, ease: [0.16, 1, 0.3, 1] },
         y: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
         filter: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
       }}

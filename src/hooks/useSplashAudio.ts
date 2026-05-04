@@ -26,8 +26,8 @@ export const useSplashAudio = () => {
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 1);
-    masterGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 15);
-    masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 19.5);
+    masterGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 10);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 13);
     masterGain.connect(ctx.destination);
 
     // ── Reverb (Convolution) ─────────────────────────────
@@ -53,11 +53,11 @@ export const useSplashAudio = () => {
 
     // ── الطبقة 1: الـ Pad (خلفية أوركسترالية دافئة) ─────
     const padNotes = [
-      { freq: 130.81, start: 0, dur: 19 },   // C3
-      { freq: 196.00, start: 0, dur: 19 },   // G3
-      { freq: 261.63, start: 0.5, dur: 18.5 }, // C4
-      { freq: 329.63, start: 1, dur: 18 },   // E4
-      { freq: 392.00, start: 5, dur: 14 },   // G4
+      { freq: 130.81, start: 0, dur: 12 },   // C3
+      { freq: 196.00, start: 0, dur: 12 },   // G3
+      { freq: 261.63, start: 0.3, dur: 11.7 }, // C4
+      { freq: 329.63, start: 0.6, dur: 11.4 }, // E4
+      { freq: 392.00, start: 3, dur: 9 },   // G4
     ];
 
     padNotes.forEach(({ freq, start, dur }) => {
@@ -81,15 +81,15 @@ export const useSplashAudio = () => {
 
     // ── الطبقة 2: الـ Bell Chimes (نغمات جرس كريستالية) ──
     const bellNotes = [
-      { freq: 523.25, time: 0.8, vol: 0.12 },   // C5
-      { freq: 659.25, time: 1.6, vol: 0.10 },   // E5
-      { freq: 783.99, time: 2.4, vol: 0.11 },   // G5
-      { freq: 1046.50, time: 3.2, vol: 0.09 },  // C6
-      { freq: 783.99, time: 6.0, vol: 0.08 },   // G5
-      { freq: 880.00, time: 9.0, vol: 0.08 },   // A5
-      { freq: 1046.50, time: 12.0, vol: 0.07 }, // C6
-      { freq: 1318.51, time: 15.0, vol: 0.06 }, // E6
-      { freq: 1567.98, time: 17.5, vol: 0.05 }, // G6
+      { freq: 523.25, time: 0.5, vol: 0.12 },   // C5
+      { freq: 659.25, time: 1.0, vol: 0.10 },   // E5
+      { freq: 783.99, time: 1.5, vol: 0.11 },   // G5
+      { freq: 1046.50, time: 2.0, vol: 0.09 },  // C6
+      { freq: 783.99, time: 3.5, vol: 0.08 },   // G5
+      { freq: 880.00, time: 5.5, vol: 0.08 },   // A5
+      { freq: 1046.50, time: 7.5, vol: 0.07 }, // C6
+      { freq: 1318.51, time: 9.0, vol: 0.06 }, // E6
+      { freq: 1567.98, time: 10.5, vol: 0.05 }, // G6
     ];
 
     bellNotes.forEach(({ freq, time, vol }) => {
@@ -128,15 +128,15 @@ export const useSplashAudio = () => {
 
     const subGain = ctx.createGain();
     subGain.gain.setValueAtTime(0, ctx.currentTime);
-    subGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 3);
-    subGain.gain.setValueAtTime(0.08, ctx.currentTime + 16);
-    subGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 19.5);
+    subGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 2);
+    subGain.gain.setValueAtTime(0.08, ctx.currentTime + 10);
+    subGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 12.5);
 
     subOsc.connect(subGain);
     subGain.connect(dryGain);
 
     subOsc.start(ctx.currentTime);
-    subOsc.stop(ctx.currentTime + 19.8);
+    subOsc.stop(ctx.currentTime + 13);
 
     // ── الطبقة 4: Shimmer (بريق عالي التردد) ─────────────
     const shimmerFreqs = [2093, 2637, 3136]; 
@@ -146,16 +146,16 @@ export const useSplashAudio = () => {
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
       const shimmerGain = ctx.createGain();
-      shimmerGain.gain.setValueAtTime(0, ctx.currentTime + 2 + i * 0.3);
-      shimmerGain.gain.linearRampToValueAtTime(0.008, ctx.currentTime + 4 + i * 0.3);
-      shimmerGain.gain.setValueAtTime(0.008, ctx.currentTime + 16);
-      shimmerGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 19.5);
+      shimmerGain.gain.setValueAtTime(0, ctx.currentTime + 1.5 + i * 0.2);
+      shimmerGain.gain.linearRampToValueAtTime(0.008, ctx.currentTime + 3 + i * 0.2);
+      shimmerGain.gain.setValueAtTime(0.008, ctx.currentTime + 10);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 12.5);
 
       osc.connect(shimmerGain);
       shimmerGain.connect(convolver);
 
-      osc.start(ctx.currentTime + 2 + i * 0.3);
-      osc.stop(ctx.currentTime + 19.8);
+      osc.start(ctx.currentTime + 1.5 + i * 0.2);
+      osc.stop(ctx.currentTime + 13);
     });
 
   }, []);
