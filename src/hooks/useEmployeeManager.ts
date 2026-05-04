@@ -109,10 +109,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 }
             }
 
-            // فك تشفير IBAN عبر RPC آمن (العمود مشفر في DB)
-            const { data: decryptedIban } = await supabase.rpc('get_employee_iban', { p_user_id: fullUserData.id });
-            if (decryptedIban) {
-                fullUserData.iban = decryptedIban;
+            // جلب IBAN المفكوك عبر RPC آمن (للمدير)
+            const { data: ibanData } = await supabase.rpc('get_employee_iban_secure', { p_uid: fullUserData.id });
+            if (ibanData) {
+                fullUserData.iban = ibanData;
             }
 
             setSelectedEmployee(fullUserData);
