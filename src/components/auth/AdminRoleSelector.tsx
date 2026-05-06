@@ -4,6 +4,7 @@ import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 import { toast } from "react-hot-toast";
+import { supabase } from "../../lib/supabase";
 
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion') => void;
@@ -108,17 +109,20 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     {visibleCards.map(card => (
                         <button
                             key={card.id}
-                            onClick={() => {
+                            onClick={async () => {
                                 if (card.id === 'capacities') {
-                                    toast.error('القسم تحت التطوير', {
-                                        icon: '🛠️',
-                                        duration: 3000,
-                                        style: {
-                                            fontFamily: 'Tajawal, sans-serif',
-                                            fontSize: '14px',
-                                            fontWeight: '600'
+                                    try {
+                                        const { data: { session } } = await supabase.auth.getSession();
+                                        if (session) {
+                                            const url = `https://itpc-band.vercel.app/#access_token=${session.access_token}&refresh_token=${session.refresh_token}`;
+                                            window.open(url, '_blank');
+                                        } else {
+                                            toast.error('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
                                         }
-                                    });
+                                    } catch (err) {
+                                        console.error('SSO Error:', err);
+                                        toast.error('حدث خطأ أثناء الاتصال بالنظام');
+                                    }
                                     return;
                                 }
                                 onSelect(card.id);
@@ -132,11 +136,6 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors border ${card.iconBg}`}>
                                 {card.icon}
                             </div>
-                            {card.id === 'capacities' && (
-                                <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30 text-[8px] font-bold text-amber-600 animate-pulse">
-                                    تحت التطوير
-                                </div>
-                            )}
                             <h3 className={`text-sm font-bold mb-1 text-center leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                 {card.label}
                             </h3>
