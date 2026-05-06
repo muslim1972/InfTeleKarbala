@@ -26,6 +26,7 @@ const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ defa
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
+import { CapacitiesIframe } from "./components/admin/dashboard/CapacitiesIframe";
 import { NotFound } from "./pages/NotFound";
 
 // Loading Component
@@ -208,11 +209,9 @@ const AppContent = () => {
       return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
-    // عرض واجهة السعات كـ iframe داخلي (تم الإيقاف مؤقتاً للتطوير)
+    // عرض واجهة السعات كـ iframe داخلي
     if (adminViewMode === 'capacities') {
-      // إرجاع المستخدم للوحة التحكم كإجراء أمان إضافي
-      setAdminViewMode(null);
-      return <Dashboard />;
+      return <CapacitiesIframe onBack={() => setAdminViewMode(null)} />;
     }
     // عرض واجهة دورات الترفيع
     if (adminViewMode === 'promotion') {

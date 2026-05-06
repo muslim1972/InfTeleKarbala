@@ -3,9 +3,6 @@ import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
-import { toast } from "react-hot-toast";
-import { supabase } from "../../lib/supabase";
-
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion') => void;
     /** Whether this user is eligible for the Capacities system */
@@ -109,24 +106,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     {visibleCards.map(card => (
                         <button
                             key={card.id}
-                            onClick={async () => {
-                                if (card.id === 'capacities') {
-                                    try {
-                                        const { data: { session } } = await supabase.auth.getSession();
-                                        if (session) {
-                                            const url = `https://itpc-band.vercel.app/#access_token=${session.access_token}&refresh_token=${session.refresh_token}`;
-                                            window.open(url, '_blank');
-                                        } else {
-                                            toast.error('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
-                                        }
-                                    } catch (err) {
-                                        console.error('SSO Error:', err);
-                                        toast.error('حدث خطأ أثناء الاتصال بالنظام');
-                                    }
-                                    return;
-                                }
-                                onSelect(card.id);
-                            }}
+                            onClick={() => onSelect(card.id)}
                             className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                                 isDark
                                     ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
