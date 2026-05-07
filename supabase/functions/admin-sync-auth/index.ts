@@ -44,7 +44,7 @@ serve(async (req: Request) => {
 
     // 3. Sync Auth User via Admin API
     let authError = null;
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users }, error: _listError } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = users.find(u => u.id === user_id);
 
     if (existingUser) {
@@ -52,7 +52,7 @@ serve(async (req: Request) => {
       const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
         email: email,
         password: password,
-        email_confirmed_at: new Date().toISOString()
+        email_confirm: true
       });
       authError = error;
     } else {
@@ -94,9 +94,10 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
-  } catch (error: any) {
+  } catch (error) {
+    const err = error as Error;
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
