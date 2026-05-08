@@ -14,10 +14,9 @@ import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeT
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
 
-import { Power } from "lucide-react";
 
 export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge'>('administrative');
 

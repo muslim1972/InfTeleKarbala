@@ -26,10 +26,10 @@ import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
 import { AudioHub } from "../components/features/AudioHub";
 import { SupervisorPermissions } from "../components/admin/SupervisorPermissions";
 
-import { Power } from "lucide-react";
+
 
 export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
-    const { user: currentUser, logout } = useAuth();
+    const { user: currentUser } = useAuth();
     const { theme } = useTheme();
     const [searchParams, setSearchParams] = useSearchParams();
 
