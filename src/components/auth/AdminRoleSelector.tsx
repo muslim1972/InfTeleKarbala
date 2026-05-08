@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
+
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion') => void;
     /** Whether this user is eligible for the Capacities system */
@@ -12,7 +13,7 @@ interface AdminRoleSelectorProps {
 }
 
 export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false }: AdminRoleSelectorProps) => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const { theme } = useTheme();
 
     const isAdmin = user?.role === 'admin';
@@ -86,7 +87,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             </div>
 
             {/* Main Content Container */}
-            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(3rem+env(safe-area-inset-top))] pb-40">
+            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(3rem+env(safe-area-inset-top))] pb-32">
 
                 <div className="text-center mb-6 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <h1 className={`text-2xl md:text-3xl font-bold font-tajawal drop-shadow-lg leading-relaxed transition-colors duration-500 ${
@@ -102,7 +103,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     <div className="h-1.5 w-16 bg-brand-green mx-auto rounded-full mt-2 shadow-lg" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
+                <div className="grid grid-cols-2 gap-3 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 mb-8">
                     {visibleCards.map(card => (
                         <button
                             key={card.id}
@@ -124,6 +125,25 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                             </p>
                         </button>
                     ))}
+                </div>
+
+                {/* Logout Button */}
+                <div className="w-full animate-in fade-in slide-in-from-bottom-16 duration-1000 delay-200">
+                    <button
+                        onClick={() => {
+                            if (window.confirm("هل أنت متأكد من تسجيل الخروج؟")) {
+                                logout();
+                            }
+                        }}
+                        className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-[0_10px_20px_rgba(239,68,68,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
+                    >
+                        <div className="p-2 bg-white/20 rounded-xl group-hover:rotate-12 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </div>
+                        <span>تسجيل الخروج من النظام</span>
+                    </button>
                 </div>
             </div>
 
