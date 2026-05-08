@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 
 export const CapacitiesIframe = ({ onBack }: { onBack: () => void }) => {
