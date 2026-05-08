@@ -10,9 +10,10 @@ interface AppHeaderProps {
     bottomContent?: React.ReactNode;
     title?: string;
     showUserName?: boolean; // Show user name next to avatar
+    onBack?: () => void; // Optional back navigation callback
 }
 
-export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHeaderProps) => {
+export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [showSettings, setShowSettings] = useState(false);
@@ -51,9 +52,9 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                                             }`}>
                                             {user?.full_name ? user.full_name.split(' ').slice(0, 2).join(' ') : 'زائر'}
                                         </h2>
-                                        <p className={`text-[10px] font-cairo ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                                        <p className={`text-[10px] font-cairo font-bold ${theme === 'light' ? 'text-brand-green' : 'text-brand-yellow'
                                             }`}>
-                                            {getRoleLabel(user)}
+                                            {title || getRoleLabel(user)}
                                         </p>
                                     </div>
                                 )}
@@ -83,21 +84,29 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
                             </button>
                         </div>
 
-                        {/* Left: Title + Logout Button */}
+                        {/* Left: Back Link / Logout Button */}
                         <div className="flex-1 flex justify-end">
                             <div className="flex items-center gap-2">
-                                {title && (
-                                    <h1 className={`font-bold text-base md:text-lg font-tajawal ${theme === 'light' ? 'text-gray-900' : 'text-white'
-                                        }`}>{title}</h1>
+                                {onBack ? (
+                                    <button
+                                        onClick={onBack}
+                                        className={`px-3 py-1 rounded-full text-sm font-bold font-tajawal transition-all hover:scale-105 active:scale-95 ${
+                                            theme === 'light' 
+                                            ? 'text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200' 
+                                            : 'text-white/70 hover:text-white bg-white/5 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        رجوع
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={logout}
+                                        className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 transition-colors border border-red-500/20"
+                                        title="تسجيل الخروج"
+                                    >
+                                        <Power className="w-4 h-4" />
+                                    </button>
                                 )}
-
-                                <button
-                                    onClick={logout}
-                                    className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 transition-colors border border-red-500/20"
-                                    title="تسجيل الخروج"
-                                >
-                                    <Power className="w-4 h-4" />
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -114,3 +123,4 @@ export const AppHeader = ({ bottomContent, title, showUserName = false }: AppHea
         </>
     );
 };
+

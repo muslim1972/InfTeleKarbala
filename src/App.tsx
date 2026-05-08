@@ -218,8 +218,8 @@ const AppContent = () => {
       return <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />;
     }
     // عرض الواجهة المختارة
-    if (adminViewMode === 'user') return <Dashboard />;
-    if (adminViewMode === 'admin' && isAdmin) return <AdminDashboard />;
+    if (adminViewMode === 'user') return <Dashboard onBack={() => setAdminViewMode(null)} />;
+    if (adminViewMode === 'admin' && isAdmin) return <AdminDashboard onBack={() => setAdminViewMode(null)} />;
     // fallback
     return <Dashboard />;
   }

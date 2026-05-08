@@ -26,8 +26,10 @@ import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
 import { AudioHub } from "../components/features/AudioHub";
 import { SupervisorPermissions } from "../components/admin/SupervisorPermissions";
 
-export const AdminDashboard = () => {
-    const { user: currentUser } = useAuth();
+import { Power } from "lucide-react";
+
+export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
+    const { user: currentUser, logout } = useAuth();
     const { theme } = useTheme();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -205,7 +207,7 @@ export const AdminDashboard = () => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative min-h-screen bg-transparent">
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative min-h-screen bg-transparent" onBack={onBack}>
             <AppNotifications />
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
@@ -458,6 +460,17 @@ export const AdminDashboard = () => {
                 leave={activeFiveYearLeave}
             />
 
+            {/* Global Logout Button at the bottom */}
+            <div className="mt-20 mb-10 flex justify-center">
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-105 active:scale-95 group"
+                >
+                    <Power className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                    <span>تسجيل الخروج من النظام</span>
+                </button>
+            </div>
         </Layout >
     );
 };
+

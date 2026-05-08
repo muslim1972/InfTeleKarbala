@@ -12,9 +12,10 @@ interface LayoutProps {
     headerContent?: React.ReactNode;
     headerTitle?: string;
     showUserName?: boolean;
+    onBack?: () => void;
 }
 
-export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false }: LayoutProps) => {
+export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false, onBack }: LayoutProps) => {
     const navigate = useNavigate();
     const [isCVOpen, setIsCVOpen] = useState(false);
     const { totalUnreadCount } = useChat();
@@ -40,7 +41,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
             </div>
 
             <div className="relative z-10 flex flex-col h-full min-h-screen">
-                <AppHeader bottomContent={headerContent} title={headerTitle} showUserName={showUserName} />
+                <AppHeader bottomContent={headerContent} title={headerTitle} showUserName={showUserName} onBack={onBack} />
 
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-96", className)}>
                     {children}

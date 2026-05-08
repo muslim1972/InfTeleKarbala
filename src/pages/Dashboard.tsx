@@ -14,8 +14,10 @@ import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeT
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
 
-export const Dashboard = () => {
-    const { user } = useAuth();
+import { Power } from "lucide-react";
+
+export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
+    const { user, logout } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge'>('administrative');
 
@@ -74,7 +76,7 @@ export const Dashboard = () => {
     );
 
     return (
-        <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true}>
+        <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true} onBack={onBack}>
             <AppNotifications />
             <div className="max-w-4xl mx-auto px-4 relative pb-20 min-h-[70vh] mt-2 bg-transparent">
                 {activeTab === 'polls' ? (
@@ -116,7 +118,19 @@ export const Dashboard = () => {
                         toggleSection={toggleSection}
                     />
                 )}
+
+                {/* Global Logout Button at the bottom */}
+                <div className="mt-20 mb-10 flex justify-center">
+                    <button
+                        onClick={logout}
+                        className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-105 active:scale-95 group"
+                    >
+                        <Power className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                        <span>تسجيل الخروج من النظام</span>
+                    </button>
+                </div>
             </div>
         </Layout>
     );
 };
+
