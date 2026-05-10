@@ -17,7 +17,7 @@ export interface PushNotificationOptions {
 import { Capacitor } from '@capacitor/core';
 
 // الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
-const PROD_API_URL = 'https://inf-tele-karbala.vercel.app';
+const PROD_API_URL = 'https://itpc-hr.vercel.app';
 
 export const sendPushNotification = async (
   recipientId: string,
