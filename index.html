@@ -17,54 +17,14 @@
     (function(){const h=window.location.hostname;if(h!=='localhost'&&h!=='127.0.0.1'){const n=()=>{};window.console.log=n;window.console.info=n;window.console.warn=n;window.console.error=n;window.console.debug=n;const c=()=>console.clear();setTimeout(()=>{c();setTimeout(c,2000);setTimeout(c,5000);},500);if(window.location.hash.includes('access_token=')){setTimeout(()=>{history.replaceState(null,document.title,window.location.pathname+window.location.search);},500);}}})();
   </script>
   <script>
-    // منع التكبير التلقائي ومنع تضخم الخطوط برمجياً في الأندرويد
-    (function() {
-      const meta = document.querySelector('meta[name="viewport"]');
-      if (meta) {
-        meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no";
-      }
-      // تصفير أي زووم قد يقوم به النظام
-      try {
-        document.body.style.zoom = "1.0";
-      } catch(e) {}
-    })();
+    /* UI Layout Optimizer - Font & Scale Management */
+    (function(){const m=document.querySelector('meta[name="viewport"]');if(m){m.content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,shrink-to-fit=no"}try{document.body.style.zoom="1.0"}catch(e){}})();
   </script>
   <title>مديرية اتصالات كربلاء</title>
 
   <script>
-    // الحماية القصوى: منع تحميل Web SDK في نسخة الـ APK
-    (function() {
-      const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-      if (!isNative) {
-        const script = document.createElement('script');
-        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-        script.defer = true;
-        document.head.appendChild(script);
-
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        window.OneSignalDeferred.push(async function (OneSignal) {
-          const expectedHost = 'itpc-hr.vercel.app';
-          const currentHost = window.location.hostname;
-          
-          if (currentHost === 'localhost' || currentHost === '127.0.0.1') return;
-          
-          if (currentHost !== expectedHost && currentHost !== 'itpc-hr.vercel.app') {
-            // Mismatch detected - silent fail for production
-          }
-
-          try {
-            await OneSignal.init({
-              appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
-              safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
-              notifyButton: { enable: false },
-              allowLocalhostAsSecureOrigin: true
-            });
-          } catch (e) { 
-            // Silent error handling for OneSignal to keep console clean
-          }
-        });
-      }
-    })();
+    /* Push Notification Engine & Service Connector */
+    (function(){const n=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());if(!n){const s=document.createElement('script');s.src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";s.defer=true;document.head.appendChild(s);window.OneSignalDeferred=window.OneSignalDeferred||[];window.OneSignalDeferred.push(async function(O){const h=window.location.hostname;if(h==='localhost'||h==='127.0.0.1')return;try{await O.init({appId:"beae0757-7abe-46a8-b223-8f6c65e47fb5",safari_web_id:"web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",notifyButton:{enable:false},allowLocalhostAsSecureOrigin:true})}catch(e){}})})()
   </script>
 
 
