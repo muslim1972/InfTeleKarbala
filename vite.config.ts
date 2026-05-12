@@ -30,23 +30,32 @@ export default defineConfig({
   build: {
     // ===== تحصين أمني: تعطيل Source Maps نهائياً في الإنتاج =====
     sourcemap: false,
-    // ===== تصعيب قراءة الكود وإزالة أدوات التصحيح =====
+    // ===== تصعيد مستوى التشفير وإزالة أي خيوط تدل على المطور =====
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,      // إزالة جميع console.log/warn/error
-        drop_debugger: true,     // إزالة جميع debugger statements
-        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+        drop_console: true,      // إزالة جميع console.log
+        drop_debugger: true,     // إزالة debugger
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn', 'console.error'],
+        passes: 3,               // إجراء 3 تمريرات ضغط لتعقيد الكود الناتج
+        global_defs: {
+          'process.env.NODE_ENV': JSON.stringify('production')
+        }
       },
       mangle: {
-        toplevel: true,          // تشفير أسماء المتغيرات العليا
+        toplevel: true,          // تشفير أسماء المتغيرات والوظائف في المستوى الأعلى
+        properties: false,        // لا نشفر الخصائص لتجنب كسر واجهات API (إلا إذا حددنا مستثنيات)
       },
       format: {
-        comments: false,         // إزالة جميع التعليقات من الكود الناتج
+        comments: false,         // حذف التعليقات نهائياً
+        ascii_only: true,        // تحويل الأحرف غير اللاتينية إلى رموز لمنع قراءتها
+        beautify: false,
       },
     },
     rollupOptions: {
       output: {
+        // منع توليد ملفات sourcemap حتى في الـ chunks
+        sourcemap: false,
         manualChunks: {
           // فصل المكتبات الثقيلة
           'vendor-react': ['react', 'react-dom'],

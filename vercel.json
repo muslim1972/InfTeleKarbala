@@ -1,4 +1,6 @@
 {
+  "cleanUrls": true,
+  "trailingSlash": false,
   "headers": [
     {
       "source": "/(.*)",
@@ -22,6 +24,10 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
         },
         {
           "key": "Content-Security-Policy",
@@ -48,6 +54,18 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/(.*)\\.map",
+      "destination": "/404"
+    },
+    {
+      "source": "/_vercel/(.*)",
+      "destination": "/404"
+    },
+    {
+      "source": "/(admin|dashboard|staff|employees|management|config|setup|settings|api/v1|auth/register|reset-password)",
+      "destination": "/404"
+    },
     {
       "source": "/((?!api/|api$).*)",
       "destination": "/index.html"
