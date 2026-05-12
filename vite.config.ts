@@ -28,6 +28,23 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
   build: {
+    // ===== تحصين أمني: تعطيل Source Maps نهائياً في الإنتاج =====
+    sourcemap: false,
+    // ===== تصعيب قراءة الكود وإزالة أدوات التصحيح =====
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,      // إزالة جميع console.log/warn/error
+        drop_debugger: true,     // إزالة جميع debugger statements
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+      },
+      mangle: {
+        toplevel: true,          // تشفير أسماء المتغيرات العليا
+      },
+      format: {
+        comments: false,         // إزالة جميع التعليقات من الكود الناتج
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {
