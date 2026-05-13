@@ -37,7 +37,7 @@ serve(async (req) => {
       body: JSON.stringify({
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
-        url: appUrl || "https://khr-itpc.egov.iq", // استخدام الرابط الممرر أو الافتراضي الجديد
+        url: appUrl || "https://itpc-hr.vercel.app", // استخدام الرابط الممرر أو الافتراضي الجديد
         include_aliases: { external_id: [recipientId] },
         include_external_user_ids: [recipientId],
         headings: { en: "مكالمة واردة 📞", ar: "مكالمة واردة 📞" },
