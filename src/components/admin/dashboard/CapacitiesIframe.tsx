@@ -12,10 +12,10 @@ export const CapacitiesIframe = ({ onBack }: { onBack: () => void }) => {
         const getSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                setUrl(`https://itpc-band.vercel.app/#access_token=${session.access_token}&refresh_token=${session.refresh_token}`);
+                setUrl(`https://band.khr-itpc.egov.iq/#access_token=${session.access_token}&refresh_token=${session.refresh_token}`);
             } else {
                 // If no session, fallback to login
-                setUrl('https://itpc-band.vercel.app');
+                setUrl('https://band.khr-itpc.egov.iq');
             }
         };
         getSession();
