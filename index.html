@@ -24,7 +24,27 @@
 
   <script>
     /* Push Notification Engine & Service Connector */
-    (function(){const n=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());if(!n){const s=document.createElement('script');s.src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";s.defer=true;document.head.appendChild(s);window.OneSignalDeferred=window.OneSignalDeferred||[];window.OneSignalDeferred.push(async function(O){const h=window.location.hostname;if(h==='localhost'||h==='127.0.0.1')return;try{await O.init({appId:"beae0757-7abe-46a8-b223-8f6c65e47fb5",safari_web_id:"web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",notifyButton:{enable:false},allowLocalhostAsSecureOrigin:true})}catch(e){}})})()
+    (function(){
+      const isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (!isApp) {
+        const s = document.createElement('script');
+        s.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+        s.defer = true;
+        document.head.appendChild(s);
+        
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(function(O) {
+          const h = window.location.hostname;
+          if (h === 'localhost' || h === '127.0.0.1') return;
+          O.init({
+            appId: "beae0757-7abe-46a8-b223-8f6c65e47fb5",
+            safari_web_id: "web.onesignal.auto.5a0e5a59-674b-4394-aabc-01283d58ef8a",
+            notifyButton: { enable: false },
+            allowLocalhostAsSecureOrigin: true
+          }).catch(function(e) {});
+        });
+      }
+    })();
   </script>
 
 
