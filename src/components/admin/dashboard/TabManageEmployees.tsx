@@ -7,10 +7,14 @@ import {
     DatabaseZap, 
     Shield, 
     ClipboardCheck, 
-    ShieldAlert,
-    Scissors,
-    Wallet,
-    GraduationCap
+    ShieldAlert, 
+    Scissors, 
+    Wallet, 
+    GraduationCap,
+    Coins,
+    Loader2,
+    Check,
+    X
 } from "lucide-react";
 import { AccordionSection } from "../../ui/AccordionSection";
 import { HistoryViewer } from "../HistoryViewer";
@@ -34,6 +38,9 @@ import { cleanText } from '../../../utils/profileUtils';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
 import { RequestsTabPermissionsModal } from '../RequestsTabPermissionsModal';
 import { PromotionPermissionsModal } from '../../../features/promotion/components/PromotionPermissionsModal';
+import { supabase } from "../../../lib/supabase";
+import { toast } from "react-hot-toast";
+
 
 interface TabManageEmployeesProps {
     selectedEmployee: any;
@@ -96,6 +103,90 @@ export const TabManageEmployees = ({
     setShowPromotionPermissionsModal,
     fetchFieldPermissions,
 }: TabManageEmployeesProps) => {
+    const [pointYear, setPointYear] = React.useState(new Date().getFullYear());
+    const [pointMonth, setPointMonth] = React.useState(new Date().getMonth() + 1);
+    const [pointVal, setPointVal] = React.useState<number | "">("");
+    const [savingPoint, setSavingPoint] = React.useState(false);
+    const [loadingPoint, setLoadingPoint] = React.useState(false);
+
+    const fetchPoint = async (yr: number, mth: number) => {
+        setLoadingPoint(true);
+        try {
+            const { data, error } = await supabase
+                .from('incentive_point_values')
+                .select('point_value')
+                .eq('year', yr)
+                .eq('month', mth)
+                .maybeSingle();
+            
+            if (error) console.error("Error fetching point:", error);
+            if (data) {
+                setPointVal(Number(data.point_value));
+            } else {
+                setPointVal("");
+            }
+        } catch (e) {
+            console.error("Error fetching point:", e);
+        } finally {
+            setLoadingPoint(false);
+        }
+    };
+
+    React.useEffect(() => {
+        if (currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل'))) {
+            fetchPoint(pointYear, pointMonth);
+        }
+    }, [pointYear, pointMonth, currentUser]);
+
+    const handleSavePoint = async () => {
+        if (pointVal === "") {
+            toast.error("يرجى إدخال قيمة النقطة أولاً");
+            return;
+        }
+        setSavingPoint(true);
+        try {
+            const { error } = await supabase
+                .from('incentive_point_values')
+                .upsert({
+                    year: pointYear,
+                    month: pointMonth,
+                    point_value: Number(pointVal),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'year,month' });
+
+            if (error) throw error;
+            toast.success("تم حفظ قيمة النقطة بنجاح");
+        } catch (e: any) {
+            console.error(e);
+            toast.error("فشل الحفظ: " + e.message);
+        } finally {
+            setSavingPoint(false);
+        }
+    };
+
+    const handleClearPoint = async () => {
+        const confirmClear = window.confirm("هل تريد تفريغ قيمة النقطة لهذا الشهر؟");
+        if (!confirmClear) return;
+        
+        setSavingPoint(true);
+        try {
+            const { error } = await supabase
+                .from('incentive_point_values')
+                .delete()
+                .eq('year', pointYear)
+                .eq('month', pointMonth);
+
+            if (error) throw error;
+            setPointVal("");
+            toast.success("تم تفريغ قيمة النقطة بنجاح");
+        } catch (e: any) {
+            console.error(e);
+            toast.error("فشل تفريغ القيمة: " + e.message);
+        } finally {
+            setSavingPoint(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {selectedEmployee ? (
@@ -543,6 +634,75 @@ export const TabManageEmployees = ({
 
                     {currentUser?.full_name && (currentUser.full_name.includes('مسلم عقيل') || currentUser.full_name.includes('مسلم قيل')) && (
                         <>
+                            {/* إعدادات قيمة النقطة لحوافز الإنتاج */}
+                            <div className="max-w-md mx-auto mb-8 p-6 rounded-2xl border text-right bg-white/50 dark:bg-black/20 border-brand-green/30 backdrop-blur-md shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                <h4 className="font-bold text-sm text-brand-green flex items-center gap-2 mb-4">
+                                    <Coins className="w-4 h-4" />
+                                    إعداد قيمة النقطة لحوافز الإنتاج
+                                </h4>
+                                <div className="space-y-4">
+                                    {/* اختيار التاريخ */}
+                                    <div className="flex gap-2">
+                                        <Select value={pointYear.toString()} onValueChange={(val) => setPointYear(parseInt(val))}>
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[2025, 2026, 2027].map(yr => (
+                                                    <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        <Select value={pointMonth.toString()} onValueChange={(val) => setPointMonth(parseInt(val))}>
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(mth => (
+                                                    <SelectItem key={mth} value={mth.toString()}>شهر {mth}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* حقل الإدخال والأزرار */}
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex-1">
+                                            <Input
+                                                type="number"
+                                                placeholder="قيمة النقطة الواحدة..."
+                                                value={pointVal}
+                                                onChange={(e) => setPointVal(e.target.value === "" ? "" : Number(e.target.value))}
+                                                className="no-spin pl-10 text-xs text-left font-bold font-mono"
+                                                disabled={loadingPoint || savingPoint}
+                                            />
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">د.ع</span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleSavePoint}
+                                            disabled={loadingPoint || savingPoint}
+                                            className="p-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-md transition active:scale-95 flex items-center justify-center shrink-0"
+                                            title="حفظ القيمة"
+                                        >
+                                            {savingPoint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 stroke-[3]" />}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleClearPoint}
+                                            disabled={loadingPoint || savingPoint}
+                                            className="p-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-md transition active:scale-95 flex items-center justify-center shrink-0"
+                                            title="تفريغ الحقل"
+                                        >
+                                            <X className="w-4 h-4 stroke-[3]" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="mt-8 flex flex-wrap justify-center gap-4">
                                 <Button
                                     variant="outline"

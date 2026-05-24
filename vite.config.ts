@@ -37,7 +37,7 @@ export default defineConfig({
         drop_console: true,      // إزالة جميع console.log
         drop_debugger: true,     // إزالة debugger
         pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn', 'console.error'],
-        passes: 3,               // إجراء 3 تمريرات ضغط لتعقيد الكود الناتج
+        passes: 1,               // إجراء تمريرة ضغط واحدة لتسريع عملية البناء مع الحفاظ على الكفاءة
         global_defs: {
           'process.env.NODE_ENV': JSON.stringify('production')
         }
@@ -48,7 +48,7 @@ export default defineConfig({
       },
       format: {
         comments: false,         // حذف التعليقات نهائياً
-        ascii_only: true,        // تحويل الأحرف غير اللاتينية إلى رموز لمنع قراءتها
+        ascii_only: false,        // السماح بالأحرف غير اللاتينية (مثل العربية) لتسريع المعالجة وتقليل حجم الحزم
         beautify: false,
       },
     },

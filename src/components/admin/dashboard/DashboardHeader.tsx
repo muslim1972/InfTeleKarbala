@@ -66,6 +66,7 @@ export const DashboardHeader = ({
             ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
             { id: 'admin_manage', label: 'إدارة الموظفين' },
             { id: 'admin_records', label: 'إدارة السجلات' },
+            { id: 'admin_incentives', label: 'الحوافز' },
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
             { id: 'admin_departments', label: 'الهيكلية الإدارية' },
             ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),

@@ -15,6 +15,7 @@ import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
+import { supabase } from "./lib/supabase";
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -92,7 +93,6 @@ const AppContent = () => {
 
     const checkDepartment = async () => {
       try {
-        const { supabase } = await import('./lib/supabase');
         // جلب القسم الحالي للموظف
         const { data: dept } = await supabase
           .from('departments')

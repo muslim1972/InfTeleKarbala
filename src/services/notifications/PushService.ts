@@ -14,7 +14,7 @@ export interface PushNotificationOptions {
   type?: 'call' | 'chat' | 'buzz' | 'default';
 }
 
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
 const PROD_API_URL = 'https://khr-itpc.egov.iq';
@@ -72,7 +72,6 @@ export const sendPushNotification = async (
 
     if (isNative) {
       // استخدام CapacitorHttp لتخطي قيود CORS في الـ APK
-      const { CapacitorHttp } = await import('@capacitor/core');
       const response = await CapacitorHttp.post({
         url,
         headers: { 'Content-Type': 'application/json' },

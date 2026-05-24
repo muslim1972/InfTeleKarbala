@@ -3,11 +3,11 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen, Music, GraduationCap } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen, Music, GraduationCap, Coins } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge') => void;
+    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge' | 'incentives';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge' | 'incentives') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -19,6 +19,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const baseTabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
+        { id: 'incentives', label: 'الحوافز', icon: Coins },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
