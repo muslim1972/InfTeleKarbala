@@ -103,7 +103,6 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
     const [showFieldPermissionsModal, setShowFieldPermissionsModal] = useState(false);
     const [showRequestsPermissionsModal, setShowRequestsPermissionsModal] = useState(false);
-    const [showPromotionPermissionsModal, setShowPromotionPermissionsModal] = useState(false);
     const [showFixBalanceModal, setShowFixBalanceModal] = useState(false);
     const [showFinancialUpdater, setShowFinancialUpdater] = useState(false);
     const [highlightRequestId, setHighlightRequestId] = useState<string | null>(null);
@@ -253,8 +252,6 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                     setShowFixBalanceModal={setShowFixBalanceModal}
                     showFinancialUpdater={showFinancialUpdater}
                     setShowFinancialUpdater={setShowFinancialUpdater}
-                    showPromotionPermissionsModal={showPromotionPermissionsModal}
-                    setShowPromotionPermissionsModal={setShowPromotionPermissionsModal}
                     fetchFieldPermissions={fetchFieldPermissions}
                 />
             )}
@@ -447,7 +444,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
             {/* ======= دورات الترفيع TAB ======= */}
             {activeTab === 'admin_promotion' && (
                 <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>}>
-                    <AdminPromotionTab />
+                    <AdminPromotionTab isAdminView={true} />
                 </Suspense>
             )}
 

@@ -10,7 +10,6 @@ import {
     ShieldAlert, 
     Scissors, 
     Wallet, 
-    GraduationCap,
     Coins,
     Loader2,
     Check,
@@ -37,7 +36,6 @@ import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
 import { cleanText } from '../../../utils/profileUtils';
 import { FieldPermissionsModal } from '../FieldPermissionsModal';
 import { RequestsTabPermissionsModal } from '../RequestsTabPermissionsModal';
-import { PromotionPermissionsModal } from '../../../features/promotion/components/PromotionPermissionsModal';
 import { supabase } from "../../../lib/supabase";
 import { toast } from "react-hot-toast";
 
@@ -68,8 +66,6 @@ interface TabManageEmployeesProps {
     setShowFinancialUpdater: (val: boolean) => void;
     showProfileUpdater: boolean;
     setShowProfileUpdater: (val: boolean) => void;
-    showPromotionPermissionsModal: boolean;
-    setShowPromotionPermissionsModal: (val: boolean) => void;
     fetchFieldPermissions: () => Promise<void>;
 }
 
@@ -99,8 +95,6 @@ export const TabManageEmployees = ({
     setShowProfileUpdater,
     showFinancialUpdater,
     setShowFinancialUpdater,
-    showPromotionPermissionsModal,
-    setShowPromotionPermissionsModal,
     fetchFieldPermissions,
 }: TabManageEmployeesProps) => {
     const [pointYear, setPointYear] = React.useState(new Date().getFullYear());
@@ -749,15 +743,6 @@ export const TabManageEmployees = ({
                                     تحديد مستخدمي تبويبة الطلبات
                                 </Button>
 
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowPromotionPermissionsModal(true)}
-                                    className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
-                                >
-                                    <GraduationCap className="w-4 h-4 text-amber-500" />
-                                    تحديد مستخدمي دورات الترفيع
-                                </Button>
-
                                 {currentUser?.job_number === '103130486' && (
                                     <Button
                                         variant="outline"
@@ -799,12 +784,6 @@ export const TabManageEmployees = ({
                                         setShowFieldPermissionsModal(false);
                                         fetchFieldPermissions();
                                     }}
-                                    theme={theme}
-                                />
-                            )}
-                            {showPromotionPermissionsModal && (
-                                <PromotionPermissionsModal
-                                    onClose={() => setShowPromotionPermissionsModal(false)}
                                     theme={theme}
                                 />
                             )}

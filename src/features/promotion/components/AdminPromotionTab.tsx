@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { BookOpen, FileSpreadsheet, FileText, Upload, Save, X, Loader2, ToggleLeft, ToggleRight, Clock, Trophy, Trash2, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { BookOpen, FileSpreadsheet, FileText, Upload, Save, X, Loader2, ToggleLeft, ToggleRight, Clock, Trophy, Trash2, ChevronDown, CheckCircle2, GraduationCap } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -8,16 +8,24 @@ import { toast } from 'react-hot-toast';
 import type { CourseType, SubjectKey, PromotionResult } from '../types';
 import { COURSE_TYPE_LABELS, SUBJECT_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
+import { PromotionPermissionsModal } from './PromotionPermissionsModal';
+
+interface AdminPromotionTabProps {
+    isAdminView?: boolean;
+}
 
 /**
  * واجهة المشرف العام لإدارة دورات الترفيع
  * قسم المناهج (رفع PDF) + قسم الاختبار (رفع Excel + تفعيل/إيقاف)
  */
-export const AdminPromotionTab = () => {
+export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const { user } = useAuth();
     const { settings, settingsLoading, updateSettings, uploadFile, deleteFile, checkFileExists, fetchResults } = usePromotionData();
+
+    const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+    const showPermissionsBtn = isAdminView && (user?.admin_role === 'developer' || user?.admin_role === 'general');
 
     const [openSection, setOpenSection] = useState<'curricula' | 'exams' | 'results' | null>(null);
 
@@ -292,6 +300,41 @@ export const AdminPromotionTab = () => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 pb-20 mt-2 space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+            {/* زر تحديد أسماء الطلبة والمحاضرين */}
+            {showPermissionsBtn && (
+                <>
+                    <div className={cn(
+                        "rounded-2xl p-4 border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300",
+                        isDark 
+                            ? "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 border-white/10" 
+                            : "bg-white border-slate-200 shadow-xl shadow-slate-100"
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <div className={cn("p-2 rounded-xl bg-amber-500/10 text-amber-500")}>
+                                <GraduationCap className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className={cn("text-sm font-bold", isDark ? "text-white" : "text-slate-800")}>تحديد الطلبة والمحاضرين</h3>
+                                <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>إضافة وتعديل أدوار الطلاب والأساتذة لدورات الترفيع</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowPermissionsModal(true)}
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            تحديد اسماء الطلبة والمحاضرين في دورات الترفيع
+                        </button>
+                    </div>
+
+                    {showPermissionsModal && (
+                        <PromotionPermissionsModal
+                            onClose={() => setShowPermissionsModal(false)}
+                            theme={theme}
+                        />
+                    )}
+                </>
+            )}
+
             {/* ── تحكم الاختبار ── */}
             <div className={cn(
                 "rounded-2xl p-4 border space-y-4",

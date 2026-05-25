@@ -14,11 +14,11 @@ interface PromotionPermissionsModalProps {
 
 /**
  * مودال تحديد مستخدمي دورات الترفيع
- * نفس نمط RequestsTabPermissionsModal
+ * متاح فقط للمطور لتحديد أدوار الطلاب والمحاضرين
  */
 export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps> = ({ onClose, theme }) => {
     const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, role, can_access_promotion',
+        selectFields: 'id, full_name, job_number, role, can_access_promotion, is_promotion_lecturer',
         limit: 10,
         debounceMs: 400
     });
@@ -30,7 +30,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, job_number, role')
+                .select('id, full_name, job_number, role, is_promotion_lecturer')
                 .eq('can_access_promotion', true)
                 .order('full_name');
 
@@ -48,7 +48,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         fetchAllowedUsers();
     }, []);
 
-    const handleGrantPermission = async (user: any) => {
+    const handleGrantPermission = async (user: any, isLecturer: boolean) => {
         if (user.can_access_promotion) {
             toast.error('هذا المستخدم لديه صلاحية مسبقاً.');
             return;
@@ -57,12 +57,15 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ can_access_promotion: true })
+                .update({ 
+                    can_access_promotion: true,
+                    is_promotion_lecturer: isLecturer 
+                })
                 .eq('id', user.id);
 
             if (error) throw error;
 
-            toast.success(`تم منح الصلاحية لـ ${user.full_name}`);
+            toast.success(`تم منح صلاحية (${isLecturer ? 'محاضر' : 'طالب'}) لـ ${user.full_name}`);
             setSearchQuery('');
             fetchAllowedUsers();
         } catch (error: any) {
@@ -78,7 +81,10 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ can_access_promotion: false })
+                .update({ 
+                    can_access_promotion: false,
+                    is_promotion_lecturer: false 
+                })
                 .eq('id', userId);
 
             if (error) throw error;
@@ -141,27 +147,40 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                 ) : searchResults.length > 0 ? (
                                     <div className="divide-y divide-border/20">
                                         {searchResults.map(user => (
-                                            <button
+                                            <div
                                                 key={user.id}
-                                                onClick={() => handleGrantPermission(user)}
-                                                className={cn(
-                                                    "w-full text-right p-3 hover:bg-amber-500/10 transition-colors flex items-center justify-between",
-                                                    user.can_access_promotion ? "opacity-50 cursor-not-allowed" : ""
-                                                )}
+                                                className="w-full text-right p-3 hover:bg-amber-500/5 transition-colors flex items-center justify-between gap-3 border-b border-border/10 last:border-b-0"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", theme === 'light' ? "bg-gray-100" : "bg-white/5")}>
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", theme === 'light' ? "bg-gray-100" : "bg-white/5")}>
                                                         <User className="w-4 h-4" />
                                                     </div>
-                                                    <div>
-                                                        <div className="font-bold text-sm leading-none">{user.full_name}</div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-bold text-sm leading-none truncate">{user.full_name}</div>
                                                         <div className="text-xs text-muted-foreground mt-1 font-mono">{user.job_number}</div>
                                                     </div>
                                                 </div>
-                                                <div className="text-xs">
-                                                    {user.can_access_promotion ? 'مضاف مسبقاً' : 'إضافة +'}
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {user.can_access_promotion ? (
+                                                        <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-lg">مضاف مسبقاً</span>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleGrantPermission(user, false)}
+                                                                className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                                                            >
+                                                                + طالب
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleGrantPermission(user, true)}
+                                                                className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+                                                            >
+                                                                + محاضر
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
-                                            </button>
+                                            </div>
                                         ))}
                                     </div>
                                 ) : (
@@ -204,7 +223,18 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                                     <Shield className="w-4 h-4" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="font-bold text-sm truncate">{user.full_name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-sm truncate">{user.full_name}</p>
+                                                        {user.is_promotion_lecturer ? (
+                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                                                                محاضر
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                                                                طالب
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-muted-foreground font-mono">{user.job_number}</p>
                                                 </div>
                                             </div>

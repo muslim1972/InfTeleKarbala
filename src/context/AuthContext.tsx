@@ -24,6 +24,7 @@ export interface AppUser {
   unit_text?: string;
   has_capacities_access?: boolean;
   can_access_promotion?: boolean;
+  is_promotion_lecturer?: boolean;
   email?: string | null;
 }
 
@@ -148,7 +149,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               section_text: profile.section_text,
               unit_text: profile.unit_text,
               has_capacities_access: profile.has_capacities_access,
-              can_access_promotion: profile.can_access_promotion
+              can_access_promotion: profile.can_access_promotion,
+              is_promotion_lecturer: profile.is_promotion_lecturer
             };
             setUser(appUser);
             if (profile) {
@@ -257,6 +259,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         unit_text: fullProfile.unit_text,
         has_capacities_access: fullProfile.has_capacities_access,
         can_access_promotion: fullProfile.can_access_promotion,
+        is_promotion_lecturer: fullProfile.is_promotion_lecturer,
         email: fullProfile.email
       };
 
