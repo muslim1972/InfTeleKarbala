@@ -97,8 +97,8 @@ export const TabManageEmployees = ({
     setShowFinancialUpdater,
     fetchFieldPermissions,
 }: TabManageEmployeesProps) => {
-    const [pointYear, setPointYear] = React.useState(new Date().getFullYear());
-    const [pointMonth, setPointMonth] = React.useState(new Date().getMonth() + 1);
+    const [pointYear, setPointYear] = React.useState(() => new Date().getFullYear());
+    const [pointMonth, setPointMonth] = React.useState(() => new Date().getMonth() + 1);
     const [pointVal, setPointVal] = React.useState<number | "">("");
     const [savingPoint, setSavingPoint] = React.useState(false);
     const [loadingPoint, setLoadingPoint] = React.useState(false);
@@ -619,7 +619,7 @@ export const TabManageEmployees = ({
                     </AccordionSection>
                 </div>
             ) : (
-                <div className="text-center py-20">
+                <div className="text-center pt-1 pb-10">
                     <div className="p-4 bg-white/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-border/50 shadow-sm">
                         <User className="w-10 h-10 text-muted-foreground/30" />
                     </div>

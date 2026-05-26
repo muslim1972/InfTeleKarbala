@@ -64,13 +64,13 @@ export const TextInput: React.FC<TextInputProps> = ({
             setShowMentions(false);
             
             // Focus back and set cursor
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 if (textareaRef.current) {
                     textareaRef.current.focus();
                     const newPos = beforeMention.length + memberName.length + 2; // +2 for @ and space
                     textareaRef.current.setSelectionRange(newPos, newPos);
                 }
-            }, 0);
+            });
         }
     };
 

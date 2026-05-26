@@ -43,7 +43,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     });
 
     // 5. Admin Records State
-    const [selectedAdminYear, setSelectedAdminYear] = useState(new Date().getFullYear());
+    const [selectedAdminYear, setSelectedAdminYear] = useState(() => new Date().getFullYear());
     const [adminRecords, setAdminRecords] = useState<{
         thanks: any[];
         committees: any[];

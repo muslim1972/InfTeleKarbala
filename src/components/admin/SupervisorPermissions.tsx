@@ -121,14 +121,16 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         }
 
         // Auto-scroll to ensure the entire card (especially save buttons) is visible relative to the footer
-        setTimeout(() => {
-            if (detailsRef.current) {
-                const rect = detailsRef.current.getBoundingClientRect();
-                const offset = 150; // Offset for the fixed footer
-                const targetY = window.scrollY + rect.top - offset;
-                window.scrollTo({ top: targetY, behavior: 'smooth' });
-            }
-        }, 400);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (detailsRef.current) {
+                    const rect = detailsRef.current.getBoundingClientRect();
+                    const offset = 150; // Offset for the fixed footer
+                    const targetY = window.scrollY + rect.top - offset;
+                    window.scrollTo({ top: targetY, behavior: 'smooth' });
+                }
+            });
+        });
     };
 
     // Clear all fields

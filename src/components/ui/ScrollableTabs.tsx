@@ -135,8 +135,6 @@ export const ScrollableTabs = ({
                 left: alignDirection,
                 behavior: "smooth",
             });
-
-            setTimeout(checkScroll, 300);
         }
     };
 

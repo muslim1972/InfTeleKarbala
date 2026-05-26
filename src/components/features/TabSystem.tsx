@@ -89,8 +89,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                 left: alignDirection,
                 behavior: "smooth",
             });
-
-            setTimeout(checkScroll, 300);
         }
     };
 

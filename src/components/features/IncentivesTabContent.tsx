@@ -65,8 +65,8 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
 
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
 
     // الصلاحيات
     const isDeveloperOrGeneral = (currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general') && isAdminView;

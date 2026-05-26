@@ -59,7 +59,7 @@ export function useUniversalPatcher() {
     );
 
     // سنة التشغيل (للجداول السنوية/التفصيلية)
-    const [targetYear, setTargetYear] = useState(new Date().getFullYear());
+    const [targetYear, setTargetYear] = useState(() => new Date().getFullYear());
 
     // ربط الأعمدة: { dbField: excelColumnIndex }
     const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});

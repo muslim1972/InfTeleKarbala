@@ -15,7 +15,7 @@ export const useDashboardData = (activeTab: string) => {
     const [openSection, setOpenSection] = useState<string | null>(null);
 
     // Admin State
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
     const [adminData, setAdminData] = useState<any>(null);
     const [yearlyData, setYearlyData] = useState<any[]>([]);
 
