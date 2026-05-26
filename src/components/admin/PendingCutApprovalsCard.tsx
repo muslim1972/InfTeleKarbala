@@ -17,9 +17,9 @@ export function PendingCutApprovalsCard({
     activeHighlightId
 }: PendingCutApprovalsCardProps) {
     return (
-        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
-            <div className="flex justify-between items-center mb-6">
+        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative">
+            <div className="absolute top-0 right-0 w-2 h-full bg-amber-500 rounded-r-3xl"></div>
+            <div className="flex justify-between items-center mb-6 sticky top-20 z-20 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50">
                 <div>
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <CheckCircle className="text-amber-500" />

@@ -77,7 +77,7 @@ export const LessonSeries = () => {
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-blue-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-2xl relative overflow-hidden group">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-[2rem] border border-slate-200 dark:border-blue-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-2xl relative overflow-hidden group sticky top-16 md:top-20 z-30">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -z-0 group-hover:bg-blue-500/10 transition-all" />
                 
                 <div className="relative z-10 w-full md:w-auto text-right">
