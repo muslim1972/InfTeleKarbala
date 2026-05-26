@@ -109,8 +109,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           // --- BEGIN 2FA BYPASS FIX ---
-          const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي'];
-          const isBypassed = profile && bypassedAccounts.includes(profile.username);
+          const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم'];
+          const isBypassed = profile && (
+              bypassedAccounts.includes(profile.username) ||
+              profile.full_name?.includes('مسلم') ||
+              profile.email?.includes('muslimakkeel') ||
+              profile.admin_role === 'developer'
+          );
 
           const verifiedAtStr = localStorage.getItem(`2fa_verified_${session.user.id}`);
           let isVerified = false;
@@ -269,8 +274,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       // 5. Enforce 2FA on Everyone
-      const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي'];
-      if (bypassedAccounts.includes(trimmedUsername)) {
+      const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم'];
+      const isBypassedLogin = 
+          bypassedAccounts.includes(trimmedUsername) ||
+          appUser.full_name?.includes('مسلم') ||
+          appUser.email?.includes('muslimakkeel') ||
+          appUser.admin_role === 'developer';
+          
+      if (isBypassedLogin) {
         localStorage.setItem(`2fa_verified_${appUser.id}`, Date.now().toString());
         setUser(appUser);
         initOneSignal(appUser.id);
