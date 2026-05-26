@@ -4,21 +4,22 @@ import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { usePromotionData } from '../hooks/usePromotionData';
-import type { MCQQuestion, CourseType, SubjectKey } from '../types';
-import { COURSE_TYPE_LABELS, SUBJECT_LABELS } from '../types';
+import type { MCQQuestion, CourseType } from '../types';
+import { COURSE_TYPE_LABELS } from '../types';
 
 interface ExamSessionProps {
     questions: MCQQuestion[];
     courseType: CourseType;
-    subject: SubjectKey;
+    subject: string;
     durationMinutes: number;
     onFinish: () => void;
+    lecturerName: string;
 }
 
 /**
  * جلسة الاختبار — عرض الأسئلة مع مؤقت
  */
-export const ExamSession = ({ questions, courseType, subject, durationMinutes, onFinish }: ExamSessionProps) => {
+export const ExamSession = ({ questions, courseType, subject, durationMinutes, onFinish, lecturerName }: ExamSessionProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const { user } = useAuth();
@@ -133,7 +134,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                         النسبة: {percentage}% — {isPassed ? "ناجح ✓" : "يحتاج إعادة المحاولة"}
                     </p>
                     <p className={cn("text-xs", isDark ? "text-white/40" : "text-slate-400")}>
-                        {COURSE_TYPE_LABELS[courseType]} — {SUBJECT_LABELS[courseType][subject]}
+                        {COURSE_TYPE_LABELS[courseType]} — اختبار الأستاذ: {lecturerName}
                     </p>
                     {saving && (
                         <p className={cn("text-xs", isDark ? "text-white/40" : "text-slate-400")}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Loader2, Trash2, Shield, User, GraduationCap } from 'lucide-react';
+import { X, Search, Loader2, Trash2, Shield, User, GraduationCap, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
@@ -74,6 +74,29 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         }
     };
 
+    const handleToggleRole = async (userId: string, userName: string, currentIsLecturer: boolean) => {
+        const newIsLecturer = !currentIsLecturer;
+        const confirmResult = window.confirm(
+            `هل أنت متأكد من تغيير دور الموظف (${userName}) من [${currentIsLecturer ? 'محاضر' : 'طالب'}] إلى [${newIsLecturer ? 'محاضر' : 'طالب'}]؟`
+        );
+        if (!confirmResult) return;
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ is_promotion_lecturer: newIsLecturer })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            toast.success(`تم تغيير دور ${userName} إلى ${newIsLecturer ? 'محاضر' : 'طالب'}`);
+            fetchAllowedUsers();
+        } catch (error: any) {
+            console.error('Error toggling role:', error);
+            toast.error('فشل في تغيير الدور');
+        }
+    };
+
     const handleRevokePermission = async (userId: string, userName: string) => {
         const confirmResult = window.confirm(`هل أنت متأكد من إزالة الصلاحية لـ ${userName}؟`);
         if (!confirmResult) return;
@@ -130,9 +153,17 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="ابحث بالاسم أو الرقم الوظيفي..."
-                                className="pl-3 pr-10"
+                                className="pl-10 pr-10"
                                 autoFocus
                             />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
 
                         {searchQuery.trim().length > 0 && (
@@ -238,15 +269,27 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                                     <p className="text-xs text-muted-foreground font-mono">{user.job_number}</p>
                                                 </div>
                                             </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleRevokePermission(user.id, user.full_name)}
-                                                className="shrink-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20 px-2 py-1 h-auto"
-                                                title="إزالة وإلغاء صلاحية الوصول"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleToggleRole(user.id, user.full_name, user.is_promotion_lecturer)}
+                                                    className="text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border-amber-500/20 px-2 py-1 h-auto text-[10px] font-bold flex items-center gap-1"
+                                                    title="تغيير الدور (طالب/محاضر)"
+                                                >
+                                                    <RefreshCw className="w-3 h-3" />
+                                                    <span>تغيير الدور</span>
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRevokePermission(user.id, user.full_name)}
+                                                    className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20 px-2 py-1 h-auto"
+                                                    title="إزالة وإلغاء صلاحية الوصول"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

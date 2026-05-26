@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Loader2, AlertCircle, Play, Lock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { BranchSelector } from './BranchSelector';
 import { ExamSession } from './ExamSession';
 import { usePromotionData } from '../hooks/usePromotionData';
-import type { CourseType, SubjectKey, MCQQuestion } from '../types';
+import type { CourseType, MCQQuestion } from '../types';
+import { supabase } from '../../../lib/supabase';
 
 /**
  * تبويب الاختبار — واجهة الموظف
- * اختيار فرع ومادة ← فحص تفعيل الاختبار ← بدء الاختبار
+ * اختيار فرع ومحاضر ← فحص تفعيل الاختبار ← بدء الاختبار
  */
 export const ExamTab = () => {
     const { theme } = useTheme();
@@ -17,12 +18,38 @@ export const ExamTab = () => {
     const { settings, settingsLoading, loadExamQuestions, checkFileExists } = usePromotionData();
 
     const [courseType, setCourseType] = useState<CourseType | null>(null);
-    const [subject, setSubject] = useState<SubjectKey | null>(null);
+    const [subject, setSubject] = useState<string | null>(null); // يخزن معرف المحاضر
     const [loadingQuestions, setLoadingQuestions] = useState(false);
     const [checking, setChecking] = useState(false);
     const [fileExists, setFileExists] = useState<boolean | null>(null);
     const [questions, setQuestions] = useState<MCQQuestion[] | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // ── جلب المحاضرين ──
+    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
+    const [lecturersLoading, setLecturersLoading] = useState(false);
+
+    const fetchLecturers = useCallback(async () => {
+        setLecturersLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .eq('can_access_promotion', true)
+                .eq('is_promotion_lecturer', true)
+                .order('full_name');
+            if (error) throw error;
+            setLecturers(data || []);
+        } catch (err) {
+            console.error("Error fetching lecturers:", err);
+        } finally {
+            setLecturersLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLecturers();
+    }, [fetchLecturers]);
 
     const handleCourseTypeChange = (type: CourseType) => {
         setCourseType(type);
@@ -32,13 +59,13 @@ export const ExamTab = () => {
         setError(null);
     };
 
-    const handleSubjectChange = async (sub: SubjectKey) => {
-        setSubject(sub);
+    const handleSubjectChange = async (lecturerId: string) => {
+        setSubject(lecturerId);
         setQuestions(null);
         setError(null);
         if (!courseType) return;
         setChecking(true);
-        const exists = await checkFileExists('exams', courseType, sub, 'xlsx');
+        const exists = await checkFileExists('exams', courseType, lecturerId, 'xlsx');
         setFileExists(exists);
         setChecking(false);
     };
@@ -67,6 +94,10 @@ export const ExamTab = () => {
         setFileExists(null);
     };
 
+    const getLecturerName = (id: string) => {
+        return lecturers.find(l => l.id === id)?.full_name || id;
+    };
+
     // If exam session is active, show it
     if (questions && courseType && subject && settings) {
         return (
@@ -76,6 +107,7 @@ export const ExamTab = () => {
                 subject={subject}
                 durationMinutes={settings.exam_duration_minutes}
                 onFinish={handleFinishExam}
+                lecturerName={getLecturerName(subject)}
             />
         );
     }
@@ -84,13 +116,20 @@ export const ExamTab = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <BranchSelector
-                courseType={courseType}
-                subject={subject}
-                onCourseTypeChange={handleCourseTypeChange}
-                onSubjectChange={handleSubjectChange}
-                theme={theme}
-            />
+            {lecturersLoading ? (
+                <div className="flex items-center justify-center p-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                </div>
+            ) : (
+                <BranchSelector
+                    courseType={courseType}
+                    subject={subject}
+                    onCourseTypeChange={handleCourseTypeChange}
+                    onSubjectChange={handleSubjectChange}
+                    theme={theme}
+                    lecturers={lecturers}
+                />
+            )}
 
             {/* حالة الاختبار */}
             {courseType && subject && (
@@ -112,7 +151,7 @@ export const ExamTab = () => {
                                 الاختبار غير متاح حالياً
                             </p>
                             <p className={cn("text-xs text-center", isDark ? "text-white/40" : "text-slate-400")}>
-                                سيتم الإعلان عن موعد فتح الاختبار من قبل المشرف العام
+                                سيتم الإعلان عن موعد فتح الاختبار من قبل المشرف العام أو المحاضر
                             </p>
                         </div>
                     ) : fileExists === false ? (
@@ -122,7 +161,7 @@ export const ExamTab = () => {
                         )}>
                             <AlertCircle className={cn("w-10 h-10", isDark ? "text-white/20" : "text-slate-300")} />
                             <p className={cn("text-sm font-bold text-center", isDark ? "text-white/50" : "text-slate-400")}>
-                                لم يتم رفع أسئلة لهذه المادة بعد
+                                لم يتم رفع أسئلة اختبار لهذا المحاضر بعد
                             </p>
                         </div>
                     ) : (
@@ -150,7 +189,7 @@ export const ExamTab = () => {
                                 </div>
                                 <div className="text-center space-y-1">
                                     <p className={cn("font-bold text-sm", isDark ? "text-indigo-300" : "text-indigo-800")}>
-                                        الاختبار جاهز
+                                        اختبار الأستاذ: {getLecturerName(subject)}
                                     </p>
                                     <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>
                                         {settings?.exam_duration_minutes || 10} دقائق — 10 أسئلة عشوائية

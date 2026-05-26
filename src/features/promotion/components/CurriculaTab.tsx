@@ -1,31 +1,58 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FileText, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { BranchSelector } from './BranchSelector';
 import { usePromotionData } from '../hooks/usePromotionData';
-import type { CourseType, SubjectKey } from '../types';
-import { COURSE_TYPE_LABELS, SUBJECT_LABELS } from '../types';
+import type { CourseType } from '../types';
+import { COURSE_TYPE_LABELS } from '../types';
+import { supabase } from '../../../lib/supabase';
 
 /**
  * تبويب المناهج — واجهة الموظف
- * يعرض خيارات الفرع والمادة ثم يتيح فتح ملف PDF
+ * يعرض خيارات الفرع والمحاضر ثم يتيح فتح ملف PDF الخاص بالمحاضر
  */
 export const CurriculaTab = () => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const [courseType, setCourseType] = useState<CourseType | null>(null);
-    const [subject, setSubject] = useState<SubjectKey | null>(null);
+    const [subject, setSubject] = useState<string | null>(null); // يخزن معرف المحاضر
     const [checking, setChecking] = useState(false);
     const [fileExists, setFileExists] = useState<boolean | null>(null);
     const { getCurriculumUrl, checkFileExists } = usePromotionData();
 
-    const handleSubjectChange = useCallback(async (sub: SubjectKey) => {
-        setSubject(sub);
+    // ── جلب المحاضرين ──
+    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
+    const [lecturersLoading, setLecturersLoading] = useState(false);
+
+    const fetchLecturers = useCallback(async () => {
+        setLecturersLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .eq('can_access_promotion', true)
+                .eq('is_promotion_lecturer', true)
+                .order('full_name');
+            if (error) throw error;
+            setLecturers(data || []);
+        } catch (err) {
+            console.error("Error fetching lecturers:", err);
+        } finally {
+            setLecturersLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLecturers();
+    }, [fetchLecturers]);
+
+    const handleSubjectChange = useCallback(async (lecturerId: string) => {
+        setSubject(lecturerId);
         if (!courseType) return;
         setChecking(true);
         setFileExists(null);
-        const exists = await checkFileExists('curricula', courseType, sub, 'pdf');
+        const exists = await checkFileExists('curricula', courseType, lecturerId, 'pdf');
         setFileExists(exists);
         setChecking(false);
     }, [courseType, checkFileExists]);
@@ -42,15 +69,26 @@ export const CurriculaTab = () => {
         window.open(url, '_blank', 'noopener,noreferrer');
     }, [courseType, subject, getCurriculumUrl]);
 
+    const getLecturerName = (id: string) => {
+        return lecturers.find(l => l.id === id)?.full_name || id;
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <BranchSelector
-                courseType={courseType}
-                subject={subject}
-                onCourseTypeChange={handleCourseTypeChange}
-                onSubjectChange={handleSubjectChange}
-                theme={theme}
-            />
+            {lecturersLoading ? (
+                <div className="flex items-center justify-center p-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                </div>
+            ) : (
+                <BranchSelector
+                    courseType={courseType}
+                    subject={subject}
+                    onCourseTypeChange={handleCourseTypeChange}
+                    onSubjectChange={handleSubjectChange}
+                    theme={theme}
+                    lecturers={lecturers}
+                />
+            )}
 
             {/* عرض زر فتح المنهاج */}
             {courseType && subject && (
@@ -69,10 +107,10 @@ export const CurriculaTab = () => {
                         )}>
                             <AlertCircle className={cn("w-10 h-10", isDark ? "text-white/20" : "text-slate-300")} />
                             <p className={cn("text-sm font-bold text-center", isDark ? "text-white/50" : "text-slate-400")}>
-                                لم يتم رفع منهاج لهذه المادة بعد
+                                لم يتم رفع منهاج لهذا المحاضر بعد
                             </p>
                             <p className={cn("text-xs text-center", isDark ? "text-white/30" : "text-slate-400")}>
-                                يرجى التواصل مع المشرف العام لرفع ملف المنهاج
+                                يرجى التواصل مع المشرف العام أو المحاضر لرفع ملف المنهاج
                             </p>
                         </div>
                     ) : fileExists === true ? (
@@ -90,7 +128,7 @@ export const CurriculaTab = () => {
                             </div>
                             <div className="text-center space-y-1">
                                 <p className={cn("font-bold text-sm", isDark ? "text-amber-300" : "text-amber-800")}>
-                                    {COURSE_TYPE_LABELS[courseType]} — {SUBJECT_LABELS[courseType][subject]}
+                                    {COURSE_TYPE_LABELS[courseType]} — منهاج الأستاذ: {getLecturerName(subject)}
                                 </p>
                                 <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>
                                     ملف PDF جاهز للمراجعة والدراسة

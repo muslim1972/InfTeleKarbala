@@ -1,19 +1,20 @@
 import { BookOpen, Wrench } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { COURSE_TYPE_LABELS, SUBJECT_LABELS } from '../types';
-import type { CourseType, SubjectKey } from '../types';
+import { COURSE_TYPE_LABELS } from '../types';
+import type { CourseType } from '../types';
 
 interface BranchSelectorProps {
     courseType: CourseType | null;
-    subject: SubjectKey | null;
+    subject: string | null;
     onCourseTypeChange: (type: CourseType) => void;
-    onSubjectChange: (subject: SubjectKey) => void;
+    onSubjectChange: (subject: string) => void;
     theme: 'light' | 'dark';
+    lecturers: { id: string; full_name: string; job_number: string }[];
 }
 
 /**
- * مكون مشترك لاختيار نوع الدورة والمادة
- * يُستخدم في تبويب المناهج وتبويب الاختبار
+ * مكون مشترك لاختيار نوع الدورة والمحاضر
+ * يُسخدم في تبويب المناهج وتبويب الاختبار للطلاب
  */
 export const BranchSelector = ({
     courseType,
@@ -21,6 +22,7 @@ export const BranchSelector = ({
     onCourseTypeChange,
     onSubjectChange,
     theme,
+    lecturers,
 }: BranchSelectorProps) => {
     const isDark = theme === 'dark';
 
@@ -57,42 +59,48 @@ export const BranchSelector = ({
                 </div>
             </div>
 
-            {/* اختيار المادة */}
+            {/* اختيار المحاضر */}
             {courseType && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-bottom-3 duration-300">
                     <label className={cn("text-sm font-bold block", isDark ? "text-white/80" : "text-slate-700")}>
-                        اختر المادة
+                        اختر المحاضر
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {(Object.keys(SUBJECT_LABELS[courseType]) as SubjectKey[]).map((key, idx) => {
-                            const isActive = subject === key;
-                            return (
-                                <button
-                                    key={key}
-                                    onClick={() => onSubjectChange(key)}
-                                    className={cn(
-                                        "flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 font-bold text-sm",
-                                        isActive
-                                            ? "border-indigo-500 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shadow-md shadow-indigo-500/10 scale-[1.02]"
-                                            : cn(
-                                                "border-transparent hover:border-indigo-300/50",
-                                                isDark ? "bg-white/5 text-white/60 hover:text-white/80" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                            )
-                                    )}
-                                >
-                                    <span className={cn(
-                                        "w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold",
-                                        isActive
-                                            ? "bg-indigo-500 text-white"
-                                            : isDark ? "bg-white/10 text-white/50" : "bg-slate-200 text-slate-500"
-                                    )}>
-                                        {idx + 1}
-                                    </span>
-                                    {SUBJECT_LABELS[courseType][key]}
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {lecturers.length === 0 ? (
+                        <p className={cn("text-xs p-4 text-center rounded-xl border-2 border-dashed", isDark ? "text-white/40 border-white/10 bg-white/5" : "text-slate-400 border-slate-200 bg-slate-50")}>
+                            لا يوجد محاضرون متاحون حالياً لهذه الدورة
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                            {lecturers.map((lecturer, idx) => {
+                                const isActive = subject === lecturer.id;
+                                return (
+                                    <button
+                                        key={lecturer.id}
+                                        onClick={() => onSubjectChange(lecturer.id)}
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 font-bold text-sm",
+                                            isActive
+                                                ? "border-indigo-500 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shadow-md shadow-indigo-500/10 scale-[1.02]"
+                                                : cn(
+                                                    "border-transparent hover:border-indigo-300/50",
+                                                    isDark ? "bg-white/5 text-white/60 hover:text-white/80" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                )
+                                        )}
+                                    >
+                                        <span className={cn(
+                                            "w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold shrink-0",
+                                            isActive
+                                                ? "bg-indigo-500 text-white"
+                                                : isDark ? "bg-white/10 text-white/50" : "bg-slate-200 text-slate-500"
+                                        )}>
+                                            {idx + 1}
+                                        </span>
+                                        <span className="truncate">{lecturer.full_name}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

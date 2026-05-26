@@ -24,7 +24,7 @@ export interface PromotionResult {
     user_name: string;
     job_number: string | null;
     course_type: CourseType;
-    subject_name: SubjectKey;
+    subject_name: string;
     score: number;
     total_questions: number;
     started_at: string;

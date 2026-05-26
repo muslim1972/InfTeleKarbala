@@ -5,8 +5,8 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { usePromotionData } from '../hooks/usePromotionData';
 import { toast } from 'react-hot-toast';
-import type { CourseType, SubjectKey, PromotionResult } from '../types';
-import { COURSE_TYPE_LABELS, SUBJECT_LABELS } from '../types';
+import type { CourseType, PromotionResult } from '../types';
+import { COURSE_TYPE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { PromotionPermissionsModal } from './PromotionPermissionsModal';
 
@@ -29,9 +29,35 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     const [openSection, setOpenSection] = useState<'curricula' | 'exams' | 'results' | null>(null);
 
+    // ── Lecturers State ──
+    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
+
+    const fetchLecturers = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .eq('can_access_promotion', true)
+                .eq('is_promotion_lecturer', true)
+                .order('full_name');
+            if (error) throw error;
+            setLecturers(data || []);
+        } catch (err) {
+            console.error("Error fetching lecturers:", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLecturers();
+    }, [fetchLecturers]);
+
+    const getLecturerName = useCallback((id: string) => {
+        return lecturers.find(l => l.id === id)?.full_name || id;
+    }, [lecturers]);
+
     // ── Curricula State ──
     const [currCourseType, setCurrCourseType] = useState<CourseType | null>(null);
-    const [currSubject, setCurrSubject] = useState<SubjectKey | null>(null);
+    const [currSubject, setCurrSubject] = useState<string | null>(null);
     const [currFile, setCurrFile] = useState<File | null>(null);
     const [currUploading, setCurrUploading] = useState(false);
     const [currExistingFile, setCurrExistingFile] = useState<boolean>(false);
@@ -41,7 +67,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     // ── Exam State ──
     const [examCourseType, setExamCourseType] = useState<CourseType | null>(null);
-    const [examSubject, setExamSubject] = useState<SubjectKey | null>(null);
+    const [examSubject, setExamSubject] = useState<string | null>(null);
     const [examFile, setExamFile] = useState<File | null>(null);
     const [examUploading, setExamUploading] = useState(false);
     const [examExistingFile, setExamExistingFile] = useState<boolean>(false);
@@ -113,7 +139,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         const result = await uploadFile('curricula', currCourseType, currSubject, currFile, 'pdf');
         setCurrUploading(false);
         if (result.success) {
-            toast.success(`تم رفع المنهاج بنجاح: ${SUBJECT_LABELS[currCourseType][currSubject]}`);
+            toast.success(`تم رفع المنهاج بنجاح للمحاضر: ${getLecturerName(currSubject)}`);
             // تفريغ الحقول مع الإبقاء على القسم مفتوح
             setCurrCourseType(null);
             setCurrSubject(null);
@@ -148,7 +174,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         const result = await uploadFile('exams', examCourseType, examSubject, examFile, 'xlsx');
         setExamUploading(false);
         if (result.success) {
-            toast.success(`تم رفع أسئلة الاختبار بنجاح: ${SUBJECT_LABELS[examCourseType][examSubject]}`);
+            toast.success(`تم رفع أسئلة الاختبار بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
             setExamCourseType(null);
             setExamSubject(null);
             setExamFile(null);
@@ -249,7 +275,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     // مكون عرض الملف الموجود مسبقاً
     const ExistingFileBadge = ({ subject, ext, onDelete, deleting, color }: {
-        folder: string; courseType: CourseType; subject: SubjectKey; ext: string;
+        folder: string; courseType: CourseType; subject: string; ext: string;
         onDelete: () => void; deleting: boolean; color: string;
     }) => (
         <div className={cn(
@@ -258,7 +284,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         )}>
             <CheckCircle2 className={cn("w-4 h-4 shrink-0", `text-${color}-500`)} />
             <span className={cn("text-xs font-bold truncate flex-1", isDark ? `text-${color}-300` : `text-${color}-700`)}>
-                ملف مرفوع: {subject}.{ext}
+                ملف مرفوع: {getLecturerName(subject)}.{ext}
             </span>
             <button
                 onClick={onDelete}
@@ -411,10 +437,10 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                     />
                     {currCourseType && (
                         <DropdownField
-                            label="اسم المادة"
+                            label="اسم المحاضر"
                             value={currSubject}
-                            options={Object.entries(SUBJECT_LABELS[currCourseType]).map(([k, v]) => ({ value: k, label: v }))}
-                            onChange={val => { setCurrSubject(val as SubjectKey); setCurrFile(null); }}
+                            options={lecturers.map(l => ({ value: l.id, label: l.full_name }))}
+                            onChange={val => { setCurrSubject(val); setCurrFile(null); }}
                         />
                     )}
 
@@ -515,10 +541,10 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                     />
                     {examCourseType && (
                         <DropdownField
-                            label="اسم المادة"
+                            label="اسم المحاضر"
                             value={examSubject}
-                            options={Object.entries(SUBJECT_LABELS[examCourseType]).map(([k, v]) => ({ value: k, label: v }))}
-                            onChange={val => { setExamSubject(val as SubjectKey); setExamFile(null); }}
+                            options={lecturers.map(l => ({ value: l.id, label: l.full_name }))}
+                            onChange={val => { setExamSubject(val); setExamFile(null); }}
                         />
                     )}
 
@@ -629,7 +655,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                     <div className="min-w-0 flex-1">
                                         <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{r.user_name}</p>
                                         <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
-                                            {COURSE_TYPE_LABELS[r.course_type as CourseType]} — {SUBJECT_LABELS[r.course_type as CourseType]?.[r.subject_name as SubjectKey] || r.subject_name}
+                                            {COURSE_TYPE_LABELS[r.course_type as CourseType]} — المحاضر: {getLecturerName(r.subject_name)}
                                             {r.duration_seconds ? ` — ${Math.floor(r.duration_seconds / 60)}:${String(r.duration_seconds % 60).padStart(2, '0')}` : ''}
                                         </p>
                                     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import ExcelJS from 'exceljs';
-import type { CourseType, SubjectKey, MCQQuestion, PromotionSettings, PromotionResult } from '../types';
+import type { CourseType, MCQQuestion, PromotionSettings, PromotionResult } from '../types';
 
 /**
  * Hook مركزي لبيانات دورات الترفيع
@@ -51,14 +51,14 @@ export function usePromotionData() {
     }, [settings]);
 
     // ── جلب رابط ملف PDF من Storage ──
-    const getCurriculumUrl = useCallback((courseType: CourseType, subject: SubjectKey): string => {
+    const getCurriculumUrl = useCallback((courseType: CourseType, subject: string): string => {
         const path = `curricula/${courseType}/${subject}.pdf`;
         const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
         return data.publicUrl;
     }, []);
 
     // ── فحص وجود ملف في Storage ──
-    const checkFileExists = useCallback(async (folder: string, courseType: CourseType, subject: SubjectKey, ext: string): Promise<boolean> => {
+    const checkFileExists = useCallback(async (folder: string, courseType: CourseType, subject: string, ext: string): Promise<boolean> => {
         const path = `${folder}/${courseType}`;
         try {
             const { data, error } = await supabase.storage.from('Lectures').list(path);
@@ -73,7 +73,7 @@ export function usePromotionData() {
     const uploadFile = useCallback(async (
         folder: 'curricula' | 'exams',
         courseType: CourseType,
-        subject: SubjectKey,
+        subject: string,
         file: File,
         ext: string
     ): Promise<{ success: boolean; error?: string }> => {
@@ -116,7 +116,7 @@ export function usePromotionData() {
     const deleteFile = useCallback(async (
         folder: 'curricula' | 'exams',
         courseType: CourseType,
-        subject: SubjectKey,
+        subject: string,
         ext: string
     ): Promise<boolean> => {
         const path = `${folder}/${courseType}/${subject}.${ext}`;
@@ -133,7 +133,7 @@ export function usePromotionData() {
     // ── تحميل أسئلة Excel وتحويلها إلى MCQ ──
     const loadExamQuestions = useCallback(async (
         courseType: CourseType,
-        subject: SubjectKey,
+        subject: string,
         count: number = 10
     ): Promise<MCQQuestion[]> => {
         const path = `exams/${courseType}/${subject}.xlsx`;
