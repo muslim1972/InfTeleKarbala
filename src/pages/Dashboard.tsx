@@ -44,24 +44,14 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         const handleSwitchTab = (e: any) => {
             if (e.detail?.tab === 'audio') {
                 setActiveTab('audio');
-                const scrollContainer = document.querySelector('.overflow-y-auto');
-                if (scrollContainer) {
-                    scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
-                } else {
-                    window.scrollTo({ top: 0, behavior: 'instant' });
-                }
+                window.scrollTo({ top: 0, behavior: 'instant' });
             }
         };
         window.addEventListener('switch_dashboard_tab', handleSwitchTab);
         
         const handleNavigateToRequests = () => {
             setActiveTab('requests');
-            const scrollContainer = document.querySelector('.overflow-y-auto');
-            if (scrollContainer) {
-                scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
-            } else {
-                window.scrollTo({ top: 0, behavior: 'instant' });
-            }
+            window.scrollTo({ top: 0, behavior: 'instant' });
         };
         window.addEventListener('navigate_to_user_requests', handleNavigateToRequests);
 
@@ -73,12 +63,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
 
     // Scroll to top when switching tabs
     useEffect(() => {
-        const scrollContainer = document.querySelector('.overflow-y-auto');
-        if (scrollContainer) {
-            scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
-        } else {
-            window.scrollTo({ top: 0, behavior: 'instant' });
-        }
+        window.scrollTo({ top: 0, behavior: 'instant' });
     }, [activeTab]);
 
     const headerContent = (
