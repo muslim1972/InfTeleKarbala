@@ -64,12 +64,27 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         const handleSwitchTab = (e: any) => {
             if (e.detail?.tab === 'admin_audio') {
                 setActiveTab('admin_audio');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                const scrollContainer = document.querySelector('.overflow-y-auto');
+                if (scrollContainer) {
+                    scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
+                } else {
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                }
             }
         };
         window.addEventListener('switch_dashboard_tab', handleSwitchTab);
         return () => window.removeEventListener('switch_dashboard_tab', handleSwitchTab);
     }, []);
+
+    // Scroll to top when active tab changes
+    useEffect(() => {
+        const scrollContainer = document.querySelector('.overflow-y-auto');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+    }, [activeTab]);
 
 
 
