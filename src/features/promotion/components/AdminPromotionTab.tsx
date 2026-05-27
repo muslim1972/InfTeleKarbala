@@ -34,12 +34,8 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     const fetchLecturers = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_number')
-                .eq('can_access_promotion', true)
-                .eq('is_promotion_lecturer', true)
-                .order('full_name');
+            // جلب المحاضرين عبر RPC آمن (SECURITY DEFINER) لتجاوز RLS
+            const { data, error } = await supabase.rpc('get_promotion_lecturers');
             if (error) throw error;
             setLecturers(data || []);
         } catch (err) {

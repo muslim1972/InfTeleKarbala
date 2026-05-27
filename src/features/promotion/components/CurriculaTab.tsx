@@ -25,20 +25,14 @@ export const CurriculaTab = () => {
     const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
     const [lecturersLoading, setLecturersLoading] = useState(false);
 
-    const fetchLecturers = useCallback(async (type: CourseType) => {
+    const fetchLecturers = useCallback(async (_type: CourseType) => {
         setLecturersLoading(true);
         try {
-            console.log("Fetching lecturers for:", type);
-            // 1. Fetch profiles who are marked as promotion lecturers from the database (fully accessible via RLS)
-            const { data: dbLecturers, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_number')
-                .eq('can_access_promotion', true)
-                .eq('is_promotion_lecturer', true)
-                .order('full_name');
+            // جلب المحاضرين عبر RPC آمن (SECURITY DEFINER) لتجاوز RLS
+            const { data, error } = await supabase.rpc('get_promotion_lecturers');
 
             if (error) throw error;
-            setLecturers(dbLecturers || []);
+            setLecturers(data || []);
         } catch (err) {
             console.error("Error fetching lecturers in CurriculaTab:", err);
             setLecturers([]);
