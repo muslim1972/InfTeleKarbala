@@ -28,6 +28,7 @@ export const CurriculaTab = () => {
     const fetchLecturers = useCallback(async (type: CourseType) => {
         setLecturersLoading(true);
         try {
+            console.log("Fetching lecturers for:", type);
             // 1. Fetch profiles who are marked as promotion lecturers from the database (fully accessible via RLS)
             const { data: dbLecturers, error } = await supabase
                 .from('profiles')
@@ -37,31 +38,7 @@ export const CurriculaTab = () => {
                 .order('full_name');
 
             if (error) throw error;
-            if (!dbLecturers || dbLecturers.length === 0) {
-                setLecturers([]);
-                return;
-            }
-
-            // 2. Verify file existence via lightweight parallel HTTP HEAD checks on their public URLs
-            const verifiedLecturers = await Promise.all(
-                dbLecturers.map(async (lecturer) => {
-                    const path = `curricula/${type}/${lecturer.id}.pdf`;
-                    const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
-                    if (!data?.publicUrl) return null;
-                    try {
-                        const res = await fetch(data.publicUrl, { method: 'HEAD' });
-                        if (res.status === 200) {
-                            return lecturer;
-                        }
-                    } catch (e) {
-                        console.error(`Error checking curriculum file for ${lecturer.full_name}:`, e);
-                    }
-                    return null;
-                })
-            );
-
-            // Filter out nulls (lecturers who don't have files uploaded yet)
-            setLecturers(verifiedLecturers.filter((l): l is typeof dbLecturers[number] => l !== null));
+            setLecturers(dbLecturers || []);
         } catch (err) {
             console.error("Error fetching lecturers in CurriculaTab:", err);
             setLecturers([]);

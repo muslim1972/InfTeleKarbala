@@ -59,13 +59,32 @@ export function usePromotionData() {
 
     // ── فحص وجود ملف في Storage ──
     const checkFileExists = useCallback(async (folder: string, courseType: CourseType, subject: string, ext: string): Promise<boolean> => {
-        const path = `${folder}/${courseType}`;
+        const path = `${folder}/${courseType}/${subject}.${ext}`;
         try {
-            const { data, error } = await supabase.storage.from('Lectures').list(path);
-            if (error) return false;
-            return (data || []).some(f => f.name === `${subject}.${ext}`);
-        } catch {
-            return false;
+            const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
+            if (!data?.publicUrl) return false;
+            
+            // Try HEAD first (fastest and standard)
+            const res = await fetch(data.publicUrl, { method: 'HEAD' });
+            if (res.status === 200) return true;
+            
+            // If HEAD returns non-200, try GET with Range header (fallback in case of custom configurations)
+            const getRes = await fetch(data.publicUrl, {
+                method: 'GET',
+                headers: { 'Range': 'bytes=0-0' }
+            });
+            return getRes.status === 200 || getRes.status === 206;
+        } catch (err) {
+            console.error('فشل فحص وجود الملف عبر الشبكة:', err);
+            // Last fallback: if fetch fails (e.g. CORS preflight issue), try downloading using Supabase client (guaranteed CORS bypass)
+            try {
+                const { data, error } = await supabase.storage.from('Lectures').download(path);
+                if (error) return false;
+                return !!data;
+            } catch (fallbackErr) {
+                console.error("فشل فحص وجود الملف بالكامل:", fallbackErr);
+                return false;
+            }
         }
     }, []);
 
