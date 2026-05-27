@@ -1,4 +1,4 @@
-import { BookOpen, Wrench } from 'lucide-react';
+import { BookOpen, Wrench, Loader2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { COURSE_TYPE_LABELS } from '../types';
 import type { CourseType } from '../types';
@@ -10,6 +10,7 @@ interface BranchSelectorProps {
     onSubjectChange: (subject: string) => void;
     theme: 'light' | 'dark';
     lecturers: { id: string; full_name: string; job_number: string }[];
+    isLoadingLecturers?: boolean;
 }
 
 /**
@@ -23,6 +24,7 @@ export const BranchSelector = ({
     onSubjectChange,
     theme,
     lecturers,
+    isLoadingLecturers = false,
 }: BranchSelectorProps) => {
     const isDark = theme === 'dark';
 
@@ -65,7 +67,11 @@ export const BranchSelector = ({
                     <label className={cn("text-sm font-bold block", isDark ? "text-white/80" : "text-slate-700")}>
                         اختر المحاضر
                     </label>
-                    {lecturers.length === 0 ? (
+                    {isLoadingLecturers ? (
+                        <div className="flex items-center justify-center p-6">
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                        </div>
+                    ) : lecturers.length === 0 ? (
                         <p className={cn("text-xs p-4 text-center rounded-xl border-2 border-dashed", isDark ? "text-white/40 border-white/10 bg-white/5" : "text-slate-400 border-slate-200 bg-slate-50")}>
                             لا يوجد محاضرون متاحون حالياً لهذه الدورة
                         </p>

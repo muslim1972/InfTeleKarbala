@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Loader2, AlertCircle, Play, Lock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
@@ -29,35 +29,45 @@ export const ExamTab = () => {
     const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
     const [lecturersLoading, setLecturersLoading] = useState(false);
 
-    const fetchLecturers = useCallback(async () => {
+    const fetchLecturers = useCallback(async (type: CourseType) => {
         setLecturersLoading(true);
         try {
+            // 1. Get list of files in storage for this course type (exams)
+            const { data: files } = await supabase.storage.from('Lectures').list(`exams/${type}`);
+            const lecturerIds = (files || [])
+                .filter(f => f.name.endsWith('.xlsx'))
+                .map(f => f.name.replace('.xlsx', ''));
+            
+            if (lecturerIds.length === 0) {
+                setLecturers([]);
+                return;
+            }
+
+            // 2. Fetch profiles for these IDs using available_profiles (bypasses RLS)
             const { data, error } = await supabase
-                .from('profiles')
+                .from('available_profiles')
                 .select('id, full_name, job_number')
-                .eq('can_access_promotion', true)
-                .eq('is_promotion_lecturer', true)
+                .in('id', lecturerIds)
                 .order('full_name');
+
             if (error) throw error;
             setLecturers(data || []);
         } catch (err) {
             console.error("Error fetching lecturers:", err);
+            setLecturers([]);
         } finally {
             setLecturersLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchLecturers();
-    }, [fetchLecturers]);
-
-    const handleCourseTypeChange = (type: CourseType) => {
+    const handleCourseTypeChange = useCallback((type: CourseType) => {
         setCourseType(type);
         setSubject(null);
         setFileExists(null);
         setQuestions(null);
         setError(null);
-    };
+        fetchLecturers(type);
+    }, [fetchLecturers]);
 
     const handleSubjectChange = async (lecturerId: string) => {
         setSubject(lecturerId);
@@ -116,20 +126,15 @@ export const ExamTab = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {lecturersLoading ? (
-                <div className="flex items-center justify-center p-6">
-                    <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-                </div>
-            ) : (
-                <BranchSelector
-                    courseType={courseType}
-                    subject={subject}
-                    onCourseTypeChange={handleCourseTypeChange}
-                    onSubjectChange={handleSubjectChange}
-                    theme={theme}
-                    lecturers={lecturers}
-                />
-            )}
+            <BranchSelector
+                courseType={courseType}
+                subject={subject}
+                onCourseTypeChange={handleCourseTypeChange}
+                onSubjectChange={handleSubjectChange}
+                theme={theme}
+                lecturers={lecturers}
+                isLoadingLecturers={lecturersLoading}
+            />
 
             {/* حالة الاختبار */}
             {courseType && subject && (
