@@ -192,26 +192,27 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
             toast.error('ملفا الاختبار A و B متطابقان! يجب أن يكونا مختلفين لتمييز الطلبة المتجاورين.');
             return;
         }
-        // رفع الملفين
-        const [resultA, resultB] = await Promise.all([
-            uploadFile('exams', examCourseType, `${examSubject}_A`, examFileA, 'xlsx'),
-            uploadFile('exams', examCourseType, `${examSubject}_B`, examFileB, 'xlsx'),
-        ]);
-        setExamUploading(false);
-        if (resultA.success && resultB.success) {
-            toast.success(`تم رفع اختباري A و B بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
-            setExamCourseType(null);
-            setExamSubject(null);
-            setExamFileA(null);
-            setExamFileB(null);
-            setExamExistingFiles({ a: false, b: false });
-            if (examFileRefA.current) examFileRefA.current.value = '';
-            if (examFileRefB.current) examFileRefB.current.value = '';
-        } else {
-            const errA = resultA.success ? '' : `A: ${resultA.error || 'خطأ'}\n`;
-            const errB = resultB.success ? '' : `B: ${resultB.error || 'خطأ'}`;
-            toast.error(`فشل رفع الملف:\n${errA}${errB}`);
+        // رفع الملفين بشكل متسلسل (واحد تلو الآخر لتجنب أخطاء الشبكة)
+        const resultA = await uploadFile('exams', examCourseType, `${examSubject}_A`, examFileA, 'xlsx');
+        if (!resultA.success) {
+            setExamUploading(false);
+            toast.error(`فشل رفع اختبار A: ${resultA.error || 'خطأ غير معروف'}`);
+            return;
         }
+        const resultB = await uploadFile('exams', examCourseType, `${examSubject}_B`, examFileB, 'xlsx');
+        setExamUploading(false);
+        if (!resultB.success) {
+            toast.error(`تم رفع A بنجاح لكن فشل رفع اختبار B: ${resultB.error || 'خطأ غير معروف'}`);
+            return;
+        }
+        toast.success(`تم رفع اختباري A و B بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
+        setExamCourseType(null);
+        setExamSubject(null);
+        setExamFileA(null);
+        setExamFileB(null);
+        setExamExistingFiles({ a: false, b: false });
+        if (examFileRefA.current) examFileRefA.current.value = '';
+        if (examFileRefB.current) examFileRefB.current.value = '';
     };
 
     const handleExamDeleteExisting = async () => {
