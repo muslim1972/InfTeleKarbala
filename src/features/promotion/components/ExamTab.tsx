@@ -32,34 +32,40 @@ export const ExamTab = () => {
     const fetchLecturers = useCallback(async (type: CourseType) => {
         setLecturersLoading(true);
         try {
-            // 1. Get list of files in storage for this course type (exams) (Now works for students thanks to the new storage policy)
-            const { data: files, error: storageError } = await supabase.storage
-                .from('Lectures')
-                .list(`exams/${type}`);
-            
-            if (storageError) throw storageError;
+            // 1. Fetch profiles who are marked as promotion lecturers from the database (fully accessible via RLS)
+            const { data: dbLecturers, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .eq('can_access_promotion', true)
+                .eq('is_promotion_lecturer', true)
+                .order('full_name');
 
-            // Filter only files whose names are valid UUIDs (to match profiles.id datatype)
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            const lecturerIds = (files || [])
-                .filter(f => f.name.endsWith('.xlsx'))
-                .map(f => f.name.replace('.xlsx', ''))
-                .filter(id => uuidRegex.test(id));
-            
-            if (lecturerIds.length === 0) {
+            if (error) throw error;
+            if (!dbLecturers || dbLecturers.length === 0) {
                 setLecturers([]);
                 return;
             }
 
-            // 2. Fetch profiles for these specific IDs (Maintains database security by only querying profiles that actually have files)
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_number')
-                .in('id', lecturerIds)
-                .order('full_name');
+            // 2. Verify file existence via lightweight parallel HTTP HEAD checks on their public URLs
+            const verifiedLecturers = await Promise.all(
+                dbLecturers.map(async (lecturer) => {
+                    const path = `exams/${type}/${lecturer.id}.xlsx`;
+                    const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
+                    if (!data?.publicUrl) return null;
+                    try {
+                        const res = await fetch(data.publicUrl, { method: 'HEAD' });
+                        if (res.status === 200) {
+                            return lecturer;
+                        }
+                    } catch (e) {
+                        console.error(`Error checking exam file for ${lecturer.full_name}:`, e);
+                    }
+                    return null;
+                })
+            );
 
-            if (error) throw error;
-            setLecturers(data || []);
+            // Filter out nulls (lecturers who don't have files uploaded yet)
+            setLecturers(verifiedLecturers.filter((l): l is typeof dbLecturers[number] => l !== null));
         } catch (err) {
             console.error("Error fetching lecturers in ExamTab:", err);
             setLecturers([]);
