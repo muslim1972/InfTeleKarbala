@@ -60,17 +60,21 @@ export const ExamTab = () => {
         setError(null);
         if (!courseType) return;
         setChecking(true);
-        const exists = await checkFileExists('exams', courseType, lecturerId, 'xlsx');
-        setFileExists(exists);
+        // فحص وجود كلا ملفي الاختبار (A & B)
+        const [existsA, existsB] = await Promise.all([
+            checkFileExists('exams', courseType, `${lecturerId}_A`, 'xlsx'),
+            checkFileExists('exams', courseType, `${lecturerId}_B`, 'xlsx'),
+        ]);
+        setFileExists(existsA && existsB);
         setChecking(false);
     };
 
-    const handleStartExam = async () => {
+    const handleStartExam = async (variant: 'A' | 'B') => {
         if (!courseType || !subject) return;
         setLoadingQuestions(true);
         setError(null);
         try {
-            const loaded = await loadExamQuestions(courseType, subject, 10);
+            const loaded = await loadExamQuestions(courseType, `${subject}_${variant}`, 10);
             if (loaded.length === 0) {
                 setError('لم يتم العثور على أسئلة في الملف. يرجى التأكد من صحة صيغة ملف Excel.');
                 return;
@@ -182,21 +186,35 @@ export const ExamTab = () => {
                                         اختبار الأستاذ: {getLecturerName(subject)}
                                     </p>
                                     <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>
-                                        {settings?.exam_duration_minutes || 10} دقائق — 10 أسئلة عشوائية
+                                        {settings?.exam_duration_minutes || 10} دقائق — 10 أسئلة — اختر نوع الاختبار حسب صفك
                                     </p>
                                 </div>
-                                <button
-                                    onClick={handleStartExam}
-                                    disabled={loadingQuestions}
-                                    className="flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
-                                >
-                                    {loadingQuestions ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Play className="w-4 h-4" />
-                                    )}
-                                    ابدأ الاختبار
-                                </button>
+                                <div className="flex gap-3 w-full">
+                                    <button
+                                        onClick={() => handleStartExam('A')}
+                                        disabled={loadingQuestions}
+                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                        {loadingQuestions ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Play className="w-4 h-4" />
+                                        )}
+                                        اختبار A
+                                    </button>
+                                    <button
+                                        onClick={() => handleStartExam('B')}
+                                        disabled={loadingQuestions}
+                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                        {loadingQuestions ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Play className="w-4 h-4" />
+                                        )}
+                                        اختبار B
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

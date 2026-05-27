@@ -61,15 +61,17 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const [currDeleting, setCurrDeleting] = useState(false);
     const currFileRef = useRef<HTMLInputElement>(null);
 
-    // ── Exam State ──
+    // ── Exam State (A & B) ──
     const [examCourseType, setExamCourseType] = useState<CourseType | null>(null);
     const [examSubject, setExamSubject] = useState<string | null>(null);
-    const [examFile, setExamFile] = useState<File | null>(null);
+    const [examFileA, setExamFileA] = useState<File | null>(null);
+    const [examFileB, setExamFileB] = useState<File | null>(null);
     const [examUploading, setExamUploading] = useState(false);
-    const [examExistingFile, setExamExistingFile] = useState<boolean>(false);
+    const [examExistingFiles, setExamExistingFiles] = useState<{ a: boolean; b: boolean }>({ a: false, b: false });
     const [examChecking, setExamChecking] = useState(false);
     const [examDeleting, setExamDeleting] = useState(false);
-    const examFileRef = useRef<HTMLInputElement>(null);
+    const examFileRefA = useRef<HTMLInputElement>(null);
+    const examFileRefB = useRef<HTMLInputElement>(null);
 
     // ── Settings State ──
     const [toggling, setToggling] = useState(false);
@@ -107,18 +109,21 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         return () => { cancelled = true; };
     }, [currCourseType, currSubject, checkFileExists]);
 
-    // ── فحص الملف الموجود عند تغيير المادة (اختبار) ──
+    // ── فحص الملفين الموجودين عند تغيير المادة (اختبار A & B) ──
     useEffect(() => {
         if (!examCourseType || !examSubject) {
-            setExamExistingFile(false);
+            setExamExistingFiles({ a: false, b: false });
             return;
         }
         let cancelled = false;
         (async () => {
             setExamChecking(true);
-            const exists = await checkFileExists('exams', examCourseType, examSubject, 'xlsx');
+            const [existsA, existsB] = await Promise.all([
+                checkFileExists('exams', examCourseType, `${examSubject}_A`, 'xlsx'),
+                checkFileExists('exams', examCourseType, `${examSubject}_B`, 'xlsx'),
+            ]);
             if (!cancelled) {
-                setExamExistingFile(exists);
+                setExamExistingFiles({ a: existsA, b: existsB });
                 setExamChecking(false);
             }
         })();
@@ -160,37 +165,68 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         }
     };
 
-    // ── Exam Handlers ──
+    // ── مقارنة محتوى ملفين للتأكد من عدم التطابق ──
+    const areFilesIdentical = async (fileA: File, fileB: File): Promise<boolean> => {
+        if (fileA.size !== fileB.size) return false;
+        const [bufA, bufB] = await Promise.all([fileA.arrayBuffer(), fileB.arrayBuffer()]);
+        const viewA = new Uint8Array(bufA);
+        const viewB = new Uint8Array(bufB);
+        return viewA.every((val, i) => val === viewB[i]);
+    };
+
+    // ── Exam Handlers (A & B) ──
     const handleExamSave = async () => {
-        if (!examCourseType || !examSubject || !examFile) {
-            toast.error('يرجى ملء جميع الحقول واختيار ملف');
+        if (!examCourseType || !examSubject) {
+            toast.error('يرجى اختيار نوع الدورة واسم المحاضر');
             return;
         }
+        if (!examFileA || !examFileB) {
+            toast.error('يجب رفع ملفي الاختبار A و B معاً');
+            return;
+        }
+        // فحص التطابق
         setExamUploading(true);
-        const result = await uploadFile('exams', examCourseType, examSubject, examFile, 'xlsx');
+        const identical = await areFilesIdentical(examFileA, examFileB);
+        if (identical) {
+            setExamUploading(false);
+            toast.error('ملفا الاختبار A و B متطابقان! يجب أن يكونا مختلفين لتمييز الطلبة المتجاورين.');
+            return;
+        }
+        // رفع الملفين
+        const [resultA, resultB] = await Promise.all([
+            uploadFile('exams', examCourseType, `${examSubject}_A`, examFileA, 'xlsx'),
+            uploadFile('exams', examCourseType, `${examSubject}_B`, examFileB, 'xlsx'),
+        ]);
         setExamUploading(false);
-        if (result.success) {
-            toast.success(`تم رفع أسئلة الاختبار بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
+        if (resultA.success && resultB.success) {
+            toast.success(`تم رفع اختباري A و B بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
             setExamCourseType(null);
             setExamSubject(null);
-            setExamFile(null);
-            setExamExistingFile(false);
-            if (examFileRef.current) examFileRef.current.value = '';
+            setExamFileA(null);
+            setExamFileB(null);
+            setExamExistingFiles({ a: false, b: false });
+            if (examFileRefA.current) examFileRefA.current.value = '';
+            if (examFileRefB.current) examFileRefB.current.value = '';
         } else {
-            toast.error(`فشل رفع الملف: ${result.error || 'خطأ غير معروف'}`);
+            const errA = resultA.success ? '' : `A: ${resultA.error || 'خطأ'}\n`;
+            const errB = resultB.success ? '' : `B: ${resultB.error || 'خطأ'}`;
+            toast.error(`فشل رفع الملف:\n${errA}${errB}`);
         }
     };
 
     const handleExamDeleteExisting = async () => {
         if (!examCourseType || !examSubject) return;
         setExamDeleting(true);
-        const success = await deleteFile('exams', examCourseType, examSubject, 'xlsx');
+        const [successA, successB] = await Promise.all([
+            deleteFile('exams', examCourseType, `${examSubject}_A`, 'xlsx'),
+            deleteFile('exams', examCourseType, `${examSubject}_B`, 'xlsx'),
+        ]);
         setExamDeleting(false);
-        if (success) {
-            toast.success('تم حذف ملف الأسئلة');
-            setExamExistingFile(false);
+        if (successA || successB) {
+            toast.success('تم حذف ملفات الاختبار');
+            setExamExistingFiles({ a: false, b: false });
         } else {
-            toast.error('فشل حذف الملف');
+            toast.error('فشل حذف الملفات');
         }
     };
 
@@ -533,75 +569,130 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                             { value: 'administrative', label: 'دورة إدارية' },
                             { value: 'technical', label: 'دورة فنية' },
                         ]}
-                        onChange={val => { setExamCourseType(val as CourseType); setExamSubject(null); setExamFile(null); setExamExistingFile(false); }}
+                        onChange={val => { setExamCourseType(val as CourseType); setExamSubject(null); setExamFileA(null); setExamFileB(null); setExamExistingFiles({ a: false, b: false }); }}
                     />
                     {examCourseType && (
                         <DropdownField
                             label="اسم المحاضر"
                             value={examSubject}
                             options={lecturers.map(l => ({ value: l.id, label: l.full_name }))}
-                            onChange={val => { setExamSubject(val); setExamFile(null); }}
+                            onChange={val => { setExamSubject(val); setExamFileA(null); setExamFileB(null); }}
                         />
                     )}
 
-                    {/* حالة الملف الحالي */}
+                    {/* حالة الملفين الحاليين A & B */}
                     {examCourseType && examSubject && (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {examChecking ? (
                                 <div className="flex items-center gap-2 py-2">
                                     <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                                    <span className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>جاري فحص الملف...</span>
+                                    <span className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>جاري فحص ملفات الاختبار...</span>
                                 </div>
                             ) : (
                                 <>
-                                    {/* عرض الملف المرفوع مسبقاً */}
-                                    {examExistingFile && (
-                                        <ExistingFileBadge
-                                            folder="exams" courseType={examCourseType} subject={examSubject} ext="xlsx"
-                                            onDelete={handleExamDeleteExisting} deleting={examDeleting} color="emerald"
-                                        />
-                                    )}
-
-                                    {/* زر تحميل ملف جديد */}
-                                    <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>
-                                        {examExistingFile ? 'رفع ملف بديل (Excel)' : 'ملف الأسئلة والأجوبة (Excel)'}
-                                    </label>
-                                    <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
-                                        صيغة الملف: 5 أعمدة (السؤال, الإجابة الأولى ✓, الثانية, الثالثة, الرابعة)
-                                    </p>
-                                    <button
-                                        onClick={() => examFileRef.current?.click()}
-                                        className={cn(
-                                            "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all",
-                                            isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        )}
-                                    >
-                                        <Upload className="w-4 h-4" />
-                                        تحميل
-                                    </button>
-                                    <input ref={examFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setExamFile(e.target.files?.[0] || null)} />
-                                    {examFile && (
-                                        <div className={cn(
-                                            "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
-                                            isDark ? "bg-purple-500/10 border-purple-500/20" : "bg-purple-50 border-purple-200"
-                                        )}>
-                                            <FileSpreadsheet className="w-4 h-4 text-purple-500 shrink-0" />
-                                            <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-purple-300" : "text-purple-700")}>{examFile.name}</span>
-                                            <button
-                                                onClick={() => { setExamFile(null); if (examFileRef.current) examFileRef.current.value = ''; }}
-                                                className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
-                                            >
-                                                <X className="w-3.5 h-3.5" />
-                                            </button>
+                                    {/* عرض حالة الملفات المرفوعة مسبقاً */}
+                                    {(examExistingFiles.a || examExistingFiles.b) && (
+                                        <div className="space-y-2">
+                                            <div className={cn(
+                                                "flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border",
+                                                isDark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"
+                                            )}>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                    <span className={cn("text-xs font-bold", isDark ? "text-emerald-300" : "text-emerald-700")}>
+                                                        ملفات مرفوعة: {examExistingFiles.a && examExistingFiles.b ? 'A ✓ و B ✓' : examExistingFiles.a ? 'A ✓ فقط (B مفقود ⚠)' : 'B ✓ فقط (A مفقود ⚠)'}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={handleExamDeleteExisting}
+                                                    disabled={examDeleting}
+                                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0 disabled:opacity-50"
+                                                    title="حذف كلا ملفي الاختبار"
+                                                >
+                                                    {examDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
+
+                                    <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
+                                        صيغة الملف: 5 أعمدة (السؤال, الإجابة الأولى ✓, الثانية, الثالثة, الرابعة) — يجب أن يختلف محتوى A عن B
+                                    </p>
+
+                                    {/* ── اختبار A ── */}
+                                    <div className={cn("p-3 rounded-xl border space-y-2", isDark ? "bg-purple-500/5 border-purple-500/15" : "bg-purple-50/50 border-purple-200/60")}>
+                                        <label className={cn("text-xs font-bold flex items-center gap-2", isDark ? "text-purple-300" : "text-purple-700")}>
+                                            <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white text-[10px]">A</span>
+                                            {examExistingFiles.a ? 'رفع ملف بديل — اختبار A' : 'ملف الاختبار A (Excel)'}
+                                        </label>
+                                        <button
+                                            onClick={() => examFileRefA.current?.click()}
+                                            className={cn(
+                                                "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all w-full justify-center",
+                                                isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            )}
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            {examFileA ? examFileA.name : 'اختر ملف A'}
+                                        </button>
+                                        <input ref={examFileRefA} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setExamFileA(e.target.files?.[0] || null)} />
+                                        {examFileA && (
+                                            <div className={cn(
+                                                "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
+                                                isDark ? "bg-purple-500/10 border-purple-500/20" : "bg-purple-50 border-purple-200"
+                                            )}>
+                                                <FileSpreadsheet className="w-4 h-4 text-purple-500 shrink-0" />
+                                                <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-purple-300" : "text-purple-700")}>{examFileA.name}</span>
+                                                <button
+                                                    onClick={() => { setExamFileA(null); if (examFileRefA.current) examFileRefA.current.value = ''; }}
+                                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* ── اختبار B ── */}
+                                    <div className={cn("p-3 rounded-xl border space-y-2", isDark ? "bg-indigo-500/5 border-indigo-500/15" : "bg-indigo-50/50 border-indigo-200/60")}>
+                                        <label className={cn("text-xs font-bold flex items-center gap-2", isDark ? "text-indigo-300" : "text-indigo-700")}>
+                                            <span className="px-1.5 py-0.5 rounded bg-indigo-500 text-white text-[10px]">B</span>
+                                            {examExistingFiles.b ? 'رفع ملف بديل — اختبار B' : 'ملف الاختبار B (Excel)'}
+                                        </label>
+                                        <button
+                                            onClick={() => examFileRefB.current?.click()}
+                                            className={cn(
+                                                "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all w-full justify-center",
+                                                isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            )}
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            {examFileB ? examFileB.name : 'اختر ملف B'}
+                                        </button>
+                                        <input ref={examFileRefB} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setExamFileB(e.target.files?.[0] || null)} />
+                                        {examFileB && (
+                                            <div className={cn(
+                                                "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
+                                                isDark ? "bg-indigo-500/10 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"
+                                            )}>
+                                                <FileSpreadsheet className="w-4 h-4 text-indigo-500 shrink-0" />
+                                                <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-indigo-300" : "text-indigo-700")}>{examFileB.name}</span>
+                                                <button
+                                                    onClick={() => { setExamFileB(null); if (examFileRefB.current) examFileRefB.current.value = ''; }}
+                                                    className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
                     )}
 
-                    {/* أزرار الحفظ والإلغاء */}
-                    {examFile && (
+                    {/* أزرار الحفظ والإلغاء — تظهر عند اختيار أي ملف */}
+                    {(examFileA || examFileB) && (
                         <div className="flex gap-2 pt-2 animate-in fade-in duration-200">
                             <button
                                 onClick={handleExamSave}
@@ -609,10 +700,10 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-all disabled:opacity-50 active:scale-95"
                             >
                                 {examUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                حفظ
+                                حفظ اختبار A و B
                             </button>
                             <button
-                                onClick={() => { setExamFile(null); if (examFileRef.current) examFileRef.current.value = ''; }}
+                                onClick={() => { setExamFileA(null); setExamFileB(null); if (examFileRefA.current) examFileRefA.current.value = ''; if (examFileRefB.current) examFileRefB.current.value = ''; }}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-sm transition-all",
                                     isDark ? "border-white/10 text-white/60 hover:bg-white/10" : "border-slate-200 text-slate-500 hover:bg-slate-100"
