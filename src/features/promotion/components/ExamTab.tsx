@@ -32,41 +32,33 @@ export const ExamTab = () => {
     const fetchLecturers = useCallback(async (type: CourseType) => {
         setLecturersLoading(true);
         try {
-            // 1. Fetch profiles who are marked as promotion lecturers (accessible via normal profiles select RLS)
-            const { data: dbLecturers, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_number')
-                .eq('is_promotion_lecturer', true)
-                .order('full_name');
+            // 1. Get list of files in storage for this course type (exams) (Now works for students thanks to the new storage policy)
+            const { data: files, error: storageError } = await supabase.storage
+                .from('Lectures')
+                .list(`exams/${type}`);
+            
+            if (storageError) throw storageError;
 
-            if (error) throw error;
-            if (!dbLecturers || dbLecturers.length === 0) {
+            const lecturerIds = (files || [])
+                .filter(f => f.name.endsWith('.xlsx'))
+                .map(f => f.name.replace('.xlsx', ''));
+            
+            if (lecturerIds.length === 0) {
                 setLecturers([]);
                 return;
             }
 
-            // 2. Filter lecturers who actually have an exam file uploaded by making parallel lightweight HEAD checks
-            const lecturersWithFiles = await Promise.all(
-                dbLecturers.map(async (lecturer) => {
-                    const path = `exams/${type}/${lecturer.id}.xlsx`;
-                    const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
-                    if (!data?.publicUrl) return null;
-                    try {
-                        const res = await fetch(data.publicUrl, { method: 'HEAD' });
-                        if (res.status === 200) {
-                            return lecturer;
-                        }
-                    } catch (e) {
-                        console.error(`Error verifying exam file for lecturer ${lecturer.full_name}:`, e);
-                    }
-                    return null;
-                })
-            );
+            // 2. Fetch profiles for these specific IDs (Maintains database security by only querying profiles that actually have files)
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .in('id', lecturerIds)
+                .order('full_name');
 
-            // Filter out nulls
-            setLecturers(lecturersWithFiles.filter((l): l is typeof dbLecturers[number] => l !== null));
+            if (error) throw error;
+            setLecturers(data || []);
         } catch (err) {
-            console.error("Error fetching lecturers:", err);
+            console.error("Error fetching lecturers in ExamTab:", err);
             setLecturers([]);
         } finally {
             setLecturersLoading(false);
