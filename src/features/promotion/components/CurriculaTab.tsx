@@ -35,9 +35,12 @@ export const CurriculaTab = () => {
             
             if (storageError) throw storageError;
 
+            // Filter only files whose names are valid UUIDs (to match profiles.id datatype)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             const lecturerIds = (files || [])
                 .filter(f => f.name.endsWith('.pdf'))
-                .map(f => f.name.replace('.pdf', ''));
+                .map(f => f.name.replace('.pdf', ''))
+                .filter(id => uuidRegex.test(id));
             
             if (lecturerIds.length === 0) {
                 setLecturers([]);
