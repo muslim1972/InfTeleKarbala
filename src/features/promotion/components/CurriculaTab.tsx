@@ -28,26 +28,39 @@ export const CurriculaTab = () => {
     const fetchLecturers = useCallback(async (type: CourseType) => {
         setLecturersLoading(true);
         try {
-            // 1. Get list of files in storage for this course type
-            const { data: files } = await supabase.storage.from('Lectures').list(`curricula/${type}`);
-            const lecturerIds = (files || [])
-                .filter(f => f.name.endsWith('.pdf'))
-                .map(f => f.name.replace('.pdf', ''));
-            
-            if (lecturerIds.length === 0) {
+            // 1. Fetch profiles who are marked as promotion lecturers (accessible via normal profiles select RLS)
+            const { data: dbLecturers, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number')
+                .eq('is_promotion_lecturer', true)
+                .order('full_name');
+
+            if (error) throw error;
+            if (!dbLecturers || dbLecturers.length === 0) {
                 setLecturers([]);
                 return;
             }
 
-            // 2. Fetch profiles for these IDs using available_profiles (bypasses RLS)
-            const { data, error } = await supabase
-                .from('available_profiles')
-                .select('id, full_name, job_number')
-                .in('id', lecturerIds)
-                .order('full_name');
+            // 2. Filter lecturers who actually have a curriculum file uploaded by making parallel lightweight HEAD checks
+            const lecturersWithFiles = await Promise.all(
+                dbLecturers.map(async (lecturer) => {
+                    const path = `curricula/${type}/${lecturer.id}.pdf`;
+                    const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
+                    if (!data?.publicUrl) return null;
+                    try {
+                        const res = await fetch(data.publicUrl, { method: 'HEAD' });
+                        if (res.status === 200) {
+                            return lecturer;
+                        }
+                    } catch (e) {
+                        console.error(`Error verifying curriculum file for lecturer ${lecturer.full_name}:`, e);
+                    }
+                    return null;
+                })
+            );
 
-            if (error) throw error;
-            setLecturers(data || []);
+            // Filter out nulls
+            setLecturers(lecturersWithFiles.filter((l): l is typeof dbLecturers[number] => l !== null));
         } catch (err) {
             console.error("Error fetching lecturers:", err);
             setLecturers([]);
