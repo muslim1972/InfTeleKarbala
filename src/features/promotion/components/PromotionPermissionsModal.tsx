@@ -5,7 +5,6 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
-import { Button } from '../../../components/ui/Button';
 
 interface PromotionPermissionsModalProps {
     onClose: () => void;
