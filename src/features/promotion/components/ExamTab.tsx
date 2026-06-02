@@ -25,45 +25,26 @@ export const ExamTab = () => {
     const [questions, setQuestions] = useState<MCQQuestion[] | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // ── جلب المحاضرين ──
-    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
-    const [lecturersLoading, setLecturersLoading] = useState(false);
-
-    const fetchLecturers = useCallback(async (_type: CourseType) => {
-        setLecturersLoading(true);
-        try {
-            // جلب المحاضرين عبر RPC آمن (SECURITY DEFINER) لتجاوز RLS
-            const { data, error } = await supabase.rpc('get_promotion_lecturers');
-
-            if (error) throw error;
-            setLecturers(data || []);
-        } catch (err) {
-            console.error("Error fetching lecturers in ExamTab:", err);
-            setLecturers([]);
-        } finally {
-            setLecturersLoading(false);
-        }
-    }, []);
-
     const handleCourseTypeChange = useCallback((type: CourseType) => {
         setCourseType(type);
         setSubject(null);
         setFileExists(null);
         setQuestions(null);
         setError(null);
-        fetchLecturers(type);
-    }, [fetchLecturers]);
+    }, []);
 
-    const handleSubjectChange = async (lecturerId: string) => {
-        setSubject(lecturerId);
+
+
+    const handleSubjectChange = async (dateString: string) => {
+        setSubject(dateString);
         setQuestions(null);
         setError(null);
         if (!courseType) return;
         setChecking(true);
         // فحص وجود كلا ملفي الاختبار (A & B)
         const [existsA, existsB] = await Promise.all([
-            checkFileExists('exams', courseType, `${lecturerId}_A`, 'xlsx'),
-            checkFileExists('exams', courseType, `${lecturerId}_B`, 'xlsx'),
+            checkFileExists('exams', courseType, `${dateString}_A`, 'xlsx'),
+            checkFileExists('exams', courseType, `${dateString}_B`, 'xlsx'),
         ]);
         setFileExists(existsA && existsB);
         setChecking(false);
@@ -93,9 +74,7 @@ export const ExamTab = () => {
         setFileExists(null);
     };
 
-    const getLecturerName = (id: string) => {
-        return lecturers.find(l => l.id === id)?.full_name || id;
-    };
+
 
     // If exam session is active, show it
     if (questions && courseType && subject && settings) {
@@ -106,7 +85,7 @@ export const ExamTab = () => {
                 subject={subject}
                 durationMinutes={settings.exam_duration_minutes}
                 onFinish={handleFinishExam}
-                lecturerName={getLecturerName(subject)}
+                lecturerName={subject}
             />
         );
     }
@@ -121,8 +100,6 @@ export const ExamTab = () => {
                 onCourseTypeChange={handleCourseTypeChange}
                 onSubjectChange={handleSubjectChange}
                 theme={theme}
-                lecturers={lecturers}
-                isLoadingLecturers={lecturersLoading}
             />
 
             {/* حالة الاختبار */}
@@ -155,7 +132,7 @@ export const ExamTab = () => {
                         )}>
                             <AlertCircle className={cn("w-10 h-10", isDark ? "text-white/20" : "text-slate-300")} />
                             <p className={cn("text-sm font-bold text-center", isDark ? "text-white/50" : "text-slate-400")}>
-                                لم يتم رفع أسئلة اختبار لهذا المحاضر بعد
+                                لم يتم رفع أسئلة اختبار لدورة هذا التأريخ بعد
                             </p>
                         </div>
                     ) : (
@@ -183,7 +160,7 @@ export const ExamTab = () => {
                                 </div>
                                 <div className="text-center space-y-1">
                                     <p className={cn("font-bold text-sm", isDark ? "text-indigo-300" : "text-indigo-800")}>
-                                        اختبار الأستاذ: {getLecturerName(subject)}
+                                        اختبار دورة يوم: {subject}
                                     </p>
                                     <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>
                                         {settings?.exam_duration_minutes || 10} دقائق — 10 أسئلة — اختر نوع الاختبار حسب صفك

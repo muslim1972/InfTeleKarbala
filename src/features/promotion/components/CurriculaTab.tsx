@@ -21,32 +21,12 @@ export const CurriculaTab = () => {
     const [fileExists, setFileExists] = useState<boolean | null>(null);
     const { getCurriculumUrl, checkFileExists } = usePromotionData();
 
-    // ── جلب المحاضرين ──
-    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
-    const [lecturersLoading, setLecturersLoading] = useState(false);
-
-    const fetchLecturers = useCallback(async (_type: CourseType) => {
-        setLecturersLoading(true);
-        try {
-            // جلب المحاضرين عبر RPC آمن (SECURITY DEFINER) لتجاوز RLS
-            const { data, error } = await supabase.rpc('get_promotion_lecturers');
-
-            if (error) throw error;
-            setLecturers(data || []);
-        } catch (err) {
-            console.error("Error fetching lecturers in CurriculaTab:", err);
-            setLecturers([]);
-        } finally {
-            setLecturersLoading(false);
-        }
-    }, []);
-
-    const handleSubjectChange = useCallback(async (lecturerId: string) => {
-        setSubject(lecturerId);
+    const handleSubjectChange = useCallback(async (dateString: string) => {
+        setSubject(dateString);
         if (!courseType) return;
         setChecking(true);
         setFileExists(null);
-        const exists = await checkFileExists('curricula', courseType, lecturerId, 'pdf');
+        const exists = await checkFileExists('curricula', courseType, dateString, 'pdf');
         setFileExists(exists);
         setChecking(false);
     }, [courseType, checkFileExists]);
@@ -55,8 +35,7 @@ export const CurriculaTab = () => {
         setCourseType(type);
         setSubject(null);
         setFileExists(null);
-        fetchLecturers(type);
-    }, [fetchLecturers]);
+    }, []);
 
     const openPdf = useCallback(() => {
         if (!courseType || !subject) return;
@@ -64,9 +43,6 @@ export const CurriculaTab = () => {
         window.open(url, '_blank', 'noopener,noreferrer');
     }, [courseType, subject, getCurriculumUrl]);
 
-    const getLecturerName = (id: string) => {
-        return lecturers.find(l => l.id === id)?.full_name || id;
-    };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -76,8 +52,6 @@ export const CurriculaTab = () => {
                 onCourseTypeChange={handleCourseTypeChange}
                 onSubjectChange={handleSubjectChange}
                 theme={theme}
-                lecturers={lecturers}
-                isLoadingLecturers={lecturersLoading}
             />
 
             {/* عرض زر فتح المنهاج */}
@@ -97,10 +71,10 @@ export const CurriculaTab = () => {
                         )}>
                             <AlertCircle className={cn("w-10 h-10", isDark ? "text-white/20" : "text-slate-300")} />
                             <p className={cn("text-sm font-bold text-center", isDark ? "text-white/50" : "text-slate-400")}>
-                                لم يتم رفع منهاج لهذا المحاضر بعد
+                                لم يتم رفع منهاج لدورة هذا التأريخ
                             </p>
                             <p className={cn("text-xs text-center", isDark ? "text-white/30" : "text-slate-400")}>
-                                يرجى التواصل مع المشرف العام أو المحاضر لرفع ملف المنهاج
+                                يرجى التواصل مع المشرف العام أو المشرف لرفع ملف المنهاج
                             </p>
                         </div>
                     ) : fileExists === true ? (
@@ -118,7 +92,7 @@ export const CurriculaTab = () => {
                             </div>
                             <div className="text-center space-y-1">
                                 <p className={cn("font-bold text-sm", isDark ? "text-amber-300" : "text-amber-800")}>
-                                    {COURSE_TYPE_LABELS[courseType]} — منهاج الأستاذ: {getLecturerName(subject)}
+                                    {COURSE_TYPE_LABELS[courseType]} — لدورة يوم: {subject}
                                 </p>
                                 <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>
                                     ملف PDF جاهز للمراجعة والدراسة

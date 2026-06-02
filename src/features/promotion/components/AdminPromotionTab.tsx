@@ -33,28 +33,6 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     const [openSection, setOpenSection] = useState<'curricula' | 'exams' | 'results' | null>(null);
 
-    // ── Lecturers State ──
-    const [lecturers, setLecturers] = useState<{ id: string; full_name: string; job_number: string }[]>([]);
-
-    const fetchLecturers = useCallback(async () => {
-        try {
-            // جلب المحاضرين عبر RPC آمن (SECURITY DEFINER) لتجاوز RLS
-            const { data, error } = await supabase.rpc('get_promotion_lecturers');
-            if (error) throw error;
-            setLecturers(data || []);
-        } catch (err) {
-            console.error("Error fetching lecturers:", err);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchLecturers();
-    }, [fetchLecturers]);
-
-    const getLecturerName = useCallback((id: string) => {
-        return lecturers.find(l => l.id === id)?.full_name || id;
-    }, [lecturers]);
-
     // ── Curricula State ──
     const [currCourseType, setCurrCourseType] = useState<CourseType | null>(null);
     const [currSubject, setCurrSubject] = useState<string | null>(null);
@@ -144,7 +122,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         const result = await uploadFile('curricula', currCourseType, currSubject, currFile, 'pdf');
         setCurrUploading(false);
         if (result.success) {
-            toast.success(`تم رفع المنهاج بنجاح للمحاضر: ${getLecturerName(currSubject)}`);
+            toast.success(`تم رفع المنهاج بنجاح لدورة يوم: ${currSubject}`);
             // تفريغ الحقول مع الإبقاء على القسم مفتوح
             setCurrCourseType(null);
             setCurrSubject(null);
@@ -181,7 +159,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     // ── Exam Handlers (A & B) ──
     const handleExamSave = async () => {
         if (!examCourseType || !examSubject) {
-            toast.error('يرجى اختيار نوع الدورة واسم المحاضر');
+            toast.error('يرجى اختيار نوع الدورة وتأريخ بدأ الدورة');
             return;
         }
         if (!examFileA || !examFileB) {
@@ -209,7 +187,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
             toast.error(`تم رفع A بنجاح لكن فشل رفع اختبار B: ${resultB.error || 'خطأ غير معروف'}`);
             return;
         }
-        toast.success(`تم رفع اختباري A و B بنجاح للمحاضر: ${getLecturerName(examSubject)}`);
+        toast.success(`تم رفع اختباري A و B بنجاح لدورة يوم: ${examSubject}`);
         setExamCourseType(null);
         setExamSubject(null);
         setExamFileA(null);
@@ -321,7 +299,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         )}>
             <CheckCircle2 className={cn("w-4 h-4 shrink-0", `text-${color}-500`)} />
             <span className={cn("text-xs font-bold truncate flex-1", isDark ? `text-${color}-300` : `text-${color}-700`)}>
-                ملف مرفوع: {getLecturerName(subject)}.{ext}
+                ملف مرفوع: {subject}.{ext}
             </span>
             <button
                 onClick={onDelete}
@@ -472,12 +450,20 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                         onChange={val => { setCurrCourseType(val as CourseType); setCurrSubject(null); setCurrFile(null); setCurrExistingFile(false); }}
                     />
                     {currCourseType && (
-                        <DropdownField
-                            label="اسم المحاضر"
-                            value={currSubject}
-                            options={lecturers.map(l => ({ value: l.id, label: l.full_name }))}
-                            onChange={val => { setCurrSubject(val); setCurrFile(null); }}
-                        />
+                        <div className="space-y-1">
+                            <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>تأريخ بدأ الدورة</label>
+                            <input
+                                type="date"
+                                value={currSubject || ''}
+                                onChange={e => { setCurrSubject(e.target.value); setCurrFile(null); }}
+                                className={cn(
+                                    "w-full p-2.5 rounded-xl border text-sm font-bold transition-all",
+                                    isDark
+                                        ? "bg-white/5 border-white/10 text-white focus:border-amber-500/50"
+                                        : "bg-white border-slate-200 text-slate-800 focus:border-amber-500"
+                                )}
+                            />
+                        </div>
                     )}
 
                     {/* حالة الملف الحالي */}
@@ -576,12 +562,20 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                         onChange={val => { setExamCourseType(val as CourseType); setExamSubject(null); setExamFileA(null); setExamFileB(null); setExamExistingFiles({ a: false, b: false }); }}
                     />
                     {examCourseType && (
-                        <DropdownField
-                            label="اسم المحاضر"
-                            value={examSubject}
-                            options={lecturers.map(l => ({ value: l.id, label: l.full_name }))}
-                            onChange={val => { setExamSubject(val); setExamFileA(null); setExamFileB(null); }}
-                        />
+                        <div className="space-y-1">
+                            <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>تأريخ بدأ الدورة</label>
+                            <input
+                                type="date"
+                                value={examSubject || ''}
+                                onChange={e => { setExamSubject(e.target.value); setExamFileA(null); setExamFileB(null); }}
+                                className={cn(
+                                    "w-full p-2.5 rounded-xl border text-sm font-bold transition-all",
+                                    isDark
+                                        ? "bg-white/5 border-white/10 text-white focus:border-amber-500/50"
+                                        : "bg-white border-slate-200 text-slate-800 focus:border-amber-500"
+                                )}
+                            />
+                        </div>
                     )}
 
                     {/* حالة الملفين الحاليين A & B */}
@@ -746,7 +740,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                     <div className="min-w-0 flex-1">
                                         <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{r.user_name}</p>
                                         <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
-                                            {COURSE_TYPE_LABELS[r.course_type as CourseType]} — المحاضر: {getLecturerName(r.subject_name)}
+                                            {COURSE_TYPE_LABELS[r.course_type as CourseType]} — التأريخ: {r.subject_name}
                                             {r.duration_seconds ? ` — ${Math.floor(r.duration_seconds / 60)}:${String(r.duration_seconds % 60).padStart(2, '0')}` : ''}
                                         </p>
                                     </div>
