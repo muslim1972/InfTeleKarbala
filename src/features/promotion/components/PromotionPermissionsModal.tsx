@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Loader2, Trash2, Shield, User, GraduationCap, RefreshCw } from 'lucide-react';
+import { X, Search, Loader2, Trash2, Shield, User, GraduationCap } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
@@ -10,13 +10,17 @@ import { useEmployeeSearch } from '../../../hooks/useEmployeeSearch';
 interface PromotionPermissionsModalProps {
     onClose: () => void;
     theme: string;
+    mode?: 'supervisors' | 'students';
 }
 
 /**
  * مودال تحديد مستخدمي دورات الترفيع
- * متاح فقط للمطور لتحديد أدوار الطلاب والمحاضرين
+ * للمشرف العام: تحديد المشرفين
+ * لمشرف الدورة: تحديد الطلاب
  */
-export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps> = ({ onClose, theme }) => {
+export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps> = ({ onClose, theme, mode = 'students' }) => {
+    const isSupervisorMode = mode === 'supervisors';
+    
     const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, role, can_access_promotion, is_promotion_lecturer',
         limit: 10,
@@ -28,11 +32,18 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
     const fetchAllowedUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('profiles')
-                .select('id, full_name, job_number, role, is_promotion_lecturer')
-                .eq('can_access_promotion', true)
+                .select('id, full_name, job_number, role, is_promotion_lecturer, can_access_promotion')
                 .order('full_name');
+
+            if (isSupervisorMode) {
+                query = query.eq('is_promotion_lecturer', true);
+            } else {
+                query = query.eq('can_access_promotion', true).eq('is_promotion_lecturer', false);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
             setAllowedUsers(data || []);
@@ -46,26 +57,31 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
 
     useEffect(() => {
         fetchAllowedUsers();
-    }, []);
+    }, [mode]);
 
-    const handleGrantPermission = async (user: any, isLecturer: boolean) => {
-        if (user.can_access_promotion) {
-            toast.error('هذا المستخدم لديه صلاحية مسبقاً.');
+    const handleGrantPermission = async (user: any) => {
+        if (isSupervisorMode && user.is_promotion_lecturer) {
+            toast.error('هذا المستخدم مشرف مسبقاً.');
+            return;
+        }
+        if (!isSupervisorMode && user.can_access_promotion && !user.is_promotion_lecturer) {
+            toast.error('هذا المستخدم طالب مسبقاً.');
             return;
         }
 
         try {
+            const updates = isSupervisorMode 
+                ? { is_promotion_lecturer: true, can_access_promotion: true }
+                : { is_promotion_lecturer: false, can_access_promotion: true };
+
             const { error } = await supabase
                 .from('profiles')
-                .update({ 
-                    can_access_promotion: true,
-                    is_promotion_lecturer: isLecturer 
-                })
+                .update(updates)
                 .eq('id', user.id);
 
             if (error) throw error;
 
-            toast.success(`تم منح صلاحية (${isLecturer ? 'محاضر' : 'طالب'}) لـ ${user.full_name}`);
+            toast.success(`تم منح صلاحية (${isSupervisorMode ? 'مشرف' : 'طالب'}) لـ ${user.full_name}`);
             setSearchQuery('');
             fetchAllowedUsers();
         } catch (error: any) {
@@ -74,40 +90,18 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         }
     };
 
-    const handleToggleRole = async (userId: string, userName: string, currentIsLecturer: boolean) => {
-        const newIsLecturer = !currentIsLecturer;
-        const confirmResult = window.confirm(
-            `هل أنت متأكد من تغيير دور الموظف (${userName}) من [${currentIsLecturer ? 'محاضر' : 'طالب'}] إلى [${newIsLecturer ? 'محاضر' : 'طالب'}]؟`
-        );
-        if (!confirmResult) return;
-
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ is_promotion_lecturer: newIsLecturer })
-                .eq('id', userId);
-
-            if (error) throw error;
-
-            toast.success(`تم تغيير دور ${userName} إلى ${newIsLecturer ? 'محاضر' : 'طالب'}`);
-            fetchAllowedUsers();
-        } catch (error: any) {
-            console.error('Error toggling role:', error);
-            toast.error('فشل في تغيير الدور');
-        }
-    };
-
     const handleRevokePermission = async (userId: string, userName: string) => {
         const confirmResult = window.confirm(`هل أنت متأكد من إزالة الصلاحية لـ ${userName}؟`);
         if (!confirmResult) return;
 
         try {
+            const updates = isSupervisorMode 
+                ? { is_promotion_lecturer: false, can_access_promotion: false }
+                : { can_access_promotion: false };
+
             const { error } = await supabase
                 .from('profiles')
-                .update({ 
-                    can_access_promotion: false,
-                    is_promotion_lecturer: false 
-                })
+                .update(updates)
                 .eq('id', userId);
 
             if (error) throw error;
@@ -119,6 +113,11 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
             toast.error('فشل في إزالة الصلاحية');
         }
     };
+
+    const title = isSupervisorMode ? "تحديد المشرفين على دورة الترفيع" : "تحديد الطلبة المشاركين";
+    const description = isSupervisorMode 
+        ? "تحديد الموظفين كمشرفين على دورات الترفيع وإدارة الاختبارات." 
+        : "إضافة وتعديل أدوار الطلاب المشاركين في دورات الترفيع.";
 
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
@@ -133,12 +132,12 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
 
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
-                        <GraduationCap className="w-6 h-6" />
+                        {isSupervisorMode ? <Shield className="w-6 h-6" /> : <GraduationCap className="w-6 h-6" />}
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold">تحديد مستخدمي دورات الترفيع</h2>
+                        <h2 className="text-xl font-bold">{title}</h2>
                         <p className={cn("text-sm", theme === 'light' ? "text-gray-500" : "text-white/50")}>
-                            السماح لموظفين محددين بالوصول إلى بطاقة "دورات الترفيع".
+                            {description}
                         </p>
                     </div>
                 </div>
@@ -177,42 +176,43 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                     </div>
                                 ) : searchResults.length > 0 ? (
                                     <div className="divide-y divide-border/20">
-                                        {searchResults.map(user => (
-                                            <div
-                                                key={user.id}
-                                                className="w-full text-right p-3 hover:bg-amber-500/5 transition-colors flex items-center justify-between gap-3 border-b border-border/10 last:border-b-0"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", theme === 'light' ? "bg-gray-100" : "bg-white/5")}>
-                                                        <User className="w-4 h-4" />
+                                        {searchResults.map(user => {
+                                            const isAlreadyAdded = isSupervisorMode 
+                                                ? user.is_promotion_lecturer 
+                                                : (user.can_access_promotion && !user.is_promotion_lecturer);
+
+                                            return (
+                                                <div
+                                                    key={user.id}
+                                                    className="w-full text-right p-3 hover:bg-amber-500/5 transition-colors flex items-center justify-between gap-3 border-b border-border/10 last:border-b-0"
+                                                >
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", theme === 'light' ? "bg-gray-100" : "bg-white/5")}>
+                                                            <User className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="font-bold text-sm leading-none truncate">{user.full_name}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1 font-mono">{user.job_number}</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <div className="font-bold text-sm leading-none truncate">{user.full_name}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{user.job_number}</div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {isAlreadyAdded ? (
+                                                            <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-lg">مضاف مسبقاً</span>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleGrantPermission(user)}
+                                                                className={cn(
+                                                                    "px-2 py-1.5 text-[10px] font-bold rounded-lg text-white transition-colors",
+                                                                    isSupervisorMode ? "bg-amber-500 hover:bg-amber-600" : "bg-blue-500 hover:bg-blue-600"
+                                                                )}
+                                                            >
+                                                                {isSupervisorMode ? '+ مشرف' : '+ طالب'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    {user.can_access_promotion ? (
-                                                        <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-lg">مضاف مسبقاً</span>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleGrantPermission(user, false)}
-                                                                className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
-                                                            >
-                                                                + طالب
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleGrantPermission(user, true)}
-                                                                className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors"
-                                                            >
-                                                                + محاضر
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="p-4 text-center text-sm text-muted-foreground">
@@ -225,7 +225,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
 
                     {/* Allowed Users List */}
                     <div className="space-y-3">
-                        <label className="text-sm font-bold block">الأسماء المستهدفة بدورات الترفيع</label>
+                        <label className="text-sm font-bold block">{isSupervisorMode ? 'المشرفون الحاليون' : 'الطلاب المشاركون'}</label>
                         <div className={cn(
                             "rounded-xl border min-h-[150px] max-h-[300px] overflow-y-auto custom-scrollbar p-2",
                             theme === 'light' ? "bg-gray-50 border-gray-200" : "bg-black/20 border-white/5"
@@ -236,7 +236,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                 </div>
                             ) : allowedUsers.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-32 text-muted-foreground space-y-2">
-                                    <GraduationCap className="w-8 h-8 opacity-20" />
+                                    {isSupervisorMode ? <Shield className="w-8 h-8 opacity-20" /> : <GraduationCap className="w-8 h-8 opacity-20" />}
                                     <span className="text-sm">لم يتم إضافة أي مستخدمين بعد</span>
                                 </div>
                             ) : (
@@ -250,36 +250,28 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                             )}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="bg-amber-500/20 text-amber-500 p-2 rounded-lg shrink-0">
-                                                    <Shield className="w-4 h-4" />
+                                                <div className={cn(
+                                                    "p-2 rounded-lg shrink-0",
+                                                    isSupervisorMode ? "bg-amber-500/20 text-amber-500" : "bg-blue-500/20 text-blue-500"
+                                                )}>
+                                                    {isSupervisorMode ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-bold text-sm truncate">{user.full_name}</p>
-                                                        {user.is_promotion_lecturer ? (
-                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0">
-                                                                محاضر
-                                                            </span>
-                                                        ) : (
-                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
-                                                                طالب
-                                                            </span>
-                                                        )}
+                                                        <span className={cn(
+                                                            "px-1.5 py-0.5 text-[9px] font-bold rounded shrink-0 border",
+                                                            isSupervisorMode 
+                                                                ? "bg-amber-500/20 text-amber-500 dark:text-amber-400 border-amber-500/30"
+                                                                : "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                                                        )}>
+                                                            {isSupervisorMode ? 'مشرف' : 'طالب'}
+                                                        </span>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground font-mono">{user.job_number}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleToggleRole(user.id, user.full_name, user.is_promotion_lecturer)}
-                                                    className="text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border-amber-500/20 px-2 py-1 h-auto text-[10px] font-bold flex items-center gap-1"
-                                                    title="تغيير الدور (طالب/محاضر)"
-                                                >
-                                                    <RefreshCw className="w-3 h-3" />
-                                                    <span>تغيير الدور</span>
-                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="sm"

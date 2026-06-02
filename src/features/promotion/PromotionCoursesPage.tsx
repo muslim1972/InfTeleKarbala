@@ -13,7 +13,7 @@ interface PromotionCoursesPageProps {
 
 /**
  * الصفحة الرئيسية لدورات الترفيع — واجهة الموظف
- * للمحاضر: تعرض واجهة الإدارة والرفع مباشرة
+ * للمشرف: تعرض واجهة الإدارة والرفع مباشرة
  * للطالب: تحتوي تبويبتي: المناهج | الاختبار
  */
 export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
@@ -22,7 +22,7 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
     const isDark = theme === 'dark';
     const [activeTab, setActiveTab] = useState<'curricula' | 'exam'>('curricula');
 
-    const isLecturer = user?.is_promotion_lecturer === true;
+    const isSupervisor = user?.is_promotion_lecturer === true;
 
     const tabs = [
         { id: 'curricula' as const, label: 'المناهج', icon: BookOpen },
@@ -54,14 +54,14 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
                             رجوع
                         </button>
                         <h1 className={cn("text-lg font-bold flex items-center gap-2", isDark ? "text-white" : "text-slate-800")}>
-                            {isLecturer && <ShieldAlert className="w-5 h-5 text-amber-500 animate-pulse" />}
-                            {isLecturer ? 'إدارة دورات الترفيع (المحاضر)' : 'دورات الترفيع'}
+                            {isSupervisor && <ShieldAlert className="w-5 h-5 text-amber-500 animate-pulse" />}
+                            {isSupervisor ? 'إدارة دورات الترفيع (المشرف)' : 'دورات الترفيع'}
                         </h1>
                         <div className="w-20" /> {/* Spacer for centering */}
                     </div>
 
-                    {/* Tab Navigation - Hidden for Lecturer */}
-                    {!isLecturer && (
+                    {/* Tab Navigation - Hidden for Supervisor */}
+                    {!isSupervisor && (
                         <div className={cn(
                             "flex rounded-xl p-1 gap-1",
                             isDark ? "bg-white/5" : "bg-slate-100"
@@ -97,7 +97,7 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
             {/* Content Area - Scrollable */}
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto px-4 py-6 pb-20">
-                    {isLecturer ? (
+                    {isSupervisor ? (
                         <AdminPromotionTab />
                     ) : activeTab === 'curricula' ? (
                         <CurriculaTab />
