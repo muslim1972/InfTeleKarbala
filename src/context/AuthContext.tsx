@@ -109,10 +109,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           // --- BEGIN 2FA BYPASS FIX ---
-          const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم'];
+          const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم', 'بشير', 'علي عباس جاسم'];
           const isBypassed = profile && (
               bypassedAccounts.includes(profile.username) ||
               profile.full_name?.includes('مسلم') ||
+              profile.full_name?.includes('بشير') ||
+              profile.full_name?.includes('علي عباس جاسم') ||
               profile.email?.includes('muslimakkeel') ||
               profile.admin_role === 'developer'
           );
@@ -274,10 +276,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       // 5. Enforce 2FA on Everyone
-      const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم'];
+      const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم', 'بشير', 'علي عباس جاسم'];
       const isBypassedLogin = 
           bypassedAccounts.includes(trimmedUsername) ||
           appUser.full_name?.includes('مسلم') ||
+          appUser.full_name?.includes('بشير') ||
+          appUser.full_name?.includes('علي عباس جاسم') ||
           appUser.email?.includes('muslimakkeel') ||
           appUser.admin_role === 'developer';
           
