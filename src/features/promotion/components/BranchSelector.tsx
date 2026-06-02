@@ -1,4 +1,4 @@
-import { BookOpen, Wrench, Loader2 } from 'lucide-react';
+import { BookOpen, Wrench } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { COURSE_TYPE_LABELS } from '../types';
 import type { CourseType } from '../types';

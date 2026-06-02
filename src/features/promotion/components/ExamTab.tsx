@@ -6,7 +6,7 @@ import { BranchSelector } from './BranchSelector';
 import { ExamSession } from './ExamSession';
 import { usePromotionData } from '../hooks/usePromotionData';
 import type { CourseType, MCQQuestion } from '../types';
-import { supabase } from '../../../lib/supabase';
+
 
 /**
  * تبويب الاختبار — واجهة الموظف

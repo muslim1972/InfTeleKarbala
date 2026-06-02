@@ -6,7 +6,7 @@ import { BranchSelector } from './BranchSelector';
 import { usePromotionData } from '../hooks/usePromotionData';
 import type { CourseType } from '../types';
 import { COURSE_TYPE_LABELS } from '../types';
-import { supabase } from '../../../lib/supabase';
+
 
 /**
  * تبويب المناهج — واجهة الموظف
