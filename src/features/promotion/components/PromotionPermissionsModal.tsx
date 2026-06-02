@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
-import { useEmployeeSearch } from '../../../hooks/useEmployeeSearch';
+import { Button } from '../../../components/ui/Button';
 
 interface PromotionPermissionsModalProps {
     onClose: () => void;
@@ -21,29 +21,45 @@ interface PromotionPermissionsModalProps {
 export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps> = ({ onClose, theme, mode = 'students' }) => {
     const isSupervisorMode = mode === 'supervisors';
     
-    const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, role, can_access_promotion, is_promotion_lecturer',
-        limit: 10,
-        debounceMs: 400
-    });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    
     const [allowedUsers, setAllowedUsers] = useState<any[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+    useEffect(() => {
+        const trimmed = searchQuery.trim();
+        if (!trimmed) {
+            setSearchResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const { data, error } = await supabase.rpc('search_promotion_candidates', {
+                    search_term: trimmed
+                });
+                if (error) throw error;
+                setSearchResults(data || []);
+            } catch (err) {
+                console.error('Search error:', err);
+                setSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const fetchAllowedUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            let query = supabase
-                .from('profiles')
-                .select('id, full_name, job_number, role, is_promotion_lecturer, can_access_promotion')
-                .order('full_name');
-
-            if (isSupervisorMode) {
-                query = query.eq('is_promotion_lecturer', true);
-            } else {
-                query = query.eq('can_access_promotion', true).eq('is_promotion_lecturer', false);
-            }
-
-            const { data, error } = await query;
+            const { data, error } = await supabase.rpc('get_promotion_users', {
+                supervisor_mode: isSupervisorMode
+            });
 
             if (error) throw error;
             setAllowedUsers(data || []);
@@ -70,14 +86,11 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         }
 
         try {
-            const updates = isSupervisorMode 
-                ? { is_promotion_lecturer: true, can_access_promotion: true }
-                : { is_promotion_lecturer: false, can_access_promotion: true };
-
-            const { error } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', user.id);
+            const { error } = await supabase.rpc('set_promotion_permission', {
+                target_user_id: user.id,
+                make_supervisor: isSupervisorMode,
+                make_student: true
+            });
 
             if (error) throw error;
 
@@ -95,14 +108,11 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         if (!confirmResult) return;
 
         try {
-            const updates = isSupervisorMode 
-                ? { is_promotion_lecturer: false, can_access_promotion: false }
-                : { can_access_promotion: false };
-
-            const { error } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', userId);
+            const { error } = await supabase.rpc('set_promotion_permission', {
+                target_user_id: userId,
+                make_supervisor: false,
+                make_student: false
+            });
 
             if (error) throw error;
 
