@@ -109,7 +109,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                 score: correct,
                 total_questions: questions.length,
                 started_at: startedAtRef.current,
-                duration_seconds: elapsedExactSeconds,
+                duration_seconds: Number(elapsedExactSeconds.toFixed(2)),
                 exam_details: {
                     questions,
                     answers
