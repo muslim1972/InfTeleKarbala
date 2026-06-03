@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Loader2, AlertCircle, Play, Lock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAuth } from '../../../context/AuthContext';
 import { BranchSelector } from './BranchSelector';
 import { ExamSession } from './ExamSession';
 import { usePromotionData } from '../hooks/usePromotionData';
@@ -15,7 +16,8 @@ import type { CourseType, MCQQuestion } from '../types';
 export const ExamTab = () => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
-    const { settings, settingsLoading, loadExamQuestions, checkFileExists } = usePromotionData();
+    const { user } = useAuth();
+    const { settings, settingsLoading, loadExamQuestions, checkFileExists, checkUserHasResult } = usePromotionData();
 
     const [courseType, setCourseType] = useState<CourseType | null>(null);
     const [subject, setSubject] = useState<string | null>(null); // يخزن معرف المحاضر
@@ -51,10 +53,17 @@ export const ExamTab = () => {
     };
 
     const handleStartExam = async (variant: 'A' | 'B') => {
-        if (!courseType || !subject) return;
+        if (!courseType || !subject || !user) return;
         setLoadingQuestions(true);
         setError(null);
         try {
+            // التحقق مما إذا كان المستخدم قد أجرى الاختبار مسبقاً
+            const hasResult = await checkUserHasResult(user.id, courseType, subject);
+            if (hasResult) {
+                setError('لقد قمت بإنهاء هذا الاختبار مسبقاً، ولا يمكنك إعادته إلا إذا قام المشرف بحذف نتيجتك السابقة.');
+                return;
+            }
+
             const loaded = await loadExamQuestions(courseType, `${subject}_${variant}`);
             if (loaded.length === 0) {
                 setError('لم يتم العثور على أسئلة في الملف. يرجى التأكد من صحة صيغة ملف Excel.');

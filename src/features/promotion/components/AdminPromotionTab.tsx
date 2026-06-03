@@ -774,34 +774,36 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                     if (result) {
                                         return (
                                             <div key={student.id} onClick={() => setSelectedResult(result)} className={cn(
-                                                "flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md",
+                                                "relative p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md text-right",
                                                 isDark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-white border-slate-200 hover:border-amber-300"
                                             )}>
-                                                <div className="min-w-0 flex-1 w-full sm:w-auto text-right">
-                                                    <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
-                                                    <p className={cn("text-xs mt-1 font-bold", isDark ? "text-white/70" : "text-slate-600")}>
-                                                        {COURSE_TYPE_LABELS[result.course_type as CourseType]} والمقامة في {result.subject_name}
-                                                    </p>
-                                                    <p className={cn("text-xs font-mono mt-0.5", isDark ? "text-white/50" : "text-slate-500")}>
-                                                        الوقت الاجمالي للاختبار {result.duration_seconds ? Math.floor(result.duration_seconds / 60) + ':' + String(Math.floor(result.duration_seconds % 60)).padStart(2, '0') : 'غير متوفر'} — نسبة الاجابة = {result.score}/{result.total_questions}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2 shrink-0 mt-3 sm:mt-0" onClick={e => e.stopPropagation()}>
+                                                {/* Score and Delete Button (Top Left) */}
+                                                <div className="absolute top-4 left-4 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => handleDeleteResult(result.id)}
+                                                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                                        title="حذف النتيجة لإعادة الاختبار"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                     <span className={cn(
                                                         "px-3 py-1.5 rounded-lg text-sm font-bold",
-                                                        result.score >= 5
+                                                        result.score >= (result.total_questions / 2)
                                                             ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
                                                             : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
                                                     )}>
                                                         {result.score}/{result.total_questions}
                                                     </span>
-                                                    <button
-                                                        onClick={() => handleDeleteResult(result.id)}
-                                                        className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                                                        title="حذف النتيجة لإعادة الاختبار"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                </div>
+
+                                                <div className="min-w-0 ml-28">
+                                                    <p className={cn("text-base font-black truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
+                                                    <p className={cn("text-sm mt-1.5 font-bold", isDark ? "text-white/70" : "text-slate-600")}>
+                                                        {COURSE_TYPE_LABELS[result.course_type as CourseType]} والمقامة في {result.subject_name}
+                                                    </p>
+                                                    <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
+                                                        الوقت الاجمالي للاختبار <span className="font-mono">{result.duration_seconds ? Math.floor(result.duration_seconds / 60) + ':' + String(Math.floor(result.duration_seconds % 60)).padStart(2, '0') : 'غير متوفر'}</span> — نسبة الاجابة = <span className="font-mono">{result.score}/{result.total_questions}</span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         );

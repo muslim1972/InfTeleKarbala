@@ -262,6 +262,24 @@ export function usePromotionData() {
         }
     }, []);
 
+    // ── فحص ما إذا كان المستخدم قد أجرى الاختبار ──
+    const checkUserHasResult = useCallback(async (userId: string, courseType: CourseType, subjectName: string): Promise<boolean> => {
+        try {
+            const { data, error } = await supabase
+                .from('promotion_results')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('course_type', courseType)
+                .eq('subject_name', subjectName)
+                .limit(1);
+            if (error) throw error;
+            return data && data.length > 0;
+        } catch (err) {
+            console.error('فشل فحص وجود نتيجة:', err);
+            return false;
+        }
+    }, []);
+
     return {
         settings,
         settingsLoading,
@@ -275,5 +293,6 @@ export function usePromotionData() {
         loadExamQuestions,
         saveResult,
         fetchResults,
+        checkUserHasResult,
     };
 }
