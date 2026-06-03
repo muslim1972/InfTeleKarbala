@@ -42,12 +42,9 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, is_promotion_lecturer, can_access_promotion, promotion_course_type, promotion_subject_name')
-                    .or(`full_name.ilike.${trimmed}%,job_number.ilike.${trimmed}%`)
-                    .order('full_name')
-                    .limit(20);
+                const { data, error } = await supabase.rpc('search_promotion_candidates', {
+                    search_term: trimmed
+                });
                 
                 if (error) throw error;
                 setSearchResults(data || []);
@@ -196,7 +193,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                     value={selectedSubjectName}
                                     onChange={e => setSelectedSubjectName(e.target.value)}
                                     className="text-right"
-                                    dir="rtl"
+                                    dir="ltr"
                                 />
                             </div>
                         </div>
