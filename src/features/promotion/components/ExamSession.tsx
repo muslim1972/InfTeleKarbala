@@ -81,6 +81,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
         });
         setScore(correct);
         setSubmitted(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Save result
         if (user) {
@@ -116,11 +117,22 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
                 {/* Result Card */}
                 <div className={cn(
-                    "rounded-2xl p-6 border text-center space-y-4",
+                    "relative rounded-2xl p-6 border text-center space-y-4",
                     isPassed
                         ? isDark ? "bg-emerald-950/30 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"
                         : isDark ? "bg-red-950/30 border-red-500/20" : "bg-red-50 border-red-200"
                 )}>
+                    {/* Back Button */}
+                    <button
+                        onClick={onFinish}
+                        className={cn(
+                            "absolute top-4 left-4 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95",
+                            isDark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-white/60 hover:bg-white text-slate-700 border border-slate-200/50"
+                        )}
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        رجوع
+                    </button>
                     <div className={cn(
                         "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
                         isPassed
@@ -190,18 +202,6 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                             </div>
                         );
                     })}
-                </div>
-
-                <div className="flex justify-center mt-6">
-                    <button
-                        onClick={onFinish}
-                        className={cn(
-                            "flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white font-bold text-sm transition-all shadow-lg active:scale-95"
-                        )}
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        العودة للصفحة السابقة
-                    </button>
                 </div>
             </div>
         );
