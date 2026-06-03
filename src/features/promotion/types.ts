@@ -30,6 +30,10 @@ export interface PromotionResult {
     started_at: string;
     completed_at: string;
     duration_seconds: number | null;
+    exam_details?: {
+        questions: MCQQuestion[];
+        answers: (number | null)[];
+    };
     created_at: string;
 }
 

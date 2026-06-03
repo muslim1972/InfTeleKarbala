@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { BookOpen, FileSpreadsheet, FileText, Upload, Save, X, Loader2, ToggleLeft, ToggleRight, Clock, Trophy, Trash2, ChevronDown, CheckCircle2, GraduationCap, Shield } from 'lucide-react';
+import { BookOpen, FileSpreadsheet, FileText, Upload, Save, X, Loader2, ToggleLeft, ToggleRight, Clock, Trophy, Trash2, ChevronDown, CheckCircle2, GraduationCap, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -61,7 +61,9 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     // ── Results State ──
     const [results, setResults] = useState<PromotionResult[]>([]);
+    const [allowedStudents, setAllowedStudents] = useState<any[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
+    const [selectedResult, setSelectedResult] = useState<PromotionResult | null>(null);
 
     useEffect(() => {
         if (settings) {
@@ -245,8 +247,16 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     // ── Load Results ──
     const loadResults = useCallback(async () => {
         setResultsLoading(true);
-        const data = await fetchResults(100);
-        setResults(data);
+        try {
+            const [data, studentsRes] = await Promise.all([
+                fetchResults(100),
+                supabase.rpc('get_promotion_users', { supervisor_mode: false })
+            ]);
+            setResults(data);
+            setAllowedStudents(studentsRes.data || []);
+        } catch (err) {
+            console.error('Failed to load results:', err);
+        }
         setResultsLoading(false);
     }, [fetchResults]);
 
@@ -754,42 +764,139 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                             لا توجد نتائج بعد
                         </p>
                     ) : (
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
-                            {results.map(r => (
-                                <div key={r.id} className={cn(
-                                    "flex items-center justify-between p-3 rounded-lg border",
-                                    isDark ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100"
-                                )}>
-                                    <div className="min-w-0 flex-1">
-                                        <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{r.user_name}</p>
-                                        <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
-                                            {COURSE_TYPE_LABELS[r.course_type as CourseType]} — التأريخ: {r.subject_name}
-                                            {r.duration_seconds ? ` — ${Math.floor(r.duration_seconds / 60)}:${String(r.duration_seconds % 60).padStart(2, '0')}` : ''}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className={cn(
-                                            "px-2 py-1 rounded-lg text-xs font-bold",
-                                            r.score >= 5
-                                                ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                                                : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
-                                        )}>
-                                            {r.score}/{r.total_questions}
-                                        </span>
-                                        <button
-                                            onClick={() => handleDeleteResult(r.id)}
-                                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="space-y-4">
+                            <p className={cn("text-sm font-bold text-center", isDark ? "text-amber-300" : "text-amber-700")}>
+                                ( عدد الطلبة الذين انهوا الاختبار {results.length} من العدد الاجمالي {allowedStudents.length} )
+                            </p>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                                {allowedStudents.map(student => {
+                                    const result = results.find(r => r.user_id === student.id);
+                                    if (result) {
+                                        return (
+                                            <div key={student.id} onClick={() => setSelectedResult(result)} className={cn(
+                                                "flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md",
+                                                isDark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-white border-slate-200 hover:border-amber-300"
+                                            )}>
+                                                <div className="min-w-0 flex-1 w-full sm:w-auto text-right">
+                                                    <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
+                                                    <p className={cn("text-xs mt-1 font-bold", isDark ? "text-white/70" : "text-slate-600")}>
+                                                        {COURSE_TYPE_LABELS[result.course_type as CourseType]} والمقامة في {result.subject_name}
+                                                    </p>
+                                                    <p className={cn("text-xs font-mono mt-0.5", isDark ? "text-white/50" : "text-slate-500")}>
+                                                        الوقت الاجمالي للاختبار {result.duration_seconds ? Math.floor(result.duration_seconds / 60) + ':' + String(Math.floor(result.duration_seconds % 60)).padStart(2, '0') : 'غير متوفر'} — نسبة الاجابة = {result.score}/{result.total_questions}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0 mt-3 sm:mt-0" onClick={e => e.stopPropagation()}>
+                                                    <span className={cn(
+                                                        "px-3 py-1.5 rounded-lg text-sm font-bold",
+                                                        result.score >= 5
+                                                            ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
+                                                            : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
+                                                    )}>
+                                                        {result.score}/{result.total_questions}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleDeleteResult(result.id)}
+                                                        className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                                        title="حذف النتيجة لإعادة الاختبار"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    } else {
+                                        return (
+                                            <div key={student.id} className={cn(
+                                                "flex items-center justify-between p-3 rounded-lg border opacity-60 grayscale cursor-not-allowed",
+                                                isDark ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100"
+                                            )}>
+                                                <div className="min-w-0 flex-1 text-right">
+                                                    <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
+                                                    <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
+                                                        رقم الوظيفة: {student.job_number || 'غير متوفر'} — قيد الانتظار ولم يكمل الاختبار
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
             )}
             </>
+            )}
+
+            {/* Modal for viewing exam details */}
+            {selectedResult && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedResult(null)} />
+                    <div className={cn(
+                        "relative w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+                        isDark ? 'bg-zinc-900 text-white border border-white/10' : 'bg-white text-slate-900 border border-slate-200'
+                    )}>
+                        <div className={cn("p-4 border-b flex items-center justify-between", isDark ? "border-white/10" : "border-slate-100")}>
+                            <div>
+                                <h2 className="text-lg font-bold">تفاصيل إجابات الطالب</h2>
+                                <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")}>{selectedResult.user_name} — النتيجة: {selectedResult.score}/{selectedResult.total_questions}</p>
+                            </div>
+                            <button onClick={() => setSelectedResult(null)} className="p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar text-right">
+                            {selectedResult.exam_details ? (
+                                selectedResult.exam_details.questions.map((q: any, i: number) => {
+                                    const userAnswer = selectedResult.exam_details!.answers[i];
+                                    const isCorrect = userAnswer === q.correctIndex;
+                                    return (
+                                        <div key={i} className={cn(
+                                            "rounded-xl border p-4",
+                                            isCorrect
+                                                ? isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/50"
+                                                : isDark ? "border-red-500/20 bg-red-500/5" : "border-red-200 bg-red-50/50"
+                                        )}>
+                                            <div className="flex items-start gap-2 mb-3">
+                                                {isCorrect
+                                                    ? <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
+                                                    : <XCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                                                }
+                                                <span className={cn("text-sm font-bold leading-relaxed", isDark ? "text-white" : "text-slate-800")}>
+                                                    {i + 1}. {q.question}
+                                                </span>
+                                            </div>
+                                            <div className="mr-7 space-y-1.5">
+                                                {q.options.map((opt: string, j: number) => (
+                                                    <div key={j} className={cn(
+                                                        "text-xs px-3 py-2 rounded-lg transition-colors",
+                                                        j === q.correctIndex
+                                                            ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30"
+                                                            : j === userAnswer && j !== q.correctIndex
+                                                                ? "bg-red-500/20 text-red-700 dark:text-red-300 line-through border border-red-500/30"
+                                                                : isDark ? "text-white/50 bg-white/5" : "text-slate-500 bg-slate-50"
+                                                    )}>
+                                                        {opt}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="p-8 text-center">
+                                    <Trophy className="w-12 h-12 mx-auto text-amber-500/50 mb-3" />
+                                    <p className={cn("font-bold", isDark ? "text-white/60" : "text-slate-500")}>لا توجد تفاصيل لهذا الاختبار</p>
+                                    <p className={cn("text-xs mt-2", isDark ? "text-white/40" : "text-slate-400")}>الاختبارات القديمة لا تحتوي على سجل بالأسئلة المحددة، بينما الاختبارات الجديدة سيتم حفظ تفاصيلها بالكامل هنا.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className={cn("p-4 border-t flex justify-end", isDark ? "border-white/10" : "border-slate-100")}>
+                            <button onClick={() => setSelectedResult(null)} className="px-6 py-2 bg-slate-500 hover:bg-slate-600 text-white font-bold text-sm rounded-xl transition-all">إغلاق</button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

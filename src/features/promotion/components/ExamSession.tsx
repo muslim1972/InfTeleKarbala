@@ -112,6 +112,10 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                 total_questions: questions.length,
                 started_at: startedAtRef.current,
                 duration_seconds: elapsedExactSeconds,
+                exam_details: {
+                    questions,
+                    answers
+                }
             });
             setSaving(false);
         }
