@@ -42,9 +42,13 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const { data, error } = await supabase.rpc('search_promotion_candidates', {
-                    search_term: trimmed
-                });
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, job_number, is_promotion_lecturer, can_access_promotion, promotion_course_type, promotion_subject_name')
+                    .or(`full_name.ilike.${trimmed}%,job_number.ilike.${trimmed}%`)
+                    .order('full_name')
+                    .limit(20);
+                
                 if (error) throw error;
                 setSearchResults(data || []);
             } catch (err) {
@@ -188,9 +192,9 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold block">تاريخ بداية الدورة <span className="text-red-500">*</span></label>
                                 <Input
+                                    type="date"
                                     value={selectedSubjectName}
                                     onChange={e => setSelectedSubjectName(e.target.value)}
-                                    placeholder="مثال: 14-06-2026"
                                     className="text-right"
                                     dir="rtl"
                                 />

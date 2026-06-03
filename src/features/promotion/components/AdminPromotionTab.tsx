@@ -795,10 +795,9 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                         <div className="space-y-2">
                             <label className="text-sm font-bold block">تاريخ الدورة</label>
                             <input
-                                type="text"
+                                type="date"
                                 value={resultsSubjectName}
                                 onChange={e => setResultsSubjectName(e.target.value)}
-                                placeholder="مثال: 14-06-2026"
                                 className={cn(
                                     "w-full h-10 px-3 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
                                     isDark ? "bg-black/20 border-white/10" : "bg-white border-gray-200"
