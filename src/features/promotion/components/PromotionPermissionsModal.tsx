@@ -5,6 +5,8 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import type { CourseType } from '../types';
+import { COURSE_TYPE_LABELS } from '../types';
 
 interface PromotionPermissionsModalProps {
     onClose: () => void;
@@ -26,6 +28,9 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
     
     const [allowedUsers, setAllowedUsers] = useState<any[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+    const [selectedCourseType, setSelectedCourseType] = useState<CourseType | null>(null);
+    const [selectedSubjectName, setSelectedSubjectName] = useState('');
 
     useEffect(() => {
         const trimmed = searchQuery.trim();
@@ -84,11 +89,18 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
             return;
         }
 
+        if (!isSupervisorMode && (!selectedCourseType || !selectedSubjectName.trim())) {
+            toast.error('يرجى تحديد نوع الدورة وتاريخها أولاً.');
+            return;
+        }
+
         try {
             const { error } = await supabase.rpc('set_promotion_permission', {
                 target_user_id: user.id,
                 make_supervisor: isSupervisorMode,
-                make_student: true
+                make_student: true,
+                p_course_type: isSupervisorMode ? null : selectedCourseType,
+                p_subject_name: isSupervisorMode ? null : selectedSubjectName.trim()
             });
 
             if (error) throw error;
@@ -152,6 +164,40 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                    {/* Course Selection (Students Mode Only) */}
+                    {!isSupervisorMode && (
+                        <div className="grid grid-cols-2 gap-4 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold block">نوع الدورة <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedCourseType || ''}
+                                        onChange={e => setSelectedCourseType(e.target.value as CourseType)}
+                                        className={cn(
+                                            "w-full h-10 px-3 rounded-lg border text-sm appearance-none outline-none focus:ring-2 focus:ring-amber-500/50 transition-all text-right",
+                                            theme === 'light' ? "bg-white border-gray-200" : "bg-black/20 border-white/10"
+                                        )}
+                                        dir="rtl"
+                                    >
+                                        <option value="" disabled>اختر نوع الدورة...</option>
+                                        <option value="technical">فنية</option>
+                                        <option value="administrative">إدارية</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold block">تاريخ بداية الدورة <span className="text-red-500">*</span></label>
+                                <Input
+                                    value={selectedSubjectName}
+                                    onChange={e => setSelectedSubjectName(e.target.value)}
+                                    placeholder="مثال: 14-06-2026"
+                                    className="text-right"
+                                    dir="rtl"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Search Field */}
                     <div className="space-y-2">
                         <label className="text-sm font-bold block">إضافة موظف</label>
@@ -277,7 +323,17 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                                                             {isSupervisorMode ? 'مشرف' : 'طالب'}
                                                         </span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground font-mono">{user.job_number}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <p className="text-xs text-muted-foreground font-mono">{user.job_number}</p>
+                                                        {!isSupervisorMode && user.promotion_course_type && user.promotion_subject_name && (
+                                                            <>
+                                                                <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    {COURSE_TYPE_LABELS[user.promotion_course_type as CourseType]} ({user.promotion_subject_name})
+                                                                </p>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">

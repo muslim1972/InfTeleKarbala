@@ -65,6 +65,9 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const [resultsLoading, setResultsLoading] = useState(false);
     const [selectedResult, setSelectedResult] = useState<PromotionResult | null>(null);
 
+    const [resultsCourseType, setResultsCourseType] = useState<CourseType | null>(null);
+    const [resultsSubjectName, setResultsSubjectName] = useState('');
+
     useEffect(() => {
         if (settings) {
             setDurationInput(String(settings.exam_duration_minutes));
@@ -246,19 +249,35 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     // ── Load Results ──
     const loadResults = useCallback(async () => {
+        if (!resultsCourseType || !resultsSubjectName.trim()) {
+            setResults([]);
+            setAllowedStudents([]);
+            return;
+        }
+        
         setResultsLoading(true);
         try {
             const [data, studentsRes] = await Promise.all([
-                fetchResults(100),
-                supabase.rpc('get_promotion_users', { supervisor_mode: false })
+                fetchResults(200),
+                supabase.rpc('get_promotion_users', { 
+                    supervisor_mode: false,
+                    p_course_type: resultsCourseType,
+                    p_subject_name: resultsSubjectName.trim()
+                })
             ]);
-            setResults(data);
+            
+            const filteredResults = data.filter(r => 
+                r.course_type === resultsCourseType && 
+                r.subject_name === resultsSubjectName.trim()
+            );
+            
+            setResults(filteredResults);
             setAllowedStudents(studentsRes.data || []);
         } catch (err) {
             console.error('Failed to load results:', err);
         }
         setResultsLoading(false);
-    }, [fetchResults]);
+    }, [fetchResults, resultsCourseType, resultsSubjectName]);
 
     useEffect(() => {
         if (openSection === 'results') loadResults();
@@ -752,10 +771,51 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
             <SectionHeader title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
             {openSection === 'results' && (
                 <div className={cn(
-                    "rounded-xl border p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300",
+                    "rounded-xl border p-4 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300",
                     isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"
                 )}>
-                    {resultsLoading ? (
+                    {/* Course Filter */}
+                    <div className={cn("grid grid-cols-2 gap-4 p-4 rounded-xl border", isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50")}>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold block">اختر نوع الدورة لاستعراض النتائج</label>
+                            <select
+                                value={resultsCourseType || ''}
+                                onChange={e => setResultsCourseType(e.target.value as CourseType)}
+                                className={cn(
+                                    "w-full h-10 px-3 rounded-lg border text-sm appearance-none outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
+                                    isDark ? "bg-black/20 border-white/10" : "bg-white border-gray-200"
+                                )}
+                                dir="rtl"
+                            >
+                                <option value="" disabled>اختر نوع الدورة...</option>
+                                <option value="technical">فنية</option>
+                                <option value="administrative">إدارية</option>
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold block">تاريخ الدورة</label>
+                            <input
+                                type="text"
+                                value={resultsSubjectName}
+                                onChange={e => setResultsSubjectName(e.target.value)}
+                                placeholder="مثال: 14-06-2026"
+                                className={cn(
+                                    "w-full h-10 px-3 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
+                                    isDark ? "bg-black/20 border-white/10" : "bg-white border-gray-200"
+                                )}
+                                dir="rtl"
+                            />
+                        </div>
+                    </div>
+
+                    {(!resultsCourseType || !resultsSubjectName.trim()) ? (
+                        <div className="flex flex-col items-center justify-center p-8 space-y-3 opacity-60">
+                            <Trophy className="w-12 h-12 text-slate-400" />
+                            <p className="text-sm font-bold text-slate-500">
+                                الرجاء اختيار نوع الدورة وتاريخها أولاً لاستعراض الطلبة ونتائجهم
+                            </p>
+                        </div>
+                    ) : resultsLoading ? (
                         <div className="flex items-center justify-center p-6">
                             <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
                         </div>
