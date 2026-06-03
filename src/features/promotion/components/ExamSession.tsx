@@ -61,6 +61,12 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
         }
     }, [remainingSeconds, submitted]);
 
+    useEffect(() => {
+        if (submitted) {
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+        }
+    }, [submitted]);
+
     const handleSelectAnswer = useCallback((questionIdx: number, optionIdx: number) => {
         if (submitted) return;
         setAnswers(prev => {
@@ -81,7 +87,6 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
         });
         setScore(correct);
         setSubmitted(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Save result
         if (user) {
@@ -131,7 +136,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                         )}
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        رجوع
+                        الرجوع لواجهة المشرف
                     </button>
                     <div className={cn(
                         "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
