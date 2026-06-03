@@ -791,8 +791,8 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                                         result.score >= (result.total_questions / 2)
                                                             ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
                                                             : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
-                                                    )}>
-                                                        {result.score}/{result.total_questions}
+                                                    )} dir="ltr">
+                                                        {result.score} / {result.total_questions}
                                                     </span>
                                                 </div>
 
@@ -802,7 +802,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                                         {COURSE_TYPE_LABELS[result.course_type as CourseType]} والمقامة في {result.subject_name}
                                                     </p>
                                                     <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
-                                                        الوقت الاجمالي للاختبار <span className="font-mono">{result.duration_seconds ? Math.floor(result.duration_seconds / 60) + ':' + String(Math.floor(result.duration_seconds % 60)).padStart(2, '0') : 'غير متوفر'}</span> — نسبة الاجابة = <span className="font-mono">{result.score}/{result.total_questions}</span>
+                                                        الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — نسبة الاجابة = <span className="font-mono" dir="ltr">{result.score} / {result.total_questions}</span>
                                                     </p>
                                                 </div>
                                             </div>

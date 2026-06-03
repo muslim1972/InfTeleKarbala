@@ -166,7 +166,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                         <Trophy className={cn("w-10 h-10", isPassed ? "text-emerald-500" : "text-red-500")} />
                     </div>
                     <h3 className={cn("text-3xl font-black", isDark ? "text-white" : "text-slate-900")}>
-                        {score} / {questions.length}
+                        <span dir="ltr">{score} / {questions.length}</span>
                     </h3>
                     <p className={cn("text-lg font-bold leading-relaxed", isDark ? "text-white/80" : "text-slate-700")}>
                         نتيجة اختبار {user?.full_name} بنسبة {percentage}%
@@ -175,7 +175,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                     </p>
                     {exactDuration && (
                         <p className={cn("text-sm font-bold", isDark ? "text-amber-300" : "text-amber-700")}>
-                            الوقت المستغرق: {exactDuration.toFixed(3)} ثانية
+                            الوقت المستغرق: <span dir="ltr">{Math.floor(exactDuration / 60)}:{(exactDuration % 60).toFixed(2).padStart(5, '0')}</span>
                         </p>
                     )}
                     {saving && (
