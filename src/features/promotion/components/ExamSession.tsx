@@ -35,6 +35,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
     const startedAtRef = useRef(new Date().toISOString());
     const startTimestampRef = useRef(performance.now());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const topRef = useRef<HTMLDivElement>(null);
     const [exactDuration, setExactDuration] = useState<number | null>(null);
 
     // Start timer
@@ -63,7 +64,15 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
 
     useEffect(() => {
         if (submitted) {
-            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+            const scrollToTop = () => {
+                window.scrollTo(0, 0);
+                if (topRef.current) {
+                    topRef.current.scrollIntoView(true);
+                }
+            };
+            
+            setTimeout(scrollToTop, 100);
+            setTimeout(scrollToTop, 500); // Fallback to ensure it scrolls
         }
     }, [submitted]);
 
@@ -120,6 +129,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
 
         return (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                <div ref={topRef} className="w-full h-px" />
                 {/* Result Card */}
                 <div className={cn(
                     "relative rounded-2xl p-6 border text-center space-y-4",
@@ -213,7 +223,8 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
     }
 
     return (
-        <div className="space-y-4 animate-in fade-in duration-300">
+        <div className="space-y-4 animate-in fade-in duration-300 relative">
+            <div ref={topRef} className="w-full h-px" />
             {/* Timer Bar */}
             <div className={cn(
                 "sticky top-0 z-10 rounded-xl p-3 border backdrop-blur-xl",
