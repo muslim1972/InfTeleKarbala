@@ -22,7 +22,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const { user } = useAuth();
-    const { settings, settingsLoading, updateSettings, uploadFile, deleteFile, checkFileExists, fetchResults } = usePromotionData();
+    const { settings, settingsLoading, updateSettings, uploadFile, deleteFile, checkFileExists, fetchResults, listCurriculaFiles } = usePromotionData();
 
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
@@ -36,9 +36,9 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     // ── Curricula State ──
     const [currCourseType, setCurrCourseType] = useState<CourseType | null>(null);
     const [currSubject, setCurrSubject] = useState<string | null>(null);
-    const [currFile, setCurrFile] = useState<File | null>(null);
+    const [currFiles, setCurrFiles] = useState<File[]>([]);
     const [currUploading, setCurrUploading] = useState(false);
-    const [currExistingFile, setCurrExistingFile] = useState<boolean>(false);
+    const [currExistingFiles, setCurrExistingFiles] = useState<any[]>([]);
     const [currChecking, setCurrChecking] = useState(false);
     const [currDeleting, setCurrDeleting] = useState(false);
     const currFileRef = useRef<HTMLInputElement>(null);
@@ -76,20 +76,20 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     // ── فحص الملف الموجود عند تغيير المادة (مناهج) ──
     useEffect(() => {
         if (!currCourseType || !currSubject) {
-            setCurrExistingFile(false);
+            setCurrExistingFiles([]);
             return;
         }
         let cancelled = false;
         (async () => {
             setCurrChecking(true);
-            const exists = await checkFileExists('curricula', currCourseType, currSubject, 'pdf');
+            const files = await listCurriculaFiles(currCourseType, currSubject);
             if (!cancelled) {
-                setCurrExistingFile(exists);
+                setCurrExistingFiles(files);
                 setCurrChecking(false);
             }
         })();
         return () => { cancelled = true; };
-    }, [currCourseType, currSubject, checkFileExists]);
+    }, [currCourseType, currSubject, listCurriculaFiles]);
 
     // ── فحص الملفين الموجودين عند تغيير المادة (اختبار A & B) ──
     useEffect(() => {
@@ -114,34 +114,38 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
 
     // ── Curricula Handlers ──
     const handleCurrSave = async () => {
-        if (!currCourseType || !currSubject || !currFile) {
-            toast.error('يرجى ملء جميع الحقول واختيار ملف');
+        if (!currCourseType || !currSubject || currFiles.length === 0) {
+            toast.error('يرجى ملء جميع الحقول واختيار ملفات');
             return;
         }
         setCurrUploading(true);
-        const result = await uploadFile('curricula', currCourseType, currSubject, currFile, 'pdf');
+        let allSuccess = true;
+        for (const file of currFiles) {
+            const result = await uploadFile('curricula', currCourseType, currSubject, file, 'pdf');
+            if (!result.success) {
+                toast.error(`فشل رفع الملف ${file.name}: ${result.error}`);
+                allSuccess = false;
+            }
+        }
         setCurrUploading(false);
-        if (result.success) {
-            toast.success(`تم رفع المنهاج بنجاح لدورة يوم: ${currSubject}`);
-            // تفريغ الحقول مع الإبقاء على القسم مفتوح
-            setCurrCourseType(null);
-            setCurrSubject(null);
-            setCurrFile(null);
-            setCurrExistingFile(false);
+        if (allSuccess) {
+            toast.success(`تم رفع المناهج بنجاح لدورة يوم: ${currSubject}`);
+            // تحديث القائمة
+            const files = await listCurriculaFiles(currCourseType, currSubject);
+            setCurrExistingFiles(files);
+            setCurrFiles([]);
             if (currFileRef.current) currFileRef.current.value = '';
-        } else {
-            toast.error(`فشل رفع الملف: ${result.error || 'خطأ غير معروف'}`);
         }
     };
 
-    const handleCurrDeleteExisting = async () => {
+    const handleCurrDeleteExisting = async (filename: string) => {
         if (!currCourseType || !currSubject) return;
         setCurrDeleting(true);
-        const success = await deleteFile('curricula', currCourseType, currSubject, 'pdf');
+        const success = await deleteFile('curricula', currCourseType, currSubject, filename);
         setCurrDeleting(false);
         if (success) {
             toast.success('تم حذف المنهاج');
-            setCurrExistingFile(false);
+            setCurrExistingFiles(prev => prev.filter(f => f.name !== filename));
         } else {
             toast.error('فشل حذف الملف');
         }
@@ -447,7 +451,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                             { value: 'administrative', label: 'دورة إدارية' },
                             { value: 'technical', label: 'دورة فنية' },
                         ]}
-                        onChange={val => { setCurrCourseType(val as CourseType); setCurrSubject(null); setCurrFile(null); setCurrExistingFile(false); }}
+                        onChange={val => { setCurrCourseType(val as CourseType); setCurrSubject(null); setCurrFiles([]); setCurrExistingFiles([]); }}
                     />
                     {currCourseType && (
                         <div className="space-y-1">
@@ -455,7 +459,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                             <input
                                 type="date"
                                 value={currSubject || ''}
-                                onChange={e => { setCurrSubject(e.target.value); setCurrFile(null); }}
+                                onChange={e => { setCurrSubject(e.target.value); setCurrFiles([]); }}
                                 className={cn(
                                     "w-full p-2.5 rounded-xl border text-sm font-bold transition-all",
                                     isDark
@@ -476,17 +480,25 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                 </div>
                             ) : (
                                 <>
-                                    {/* عرض الملف المرفوع مسبقاً */}
-                                    {currExistingFile && (
-                                        <ExistingFileBadge
-                                            folder="curricula" courseType={currCourseType} subject={currSubject} ext="pdf"
-                                            onDelete={handleCurrDeleteExisting} deleting={currDeleting} color="emerald"
-                                        />
+                                    {/* عرض الملفات المرفوعة مسبقاً */}
+                                    {currExistingFiles.length > 0 && (
+                                        <div className="space-y-2">
+                                            <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>
+                                                الملفات المرفوعة حالياً
+                                            </label>
+                                            {currExistingFiles.map(f => (
+                                                <ExistingFileBadge
+                                                    key={f.name}
+                                                    folder="curricula" courseType={currCourseType} subject={f.name} ext="pdf"
+                                                    onDelete={() => handleCurrDeleteExisting(f.name)} deleting={currDeleting} color="emerald"
+                                                />
+                                            ))}
+                                        </div>
                                     )}
 
-                                    {/* زر تحميل ملف جديد */}
+                                    {/* زر تحميل ملفات جديدة */}
                                     <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>
-                                        {currExistingFile ? 'رفع ملف بديل (PDF)' : 'ملف المحاضرات (PDF)'}
+                                        رفع ملفات إضافية (PDF)
                                     </label>
                                     <button
                                         onClick={() => currFileRef.current?.click()}
@@ -496,22 +508,33 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                         )}
                                     >
                                         <Upload className="w-4 h-4" />
-                                        تحميل
+                                        اختر ملفات
                                     </button>
-                                    <input ref={currFileRef} type="file" accept=".pdf" className="hidden" onChange={e => setCurrFile(e.target.files?.[0] || null)} />
-                                    {currFile && (
-                                        <div className={cn(
-                                            "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
-                                            isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-200"
-                                        )}>
-                                            <FileText className="w-4 h-4 text-blue-500 shrink-0" />
-                                            <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-blue-300" : "text-blue-700")}>{currFile.name}</span>
-                                            <button
-                                                onClick={() => { setCurrFile(null); if (currFileRef.current) currFileRef.current.value = ''; }}
-                                                className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
-                                            >
-                                                <X className="w-3.5 h-3.5" />
-                                            </button>
+                                    <input ref={currFileRef} type="file" accept=".pdf" multiple className="hidden" onChange={e => setCurrFiles(Array.from(e.target.files || []))} />
+                                    
+                                    {currFiles.length > 0 && (
+                                        <div className="space-y-2">
+                                            <label className={cn("text-xs font-bold block", isDark ? "text-white/70" : "text-slate-600")}>
+                                                الملفات المحددة للرفع
+                                            </label>
+                                            {currFiles.map((file, i) => (
+                                                <div key={i} className={cn(
+                                                    "flex items-center gap-2 px-3 py-2 rounded-lg border animate-in fade-in zoom-in-95 duration-200",
+                                                    isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-200"
+                                                )}>
+                                                    <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                                                    <span className={cn("text-xs font-bold truncate flex-1", isDark ? "text-blue-300" : "text-blue-700")}>{file.name}</span>
+                                                    <button
+                                                        onClick={() => { 
+                                                            setCurrFiles(prev => prev.filter((_, idx) => idx !== i));
+                                                            if (currFileRef.current && currFiles.length === 1) currFileRef.current.value = '';
+                                                        }}
+                                                        className="p-1 rounded-full hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </>
@@ -520,7 +543,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                     )}
 
                     {/* أزرار الحفظ والإلغاء */}
-                    {currFile && (
+                    {currFiles.length > 0 && (
                         <div className="flex gap-2 pt-2 animate-in fade-in duration-200">
                             <button
                                 onClick={handleCurrSave}
@@ -531,7 +554,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                 حفظ
                             </button>
                             <button
-                                onClick={() => { setCurrFile(null); if (currFileRef.current) currFileRef.current.value = ''; }}
+                                onClick={() => { setCurrFiles([]); if (currFileRef.current) currFileRef.current.value = ''; }}
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-sm transition-all",
                                     isDark ? "border-white/10 text-white/60 hover:bg-white/10" : "border-slate-200 text-slate-500 hover:bg-slate-100"

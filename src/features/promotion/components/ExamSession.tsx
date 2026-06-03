@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CheckCircle, XCircle, Clock, Trophy, RotateCcw, ArrowLeft } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Trophy, ArrowLeft } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -13,13 +13,12 @@ interface ExamSessionProps {
     subject: string;
     durationMinutes: number;
     onFinish: () => void;
-    lecturerName: string;
 }
 
 /**
  * جلسة الاختبار — عرض الأسئلة مع مؤقت
  */
-export const ExamSession = ({ questions, courseType, subject, durationMinutes, onFinish, lecturerName }: ExamSessionProps) => {
+export const ExamSession = ({ questions, courseType, subject, durationMinutes, onFinish }: ExamSessionProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const { user } = useAuth();
@@ -34,7 +33,9 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
     const totalSeconds = durationMinutes * 60;
     const [remainingSeconds, setRemainingSeconds] = useState(totalSeconds);
     const startedAtRef = useRef(new Date().toISOString());
+    const startTimestampRef = useRef(performance.now());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [exactDuration, setExactDuration] = useState<number | null>(null);
 
     // Start timer
     useEffect(() => {
@@ -84,7 +85,8 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
         // Save result
         if (user) {
             setSaving(true);
-            const elapsedSeconds = totalSeconds - remainingSeconds;
+            const elapsedExactSeconds = (performance.now() - startTimestampRef.current) / 1000;
+            setExactDuration(elapsedExactSeconds);
             await saveResult({
                 user_id: user.id,
                 user_name: user.full_name,
@@ -94,7 +96,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                 score: correct,
                 total_questions: questions.length,
                 started_at: startedAtRef.current,
-                duration_seconds: elapsedSeconds,
+                duration_seconds: elapsedExactSeconds,
             });
             setSaving(false);
         }
@@ -127,15 +129,19 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                     )}>
                         <Trophy className={cn("w-10 h-10", isPassed ? "text-emerald-500" : "text-red-500")} />
                     </div>
-                    <h3 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-slate-900")}>
+                    <h3 className={cn("text-3xl font-black", isDark ? "text-white" : "text-slate-900")}>
                         {score} / {questions.length}
                     </h3>
-                    <p className={cn("text-sm", isDark ? "text-white/60" : "text-slate-500")}>
-                        النسبة: {percentage}% — {isPassed ? "ناجح ✓" : "يحتاج إعادة المحاولة"}
+                    <p className={cn("text-lg font-bold leading-relaxed", isDark ? "text-white/80" : "text-slate-700")}>
+                        نتيجة اختبار {user?.full_name} بنسبة {percentage}%
+                        <br />
+                        في الدورة {COURSE_TYPE_LABELS[courseType]} المقامة بتاريخ {subject} في مقر المديرية
                     </p>
-                    <p className={cn("text-xs", isDark ? "text-white/40" : "text-slate-400")}>
-                        {COURSE_TYPE_LABELS[courseType]} — اختبار الأستاذ: {lecturerName}
-                    </p>
+                    {exactDuration && (
+                        <p className={cn("text-sm font-bold", isDark ? "text-amber-300" : "text-amber-700")}>
+                            الوقت المستغرق: {exactDuration.toFixed(3)} ثانية
+                        </p>
+                    )}
                     {saving && (
                         <p className={cn("text-xs", isDark ? "text-white/40" : "text-slate-400")}>
                             جاري حفظ النتيجة...
@@ -186,24 +192,15 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                     })}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3">
+                <div className="flex justify-center mt-6">
                     <button
                         onClick={onFinish}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border font-bold text-sm transition-all",
-                            isDark ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10" : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                            "flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white font-bold text-sm transition-all shadow-lg active:scale-95"
                         )}
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        العودة
-                    </button>
-                    <button
-                        onClick={onFinish}
-                        className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        اختبار جديد
+                        العودة للصفحة السابقة
                     </button>
                 </div>
             </div>

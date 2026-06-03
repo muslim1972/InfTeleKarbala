@@ -50,11 +50,23 @@ export function usePromotionData() {
         }
     }, [settings]);
 
-    // ── جلب رابط ملف PDF من Storage ──
-    const getCurriculumUrl = useCallback((courseType: CourseType, subject: string): string => {
-        const path = `curricula/${courseType}/${subject}.pdf`;
+    // ── جلب روابط ملفات المناهج متعددة ──
+    const getCurriculumFileUrl = useCallback((courseType: CourseType, subject: string, filename: string): string => {
+        const path = `curricula/${courseType}/${subject}/${filename}`;
         const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
         return data.publicUrl;
+    }, []);
+
+    // ── جلب قائمة الملفات لمادة معينة ──
+    const listCurriculaFiles = useCallback(async (courseType: CourseType, subject: string) => {
+        const path = `curricula/${courseType}/${subject}`;
+        const { data, error } = await supabase.storage.from('Lectures').list(path);
+        if (error) {
+            console.error('فشل جلب قائمة الملفات:', error);
+            return [];
+        }
+        // استبعاد المجلدات (إن وجدت) والملفات المخفية
+        return (data || []).filter(f => f.name !== '.emptyFolderPlaceholder' && f.id);
     }, []);
 
     // ── فحص وجود ملف في Storage ──
@@ -96,7 +108,9 @@ export function usePromotionData() {
         file: File,
         ext: string
     ): Promise<{ success: boolean; error?: string }> => {
-        const path = `${folder}/${courseType}/${subject}.${ext}`;
+        const path = folder === 'curricula' 
+            ? `curricula/${courseType}/${subject}/${file.name}`
+            : `${folder}/${courseType}/${subject}.${ext}`;
         try {
             const contentType = ext === 'pdf'
                 ? 'application/pdf'
@@ -136,9 +150,12 @@ export function usePromotionData() {
         folder: 'curricula' | 'exams',
         courseType: CourseType,
         subject: string,
-        ext: string
+        filename?: string,
+        ext?: string
     ): Promise<boolean> => {
-        const path = `${folder}/${courseType}/${subject}.${ext}`;
+        const path = folder === 'curricula' && filename
+            ? `curricula/${courseType}/${subject}/${filename}`
+            : `${folder}/${courseType}/${subject}.${ext}`;
         try {
             const { error } = await supabase.storage.from('Lectures').remove([path]);
             if (error) throw error;
@@ -152,8 +169,7 @@ export function usePromotionData() {
     // ── تحميل أسئلة Excel وتحويلها إلى MCQ ──
     const loadExamQuestions = useCallback(async (
         courseType: CourseType,
-        subject: string,
-        count: number = 10
+        subject: string
     ): Promise<MCQQuestion[]> => {
         const path = `exams/${courseType}/${subject}.xlsx`;
         try {
@@ -184,14 +200,7 @@ export function usePromotionData() {
 
             if (validRows.length === 0) return [];
 
-            // Fisher-Yates shuffle for selecting random questions
-            const shuffled = [...validRows];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-            }
-
-            const selected = shuffled.slice(0, Math.min(count, shuffled.length));
+            const selected = validRows;
 
             return selected.map(row => {
                 const question = String(row[0]).trim();
@@ -258,7 +267,8 @@ export function usePromotionData() {
         settingsLoading,
         fetchSettings,
         updateSettings,
-        getCurriculumUrl,
+        getCurriculumFileUrl,
+        listCurriculaFiles,
         checkFileExists,
         uploadFile,
         deleteFile,

@@ -55,7 +55,7 @@ export const ExamTab = () => {
         setLoadingQuestions(true);
         setError(null);
         try {
-            const loaded = await loadExamQuestions(courseType, `${subject}_${variant}`, 10);
+            const loaded = await loadExamQuestions(courseType, `${subject}_${variant}`);
             if (loaded.length === 0) {
                 setError('لم يتم العثور على أسئلة في الملف. يرجى التأكد من صحة صيغة ملف Excel.');
                 return;
@@ -85,7 +85,6 @@ export const ExamTab = () => {
                 subject={subject}
                 durationMinutes={settings.exam_duration_minutes}
                 onFinish={handleFinishExam}
-                lecturerName={subject}
             />
         );
     }
@@ -170,7 +169,7 @@ export const ExamTab = () => {
                                     <button
                                         onClick={() => handleStartExam('A')}
                                         disabled={loadingQuestions}
-                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50"
+                                        className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-black text-xl transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50"
                                     >
                                         {loadingQuestions ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -182,7 +181,7 @@ export const ExamTab = () => {
                                     <button
                                         onClick={() => handleStartExam('B')}
                                         disabled={loadingQuestions}
-                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
+                                        className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-black text-xl transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
                                     >
                                         {loadingQuestions ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
