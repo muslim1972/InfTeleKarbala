@@ -759,9 +759,9 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                         <div className="flex items-center justify-center p-6">
                             <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
                         </div>
-                    ) : results.length === 0 ? (
+                    ) : allowedStudents.length === 0 ? (
                         <p className={cn("text-center text-sm p-6", isDark ? "text-white/40" : "text-slate-400")}>
-                            لا توجد نتائج بعد
+                            لم يتم تحديد طلبة مشاركين بعد
                         </p>
                     ) : (
                         <div className="space-y-4">

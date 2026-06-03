@@ -95,14 +95,12 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
             if (answers[i] === q.correctIndex) correct++;
         });
         setScore(correct);
-        setSubmitted(true);
-
         // Save result
         if (user) {
             setSaving(true);
             const elapsedExactSeconds = (performance.now() - startTimestampRef.current) / 1000;
             setExactDuration(elapsedExactSeconds);
-            await saveResult({
+            const success = await saveResult({
                 user_id: user.id,
                 user_name: user.full_name,
                 job_number: user.job_number || null,
@@ -118,7 +116,14 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                 }
             });
             setSaving(false);
+            
+            if (!success) {
+                // Do not submit if saving failed, let the user retry
+                return;
+            }
         }
+        
+        setSubmitted(true);
     }, [submitted, questions, answers, user, courseType, subject, totalSeconds, remainingSeconds, saveResult]);
 
     // Format timer
@@ -150,7 +155,7 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
                         )}
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        الرجوع لواجهة المشرف
+                        الرجوع لواجهة الطالب
                     </button>
                     <div className={cn(
                         "w-20 h-20 rounded-full mx-auto flex items-center justify-center",

@@ -238,10 +238,15 @@ export function usePromotionData() {
                 ...result,
                 completed_at: new Date().toISOString(),
             });
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error:', error);
+                alert(`فشل الحفظ في قاعدة البيانات: ${error.message || JSON.stringify(error)}`);
+                return false;
+            }
             return true;
-        } catch (err) {
+        } catch (err: any) {
             console.error('فشل حفظ النتيجة:', err);
+            alert(`خطأ غير متوقع أثناء الحفظ: ${err.message || 'Unknown error'}`);
             return false;
         }
     }, []);
