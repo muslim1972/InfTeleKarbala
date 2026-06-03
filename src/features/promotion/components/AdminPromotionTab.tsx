@@ -769,8 +769,28 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                 ( عدد الطلبة الذين انهوا الاختبار {results.length} من العدد الاجمالي {allowedStudents.length} )
                             </p>
                             <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
-                                {allowedStudents.map(student => {
-                                    const result = results.find(r => r.user_id === student.id);
+                                {(() => {
+                                    const sortedStudents = [...allowedStudents].sort((a, b) => {
+                                        const resultA = results.find(r => r.user_id === a.id);
+                                        const resultB = results.find(r => r.user_id === b.id);
+                                        
+                                        if (resultA && resultB) {
+                                            if (resultA.score !== resultB.score) {
+                                                return resultB.score - resultA.score;
+                                            }
+                                            const durA = resultA.duration_seconds || Infinity;
+                                            const durB = resultB.duration_seconds || Infinity;
+                                            return durA - durB;
+                                        }
+                                        
+                                        if (resultA && !resultB) return -1;
+                                        if (!resultA && resultB) return 1;
+                                        
+                                        return a.full_name.localeCompare(b.full_name);
+                                    });
+
+                                    return sortedStudents.map(student => {
+                                        const result = results.find(r => r.user_id === student.id);
                                     if (result) {
                                         return (
                                             <div key={student.id} onClick={() => setSelectedResult(result)} className={cn(
@@ -822,7 +842,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                                             </div>
                                         );
                                     }
-                                })}
+                                })})()}
                             </div>
                         </div>
                     )}
