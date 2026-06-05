@@ -62,9 +62,21 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
     const fetchAllowedUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            const { data, error } = await supabase.rpc('get_promotion_users', {
-                supervisor_mode: isSupervisorMode
-            });
+            let query = supabase.from('profiles').select('id, full_name, job_number, is_promotion_lecturer, can_access_promotion, promotion_course_type, promotion_subject_name').order('full_name');
+
+            if (isSupervisorMode) {
+                query = query.eq('is_promotion_lecturer', true);
+            } else {
+                query = query.eq('can_access_promotion', true);
+                if (selectedCourseType) {
+                    query = query.eq('promotion_course_type', selectedCourseType);
+                }
+                if (selectedSubjectName.trim()) {
+                    query = query.eq('promotion_subject_name', selectedSubjectName.trim());
+                }
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
             setAllowedUsers(data || []);
@@ -78,7 +90,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
 
     useEffect(() => {
         fetchAllowedUsers();
-    }, [mode]);
+    }, [mode, selectedCourseType, selectedSubjectName]);
 
     const handleGrantPermission = async (user: any) => {
         if (isSupervisorMode && user.is_promotion_lecturer) {

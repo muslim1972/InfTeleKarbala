@@ -259,11 +259,12 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         try {
             const [data, studentsRes] = await Promise.all([
                 fetchResults(200),
-                supabase.rpc('get_promotion_users', { 
-                    supervisor_mode: false,
-                    p_course_type: resultsCourseType,
-                    p_subject_name: resultsSubjectName.trim()
-                })
+                supabase.from('profiles')
+                    .select('id, full_name, job_number, can_access_promotion, promotion_course_type, promotion_subject_name')
+                    .eq('can_access_promotion', true)
+                    .eq('promotion_course_type', resultsCourseType)
+                    .eq('promotion_subject_name', resultsSubjectName.trim())
+                    .order('full_name')
             ]);
             
             const filteredResults = data.filter(r => 
