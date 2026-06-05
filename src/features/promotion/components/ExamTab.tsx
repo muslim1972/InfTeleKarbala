@@ -44,9 +44,12 @@ export const ExamTab = () => {
         if (!courseType) return;
         setChecking(true);
         // فحص وجود كلا ملفي الاختبار (A & B)
+        const formattedDate = dateString.includes('-') && dateString.split('-')[0].length === 4
+            ? dateString.split('-').reverse().join('-')
+            : dateString.trim();
         const [existsA, existsB] = await Promise.all([
-            checkFileExists('exams', courseType, `${dateString}_A`, 'xlsx'),
-            checkFileExists('exams', courseType, `${dateString}_B`, 'xlsx'),
+            checkFileExists('exams', courseType, `${formattedDate}_A`, 'xlsx'),
+            checkFileExists('exams', courseType, `${formattedDate}_B`, 'xlsx'),
         ]);
         setFileExists(existsA && existsB);
         setChecking(false);
@@ -64,7 +67,11 @@ export const ExamTab = () => {
                 return;
             }
 
-            const loaded = await loadExamQuestions(courseType, `${subject}_${variant}`);
+            const formattedDate = subject.includes('-') && subject.split('-')[0].length === 4
+                ? subject.split('-').reverse().join('-')
+                : subject.trim();
+
+            const loaded = await loadExamQuestions(courseType, `${formattedDate}_${variant}`);
             if (loaded.length === 0) {
                 setError('لم يتم العثور على أسئلة في الملف. يرجى التأكد من صحة صيغة ملف Excel.');
                 return;

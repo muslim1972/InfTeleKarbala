@@ -26,7 +26,10 @@ export const CurriculaTab = () => {
         if (!courseType) return;
         setChecking(true);
         setFiles([]);
-        const listedFiles = await listCurriculaFiles(courseType, dateString);
+        const formattedDate = dateString.includes('-') && dateString.split('-')[0].length === 4
+            ? dateString.split('-').reverse().join('-')
+            : dateString.trim();
+        const listedFiles = await listCurriculaFiles(courseType, formattedDate);
         setFiles(listedFiles);
         setChecking(false);
     }, [courseType, listCurriculaFiles]);
@@ -39,7 +42,10 @@ export const CurriculaTab = () => {
 
     const openPdf = useCallback((filename: string) => {
         if (!courseType || !subject) return;
-        const url = getCurriculumFileUrl(courseType, subject, filename);
+        const formattedDate = subject.includes('-') && subject.split('-')[0].length === 4
+            ? subject.split('-').reverse().join('-')
+            : subject.trim();
+        const url = getCurriculumFileUrl(courseType, formattedDate, filename);
         setViewingPdfUrl(url);
     }, [courseType, subject, getCurriculumFileUrl]);
 

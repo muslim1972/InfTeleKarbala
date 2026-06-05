@@ -87,7 +87,10 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         let cancelled = false;
         (async () => {
             setCurrChecking(true);
-            const files = await listCurriculaFiles(currCourseType, currSubject);
+            const formattedDate = currSubject.includes('-') && currSubject.split('-')[0].length === 4
+                ? currSubject.split('-').reverse().join('-')
+                : currSubject.trim();
+            const files = await listCurriculaFiles(currCourseType, formattedDate);
             if (!cancelled) {
                 setCurrExistingFiles(files);
                 setCurrChecking(false);
@@ -105,9 +108,12 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         let cancelled = false;
         (async () => {
             setExamChecking(true);
+            const formattedDate = examSubject.includes('-') && examSubject.split('-')[0].length === 4
+                ? examSubject.split('-').reverse().join('-')
+                : examSubject.trim();
             const [existsA, existsB] = await Promise.all([
-                checkFileExists('exams', examCourseType, `${examSubject}_A`, 'xlsx'),
-                checkFileExists('exams', examCourseType, `${examSubject}_B`, 'xlsx'),
+                checkFileExists('exams', examCourseType, `${formattedDate}_A`, 'xlsx'),
+                checkFileExists('exams', examCourseType, `${formattedDate}_B`, 'xlsx'),
             ]);
             if (!cancelled) {
                 setExamExistingFiles({ a: existsA, b: existsB });
