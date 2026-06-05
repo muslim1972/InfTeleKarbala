@@ -1,90 +1,62 @@
-import { BookOpen, Laptop, BellRing, ClipboardList } from "lucide-react";
-import { motion } from "framer-motion";
-import { useState } from "react";
-import { AccordionSection } from "../ui/AccordionSection";
-import { PollCreator } from "../admin/PollCreator";
-import { TrainingPollsList } from "./TrainingPollsList";
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { AdminTrainingTab } from "../../features/training/components/AdminTrainingTab";
+import { TraineeLoginPage } from "../../features/training/components/TraineeLoginPage";
+import { supabase } from "../../lib/supabase";
+import { Loader2 } from "lucide-react";
 
 export const TrainingTabContent = ({ isAdmin = false }: { isAdmin?: boolean }) => {
-    const [openSection, setOpenSection] = useState<string | null>(null);
+    const { user } = useAuth();
+    const [isSupervisor, setIsSupervisor] = useState(false);
+    const [loadingAuth, setLoadingAuth] = useState(true);
 
-    const toggleSection = (section: string) => {
-        setOpenSection(prev => prev === section ? null : section);
-    };
-    const sections = [
-        {
-            id: 'curriculum',
-            title: 'المنهاج التدريبي',
-            icon: BookOpen,
-            color: 'from-blue-600 to-blue-500'
-        },
-        {
-            id: 'exam',
-            title: 'الاختبار الالكتروني',
-            icon: Laptop,
-            color: 'from-purple-600 to-purple-500'
-        },
-        {
-            id: 'notifications',
-            title: 'التبليغات',
-            icon: BellRing,
-            color: 'from-amber-600 to-amber-500'
-        },
-        {
-            id: 'survey',
-            title: 'استطلاع رأي المتدربين',
-            icon: ClipboardList,
-            color: 'from-green-600 to-green-500'
-        }
-    ];
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
+    useEffect(() => {
+        const checkSupervisor = async () => {
+            if (!user || user.role === 'visitor') {
+                setLoadingAuth(false);
+                return;
             }
-        }
-    };
 
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 }
-    };
+            if (isAdmin) {
+                // Admins have full access anyway
+                setIsSupervisor(true);
+                setLoadingAuth(false);
+                return;
+            }
 
-    return (
-        <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="space-y-6 mx-2 md:mx-6"
-        >
-            {sections.map((section) => (
-                <motion.div key={section.id} variants={itemVariants}>
-                    <AccordionSection
-                        id={section.id}
-                        title={section.title}
-                        icon={section.icon}
-                        color={section.color}
-                        isOpen={openSection === section.id}
-                        onToggle={() => toggleSection(section.id)}
-                    >
-                        {section.id === 'survey' ? (
-                            <div className="p-4">
-                                {isAdmin ? <PollCreator category="training" /> : <TrainingPollsList />}
-                            </div>
-                        ) : (
-                            <div className="p-4 text-center">
-                                <h4 className="text-sm font-bold text-foreground mb-1">تحت التطوير</h4>
-                                <p className="text-muted-foreground text-xs">سيتم اطلاق هذا القسم قريباً</p>
-                            </div>
-                        )}
-                    </AccordionSection>
-                </motion.div>
-            ))}
-            {/* Spacer for scroll */}
-            <div className="h-20"></div>
-        </motion.div>
-    );
+            try {
+                // Check if current user is a training supervisor
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('is_training_supervisor')
+                    .eq('id', user.id)
+                    .single();
+
+                if (!error && data?.is_training_supervisor) {
+                    setIsSupervisor(true);
+                }
+            } catch (err) {
+                console.error("Failed to check supervisor status:", err);
+            }
+            setLoadingAuth(false);
+        };
+
+        checkSupervisor();
+    }, [user, isAdmin]);
+
+    if (loadingAuth) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+            </div>
+        );
+    }
+
+    // 1. If Admin or explicitly assigned Supervisor -> Show Admin Tab
+    if (isAdmin || isSupervisor) {
+        return <AdminTrainingTab isAdminView={isAdmin} />;
+    }
+
+    // 2. Otherwise (Visitor or regular employee) -> Show Trainee Login Interface
+    return <TraineeLoginPage />;
 };
