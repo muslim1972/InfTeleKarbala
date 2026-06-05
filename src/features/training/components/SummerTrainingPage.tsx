@@ -12,7 +12,7 @@ export const SummerTrainingPage = ({ onBack }: SummerTrainingPageProps) => {
     const { theme } = useTheme();
     const { user } = useAuth();
     const isDark = theme === 'dark';
-    const isSupervisor = user?.is_training_supervisor === true || user?.role === 'admin';
+    const isSupervisor = user?.is_training_supervisor === true || user?.role === 'admin' || user?.admin_role === 'developer' || user?.admin_role === 'general';
 
     return (
         <div className={cn(
@@ -54,7 +54,7 @@ export const SummerTrainingPage = ({ onBack }: SummerTrainingPageProps) => {
             {/* Content Area - Scrollable */}
             <div className="flex-1 overflow-y-auto">
                 <div className="py-6">
-                    <TrainingTabContent isAdmin={user?.role === 'admin'} />
+                    <TrainingTabContent isAdmin={isSupervisor} />
                 </div>
             </div>
         </div>

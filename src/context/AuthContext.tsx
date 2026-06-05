@@ -274,6 +274,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         has_capacities_access: fullProfile.has_capacities_access,
         can_access_promotion: fullProfile.can_access_promotion,
         is_promotion_lecturer: fullProfile.is_promotion_lecturer,
+        is_training_supervisor: fullProfile.is_training_supervisor,
         email: fullProfile.email
       };
 
