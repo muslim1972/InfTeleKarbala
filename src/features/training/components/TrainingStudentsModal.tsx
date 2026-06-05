@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff } from 'lucide-react';
+import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useAuth } from '../../../context/AuthContext';
@@ -341,16 +341,18 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                         value={institutionType}
                                         onChange={e => setInstitutionType(e.target.value as InstitutionType)}
                                         className={cn(
-                                            "w-full h-11 px-4 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
+                                            "w-full h-11 px-4 pl-10 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right appearance-none bg-none",
                                             theme === 'light'
                                                 ? "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
                                                 : "bg-white/5 border-white/10 text-gray-100 hover:bg-white/10"
                                         )}
+                                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                                         dir="rtl"
                                     >
                                         <option value="college">كلية</option>
                                         <option value="school">إعدادية</option>
                                     </select>
+                                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                 </div>
                             </div>
                         </div>
