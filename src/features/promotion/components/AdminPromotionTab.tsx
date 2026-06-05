@@ -123,10 +123,15 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
             toast.error('يرجى ملء جميع الحقول واختيار ملفات');
             return;
         }
+
+        const formattedDate = currSubject.includes('-') && currSubject.split('-')[0].length === 4
+            ? currSubject.split('-').reverse().join('-')
+            : currSubject.trim();
+
         setCurrUploading(true);
         let allSuccess = true;
         for (const file of currFiles) {
-            const result = await uploadFile('curricula', currCourseType, currSubject, file, 'pdf');
+            const result = await uploadFile('curricula', currCourseType, formattedDate, file, 'pdf');
             if (!result.success) {
                 toast.error(`فشل رفع الملف ${file.name}: ${result.error}`);
                 allSuccess = false;
@@ -136,7 +141,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         if (allSuccess) {
             toast.success(`تم رفع المناهج بنجاح لدورة يوم: ${currSubject}`);
             // تحديث القائمة
-            const files = await listCurriculaFiles(currCourseType, currSubject);
+            const files = await listCurriculaFiles(currCourseType, formattedDate);
             setCurrExistingFiles(files);
             setCurrFiles([]);
             if (currFileRef.current) currFileRef.current.value = '';
@@ -146,7 +151,10 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const handleCurrDeleteExisting = async (filename: string) => {
         if (!currCourseType || !currSubject) return;
         setCurrDeleting(true);
-        const success = await deleteFile('curricula', currCourseType, currSubject, filename);
+        const formattedDate = currSubject.includes('-') && currSubject.split('-')[0].length === 4
+            ? currSubject.split('-').reverse().join('-')
+            : currSubject.trim();
+        const success = await deleteFile('curricula', currCourseType, formattedDate, filename);
         setCurrDeleting(false);
         if (success) {
             toast.success('تم حذف المنهاج');
@@ -183,14 +191,19 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
             toast.error('ملفا الاختبار A و B متطابقان! يجب أن يكونا مختلفين لتمييز الطلبة المتجاورين.');
             return;
         }
+
+        const formattedDate = examSubject.includes('-') && examSubject.split('-')[0].length === 4
+            ? examSubject.split('-').reverse().join('-')
+            : examSubject.trim();
+
         // رفع الملفين بشكل متسلسل (واحد تلو الآخر لتجنب أخطاء الشبكة)
-        const resultA = await uploadFile('exams', examCourseType, `${examSubject}_A`, examFileA, 'xlsx');
+        const resultA = await uploadFile('exams', examCourseType, `${formattedDate}_A`, examFileA, 'xlsx');
         if (!resultA.success) {
             setExamUploading(false);
             toast.error(`فشل رفع اختبار A: ${resultA.error || 'خطأ غير معروف'}`);
             return;
         }
-        const resultB = await uploadFile('exams', examCourseType, `${examSubject}_B`, examFileB, 'xlsx');
+        const resultB = await uploadFile('exams', examCourseType, `${formattedDate}_B`, examFileB, 'xlsx');
         setExamUploading(false);
         if (!resultB.success) {
             toast.error(`تم رفع A بنجاح لكن فشل رفع اختبار B: ${resultB.error || 'خطأ غير معروف'}`);
@@ -209,9 +222,14 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const handleExamDeleteExisting = async () => {
         if (!examCourseType || !examSubject) return;
         setExamDeleting(true);
+
+        const formattedDate = examSubject.includes('-') && examSubject.split('-')[0].length === 4
+            ? examSubject.split('-').reverse().join('-')
+            : examSubject.trim();
+
         const [successA, successB] = await Promise.all([
-            deleteFile('exams', examCourseType, `${examSubject}_A`, 'xlsx'),
-            deleteFile('exams', examCourseType, `${examSubject}_B`, 'xlsx'),
+            deleteFile('exams', examCourseType, `${formattedDate}_A`, 'xlsx'),
+            deleteFile('exams', examCourseType, `${formattedDate}_B`, 'xlsx'),
         ]);
         setExamDeleting(false);
         if (successA || successB) {
@@ -257,19 +275,23 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         
         setResultsLoading(true);
         try {
+            const formattedDate = resultsSubjectName.includes('-') && resultsSubjectName.split('-')[0].length === 4
+                ? resultsSubjectName.split('-').reverse().join('-')
+                : resultsSubjectName.trim();
+
             const [data, studentsRes] = await Promise.all([
                 fetchResults(200),
                 supabase.from('profiles')
                     .select('id, full_name, job_number, can_access_promotion, promotion_course_type, promotion_subject_name')
                     .eq('can_access_promotion', true)
                     .eq('promotion_course_type', resultsCourseType)
-                    .eq('promotion_subject_name', resultsSubjectName.trim())
+                    .eq('promotion_subject_name', formattedDate)
                     .order('full_name')
             ]);
             
             const filteredResults = data.filter(r => 
                 r.course_type === resultsCourseType && 
-                r.subject_name === resultsSubjectName.trim()
+                r.subject_name === formattedDate
             );
             
             setResults(filteredResults);

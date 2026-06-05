@@ -72,7 +72,10 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
                     query = query.eq('promotion_course_type', selectedCourseType);
                 }
                 if (selectedSubjectName.trim()) {
-                    query = query.eq('promotion_subject_name', selectedSubjectName.trim());
+                    const formattedDate = selectedSubjectName.includes('-') && selectedSubjectName.split('-')[0].length === 4
+                        ? selectedSubjectName.split('-').reverse().join('-')
+                        : selectedSubjectName.trim();
+                    query = query.eq('promotion_subject_name', formattedDate);
                 }
             }
 
@@ -108,12 +111,16 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         }
 
         try {
+            const formattedDate = selectedSubjectName.includes('-') && selectedSubjectName.split('-')[0].length === 4
+                ? selectedSubjectName.split('-').reverse().join('-')
+                : selectedSubjectName.trim();
+
             const { error } = await supabase.rpc('set_promotion_permission', {
                 target_user_id: user.id,
                 make_supervisor: isSupervisorMode,
                 make_student: true,
                 p_course_type: isSupervisorMode ? null : selectedCourseType,
-                p_subject_name: isSupervisorMode ? null : selectedSubjectName.trim()
+                p_subject_name: isSupervisorMode ? null : formattedDate
             });
 
             if (error) throw error;
