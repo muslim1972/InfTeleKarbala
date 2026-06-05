@@ -60,16 +60,16 @@ export const ExamTab = () => {
         setLoadingQuestions(true);
         setError(null);
         try {
+            const formattedDate = subject.includes('-') && subject.split('-')[0].length === 4
+                ? subject.split('-').reverse().join('-')
+                : subject.trim();
+
             // التحقق مما إذا كان المستخدم قد أجرى الاختبار مسبقاً
-            const hasResult = await checkUserHasResult(user.id, courseType, subject);
+            const hasResult = await checkUserHasResult(user.id, courseType, formattedDate);
             if (hasResult) {
                 setError('لقد قمت بإنهاء هذا الاختبار مسبقاً، ولا يمكنك إعادته إلا إذا قام المشرف بحذف نتيجتك السابقة.');
                 return;
             }
-
-            const formattedDate = subject.includes('-') && subject.split('-')[0].length === 4
-                ? subject.split('-').reverse().join('-')
-                : subject.trim();
 
             const loaded = await loadExamQuestions(courseType, `${formattedDate}_${variant}`);
             if (loaded.length === 0) {

@@ -95,17 +95,21 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
             if (answers[i] === q.correctIndex) correct++;
         });
         setScore(correct);
-        // Save result
         if (user) {
             setSaving(true);
             const elapsedExactSeconds = (performance.now() - startTimestampRef.current) / 1000;
             setExactDuration(elapsedExactSeconds);
+            
+            const formattedDate = subject.includes('-') && subject.split('-')[0].length === 4
+                ? subject.split('-').reverse().join('-')
+                : subject.trim();
+                
             const success = await saveResult({
                 user_id: user.id,
                 user_name: user.full_name,
                 job_number: user.job_number || null,
                 course_type: courseType,
-                subject_name: subject,
+                subject_name: formattedDate,
                 score: correct,
                 total_questions: questions.length,
                 started_at: startedAtRef.current,
