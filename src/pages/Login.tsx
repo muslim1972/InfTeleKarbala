@@ -4,8 +4,11 @@ import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "luc
 import { AppFooter } from "../components/layout/AppFooter";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
+import { TraineeLoginPage } from "../features/training/components/TraineeLoginPage";
+import { GraduationCap } from "lucide-react";
 
 export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
+  const [showTraineeLogin, setShowTraineeLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -112,6 +115,20 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     setForgotResult(result);
     setForgotLoading(false);
   };
+
+  if (showTraineeLogin) {
+    return (
+      <div className={`h-screen w-full relative overflow-y-auto overflow-x-hidden ${theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'}`}>
+        <button 
+          onClick={() => setShowTraineeLogin(false)}
+          className="absolute top-4 left-4 z-[60] px-4 py-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all text-sm backdrop-blur-md"
+        >
+          العودة
+        </button>
+        <TraineeLoginPage />
+      </div>
+    );
+  }
 
   return (
     <div className={`h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden font-tao scroll-smooth pb-12 transition-colors duration-500 ${
@@ -417,6 +434,16 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
             >
               <span>الدخول كزائر</span>
               <User className="w-5 h-5" />
+            </button>
+
+            {/* Trainee Login Button */}
+            <button
+              type="button"
+              onClick={() => setShowTraineeLogin(true)}
+              className="w-full bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] active:scale-[0.98] backdrop-blur-sm border border-white/10"
+            >
+              <span>دخول متدربي التدريب الصيفي</span>
+              <GraduationCap className="w-5 h-5" />
             </button>
           </div>
         </form>

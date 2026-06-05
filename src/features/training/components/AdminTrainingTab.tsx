@@ -503,7 +503,10 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
             {showStudentsModal && (
                 <TrainingStudentsModal
-                    onClose={() => setShowStudentsModal(false)}
+                    onClose={() => {
+                        setShowStudentsModal(false);
+                        loadResults();
+                    }}
                     theme={theme}
                 />
             )}

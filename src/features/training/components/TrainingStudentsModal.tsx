@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar } from 'lucide-react';
+import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useAuth } from '../../../context/AuthContext';
@@ -13,6 +13,71 @@ interface TrainingStudentsModalProps {
     theme: string;
 }
 
+const AutocompleteField = ({
+    label,
+    value,
+    onChange,
+    suggestions,
+    showDropdown,
+    setShowDropdown,
+    containerRef,
+    placeholder,
+    theme,
+}: {
+    label: string;
+    value: string;
+    onChange: (val: string) => void;
+    suggestions: string[];
+    showDropdown: boolean;
+    setShowDropdown: (v: boolean) => void;
+    containerRef: React.RefObject<HTMLDivElement>;
+    placeholder?: string;
+    theme: string;
+}) => (
+    <div className="space-y-1.5" ref={containerRef}>
+        <label className="text-sm font-bold block">
+            {label} <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+            <Input
+                value={value}
+                onChange={e => {
+                    onChange(e.target.value);
+                    setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                placeholder={placeholder}
+                className="text-right"
+            />
+            {showDropdown && suggestions.length > 0 && (
+                <div className={cn(
+                    "absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-xl border shadow-lg custom-scrollbar",
+                    theme === 'light' ? "bg-white border-gray-200" : "bg-zinc-800 border-white/10"
+                )}>
+                    {suggestions.map((item, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                                onChange(item);
+                                setShowDropdown(false);
+                            }}
+                            className={cn(
+                                "w-full text-right px-3 py-2 text-sm transition-colors border-b last:border-b-0",
+                                theme === 'light'
+                                    ? "hover:bg-emerald-50 border-gray-100"
+                                    : "hover:bg-emerald-500/10 border-white/5"
+                            )}
+                        >
+                            {item}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+);
+
 /**
  * مودال تحديد الطلبة المتدربين (طلاب الجامعات/المدارس)
  * يستخدم من قبل مشرف التدريب الصيفي لإضافة وإدارة المتدربين
@@ -25,6 +90,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [institutionType, setInstitutionType] = useState<InstitutionType>('college');
     const [institutionName, setInstitutionName] = useState('');
     const [department, setDepartment] = useState('');
@@ -175,69 +241,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
         }
     };
 
-    // ── مكوّن حقل الإكمال التلقائي ──
-    const AutocompleteField = ({
-        label,
-        value,
-        onChange,
-        suggestions,
-        showDropdown,
-        setShowDropdown,
-        containerRef,
-        placeholder,
-    }: {
-        label: string;
-        value: string;
-        onChange: (val: string) => void;
-        suggestions: string[];
-        showDropdown: boolean;
-        setShowDropdown: (v: boolean) => void;
-        containerRef: React.RefObject<HTMLDivElement>;
-        placeholder?: string;
-    }) => (
-        <div className="space-y-1.5" ref={containerRef}>
-            <label className="text-sm font-bold block">
-                {label} <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-                <Input
-                    value={value}
-                    onChange={e => {
-                        onChange(e.target.value);
-                        setShowDropdown(true);
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                    placeholder={placeholder}
-                    className="text-right"
-                />
-                {showDropdown && suggestions.length > 0 && (
-                    <div className={cn(
-                        "absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-xl border shadow-lg custom-scrollbar",
-                        theme === 'light' ? "bg-white border-gray-200" : "bg-zinc-800 border-white/10"
-                    )}>
-                        {suggestions.map((item, idx) => (
-                            <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                    onChange(item);
-                                    setShowDropdown(false);
-                                }}
-                                className={cn(
-                                    "w-full text-right px-3 py-2 text-sm transition-colors border-b last:border-b-0",
-                                    theme === 'light'
-                                        ? "hover:bg-emerald-50 border-gray-100"
-                                        : "hover:bg-emerald-500/10 border-white/5"
-                                )}
-                            >
-                                {item}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+
 
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
@@ -310,14 +314,23 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                 <label className="text-sm font-bold block">
                                     كلمة المرور <span className="text-red-500">*</span>
                                 </label>
-                                <Input
-                                    type="password"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    className="text-left"
-                                    dir="ltr"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        type={showPassword ? "text" : "password"}
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder="أدخل كلمة المرور"
+                                        className="text-right text-end pl-10 font-sans tracking-normal"
+                                        dir="rtl"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-emerald-500 transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold block">
@@ -338,6 +351,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                         <option value="college">كلية</option>
                                         <option value="school">إعدادية</option>
                                     </select>
+                                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                 </div>
                             </div>
                         </div>
@@ -353,6 +367,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                 setShowDropdown={setShowInstitutionDropdown}
                                 containerRef={institutionRef as React.RefObject<HTMLDivElement>}
                                 placeholder="مثال: جامعة كربلاء"
+                                theme={theme}
                             />
                             <AutocompleteField
                                 label="القسم"
@@ -363,6 +378,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                 setShowDropdown={setShowDepartmentDropdown}
                                 containerRef={departmentRef as React.RefObject<HTMLDivElement>}
                                 placeholder="مثال: كهرباء، اتصالات، حاسبات"
+                                theme={theme}
                             />
                         </div>
 
@@ -377,6 +393,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                     type="date"
                                     value={startDate}
                                     onChange={e => setStartDate(e.target.value)}
+                                    className="text-right pr-4"
                                     dir="ltr"
                                 />
                             </div>
@@ -389,6 +406,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                     type="date"
                                     value={endDate}
                                     onChange={e => setEndDate(e.target.value)}
+                                    className="text-right pr-4"
                                     dir="ltr"
                                 />
                             </div>
