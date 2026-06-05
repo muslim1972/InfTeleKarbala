@@ -25,6 +25,7 @@ export interface AppUser {
   has_capacities_access?: boolean;
   can_access_promotion?: boolean;
   is_promotion_lecturer?: boolean;
+  is_training_supervisor?: boolean;
   email?: string | null;
 }
 
@@ -162,7 +163,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               unit_text: profile.unit_text,
               has_capacities_access: profile.has_capacities_access,
               can_access_promotion: profile.can_access_promotion,
-              is_promotion_lecturer: profile.is_promotion_lecturer
+              is_promotion_lecturer: profile.is_promotion_lecturer,
+              is_training_supervisor: profile.is_training_supervisor
             };
             setUser(appUser);
             if (profile) {

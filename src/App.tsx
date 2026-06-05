@@ -52,7 +52,7 @@ const AppContent = () => {
     };
   }, [navigate]);
 
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | null>(() => {
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
@@ -149,9 +149,9 @@ const AppContent = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Persist view mode choice (لا نحفظ capacities/promotion لأنهما وضع مؤقت)
+  // Persist view mode choice (لا نحفظ capacities/promotion/training لأنهما وضع مؤقت)
   useEffect(() => {
-    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion') {
+    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training') {
       localStorage.setItem('adminViewMode', adminViewMode);
     }
   }, [adminViewMode]);
@@ -201,12 +201,13 @@ const AppContent = () => {
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──
   const isAdmin = user.role === 'admin';
   const hasPromotion = user.can_access_promotion === true;
-  const needsRoleSelection = isAdmin || hasCapacities || hasPromotion;
+  const hasTraining = user.is_training_supervisor === true || isAdmin || user.admin_role === 'developer' || user.admin_role === 'general';
+  const needsRoleSelection = isAdmin || hasCapacities || hasPromotion || hasTraining;
 
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
     // عرض واجهة السعات كـ iframe داخلي
@@ -216,6 +217,15 @@ const AppContent = () => {
     // عرض واجهة دورات الترفيع
     if (adminViewMode === 'promotion') {
       return <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />;
+    }
+    // عرض واجهة التدريب الصيفي (يتم توجيهه لواجهة المستخدم مع فتح تبويب التدريب)
+    if (adminViewMode === 'training') {
+       // نحن لا نملك صفحة مستقلة، لذا نعرض Dashboard ولكن نفرض فتح تبويب التدريب
+       // سأستخدم window.dispatchEvent لتغيير التبويب عند التحميل
+       setTimeout(() => {
+           window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'training' } }));
+       }, 50);
+       return <Dashboard onBack={() => setAdminViewMode(null)} />;
     }
     // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard onBack={() => setAdminViewMode(null)} />;

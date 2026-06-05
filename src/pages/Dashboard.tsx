@@ -42,8 +42,8 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     // Handle tab switching via custom events
     useEffect(() => {
         const handleSwitchTab = (e: any) => {
-            if (e.detail?.tab === 'audio') {
-                setActiveTab('audio');
+            if (e.detail?.tab) {
+                setActiveTab(e.detail.tab);
                 window.scrollTo({ top: 0, behavior: 'instant' });
             }
         };

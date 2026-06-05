@@ -5,14 +5,16 @@ import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
     /** Whether this user is eligible for Promotion Courses */
     hasPromotion?: boolean;
+    /** Whether this user is eligible for Summer Training */
+    hasTraining?: boolean;
 }
 
-export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false }: AdminRoleSelectorProps) => {
+export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false, hasTraining = false }: AdminRoleSelectorProps) => {
     const { user, logout } = useAuth();
     const { theme } = useTheme();
 
@@ -21,7 +23,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
 
     // Build cards list
     const cards: {
-        id: 'user' | 'admin' | 'capacities' | 'promotion';
+        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training';
         label: string;
         desc: string;
         icon: React.ReactNode;
@@ -64,6 +66,15 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             hoverGlow: 'hover:shadow-[0_0_30px_rgba(245,158,11,0.2)]',
             iconBg: isDark ? 'bg-amber-500/20 border-amber-500/30 group-hover:bg-amber-500/30' : 'bg-amber-500/10 border-amber-500/20',
             show: hasPromotion,
+        },
+        {
+            id: 'training',
+            label: 'التدريب الصيفي',
+            desc: 'إدارة شؤون المتدربين والاختبارات',
+            icon: <GraduationCap className="w-6 h-6 text-emerald-500" />,
+            hoverGlow: 'hover:shadow-[0_0_30px_rgba(16,185,129,0.2)]',
+            iconBg: isDark ? 'bg-emerald-500/20 border-emerald-500/30 group-hover:bg-emerald-500/30' : 'bg-emerald-500/10 border-emerald-500/20',
+            show: hasTraining,
         },
     ];
 
