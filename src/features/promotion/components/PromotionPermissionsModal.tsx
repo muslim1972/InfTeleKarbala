@@ -62,24 +62,21 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
     const fetchAllowedUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            let query = supabase.from('profiles').select('id, full_name, job_number, is_promotion_lecturer, can_access_promotion, promotion_course_type, promotion_subject_name').order('full_name');
-
-            if (isSupervisorMode) {
-                query = query.eq('is_promotion_lecturer', true);
-            } else {
-                query = query.eq('can_access_promotion', true);
-                if (selectedCourseType) {
-                    query = query.eq('promotion_course_type', selectedCourseType);
-                }
-                if (selectedSubjectName.trim()) {
-                    const formattedDate = selectedSubjectName.includes('-') && selectedSubjectName.split('-')[0].length === 4
-                        ? selectedSubjectName.split('-').reverse().join('-')
-                        : selectedSubjectName.trim();
-                    query = query.eq('promotion_subject_name', formattedDate);
-                }
+            if (!isSupervisorMode && (!selectedCourseType || !selectedSubjectName.trim())) {
+                setAllowedUsers([]);
+                setIsLoadingUsers(false);
+                return;
             }
 
-            const { data, error } = await query;
+            const formattedDate = selectedSubjectName.includes('-') && selectedSubjectName.split('-')[0].length === 4
+                ? selectedSubjectName.split('-').reverse().join('-')
+                : selectedSubjectName.trim();
+
+            const { data, error } = await supabase.rpc('get_promotion_users', {
+                supervisor_mode: isSupervisorMode,
+                p_course_type: isSupervisorMode ? null : selectedCourseType,
+                p_subject_name: isSupervisorMode ? null : formattedDate
+            });
 
             if (error) throw error;
             setAllowedUsers(data || []);
