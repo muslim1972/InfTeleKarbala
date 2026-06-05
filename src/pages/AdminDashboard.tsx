@@ -9,7 +9,6 @@ import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
 import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
 import { CustomAudit } from "../components/admin/CustomAudit";
-import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { useAuth } from "../context/AuthContext";
 import { lazy, Suspense } from "react";
 const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
