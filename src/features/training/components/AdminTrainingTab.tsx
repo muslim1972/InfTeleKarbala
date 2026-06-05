@@ -313,16 +313,34 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             <ChevronDown className={cn("w-5 h-5 transition-transform duration-300", isOpen ? "rotate-180" : "", isDark ? "text-white/50" : "text-slate-400")} />
         </button>
     );
-
-    const permissionsTitle = isAdminView ? 'تحديد المشرفين على التدريب الصيفي' : 'تحديد الطلبة المشاركين';
-    const permissionsSubtitle = isAdminView
-        ? 'تحديد الموظفين كمشرفين على التدريب الصيفي'
-        : 'إضافة وإدارة الطلبة المتدربين في التدريب الصيفي';
-    const PermissionsIcon = isAdminView ? Shield : GraduationCap;
-
     return (
         <div className="max-w-4xl mx-auto px-4 pb-20 mt-2 space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
-            {/* زر تحديد أسماء الطلبة أو المشرفين */}
+            {isAdminView && (
+                <div className={cn(
+                    "rounded-2xl p-4 border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300",
+                    isDark
+                        ? "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 border-white/10"
+                        : "bg-white border-slate-200 shadow-xl shadow-slate-100"
+                )}>
+                    <div className="flex items-center gap-3">
+                        <div className={cn("p-2 rounded-xl bg-emerald-500/10 text-emerald-500")}>
+                            <Shield className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className={cn("text-sm font-bold", isDark ? "text-white" : "text-slate-800")}>تحديد المشرفين على التدريب الصيفي</h3>
+                            <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>تحديد الموظفين كمشرفين على التدريب الصيفي</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowSupervisorModal(true)}
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                        تحديد المشرفين على التدريب الصيفي
+                    </button>
+                </div>
+            )}
+
+            {/* زر تحديد أسماء الطلبة */}
             <div className={cn(
                 "rounded-2xl p-4 border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300",
                 isDark
@@ -331,18 +349,18 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             )}>
                 <div className="flex items-center gap-3">
                     <div className={cn("p-2 rounded-xl bg-emerald-500/10 text-emerald-500")}>
-                        <PermissionsIcon className="w-5 h-5" />
+                        <GraduationCap className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className={cn("text-sm font-bold", isDark ? "text-white" : "text-slate-800")}>{permissionsTitle}</h3>
-                        <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>{permissionsSubtitle}</p>
+                        <h3 className={cn("text-sm font-bold", isDark ? "text-white" : "text-slate-800")}>تحديد الطلبة المشاركين</h3>
+                        <p className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>إضافة وإدارة الطلبة المتدربين في التدريب الصيفي</p>
                     </div>
                 </div>
                 <button
-                    onClick={() => isAdminView ? setShowSupervisorModal(true) : setShowStudentsModal(true)}
+                    onClick={() => setShowStudentsModal(true)}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 whitespace-nowrap"
                 >
-                    {permissionsTitle}
+                    تحديد الطلبة المشاركين
                 </button>
             </div>
 
@@ -490,8 +508,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                 />
             )}
 
-            {!isAdminView && (
-                <>
+
                     {/* ── تحكم الاختبار ── */}
                     <div className={cn(
                         "rounded-2xl p-4 border space-y-4",
@@ -804,8 +821,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             )}
                         </div>
                     )}
-                </>
-            )}
+
 
             {/* Modal for viewing exam details */}
             {selectedResult && (
