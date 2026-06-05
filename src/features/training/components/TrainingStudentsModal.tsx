@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useAuth } from '../../../context/AuthContext';
@@ -341,7 +341,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                         value={institutionType}
                                         onChange={e => setInstitutionType(e.target.value as InstitutionType)}
                                         className={cn(
-                                            "w-full h-11 px-4 rounded-xl border text-sm appearance-none outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
+                                            "w-full h-11 px-4 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right",
                                             theme === 'light'
                                                 ? "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
                                                 : "bg-white/5 border-white/10 text-gray-100 hover:bg-white/10"
@@ -351,7 +351,6 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                         <option value="college">كلية</option>
                                         <option value="school">إعدادية</option>
                                     </select>
-                                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                 </div>
                             </div>
                         </div>
@@ -389,26 +388,32 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                     <Calendar className="w-3.5 h-3.5 inline-block ml-1 opacity-60" />
                                     تاريخ المباشرة
                                 </label>
-                                <Input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={e => setStartDate(e.target.value)}
-                                    className="text-right pr-4"
-                                    dir="ltr"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={e => setStartDate(e.target.value)}
+                                        className="text-right pr-12 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        dir="ltr"
+                                    />
+                                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-slate-400" />
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold block">
                                     <Calendar className="w-3.5 h-3.5 inline-block ml-1 opacity-60" />
                                     تاريخ الانفكاك
                                 </label>
-                                <Input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={e => setEndDate(e.target.value)}
-                                    className="text-right pr-4"
-                                    dir="ltr"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={e => setEndDate(e.target.value)}
+                                        className="text-right pr-12 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        dir="ltr"
+                                    />
+                                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-slate-400" />
+                                </div>
                             </div>
                         </div>
 

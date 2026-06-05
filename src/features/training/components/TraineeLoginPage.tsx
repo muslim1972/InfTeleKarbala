@@ -118,7 +118,7 @@ export const TraineeLoginPage = () => {
                                 placeholder="أدخل كلمة المرور"
                                 dir="ltr"
                                 className={cn(
-                                    "w-full h-12 px-4 pr-12 rounded-xl border text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-emerald-500/50",
+                                    "w-full h-12 px-12 rounded-xl border text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-emerald-500/50 text-center tracking-widest",
                                     isDark
                                         ? "bg-white/5 border-white/10 text-white placeholder:text-white/30"
                                         : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400"
