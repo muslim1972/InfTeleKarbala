@@ -257,8 +257,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
         setTogglingSupId(profileId);
         try {
             const { error } = await supabase.rpc('set_training_supervisor', {
-                p_user_id: profileId,
-                p_is_supervisor: shouldBeSuper,
+                target_user_id: profileId,
+                make_supervisor: shouldBeSuper,
             });
             if (error) throw error;
             toast.success(shouldBeSuper ? 'تمت إضافة المشرف' : 'تمت إزالة المشرف');
