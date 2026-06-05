@@ -6,7 +6,6 @@ import { YearSlider } from "../components/features/YearSlider";
 import { AppNotifications } from "../components/features/AppNotifications";
 import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
-import { TrainingTabContent } from "../components/features/TrainingTabContent";
 import { AudioHub } from "../components/features/AudioHub";
 import { FinancialTabContent } from "../components/features/FinancialTabContent";
 import { AdministrativeTabContent } from "../components/features/AdministrativeTabContent";
@@ -19,7 +18,7 @@ import { useAuth } from "../context/AuthContext";
 export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge' | 'incentives'>('administrative');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives'>('administrative');
 
     const {
         financialData, loading, showIban, setShowIban, departmentInfo,
@@ -83,8 +82,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                     <UserPolls />
                 ) : activeTab === 'requests' ? (
                     <RequestsTabContent />
-                ) : activeTab === 'training' ? (
-                    <TrainingTabContent />
                 ) : activeTab === 'knowledge' ? (
                     <KnowledgeTabContent />
                 ) : activeTab === 'audio' ? (

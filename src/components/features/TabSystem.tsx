@@ -3,11 +3,11 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, BookOpen, Music, GraduationCap, Coins } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Coins } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge' | 'incentives';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'training' | 'audio' | 'knowledge' | 'incentives') => void;
+    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -24,7 +24,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },
-        { id: 'training', label: 'التدريب الصيفي', icon: BookOpen },
     ] as const;
 
     const tabs = baseTabs.filter(tab => {

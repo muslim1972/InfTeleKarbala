@@ -27,6 +27,7 @@ const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ defa
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
+const SummerTrainingPage = lazy(() => import("./features/training/components/SummerTrainingPage").then(m => ({ default: m.SummerTrainingPage })));
 import { CapacitiesIframe } from "./components/admin/dashboard/CapacitiesIframe";
 import { NotFound } from "./pages/NotFound";
 
@@ -218,14 +219,9 @@ const AppContent = () => {
     if (adminViewMode === 'promotion') {
       return <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />;
     }
-    // عرض واجهة التدريب الصيفي (يتم توجيهه لواجهة المستخدم مع فتح تبويب التدريب)
+    // عرض واجهة التدريب الصيفي
     if (adminViewMode === 'training') {
-       // نحن لا نملك صفحة مستقلة، لذا نعرض Dashboard ولكن نفرض فتح تبويب التدريب
-       // سأستخدم window.dispatchEvent لتغيير التبويب عند التحميل
-       setTimeout(() => {
-           window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'training' } }));
-       }, 50);
-       return <Dashboard onBack={() => setAdminViewMode(null)} />;
+       return <SummerTrainingPage onBack={() => setAdminViewMode(null)} />;
     }
     // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard onBack={() => setAdminViewMode(null)} />;
