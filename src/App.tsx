@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
+import { IncentivesTabContent } from "./components/features/IncentivesTabContent";
 import { AudioProvider } from "./context/AudioContext";
 import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
 import { ChatProvider } from "./context/ChatContext";
@@ -53,7 +54,7 @@ const AppContent = () => {
     };
   }, [navigate]);
 
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | null>(() => {
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
@@ -150,9 +151,9 @@ const AppContent = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Persist view mode choice (لا نحفظ capacities/promotion/training لأنهما وضع مؤقت)
+  // Persist view mode choice (لا نحفظ capacities/promotion/training/user_incentives لأنهما وضع مؤقت)
   useEffect(() => {
-    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training') {
+    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training' && adminViewMode !== 'user_incentives') {
       localStorage.setItem('adminViewMode', adminViewMode);
     }
   }, [adminViewMode]);
@@ -203,14 +204,13 @@ const AppContent = () => {
   const isAdmin = user.role === 'admin';
   const hasPromotion = user.can_access_promotion === true;
   const hasTraining = user.is_training_supervisor === true || isAdmin || user.admin_role === 'developer' || user.admin_role === 'general';
-  const needsRoleSelection = isAdmin || hasCapacities || hasPromotion || hasTraining;
+  const needsRoleSelection = true; // All users now see the Welcome Dashboard
 
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode as any} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} />;
     }
-    // عرض واجهة السعات كـ iframe داخلي
     // عرض واجهة السعات كـ iframe داخلي
     if (adminViewMode === 'capacities') {
       return <CapacitiesIframe onBack={() => setAdminViewMode(null)} />;
@@ -222,6 +222,17 @@ const AppContent = () => {
     // عرض واجهة التدريب الصيفي
     if (adminViewMode === 'training') {
        return <SummerTrainingPage onBack={() => setAdminViewMode(null)} />;
+    }
+    // عرض الحوافز المستقلة لجميع المستخدمين
+    if (adminViewMode === 'user_incentives') {
+       return (
+         <div className="pt-8 px-4 relative max-w-5xl mx-auto pb-20">
+             <button onClick={() => setAdminViewMode(null)} className="mb-4 text-sm bg-secondary px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2 hover:bg-secondary/80">
+                 العودة للصفحة الرئيسية
+             </button>
+             <IncentivesTabContent isAdminView={false} />
+         </div>
+       );
     }
     // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard onBack={() => setAdminViewMode(null)} />;

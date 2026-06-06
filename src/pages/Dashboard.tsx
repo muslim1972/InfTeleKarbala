@@ -10,7 +10,6 @@ import { AudioHub } from "../components/features/AudioHub";
 import { FinancialTabContent } from "../components/features/FinancialTabContent";
 import { AdministrativeTabContent } from "../components/features/AdministrativeTabContent";
 import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeTabContent";
-import { IncentivesTabContent } from "../components/features/IncentivesTabContent";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
 
@@ -18,7 +17,7 @@ import { useAuth } from "../context/AuthContext";
 export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives'>('administrative');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge'>('administrative');
 
     const {
         financialData, loading, showIban, setShowIban, departmentInfo,
@@ -86,8 +85,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                     <KnowledgeTabContent />
                 ) : activeTab === 'audio' ? (
                     <AudioHub />
-                ) : activeTab === 'incentives' ? (
-                    <IncentivesTabContent />
                 ) : activeTab === 'financial' ? (
                     <FinancialTabContent 
                         user={user}

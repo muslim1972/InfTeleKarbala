@@ -6,6 +6,7 @@ import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 import { TraineeLoginPage } from "../features/training/components/TraineeLoginPage";
 import { GraduationCap } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   const [showTraineeLogin, setShowTraineeLogin] = useState(false);
@@ -43,6 +44,23 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    const gov = sessionStorage.getItem('selectedGovernorate');
+    if (gov) {
+      // Check if user exists in the selected governorate
+      const { data: profileCheck } = await supabase
+          .from('available_profiles')
+          .select('id')
+          .eq('governorate', gov)
+          .or(`username.eq.${username},job_number.eq.${username}`)
+          .maybeSingle();
+
+      if (!profileCheck) {
+          setLoading(false);
+          setError("لم يتم العثور على اسم المستخدم");
+          return;
+      }
+    }
 
     const result = await login(username, password) as any;
 
@@ -158,16 +176,23 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
       {/* Main Content Container */}
       <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] pb-40">
 
-        {/* Back to Launcher Button */}
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="self-start mb-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors text-xs font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 animate-in fade-in slide-in-from-right-4 duration-500"
-          >
-            <span>→</span>
-            <span>العودة للبوابة</span>
-          </button>
-        )}
+          {/* Back to Launcher Button */}
+          {onBack && (
+            <button
+              onClick={() => {
+                  sessionStorage.removeItem('selectedGovernorate');
+                  onBack();
+              }}
+              className={`self-start mb-6 flex items-center gap-2 transition-colors text-sm font-bold px-4 py-2.5 rounded-xl backdrop-blur-md border shadow-sm hover:shadow-md animate-in fade-in slide-in-from-right-4 duration-500 ${
+                  theme === 'light'
+                    ? 'bg-white/80 border-gray-200 text-slate-800 hover:bg-white hover:text-brand-green'
+                    : 'bg-white/10 border-white/10 text-white/90 hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              <span className="text-lg leading-none mt-[-2px]">→</span>
+              <span>تغيير المحافظة</span>
+            </button>
+          )}
 
         {/* Header / Logo Section */}
         <div className="text-center mb-4 space-y-2 animate-in fade-in slide-in-from-bottom-8 duration-700">

@@ -6,7 +6,7 @@ export const ThemeToggleFloating = () => {
     const { theme, toggleTheme } = useTheme();
 
     return (
-        <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-6 z-[100] animate-in fade-in slide-in-from-left-8 duration-700">
+        <div className="fixed top-[calc(1.5rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-8 duration-700">
             <button
                 onClick={toggleTheme}
                 className={cn(

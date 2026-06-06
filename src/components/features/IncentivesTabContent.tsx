@@ -10,7 +10,9 @@ import {
     Coins, 
     Loader2, 
     Save,
-    ClipboardList
+    ClipboardList,
+    Check,
+    X
 } from "lucide-react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -89,6 +91,10 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const [saving, setSaving] = useState(false);
     const [loadingRecord, setLoadingRecord] = useState(false);
 
+    // حالة التحكم بقيمة النقطة
+    const [pointValInput, setPointValInput] = useState<number | "">("");
+    const [savingPoint, setSavingPoint] = useState(false);
+
     // الفحص لمعرفة هل الموظف الحالي مدير قسم
     useEffect(() => {
         const checkManagerStatus = async () => {
@@ -125,13 +131,66 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             if (error) console.error("Error fetching point value:", error);
             if (data) {
                 setPointValue(Number(data.point_value));
+                setPointValInput(Number(data.point_value));
             } else {
                 setPointValue(0);
+                setPointValInput("");
             }
         } catch (e) {
             console.error("Error fetching point value:", e);
         } finally {
             setLoadingPoint(false);
+        }
+    };
+
+    const handleSavePoint = async () => {
+        if (pointValInput === "") {
+            toast.error("يرجى إدخال قيمة النقطة أولاً");
+            return;
+        }
+        setSavingPoint(true);
+        try {
+            const { error } = await supabase
+                .from('incentive_point_values')
+                .upsert({
+                    year: selectedYear,
+                    month: selectedMonth,
+                    point_value: Number(pointValInput),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'year,month' });
+
+            if (error) throw error;
+            setPointValue(Number(pointValInput));
+            toast.success("تم حفظ قيمة النقطة بنجاح");
+        } catch (e: any) {
+            console.error(e);
+            toast.error("فشل الحفظ: " + e.message);
+        } finally {
+            setSavingPoint(false);
+        }
+    };
+
+    const handleClearPoint = async () => {
+        const confirmClear = window.confirm("هل تريد تفريغ قيمة النقطة لهذا الشهر؟");
+        if (!confirmClear) return;
+        
+        setSavingPoint(true);
+        try {
+            const { error } = await supabase
+                .from('incentive_point_values')
+                .delete()
+                .eq('year', selectedYear)
+                .eq('month', selectedMonth);
+
+            if (error) throw error;
+            setPointValue(0);
+            setPointValInput("");
+            toast.success("تم تفريغ قيمة النقطة بنجاح");
+        } catch (e: any) {
+            console.error(e);
+            toast.error("فشل تفريغ القيمة: " + e.message);
+        } finally {
+            setSavingPoint(false);
         }
     };
 
@@ -548,8 +607,8 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             <div className={`rounded-2xl border p-6 backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
                     <div>
-                        <h2 className={`text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>حوافز الإنتاج لشهر {selectedMonth} / {selectedYear}</h2>
-                        <p className="text-xs text-muted-foreground mt-1">تفاصيل احتساب نقاط الحافز وقيمتها المالية</p>
+                        <h2 className={`text-lg md:text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>كشف حوافز: {currentUser?.full_name}</h2>
+                        <p className="text-xs text-muted-foreground mt-1">تفاصيل احتساب النقاط والحافز المالي لشهر {selectedMonth} / {selectedYear}</p>
                     </div>
 
                     <div className="flex gap-2">
@@ -598,23 +657,33 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     </div>
                 ) : userRecord ? (
                     <div className="space-y-6">
-                        {/* النتيجة النهائية */}
-                        <div className={`p-6 rounded-2xl border text-center grid grid-cols-1 md:grid-cols-2 gap-4 ${theme === 'light' ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-green-950/20 to-emerald-950/10 border-green-900/30'}`}>
-                            <div className="flex flex-col justify-center items-center p-4 border-l border-dashed border-green-200 dark:border-green-900/30">
-                                <span className="text-xs text-emerald-800/80 dark:text-emerald-400/80 font-bold mb-1">مجموع النقاط المستحقة</span>
-                                <span className={`text-4xl font-extrabold ${theme === 'light' ? 'text-emerald-900' : 'text-emerald-200'}`}>{userRecord.total_points}</span>
-                                <span className="text-[10px] text-muted-foreground mt-1">(بعد خصم {userRecord.deductions_points} نقاط)</span>
+                        {/* النتيجة النهائية المدمجة */}
+                        <div className={`p-4 rounded-xl border flex flex-col md:flex-row items-center justify-between gap-4 ${theme === 'light' ? 'bg-gradient-to-l from-emerald-50 to-white border-emerald-200 shadow-sm' : 'bg-gradient-to-l from-emerald-950/30 to-slate-900/50 border-emerald-900/30'}`}>
+                            
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-900/50 text-emerald-400'}`}>
+                                    <span className="text-xl font-bold">{userRecord.total_points}</span>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300">مجموع النقاط المستحقة</div>
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">بعد استقطاع {userRecord.deductions_points} نقاط</div>
+                                </div>
                             </div>
-                            <div className="flex flex-col justify-center items-center p-4">
-                                <span className="text-xs text-emerald-800/80 dark:text-emerald-400/80 font-bold mb-1">الحافز المالي المستحق</span>
-                                <span className={`text-3xl font-black ${theme === 'light' ? 'text-emerald-950' : 'text-emerald-100'}`}>{(userRecord.total_points * pointValue).toLocaleString()} د.ع</span>
-                                <span className="text-[10px] text-muted-foreground mt-1">
-                                    (النقاط الكلية {userRecord.total_points} * {pointValue.toLocaleString()} د.ع قيمة النقطة)
-                                </span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full mt-2 font-bold ${userRecord.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                                    {userRecord.status === 'approved' ? 'معتمد ومصدق' : 'مسودة غير معتمدة'}
+                            
+                            <div className="h-10 w-px bg-emerald-200 dark:bg-emerald-900/50 hidden md:block"></div>
+
+                            <div className="flex items-center justify-between gap-4 flex-1 w-full md:w-auto">
+                                <div className="text-right">
+                                    <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-0.5">مبلغ الحافز المالي النهائي</div>
+                                    <div className={`text-2xl font-black ${theme === 'light' ? 'text-emerald-950' : 'text-emerald-100'}`}>
+                                        {(userRecord.total_points * pointValue).toLocaleString()} <span className="text-sm font-normal">د.ع</span>
+                                    </div>
+                                </div>
+                                <span className={`text-[10px] px-3 py-1 rounded-full font-bold whitespace-nowrap ${userRecord.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+                                    {userRecord.status === 'approved' ? 'مصدق ومعتمد' : 'مسودة'}
                                 </span>
                             </div>
+
                         </div>
 
                         {/* تفاصيل المعايير */}
@@ -687,12 +756,51 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                         </div>
 
                         <div className={`p-4 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-blue-950/10 border-blue-900/20'}`}>
-                            <div>
-                                <span className="text-[10px] text-muted-foreground block">القيمة المعتمدة للشهر المختار:</span>
-                                <span className={`text-xl font-extrabold ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'}`}>
-                                    {loadingPoint ? <Loader2 className="w-4 h-4 animate-spin inline ml-1" /> : pointValue.toLocaleString()} د.ع
-                                </span>
-                            </div>
+                            {isDeveloperOrGeneral ? (
+                                <div className="w-full space-y-3">
+                                    <span className="text-[10px] text-muted-foreground block font-bold">تحديد القيمة المعتمدة للشهر المختار:</span>
+                                    <div className="flex flex-wrap items-center gap-2 w-full">
+                                        <div className="relative flex-1 min-w-[120px]">
+                                            <Input
+                                                type="number"
+                                                placeholder="القيمة..."
+                                                value={pointValInput}
+                                                onChange={(e) => setPointValInput(e.target.value === "" ? "" : Number(e.target.value))}
+                                                className="no-spin pl-8 text-sm font-bold font-mono"
+                                                disabled={loadingPoint || savingPoint}
+                                            />
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">د.ع</span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleSavePoint}
+                                            disabled={loadingPoint || savingPoint}
+                                            className="p-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-md transition active:scale-95 flex items-center justify-center shrink-0"
+                                            title="حفظ القيمة"
+                                        >
+                                            {savingPoint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 stroke-[3]" />}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleClearPoint}
+                                            disabled={loadingPoint || savingPoint}
+                                            className="p-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-md transition active:scale-95 flex items-center justify-center shrink-0"
+                                            title="تفريغ الحقل"
+                                        >
+                                            <X className="w-4 h-4 stroke-[3]" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <span className="text-[10px] text-muted-foreground block">القيمة المعتمدة للشهر المختار:</span>
+                                    <span className={`text-xl font-extrabold ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'}`}>
+                                        {loadingPoint ? <Loader2 className="w-4 h-4 animate-spin inline ml-1" /> : pointValue.toLocaleString()} د.ع
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

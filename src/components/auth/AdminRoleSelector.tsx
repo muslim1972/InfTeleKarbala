@@ -5,7 +5,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
     /** Whether this user is eligible for Promotion Courses */
@@ -23,7 +23,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
 
     // Build cards list
     const cards: {
-        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training';
+        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives';
         label: string;
         desc: string;
         icon: React.ReactNode;
@@ -76,6 +76,15 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             iconBg: isDark ? 'bg-emerald-500/20 border-emerald-500/30 group-hover:bg-emerald-500/30' : 'bg-emerald-500/10 border-emerald-500/20',
             show: hasTraining,
         },
+        {
+            id: 'user_incentives',
+            label: 'الحوافز الشهرية',
+            desc: 'عرض تقييم الحوافز واحتساب النقاط الشهرية',
+            icon: <img src="/icon-192.png" alt="Incentives" className="w-6 h-6 object-contain" />,
+            hoverGlow: 'hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]',
+            iconBg: isDark ? 'bg-brand-green/20 border-brand-green/30 group-hover:bg-brand-green/30' : 'bg-brand-green/10 border-brand-green/20',
+            show: true,
+        },
     ];
 
     const visibleCards = cards.filter(c => c.show);
@@ -119,19 +128,19 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                         <button
                             key={card.id}
                             onClick={() => onSelect(card.id)}
-                            className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                            className={`group relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                                 isDark
                                     ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
                                     : 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50 hover:bg-white'
                             }`}
                         >
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors border ${card.iconBg}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors border ${card.iconBg}`}>
                                 {card.icon}
                             </div>
-                            <h3 className={`text-sm font-bold mb-1 text-center leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            <h3 className={`text-xs font-bold mb-1 text-center leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                 {card.label}
                             </h3>
-                            <p className={`text-[10px] text-center leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-500'}`}>
+                            <p className={`text-[9px] text-center leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-500'}`}>
                                 {card.desc}
                             </p>
                         </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Login } from "./Login";
+import { GovernorateSelection } from "./GovernorateSelection";
 import { Smartphone, MonitorPlay, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -13,8 +14,20 @@ interface LauncherPageProps {
 export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPageProps) => {
     const { } = useAuth();
     const { theme } = useTheme();
-    const [showLogin, setShowLogin] = useState(initialShowLogin);
+    
+    // modes: 'launcher' (choose platform) -> 'governorate' (choose city) -> 'login'
+    const [mode, setMode] = useState<'launcher' | 'governorate' | 'login'>(initialShowLogin ? 'governorate' : 'launcher');
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
+
+    // If initialShowLogin is true, but governorate is already selected, go straight to login
+    useEffect(() => {
+        if (initialShowLogin) {
+            const gov = sessionStorage.getItem('selectedGovernorate');
+            if (gov) {
+                setMode('login');
+            }
+        }
+    }, [initialShowLogin]);
 
     useEffect(() => {
         const ua = navigator.userAgent;
@@ -25,11 +38,20 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
 
     const handleWebProceed = () => {
         if (onProceed) onProceed();
-        setShowLogin(true);
+        const gov = sessionStorage.getItem('selectedGovernorate');
+        if (gov) {
+            setMode('login');
+        } else {
+            setMode('governorate');
+        }
     };
 
-    if (showLogin) {
-        return <Login onBack={() => setShowLogin(false)} />;
+    if (mode === 'login') {
+        return <Login onBack={() => setMode('governorate')} />;
+    }
+
+    if (mode === 'governorate') {
+        return <GovernorateSelection onSelect={() => setMode('login')} />;
     }
 
     return (

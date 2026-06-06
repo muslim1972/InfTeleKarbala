@@ -1,13 +1,12 @@
-
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Coins } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap } from "lucide-react";
 
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'incentives') => void;
+    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge';
+    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge') => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -19,7 +18,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const baseTabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
-        { id: 'incentives', label: 'الحوافز', icon: Coins },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
@@ -47,18 +45,11 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                 return;
             }
 
-            // Simple LTR/RTL check locally or just robust checks
-            // Assuming RTL behavior where scrollLeft can be negative or positive depending on browser implementation
-            // But relying on simple bounds:
-            // "Right" arrow (on UI right) scrolls "right" (which in RTL means towards start?)
-            // Let's use the same logic as ScrollableTabs which seemed to work for the user
             const current = scrollLeft;
             const isRTL = window.getComputedStyle(scrollContainerRef.current).direction === 'rtl';
 
             if (isRTL) {
-                // RTL Logic
                 const absCurrent = Math.abs(current);
-                // Right Arrow (Start direction)
                 setShowRightArrow(absCurrent > 1);
                 // Left Arrow (End direction)
                 setShowLeftArrow(absCurrent < scrollableWidth - 1);
