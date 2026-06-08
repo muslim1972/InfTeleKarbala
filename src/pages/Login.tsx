@@ -47,15 +47,14 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
 
     const gov = sessionStorage.getItem('selectedGovernorate');
     if (gov) {
-      // Check if user exists in the selected governorate
-      const { data: profileCheck } = await supabase
-          .from('available_profiles')
-          .select('id')
-          .eq('governorate', gov)
-          .or(`username.eq.${username},job_number.eq.${username}`)
-          .maybeSingle();
+      // Check if user exists in the selected governorate using the secure RPC
+      const { data: userExists, error: checkErr } = await supabase
+          .rpc('check_user_exists', {
+              p_username: username,
+              p_governorate: gov
+          });
 
-      if (!profileCheck) {
+      if (checkErr || !userExists) {
           setLoading(false);
           setError("لم يتم العثور على اسم المستخدم");
           return;
