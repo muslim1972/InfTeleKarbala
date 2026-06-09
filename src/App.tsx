@@ -206,6 +206,10 @@ const AppContent = () => {
   const hasTraining = user.is_training_supervisor === true || isAdmin || user.admin_role === 'developer' || user.admin_role === 'general';
   const needsRoleSelection = true; // All users now see the Welcome Dashboard
 
+  if (user.role === 'visitor') {
+    return <VisitorDashboard />;
+  }
+
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
@@ -239,10 +243,6 @@ const AppContent = () => {
     if (adminViewMode === 'admin' && isAdmin) return <AdminDashboard onBack={() => setAdminViewMode(null)} />;
     // fallback
     return <Dashboard />;
-  }
-
-  if (user.role === 'visitor') {
-    return <VisitorDashboard />;
   }
 
   return <Dashboard />;
