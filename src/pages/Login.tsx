@@ -54,11 +54,18 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
               p_governorate: gov
           });
 
-      if (checkErr || !userExists) {
-          setLoading(false);
-          setError("لم يتم العثور على اسم المستخدم");
-          return;
-      }
+        if (checkErr) {
+            setLoading(false);
+            // إظهار رسالة الخطأ القادمة من قاعدة البيانات (مثل رسالة الحظر)
+            setError(checkErr.message || "حدث خطأ غير متوقع");
+            return;
+        }
+        
+        if (!userExists) {
+            setLoading(false);
+            setError("لم يتم العثور على اسم المستخدم");
+            return;
+        }
     }
 
     const result = await login(username, password) as any;
