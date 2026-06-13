@@ -109,26 +109,49 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         if (departments.length > 0 && users.length > 0) {
             const grouped: Record<string, UserProfile[]> = {};
             
+            // تهيئة المصفوفات لكل الأقسام
             departments.forEach(dept => {
-                const normalizedDeptName = normalizeForComparison(dept.name);
+                grouped[dept.id] = [];
+            });
+
+            users.forEach(u => {
+                const normUDept = u.dept_text ? normalizeForComparison(u.dept_text) : '';
+                const normUSection = u.section_text ? normalizeForComparison(u.section_text) : '';
+                const normUUnit = u.unit_text ? normalizeForComparison(u.unit_text) : '';
+
+                let assignedDeptId: string | null = null;
+
+                // البحث عن أعمق عقدة (الوحدة ثم الشعبة ثم القسم)
+                if (normUUnit) {
+                    const match = departments.find(d => normalizeForComparison(d.name) === normUUnit);
+                    if (match) assignedDeptId = match.id;
+                }
                 
-                const deptEmployees = users.filter(u => {
-                    const normUDept = u.dept_text ? normalizeForComparison(u.dept_text) : '';
-                    const normUSection = u.section_text ? normalizeForComparison(u.section_text) : '';
-                    const normUUnit = u.unit_text ? normalizeForComparison(u.unit_text) : '';
+                if (!assignedDeptId && normUSection) {
+                    const match = departments.find(d => normalizeForComparison(d.name) === normUSection);
+                    if (match) assignedDeptId = match.id;
+                }
+
+                if (!assignedDeptId && normUDept) {
+                    const match = departments.find(d => normalizeForComparison(d.name) === normUDept);
+                    if (match) assignedDeptId = match.id;
+                }
+
+                // الرجوع إلى المعرف الثابت إذا لم يتطابق النص
+                if (!assignedDeptId && u.department_id) {
+                    assignedDeptId = u.department_id;
+                }
+
+                if (assignedDeptId) {
+                    const assignedDept = departments.find(d => d.id === assignedDeptId);
+                    // استثناء المسؤول المباشر من قائمة الموظفين العاديين لنفس القسم/الشعبة
+                    if (assignedDept && assignedDept.manager_id === u.id) {
+                        return;
+                    }
                     
-                    const isTextMatch = normUDept === normalizedDeptName || 
-                                       normUSection === normalizedDeptName || 
-                                       normUUnit === normalizedDeptName;
-
-                    if (isTextMatch) return true;
-
-                    // Fallback to legacy department_id (for nodes that don't match by text name)
-                    return u.department_id === dept.id;
-                });
-                
-                if (deptEmployees.length > 0) {
-                    grouped[dept.id] = deptEmployees;
+                    if (grouped[assignedDeptId]) {
+                        grouped[assignedDeptId].push(u);
+                    }
                 }
             });
             
