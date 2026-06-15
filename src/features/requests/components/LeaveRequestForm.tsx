@@ -172,7 +172,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         let names: string[] = [];
         let isTopManagerSelf = false;
 
-        while (currentDeptId) {
+        let visitedDepts = new Set<string>();
+        while (currentDeptId && !visitedDepts.has(currentDeptId)) {
+          visitedDepts.add(currentDeptId);
           const { data: dept } = await supabase.from('departments')
             .select(`
               id, name, manager_id, parent_id, level,

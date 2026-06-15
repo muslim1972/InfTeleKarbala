@@ -205,7 +205,9 @@ export const useDashboardData = (activeTab: string) => {
                         const originDeptName = currentDept?.name || 'غير محدد';
                         let nearestManagerId = null;
 
-                        while (currentDept) {
+                        let visitedDepts = new Set<string>();
+                        while (currentDept && !visitedDepts.has(currentDept.id)) {
+                            visitedDepts.add(currentDept.id);
                             if (currentDept.manager_id) {
                                 nearestManagerId = currentDept.manager_id;
                                 break;

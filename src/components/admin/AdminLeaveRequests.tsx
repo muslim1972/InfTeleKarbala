@@ -240,7 +240,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             let currentDeptId = profile.department_id;
             let lastManagerId: string | null = null;
 
-            while (currentDeptId) {
+            let visitedDepts = new Set<string>();
+            while (currentDeptId && !visitedDepts.has(currentDeptId)) {
+                visitedDepts.add(currentDeptId);
                 const { data: dept } = await supabase.from('departments').select('*').eq('id', currentDeptId).single();
                 if (!dept) break;
                 if (dept.manager_id) lastManagerId = dept.manager_id;
