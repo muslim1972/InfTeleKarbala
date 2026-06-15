@@ -201,7 +201,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 let engMap: Record<string, number> = {};
 
                 if (allIds.length > 0) {
-                    const { data: profiles } = await supabase.from('profiles').select('id, full_name, job_number').in('id', allIds);
+                    const { data: profiles } = await supabase.from('available_profiles').select('id, full_name, job_number').in('id', allIds);
                     const { data: finData } = await supabase.from('financial_records').select('user_id, engineering_allowance').in('user_id', allIds);
                     if (finData) finData.forEach(f => { engMap[f.user_id] = f.engineering_allowance || 0; });
                     if (profiles) profiles.forEach(p => { profileMap[p.id] = p; });
@@ -234,7 +234,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
     // Resolve directorate manager for print
     const resolveDirectorateManager = async (userId: string) => {
         try {
-            const { data: profile } = await supabase.from('profiles').select('department_id').eq('id', userId).single();
+            const { data: profile } = await supabase.from('available_profiles').select('department_id').eq('id', userId).single();
             if (!profile?.department_id) return 'علي عباس جاسم الصباغ';
 
             let currentDeptId = profile.department_id;
@@ -249,7 +249,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             }
 
             if (lastManagerId) {
-                const { data: mgrProfile } = await supabase.from('profiles').select('full_name').eq('id', lastManagerId).single();
+                const { data: mgrProfile } = await supabase.from('available_profiles').select('full_name').eq('id', lastManagerId).single();
                 if (mgrProfile) {
                     setDirectorateManager({
                         full_name: mgrProfile.full_name,

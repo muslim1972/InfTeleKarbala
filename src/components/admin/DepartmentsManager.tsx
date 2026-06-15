@@ -65,6 +65,69 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         });
     };
 
+    // Global Search State
+    const [globalSearchTerm, setGlobalSearchTerm] = useState("");
+    const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
+
+    // Helper to get the path of a department node back to the root
+    const getDeptPathToRoot = (deptId: string): string[] => {
+        const path: string[] = [];
+        let currentId: string | null = deptId;
+        const visited = new Set<string>();
+
+        while (currentId && !visited.has(currentId)) {
+            path.push(currentId);
+            visited.add(currentId);
+            const dept = departments.find(d => d.id === currentId);
+            currentId = dept?.parent_id || null;
+        }
+        return path;
+    };
+
+    const handleSearchSelect = (selectedUser: UserProfile) => {
+        setGlobalSearchTerm(""); 
+        let targetDeptId: string | null = null;
+
+        // 1. Check if user is a manager of any department
+        const managedDept = departments.find(d => d.manager_id === selectedUser.id);
+        if (managedDept) {
+            targetDeptId = managedDept.id;
+        } else {
+            // 2. Find which department they are an employee in
+            for (const [deptId, emps] of Object.entries(employeesByDept)) {
+                if (emps.some(e => e.id === selectedUser.id)) {
+                    targetDeptId = deptId;
+                    break;
+                }
+            }
+        }
+
+        if (targetDeptId) {
+            const path = getDeptPathToRoot(targetDeptId);
+            
+            setExpandedNodeIds(prev => {
+                const newSet = new Set(prev);
+                path.forEach(id => newSet.add(id));
+                return newSet;
+            });
+
+            setHighlightedEmpId(selectedUser.id);
+
+            setTimeout(() => {
+                const element = document.getElementById(`emp-badge-${selectedUser.id}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 300);
+
+            setTimeout(() => {
+                setHighlightedEmpId(null);
+            }, 5000);
+        } else {
+            toast.error("لم يتم العثور على الموظف في أي تشكيل إداري");
+        }
+    };
+
     const fetchDepartments = async () => {
         setLoading(true);
         try {
@@ -119,10 +182,11 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                 const normUSection = u.section_text ? normalizeForComparison(u.section_text) : '';
                 const normUUnit = u.unit_text ? normalizeForComparison(u.unit_text) : '';
 
-                let assignedDeptId: string | null = null;
+                // 1. الأولوية المطلقة للاختيار من الواجهة (department_id)
+                let assignedDeptId: string | null = u.department_id || null;
 
-                // البحث عن أعمق عقدة (الوحدة ثم الشعبة ثم القسم)
-                if (normUUnit) {
+                // 2. إذا لم يكن هناك ارتباط صريح، نبحث في النصوص (أعمق عقدة أولاً)
+                if (!assignedDeptId && normUUnit) {
                     const match = departments.find(d => normalizeForComparison(d.name) === normUUnit);
                     if (match) assignedDeptId = match.id;
                 }
@@ -135,11 +199,6 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                 if (!assignedDeptId && normUDept) {
                     const match = departments.find(d => normalizeForComparison(d.name) === normUDept);
                     if (match) assignedDeptId = match.id;
-                }
-
-                // الرجوع إلى المعرف الثابت إذا لم يتطابق النص
-                if (!assignedDeptId && u.department_id) {
-                    assignedDeptId = u.department_id;
                 }
 
                 if (assignedDeptId) {
@@ -245,40 +304,39 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     const saveInlineManager = async (deptId: string, newManagerId: string | null) => {
         setSaving(true);
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('departments')
                 .update({ manager_id: newManagerId, updated_at: new Date().toISOString() })
-                .eq('id', deptId);
+                .eq('id', deptId)
+                .select(); // Verify it actually updated
 
             if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("لم يتم التحديث في قاعدة البيانات (قد يكون بسبب صلاحيات الوصول RLS).");
+            }
 
-            // NEW: Automatically link the manager to the parent department
+            // NEW: Automatically link the manager to THIS department (not the parent)
             if (newManagerId) {
-                // We need to fetch the parent_id for this department first
-                const { data: deptData } = await supabase
-                    .from('departments')
-                    .select('parent_id')
-                    .eq('id', deptId)
-                    .single();
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({ department_id: deptId }) // <-- FIX: Assign to the department they manage
+                    .eq('id', newManagerId);
 
-                if (deptData?.parent_id) {
-                    const { error: profileError } = await supabase
-                        .from('profiles')
-                        .update({ department_id: deptData.parent_id })
-                        .eq('id', newManagerId);
-
-                    if (profileError) {
-                        console.error("Failed to link manager to parent department:", profileError);
-                        toast.error("تم تحديث المسؤول، لكن فشل ربط مرجعه الإداري.");
-                    }
+                if (profileError) {
+                    console.error("Failed to link manager to department:", profileError);
+                    toast.error("تم تحديث المسؤول، لكن فشل ربط مرجعه الإداري.");
                 }
             }
 
             toast.success("تم تحديث المسؤول بنجاح");
 
-            // Update local state without refetching immediately
+            // Update local state
             setDepartments(departments.map(d => d.id === deptId ? { ...d, manager_id: newManagerId } : d));
             setEditingManagerNodeId(null);
+
+            // Refetch users so the UI updates immediately and the user doesn't appear in two places
+            await fetchUsers();
+            
         } catch (error: any) {
             console.error("Inline manager save error:", error);
             toast.error("فشل تحديث المسؤول: " + error.message);
@@ -407,7 +465,10 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                                         }}
                                         title="انقر لتعيين مسؤول"
                                     >
-                                        <span className={`text-[12px] font-semibold transition-colors ${theme === 'light' ? 'text-gray-700 hover:text-brand-green' : 'text-gray-300 hover:text-brand-green'} ${!dept.manager_id && 'text-red-500/80'}`}>
+                                        <span 
+                                            id={`emp-badge-${dept.manager_id}`}
+                                            className={`text-[12px] font-semibold transition-all duration-300 rounded px-1 ${highlightedEmpId === dept.manager_id ? 'ring-2 ring-brand-green bg-brand-green/20 animate-pulse scale-105 inline-block' : ''} ${theme === 'light' ? 'text-gray-700 hover:text-brand-green' : 'text-gray-300 hover:text-brand-green'} ${!dept.manager_id && 'text-red-500/80'}`}
+                                        >
                                             {users.find(u => u.id === dept.manager_id)?.full_name || 'لا يوجد مسؤول (انقر للتعيين)'}
                                         </span>
                                         <Edit2 className="w-3 h-3 opacity-0 group-hover/manager:opacity-100 transition-opacity text-brand-green" />
@@ -450,7 +511,11 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     {isExpanded && deptEmployees.length > 0 && (
                         <div className={`mt-2 flex flex-wrap gap-2 p-3 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-100' : 'bg-white/5 border-white/5'}`}>
                             {deptEmployees.map(emp => (
-                                <div key={emp.id} className={`text-xs px-2 py-1 rounded-md ${theme === 'light' ? 'bg-white text-gray-700 shadow-sm border border-gray-100' : 'bg-slate-800 text-gray-300 border border-white/10'}`}>
+                                <div 
+                                    key={emp.id} 
+                                    id={`emp-badge-${emp.id}`}
+                                    className={`text-xs px-2 py-1 rounded-md transition-all duration-300 ${highlightedEmpId === emp.id ? 'ring-2 ring-brand-green bg-brand-green/20 animate-pulse scale-105' : ''} ${theme === 'light' ? 'bg-white text-gray-700 shadow-sm border border-gray-100' : 'bg-slate-800 text-gray-300 border border-white/10'}`}
+                                >
                                     {emp.full_name}
                                 </div>
                             ))}
@@ -493,12 +558,40 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             {/* Tree Section (Main View) */}
             <div className={`lg:col-span-2 rounded-2xl border shadow-sm overflow-hidden backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
-                <div className={`p-4 border-b flex items-center justify-between ${theme === 'light' ? 'bg-gray-50/50 border-gray-200' : 'bg-white/5 border-white/10'}`}>
-                    <div>
-                        <h3 className={`font-bold text-lg \${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>شجرة الهيكلية الإدارية</h3>
-                        <p className={`text-xs mt-1 \${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                <div className={`p-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${theme === 'light' ? 'bg-gray-50/50 border-gray-200' : 'bg-white/5 border-white/10'}`}>
+                    <div className="flex-1">
+                        <h3 className={`font-bold text-lg ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>شجرة الهيكلية الإدارية</h3>
+                        <p className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
                             استعراض الأقسام، المجمعات، والشعب
                         </p>
+                    </div>
+                    {/* Search Bar */}
+                    <div className="relative w-full md:max-w-xs">
+                        <Search className="w-4 h-4 text-gray-400 absolute right-3 top-2.5" />
+                        <input
+                            type="text"
+                            placeholder="بحث عن موظف في الهيكلية..."
+                            value={globalSearchTerm}
+                            onChange={e => setGlobalSearchTerm(e.target.value)}
+                            className={`w-full pr-9 pl-3 py-2 text-sm rounded-lg border transition-colors ${theme === 'light' ? 'bg-white border-gray-300 focus:border-brand-green outline-none' : 'bg-slate-800 border-white/20 text-white focus:border-brand-green outline-none'}`}
+                        />
+                        {globalSearchTerm && (
+                            <div className={`absolute z-30 w-full mt-1 max-h-60 overflow-y-auto rounded-lg shadow-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-800 border-white/10'}`}>
+                                {users.filter(u => u.full_name.includes(globalSearchTerm)).slice(0, 10).map(u => (
+                                    <div
+                                        key={u.id}
+                                        onClick={() => handleSearchSelect(u)}
+                                        className={`p-3 text-sm cursor-pointer border-b last:border-0 transition-colors ${theme === 'light' ? 'hover:bg-brand-green/10 border-gray-100 text-gray-800' : 'hover:bg-brand-green/20 border-white/5 text-gray-200'}`}
+                                    >
+                                        <div className="font-bold">{u.full_name}</div>
+                                        <div className="text-[10px] opacity-70 mt-0.5">{u.dept_text || u.section_text || u.unit_text || 'غير محدد'}</div>
+                                    </div>
+                                ))}
+                                {users.filter(u => u.full_name.includes(globalSearchTerm)).length === 0 && (
+                                    <div className="p-3 text-sm text-gray-500 text-center">لا يوجد موظف بهذا الاسم</div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 

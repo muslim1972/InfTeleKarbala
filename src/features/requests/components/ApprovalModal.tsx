@@ -37,9 +37,10 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
         setIsProcessing(true);
         setError(null);
 
-        try {
-            let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
+        let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
+        let rpcResult: any = null;
 
+        try {
             if (request.modification_type === 'canceled') {
                 if (status === 'approved') {
                     // Call RPC to fully refund leave
@@ -57,34 +58,54 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     updatePayload.hr_cut_status = 'pending';
                 }
             } else {
-                // Normally (new, or edited)
-                updatePayload.leave_status = status;
+                // Normally (new, or edited) - Use the new Multi-Level Approval RPC
+                const { data: rpcData, error: rpcErr } = await supabase.rpc('process_leave_approval', {
+                    p_request_id: request.id,
+                    p_action: status
+                });
+                if (rpcErr) throw rpcErr;
+                if (rpcData && !rpcData.success) throw new Error(rpcData.message);
+                
+                rpcResult = rpcData;
+                // If it escalated to the next manager, we don't need to do the regular status update
+                // because the RPC already handled it. But we skip the direct update below for normal leaves.
+                updatePayload = null; 
             }
 
-            const { data, error: updateError } = await supabase
-                .from('leave_requests')
-                .update(updatePayload)
-                .eq('id', request.id)
-                .select();
+            if (updatePayload) {
+                const { data, error: updateError } = await supabase
+                    .from('leave_requests')
+                    .update(updatePayload)
+                    .eq('id', request.id)
+                    .select();
 
-            if (updateError) throw updateError;
-            if (!data || data.length === 0) {
-                throw new Error("لم يتم التحديث في قاعدة البيانات. قد يكون بسبب نقص في صلاحياتك (RLS) أو أن الطلب تمت معالجته بالفعل.");
+                if (updateError) throw updateError;
+                if (!data || data.length === 0) {
+                    throw new Error("لم يتم التحديث في قاعدة البيانات. قد يكون بسبب نقص في صلاحياتك (RLS) أو أن الطلب تمت معالجته بالفعل.");
+                }
             }
 
             onProcessed();
             onClose();
 
-            // Send Push Notification to Employee
-            const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
-            let message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
+            // Send Push Notification logic
+            if (rpcResult && rpcResult.status === 'escalated') {
+                // 1. Request escalated to next supervisor, notify the next supervisor!
+                if (rpcResult.next_supervisor) {
+                    sendPushNotification(rpcResult.next_supervisor, `لديك طلب إجازة جديد يتطلب موافقتك (${request.start_date})`, { title: "طلب إجازة معلق", url: `${window.location.origin}/requests` });
+                }
+            } else {
+                // 2. Request fully processed (approved or rejected), notify the employee
+                const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
+                let message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
 
-            if (request.modification_type === 'canceled') {
-                message = `تم ${statusText} لطلب إلغاء إجازتك (${request.start_date})`;
-            } else if (request.modification_type === 'cut') {
-                message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
+                if (request.modification_type === 'canceled') {
+                    message = `تم ${statusText} لطلب إلغاء إجازتك (${request.start_date})`;
+                } else if (request.modification_type === 'cut') {
+                    message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
+                }
+                sendPushNotification(request.user_id, message, { title: "تحديث طلب الإجازة", url: `${window.location.origin}/requests` });
             }
-            sendPushNotification(request.user_id, message, { title: "تحديث طلب الإجازة", url: `${window.location.origin}/requests` });
 
             // Notify HR/Admin if it's a cut or cancellation approval
             if (status === 'approved' && (request.modification_type === 'canceled' || request.modification_type === 'cut')) {

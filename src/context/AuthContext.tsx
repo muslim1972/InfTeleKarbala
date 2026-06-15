@@ -119,6 +119,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               profile.email?.includes('muslimakkeel') ||
               profile.job_number === '103130022' || // اسيل جبار
               profile.job_number === '102514467' || // ياسر عبدالامير
+              profile.job_number === 'c121212' || // مستخدم تجريبي
               profile.admin_role === 'developer'
           );
 
@@ -290,6 +291,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           appUser.email?.includes('muslimakkeel') ||
           appUser.job_number === '103130022' || // اسيل جبار
           appUser.job_number === '102514467' || // ياسر عبدالامير
+          appUser.job_number === 'c121212' || // مستخدم تجريبي
           appUser.admin_role === 'developer';
           
       if (isBypassedLogin) {

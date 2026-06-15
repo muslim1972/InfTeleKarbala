@@ -24,7 +24,7 @@ serve(async (req: Request) => {
     if (userError || !user) throw new Error('Unauthorized')
 
     const { data: profile } = await supabaseClient
-      .from('profiles')
+      .from('available_profiles')
       .select('role')
       .eq('id', user.id)
       .single()

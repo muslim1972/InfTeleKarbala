@@ -127,8 +127,16 @@ export const initOneSignal = (userId: string) => {
   tryInitialize();
 };
 
-export const logoutOneSignal = () => {
+export const logoutOneSignal = async () => {
   if (typeof window === 'undefined') return;
   const OS = findOneSignal();
-  if (OS && typeof OS.logout === 'function') OS.logout();
+  if (OS && typeof OS.logout === 'function') {
+    try {
+      if (OS.initialized !== false) {
+        await OS.logout();
+      }
+    } catch (e: any) {
+      console.warn("OneSignal logout error (probably not initialized yet):", e);
+    }
+  }
 };

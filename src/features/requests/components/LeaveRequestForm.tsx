@@ -22,6 +22,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
     daysCount: 1,
     reason: '',
     supervisorId: null as string | null,
+    approvalChain: [] as string[],
   });
 
   const [endDate, setEndDate] = useState<string>('');
@@ -32,7 +33,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const [managerInfo, setManagerInfo] = useState<{ id: string, name: string, isTopManagerSelf?: boolean } | null>(null);
+  const [managerInfo, setManagerInfo] = useState<{ id: string, name: string, names?: string[], isTopManagerSelf?: boolean } | null>(null);
   const [loadingManager, setLoadingManager] = useState(true);
 
   // Latest request logic
@@ -167,14 +168,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
         // 2. Start checking from the user's immediate department
         let currentDeptId = profile.department_id;
-        let finalSupervisorId: string | null = null;
-        let finalSupervisorName: string | undefined = undefined;
+        let chain: string[] = [];
+        let names: string[] = [];
         let isTopManagerSelf = false;
 
         while (currentDeptId) {
           const { data: dept } = await supabase.from('departments')
             .select(`
-              id, manager_id, parent_id, 
+              id, name, manager_id, parent_id, level,
               profiles:manager_id(full_name)
             `)
             .eq('id', currentDeptId).single();
@@ -182,39 +183,38 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           if (!dept) break;
 
           // If the manager of this department is NOT the user requesting leave
-          // AND the manager ID exists, we found our target!
+          // AND the manager ID exists, add to our chain!
           if (dept.manager_id && dept.manager_id !== user.id) {
-            finalSupervisorId = dept.manager_id;
-            finalSupervisorName = (dept.profiles as any)?.full_name;
+            if (!chain.includes(dept.manager_id)) {
+              chain.push(dept.manager_id);
+              names.push('مدير ' + dept.name);
+            }
+          } else if (dept.manager_id === user.id) {
+            // User is the manager of this node.
+            if (!dept.parent_id) {
+                isTopManagerSelf = true;
+            }
+          }
+
+          // Stop condition:
+          // If we reached a department of Level 3 (القسم) or higher (2, 1)
+          // AND the user is NOT the manager of this level (if they are, we must escalate to parent)
+          if (dept.level <= 3 && dept.manager_id !== user.id) {
             break;
           }
 
-          // If the user IS the manager of this department, we need to escalate to the parent
-          if (dept.manager_id === user.id) {
-            if (dept.parent_id) {
-              // Move up the tree
-              currentDeptId = dept.parent_id;
-            } else {
-              // We reached the absolute top of the tree AND the user is the top manager!
-              // Fallback to themselves, but flag it so we can show a special message.
-              finalSupervisorId = dept.manager_id;
-              finalSupervisorName = (dept.profiles as any)?.full_name;
-              isTopManagerSelf = true;
-              break;
-            }
-          } else if (!dept.manager_id) {
-            // Department has no manager assigned, try escalating to parent if exists
-            if (dept.parent_id) {
-              currentDeptId = dept.parent_id;
-            } else {
-              break; // Reached the top with no manager
-            }
-          }
+          currentDeptId = dept.parent_id;
         }
 
-        if (finalSupervisorId && finalSupervisorName) {
-          setManagerInfo({ id: finalSupervisorId, name: finalSupervisorName, isTopManagerSelf });
-          setFormData(prev => ({ ...prev, supervisorId: finalSupervisorId }));
+        if (chain.length > 0) {
+          // Join names for fallback/old usage, but also pass the array for new multi-line UI
+          const displayNames = names.join(' ⬅️ ');
+          setManagerInfo({ id: chain[0], name: displayNames, names: names, isTopManagerSelf: false });
+          setFormData(prev => ({ ...prev, supervisorId: chain[0], approvalChain: chain }));
+        } else if (isTopManagerSelf) {
+          // We reached the absolute top of the tree AND the user is the top manager!
+          setManagerInfo({ id: user.id, name: 'نفسه (مسؤول أعلى)', isTopManagerSelf: true });
+          setFormData(prev => ({ ...prev, supervisorId: user.id, approvalChain: [user.id] }));
         }
 
       } catch (err) {
@@ -249,12 +249,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         const month = end.getMonth() + 1;
         const dayOfMonth = end.getDate();
 
-        if (day === 5) {
-          // Friday → skip to Sunday
-          end.setDate(end.getDate() + 2);
+        // If it's Friday (5) or Saturday (6), advance one day and check again
+        if (day === 5 || day === 6) {
+          end.setDate(end.getDate() + 1);
           adjusted = true;
-        } else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
-          // Holiday → advance one day
+        } 
+        // If it's a holiday, advance one day and check again
+        else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
           end.setDate(end.getDate() + 1);
           adjusted = true;
         }
@@ -334,11 +335,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
     try {
       // Use RPC function instead of direct insert
       const { data, error: rpcError } = await supabase.rpc('submit_leave_request', {
+        p_user_id: user.id,
+        p_supervisor_id: formData.supervisorId, // First supervisor in the chain
         p_start_date: formData.startDate,
         p_end_date: endDate,
         p_days_count: formData.daysCount,
-        p_reason: formData.reason,
-        p_supervisor_id: formData.supervisorId // Pass supervisor ID
+        p_leave_reason: formData.reason,
+        p_status: 'pending', // MUST BE 'pending' to satisfy Postgres check constraint
+        p_approval_chain: (formData as any).approvalChain || [formData.supervisorId] // Pass the whole chain
       });
 
       if (rpcError) throw rpcError;
@@ -371,7 +375,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       if (onSuccess) onSuccess();
 
       // Reset form on success
-      setFormData({ startDate: '', daysCount: 1, reason: '', supervisorId: null });
+      setFormData(prev => ({ ...prev, startDate: '', daysCount: 1, reason: '' }));
       setEndDate('');
 
     } catch (err: any) {
@@ -525,11 +529,20 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 {loadingManager ? (
                   <span className="text-gray-500 flex items-center gap-2 text-sm"><Clock className="w-4 h-4 animate-spin" /> جاري تحديد المسؤول من الهيكلية...</span>
                 ) : managerInfo ? (
-                  <div className="space-y-2">
-                    <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
-                      <UserCheck className="w-4 h-4 text-blue-500" />
-                      {managerInfo.name}
-                    </span>
+                  <div className="space-y-3 mt-2">
+                    {managerInfo.names ? (
+                      managerInfo.names.map((n, i) => (
+                        <div key={i} className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
+                          <UserCheck className="w-4 h-4 text-blue-500" />
+                          <span>المستوى {i + 1}: {n}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-blue-500" />
+                        <span>{managerInfo.name}</span>
+                      </div>
+                    )}
                     {managerInfo.isTopManagerSelf && (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 rounded-lg text-xs leading-relaxed font-semibold">
                         حيث أنه لا توجد في التطبيق جهة عليا لحد الان فتم اعادة عرض الطلب عليك . يرجى ابداء الرأي . مع التقدير
@@ -585,7 +598,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
             {/* End Date Display */}
             <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-xl flex justify-between items-center border border-blue-100 dark:border-slate-600">
-              <span className="text-sm text-gray-600 dark:text-gray-300">تاريخ النهاية المتوقع:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">تاريخ المباشرة المتوقع:</span>
               <span className="font-bold text-lg text-blue-700 dark:text-blue-300 dir-ltr">
                 {endDate || '-'}
               </span>

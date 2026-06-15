@@ -96,8 +96,8 @@ export const AppNotifications = () => {
             let profileMap: Record<string, any> = {};
 
             if (userIds.length > 0) {
-                const { data: profilesData } = await supabase.from('profiles').select('id, full_name, job_number, avatar_url').in('id', userIds);
-                if (profilesData) profilesData.forEach(p => { profileMap[p.id] = p; });
+                const { data: profilesData } = await supabase.from('available_profiles').select('id, full_name, job_number, avatar_url').in('id', userIds);
+                if (profilesData) { profilesData.forEach(p => { profileMap[p.id] = p; }); }
             }
 
             const formattedData = activeRequests.map(item => ({
