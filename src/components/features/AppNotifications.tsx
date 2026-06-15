@@ -374,8 +374,21 @@ export const AppNotifications = () => {
                                                 </h5>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                                     {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? 'طالب بإلغاء إجازته' :
-                                                        req.cut_status === 'pending' || req.modification_type === 'cut' ? 'طالب بقطع إجازته والعودة للعمل' :
-                                                            `طالب بإجازة ${req.leave_type || 'اعتادية'} لمدة ${req.days_count} يوم`}
+                                                        req.cut_status === 'pending' || req.modification_type === 'cut' ? 
+                                                        (() => {
+                                                            let actual = 0;
+                                                            let returned = 0;
+                                                            if (req.cut_date && req.start_date) {
+                                                                const start = new Date(req.start_date);
+                                                                const cut = new Date(req.cut_date);
+                                                                actual = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                                                                if (actual < 0) actual = 0;
+                                                                if (actual > req.days_count) actual = req.days_count;
+                                                                returned = req.days_count - actual;
+                                                            }
+                                                            return `طالب بقطع إجازته والمباشرة (الفعلية: ${actual} يوم، يتم إرجاع: ${returned} يوم)`;
+                                                        })()
+                                                        : `طالب بإجازة ${req.leave_type || 'اعتادية'} لمدة ${req.days_count} يوم`}
                                                 </p>
                                                 {(req.unpaid_days ?? 0) > 0 && (
                                                     <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1">
@@ -448,7 +461,23 @@ export const AppNotifications = () => {
                                                         {isApproved ? 'موافق عليه' : 'مرفوض'}
                                                     </span>
                                                     <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed group-hover:underline">
-                                                        لقد تم <span className={isApproved ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>{isApproved ? 'الموافقة على' : 'رفض'}</span> طلب {requestType} (من <span className="dir-ltr inline-block mx-0.5 font-mono">{req.start_date}</span> إلى <span className="dir-ltr inline-block mx-0.5 font-mono">{req.end_date}</span>).
+                                                        {requestType === 'قطع إجازتك' ? (() => {
+                                                            let actual = 0;
+                                                            let returned = 0;
+                                                            if (req.cut_date && req.start_date) {
+                                                                const start = new Date(req.start_date);
+                                                                const cut = new Date(req.cut_date);
+                                                                actual = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                                                                if (actual < 0) actual = 0;
+                                                                if (actual > req.days_count) actual = req.days_count;
+                                                                returned = req.days_count - actual;
+                                                            }
+                                                            if (isApproved) {
+                                                                return `لقد تم اعتماد طلب قطع إجازتك والمباشرة. الأيام الفعلية (${actual})، تم استرجاع (${returned}) يوم لرصيدك. الرصيد الحالي: ${user?.leave_balance || 0} يوم.`;
+                                                            } else {
+                                                                return `لقد تم رفض طلب قطع إجازتك. لا تزال الإجازة مستمرة (من ${req.start_date} إلى ${req.end_date}).`;
+                                                            }
+                                                        })() : `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`}
                                                     </p>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-2">

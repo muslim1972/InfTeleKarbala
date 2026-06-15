@@ -137,25 +137,54 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                         </button>
                     </div>
                 </div>
-            ) : isAfterStartButBeforeEnd ? (
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ المباشرة (قطع الإجازة)</label>
-                        <DateInput
-                            value={cutDate}
-                            onChange={setCutDate}
-                            className="w-full bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-xl py-3"
-                        />
+            ) : isAfterStartButBeforeEnd ? (() => {
+                let actualDays = 0;
+                let returnedDays = 0;
+                if (cutDate && request.start_date) {
+                    const start = new Date(request.start_date);
+                    const cut = new Date(cutDate);
+                    actualDays = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    if (actualDays < 0) actualDays = 0;
+                    if (actualDays > request.days_count) actualDays = request.days_count;
+                    returnedDays = request.days_count - actualDays;
+                }
+
+                return (
+                    <div className="space-y-6">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                            <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">تفاصيل الإجازة الأصلية</h4>
+                            <p className="text-xs text-blue-700/80 dark:text-blue-400">من <span className="font-mono">{request.start_date}</span> إلى <span className="font-mono">{request.end_date}</span> (المدة: {request.days_count} يوم)</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ المباشرة (قطع الإجازة)</label>
+                            <DateInput
+                                value={cutDate}
+                                onChange={setCutDate}
+                                className="w-full bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-xl py-3"
+                            />
+                        </div>
+                        
+                        {cutDate && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 space-y-2">
+                                <p className="text-sm text-amber-800 dark:text-amber-300">
+                                    <span className="font-bold">الأيام الفعلية التي تمتعت بها:</span> {actualDays} يوم
+                                </p>
+                                <p className="text-sm text-amber-800 dark:text-amber-300">
+                                    <span className="font-bold">سيتم إرجاع لرصيدك:</span> {returnedDays} يوم
+                                </p>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => handleModify('cut')}
+                            disabled={isSubmitting || !cutDate}
+                            className="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition disabled:opacity-70 flex items-center justify-center gap-2"
+                        >
+                            إرسال طلب قطع الإجازة
+                        </button>
                     </div>
-                    <button
-                        onClick={() => handleModify('cut')}
-                        disabled={isSubmitting}
-                        className="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition disabled:opacity-70 flex items-center justify-center gap-2"
-                    >
-                        إرسال طلب قطع الإجازة
-                    </button>
-                </div>
-            ) : (
+                );
+            })() : (
                 <div className="text-center text-gray-500 py-4">
                     لا يمكن تعديل هذه الإجازة في الوقت الحالي.
                 </div>

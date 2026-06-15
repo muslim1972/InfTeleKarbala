@@ -1,6 +1,6 @@
-
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, CheckCircle, User } from 'lucide-react';
+import { Loader2, CheckCircle, User, X, AlertCircle } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
 
 interface PendingCutApprovalsCardProps {
@@ -16,6 +16,52 @@ export function PendingCutApprovalsCard({
     onRefresh,
     activeHighlightId
 }: PendingCutApprovalsCardProps) {
+    const [selectedRequest, setSelectedRequest] = useState<LeaveRecord | null>(null);
+    const [actualDays, setActualDays] = useState<number>(0);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        if (selectedRequest) {
+            // Auto calculate initial suggested days based on cut date vs start date
+            let suggested = 0;
+            if (selectedRequest.cut_date && selectedRequest.start_date) {
+                const start = new Date(selectedRequest.start_date);
+                const cut = new Date(selectedRequest.cut_date);
+                suggested = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                if (suggested < 0) suggested = 0;
+                if (suggested > selectedRequest.days_count) suggested = selectedRequest.days_count;
+            }
+            setActualDays(suggested);
+        }
+    }, [selectedRequest]);
+
+    const handleConfirmCut = async () => {
+        if (!selectedRequest) return;
+        if (isNaN(actualDays) || actualDays < 0 || actualDays > selectedRequest.days_count) {
+            alert("يرجى إدخال عدد أيام صحيح (أقل من أو يساوي الإجازة الأصلية).");
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            const { data, error } = await supabase.rpc('process_hr_leave_cut', {
+                p_request_id: selectedRequest.id,
+                p_actual_days: actualDays
+            });
+            if (error) throw error;
+            
+            // Set is_read_by_employee = false to trigger the final notification
+            await supabase.from('leave_requests').update({ is_read_by_employee: false }).eq('id', selectedRequest.id);
+            
+            setSelectedRequest(null);
+            onRefresh();
+        } catch (err: any) {
+            alert("حدث خطأ أثناء اعتماد القطع: " + err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     return (
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative">
             <div className="absolute top-0 right-0 w-2 h-full bg-amber-500 rounded-r-3xl"></div>
@@ -69,32 +115,7 @@ export function PendingCutApprovalsCard({
                             </div>
                             <div className="mt-4 flex flex-col gap-2">
                                 <button
-                                    onClick={() => {
-                                        const actualDaysStr = window.prompt(`الموظف (${record.employee_name}) قَطَع إجازته بتاريخ ${record.cut_date}.\nكم عدد الأيام الفعلية التي تمتع بها قبل القطع؟\n\n(مثلاً إذا قطعها بعد يومين، أدخل: 2. سيتم إعادة الباقي لرصيده)`, "0");
-                                        if (actualDaysStr !== null) {
-                                            const actualDays = parseInt(actualDaysStr, 10);
-                                            if (isNaN(actualDays) || actualDays < 0 || actualDays > record.days_count) {
-                                                alert("يرجى إدخال عدد أيام صحيح (أقل من أو يساوي الإجازة الأصلية).");
-                                            } else {
-                                                if (window.confirm(`هل أنت متأكد أن الأيام الفعلية هي ${actualDays} أيام؟\nسيتم إرجاع ${record.days_count - actualDays} يوم للموظف.`)) {
-                                                    const processCut = async () => {
-                                                        try {
-                                                            const { data, error } = await supabase.rpc('process_hr_leave_cut', {
-                                                                p_request_id: record.id,
-                                                                p_actual_days: actualDays
-                                                            });
-                                                            if (error) throw error;
-                                                            alert((data as any).message);
-                                                            onRefresh();
-                                                        } catch (err: any) {
-                                                            alert("حدث خطأ أثناء اعتماد القطع: " + err.message);
-                                                        }
-                                                    };
-                                                    processCut();
-                                                }
-                                            }
-                                        }
-                                    }}
+                                    onClick={() => setSelectedRequest(record)}
                                     className="w-full bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
                                 >
                                     اعتماد قطع الإجازة وإرجاع الرصيد
@@ -106,6 +127,68 @@ export function PendingCutApprovalsCard({
             ) : (
                 <div className="text-center py-10 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
                     لا توجد طلبات قطع إجازة بانتظار اعتماد الموارد البشرية
+                </div>
+            )}
+
+            {/* Custom Modal for HR Cut Approval */}
+            {selectedRequest && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setSelectedRequest(null); }}>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-amber-500 p-4 text-white flex justify-between items-center">
+                            <h3 className="font-bold text-lg">تأكيد اعتماد قطع الإجازة</h3>
+                            <button onClick={() => setSelectedRequest(null)} className="hover:bg-white/20 p-1 rounded-xl transition">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-5">
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                                <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{selectedRequest.employee_name}</h4>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">الإجازة الأصلية: {selectedRequest.days_count} يوم</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">من {selectedRequest.start_date} إلى {selectedRequest.end_date}</p>
+                                <hr className="my-2 border-slate-200 dark:border-slate-700" />
+                                <p className="text-sm font-bold text-rose-600 dark:text-rose-400">المباشرة: {selectedRequest.cut_date}</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                    الأيام الفعلية التي تمتع بها الموظف:
+                                </label>
+                                <input 
+                                    type="number"
+                                    min="0"
+                                    max={selectedRequest.days_count}
+                                    value={actualDays}
+                                    onChange={(e) => setActualDays(parseInt(e.target.value) || 0)}
+                                    className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+                                <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                                <p className="text-sm text-amber-800 dark:text-amber-300">
+                                    بناءً على هذا الرقم، سيتم إرجاع <strong>{Math.max(0, selectedRequest.days_count - actualDays)}</strong> أيام إلى رصيد الموظف بشكل نهائي وتغلق الإجازة.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setSelectedRequest(null)}
+                                    className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                                >
+                                    إلغاء
+                                </button>
+                                <button
+                                    onClick={handleConfirmCut}
+                                    disabled={isProcessing}
+                                    className="flex-[2] py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 disabled:opacity-70"
+                                >
+                                    {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                                    تأكيد وإرجاع الرصيد
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

@@ -56,6 +56,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 updatePayload.cut_status = status;
                 if (status === 'approved') {
                     updatePayload.hr_cut_status = 'pending';
+                    // We DO NOT set is_read_by_employee to false here, because we want the notification
+                    // to only go to the employee AFTER HR processes the cut.
+                } else {
+                    // If the supervisor rejects the cut, we SHOULD notify the employee now!
+                    updatePayload.is_read_by_employee = false;
                 }
             } else {
                 // Normally (new, or edited) - Use the new Multi-Level Approval RPC
@@ -210,6 +215,48 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                             {request.reason}
                         </p>
                     </div>
+
+                    {request.modification_type === 'cut' && (() => {
+                        let actual = 0;
+                        let returned = 0;
+                        if (request.cut_date && request.start_date) {
+                            const start = new Date(request.start_date);
+                            const cut = new Date(request.cut_date);
+                            actual = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                            if (actual < 0) actual = 0;
+                            if (actual > request.days_count) actual = request.days_count;
+                            returned = request.days_count - actual;
+                        }
+                        
+                        // Extract time from updated_at for submission time
+                        const submitDate = new Date(request.updated_at || request.created_at);
+                        const timeString = submitDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+                        const dateString = submitDate.toLocaleDateString('en-GB');
+
+                        return (
+                            <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-200 dark:border-amber-900/30 mt-4 space-y-3">
+                                <h4 className="text-sm font-bold text-amber-800 dark:text-amber-400 border-b border-amber-200 dark:border-amber-900/50 pb-2">تفاصيل طلب القطع</h4>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-1">وقت التقديم</p>
+                                        <p className="font-bold text-amber-900 dark:text-amber-200">{dateString} {timeString}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-1">تاريخ المباشرة</p>
+                                        <p className="font-bold text-amber-900 dark:text-amber-200">{request.cut_date}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-1">الأيام الفعلية</p>
+                                        <p className="font-bold text-amber-900 dark:text-amber-200">{actual} يوم</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-1">المتبقي للإرجاع</p>
+                                        <p className="font-bold text-amber-900 dark:text-amber-200">{returned} يوم</p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Unpaid days note */}
                     {(request.unpaid_days ?? 0) > 0 && (
