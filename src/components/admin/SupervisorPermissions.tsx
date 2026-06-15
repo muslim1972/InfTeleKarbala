@@ -18,7 +18,8 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const { query: searchQuery, setQuery: setSearchQuery, results: rawSuggestions } = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access',
         limit: 50,
-        debounceMs: 300
+        debounceMs: 300,
+        usePublicView: true
     });
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);

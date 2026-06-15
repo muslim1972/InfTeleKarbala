@@ -50,7 +50,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
         debounceMs = 300,
         excludeUserId,
         enabled = true,
-        usePublicView = false
+        usePublicView = true
     } = options;
 
     const [query, setQuery] = useState('');
@@ -96,7 +96,8 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                     .select(select)
                     .or(orClause)
                     .order('full_name')
-                    .limit(limit);
+                    .limit(limit)
+                    .abortSignal(controller.signal);
 
                 const { data, error } = await queryBuilder;
 
