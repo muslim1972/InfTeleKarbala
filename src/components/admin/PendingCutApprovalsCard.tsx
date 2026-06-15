@@ -44,7 +44,7 @@ export function PendingCutApprovalsCard({
 
         setIsProcessing(true);
         try {
-            const { data, error } = await supabase.rpc('process_hr_leave_cut', {
+            const { error } = await supabase.rpc('process_hr_leave_cut', {
                 p_request_id: selectedRequest.id,
                 p_actual_days: actualDays
             });

@@ -229,7 +229,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         }
                         
                         // Extract time from updated_at for submission time
-                        const submitDate = new Date(request.updated_at || request.created_at);
+                        const submitDate = new Date((request as any).updated_at || (request as any).created_at);
                         const timeString = submitDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
                         const dateString = submitDate.toLocaleDateString('en-GB');
 

@@ -473,7 +473,7 @@ export const AppNotifications = () => {
                                                                 returned = req.days_count - actual;
                                                             }
                                                             if (isApproved) {
-                                                                return `لقد تم اعتماد طلب قطع إجازتك والمباشرة. الأيام الفعلية (${actual})، تم استرجاع (${returned}) يوم لرصيدك. الرصيد الحالي: ${user?.leave_balance || 0} يوم.`;
+                                                                return `لقد تم اعتماد طلب قطع إجازتك والمباشرة. الأيام الفعلية (${actual})، تم استرجاع (${returned}) يوم لرصيدك. الرصيد الحالي: ${(user as any)?.leave_balance || 0} يوم.`;
                                                             } else {
                                                                 return `لقد تم رفض طلب قطع إجازتك. لا تزال الإجازة مستمرة (من ${req.start_date} إلى ${req.end_date}).`;
                                                             }
