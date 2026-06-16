@@ -393,7 +393,41 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const expiryDate = financialData?.leaves_balance_expiry_date;
 
   const today = new Date().toISOString().split('T')[0];
-  const canModifyLatest = latestRequest && latestRequest.status !== 'rejected' && latestRequest.modification_type !== 'canceled' && latestRequest.end_date >= today;
+
+  const parseDateObj = (d: string) => {
+    if (!d) return new Date(0);
+    const dateOnly = d.split(' ')[0].split('T')[0];
+    if (dateOnly.includes('-')) {
+        const parts = dateOnly.split('-');
+        if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (parts[2] && parts[2].length >= 4) return new Date(parseInt(parts[2].substring(0, 4)), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    if (dateOnly.includes('/')) {
+        const parts = dateOnly.split('/');
+        if (parts[2] && parts[2].length >= 4) return new Date(parseInt(parts[2].substring(0, 4)), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    return new Date(d);
+  };
+
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  const isActiveRequest = (req: any) => {
+    if (!req) return false;
+    if (req.status === 'rejected') return false;
+    if (req.cancellation_status === 'approved') return false;
+    
+    if (req.cut_date && req.hr_cut_status === 'approved') {
+        // cut_date = يوم المباشرة (العودة للعمل) → الإجازة فعلياً انتهت قبله
+        return parseDateObj(req.cut_date).getTime() > todayDate.getTime();
+    }
+    
+    // end_date = آخر يوم إجازة (شامل) → الإجازة فعالة في هذا اليوم
+    return parseDateObj(req.end_date).getTime() >= todayDate.getTime();
+  };
+
+  const showLatestRequest = latestRequest && isActiveRequest(latestRequest);
+  const canModifyLatest = showLatestRequest && latestRequest.status !== 'rejected' && latestRequest.modification_type !== 'canceled' && parseDateObj(latestRequest.end_date).getTime() >= todayDate.getTime();
 
   if (isEditing && latestRequest) {
     return (
@@ -412,7 +446,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   return (
     <div className="space-y-4">
       {/* Latest Request banner */}
-      {latestRequest && (
+      {showLatestRequest && (
         <div className={`p-4 rounded-2xl border flex items-center justify-between backdrop-blur-sm transition-all duration-300 ${canModifyLatest ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200/60 dark:from-indigo-900/20 dark:to-purple-900/20 dark:border-indigo-800/50' : 'bg-gray-50/80 border-gray-200/60 dark:bg-slate-800/50 dark:border-slate-700/50'}`}>
           <div>
             <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">

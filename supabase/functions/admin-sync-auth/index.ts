@@ -19,18 +19,25 @@ serve(async (req: Request) => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // 1. Get current user and verify they are an admin
+    // 1. Get current user and verify they are authorized
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    if (userError || !user) throw new Error('Unauthorized')
+    if (userError || !user) throw new Error(`Unauthorized: ${userError?.message || 'No user'}`)
 
-    const { data: profile } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseClient
       .from('available_profiles')
-      .select('role')
+      .select('role, admin_role')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
-      throw new Error('Only admins can sync auth users')
+    if (profileError) {
+      throw new Error(`Profile fetch error: ${profileError.message} (code: ${profileError.code})`)
+    }
+
+    const allowedRoles = ['admin'];
+    const allowedAdminRoles = ['developer', 'hr', 'general'];
+    
+    if (!allowedRoles.includes(profile?.role) && !allowedAdminRoles.includes(profile?.admin_role)) {
+      throw new Error(`Access denied. role=${profile?.role}, admin_role=${profile?.admin_role}`)
     }
 
     // 2. Get target user data
@@ -44,19 +51,27 @@ serve(async (req: Request) => {
 
     // 3. Sync Auth User via Admin API
     let authError = null;
-    const { data: { users }, error: _listError } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = users.find(u => u.id === user_id);
+    let finalUserId = user_id;
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw new Error(`List users error: ${listError.message}`)
+    
+    // Check by ID first, then by email
+    let existingUser = users.find(u => u.id === user_id);
+    if (!existingUser) {
+      existingUser = users.find(u => u.email === email);
+    }
 
     if (existingUser) {
-      // UPDATE
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+      // UPDATE existing user (use their existing ID)
+      finalUserId = existingUser.id;
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(finalUserId, {
         email: email,
         password: password,
         email_confirm: true
       });
       authError = error;
     } else {
-      // CREATE
+      // CREATE new user
       const { error } = await supabaseAdmin.auth.admin.createUser({
         id: user_id,
         email: email,
@@ -67,16 +82,17 @@ serve(async (req: Request) => {
       authError = error;
     }
 
-    if (authError) throw authError
+    if (authError) throw new Error(`Auth sync error: ${authError.message}`)
 
     // 4. Update Profile Password Hash
-    const { data: hash } = await supabaseAdmin.rpc('hash_password', { password })
+    const { data: hash, error: hashError } = await supabaseAdmin.rpc('hash_password', { password })
+    if (hashError) throw new Error(`Hash error: ${hashError.message}`)
     
     // Check if profile exists to decide between update or just returning success
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('id')
-      .eq('id', user_id)
+      .eq('id', finalUserId)
       .single()
 
     if (existingProfile) {
@@ -86,11 +102,11 @@ serve(async (req: Request) => {
           password_hash: hash,
           password: null 
         })
-        .eq('id', user_id)
+        .eq('id', finalUserId)
     }
 
     return new Response(
-      JSON.stringify({ success: true, hash: hash }),
+      JSON.stringify({ success: true, hash: hash, user_id: finalUserId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 

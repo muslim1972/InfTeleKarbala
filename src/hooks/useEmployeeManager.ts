@@ -427,18 +427,41 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     password: password
                 }
             });
-            if (syncError) throw syncError;
+            if (syncError) {
+                let detail = syncError.message;
+                try {
+                    // Try to read the actual error body from the response
+                    if (syncError.context && typeof syncError.context.json === 'function') {
+                        const body = await syncError.context.json();
+                        detail = body?.error || detail;
+                    } else if (syncData?.error) {
+                        detail = syncData.error;
+                    }
+                } catch (_) {}
+                throw new Error(detail);
+            }
+
+            // Use the ID returned by the edge function (may differ if email already existed)
+            const actualUserId = syncData?.user_id || newUserId;
+            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate');
+
+            if (!finalGovernorate) {
+                toast.error("لم يتم العثور على المحافظة. يرجى تسجيل الخروج والدخول مرة أخرى لتحديث جلستك.");
+                setLoading(false);
+                return;
+            }
 
             const { data: user, error: userError } = await supabase
                 .from('profiles')
                 .insert([{ 
                     ...formData, 
-                    id: newUserId, 
+                    id: actualUserId, 
                     full_name, job_number, username, 
                     password: null, // Don't store plain text
                     password_hash: syncData.hash, // Use hash returned from Edge Function
                     iban: formData.iban?.trim(),
-                    updated_at: new Date().toISOString() 
+                    updated_at: new Date().toISOString(),
+                    governorate: finalGovernorate
                 }])
                 .select().single();
             if (userError) throw userError;
