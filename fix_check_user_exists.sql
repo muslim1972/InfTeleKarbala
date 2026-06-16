@@ -1,23 +1,3 @@
--- 1. التأكد من وجود الدالة السابقة أولاً كما طلبت
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'check_user_exists') THEN
-        RAISE EXCEPTION 'الدالة check_user_exists غير موجودة في قاعدة البيانات!';
-    END IF;
-END $$;
-
--- 2. إنشاء جدول لتسجيل محاولات الفحص (Rate Limiting)
-CREATE TABLE IF NOT EXISTS public.api_rate_limits (
-    ip_address text PRIMARY KEY,
-    attempts integer DEFAULT 1,
-    last_attempt timestamptz DEFAULT now(),
-    blocked_until timestamptz
-);
-
--- 3. تفعيل RLS على جدول الحماية لكي لا يقرأه أحد
-ALTER TABLE public.api_rate_limits ENABLE ROW LEVEL SECURITY;
-
--- 4. تعديل الدالة لتشمل نظام الحظر
 CREATE OR REPLACE FUNCTION check_user_exists(p_username text, p_governorate text)
 RETURNS boolean
 LANGUAGE plpgsql
