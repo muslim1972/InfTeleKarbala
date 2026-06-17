@@ -136,7 +136,7 @@ export const logoutOneSignal = async () => {
         await OS.logout();
       }
     } catch (e: any) {
-      console.warn("OneSignal logout error (probably not initialized yet):", e);
+      // Ignore OneSignal logout initialization errors to keep console clean
     }
   }
 };

@@ -8,6 +8,14 @@ import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { ChatSettingsProvider } from './context/ChatSettingsContext';
 
+// 🛡️ تنظيف الكونسول: إخفاء رسائل الديباغ وإبقاء رسائل الخطأ فقط
+if (typeof window !== 'undefined') {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  // سنبقي على console.error و console.warn للضرورة
+}
+
 // 🛡️ حماية Geolocation: مراقبة ومنع الطلبات المفرطة وغير المصرح بها
 if (typeof window !== 'undefined' && navigator.geolocation) {
   const originalGetCurrentPosition = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);

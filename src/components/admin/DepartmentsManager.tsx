@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { Loader2, Plus, Edit, Trash2, Save, Network, Check, X, Edit2, Search } from "lucide-react";
 import { normalizeForComparison } from "../../utils/profileUtils";
+import { smoothScrollToId } from "../../hooks/useSmoothScroll";
 
 interface Department {
     id: string;
@@ -113,12 +114,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             setHighlightedEmpId(selectedUser.id);
 
-            setTimeout(() => {
-                const element = document.getElementById(`emp-badge-${selectedUser.id}`);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 300);
+            smoothScrollToId(`emp-badge-${selectedUser.id}`, 0);
 
             setTimeout(() => {
                 setHighlightedEmpId(null);

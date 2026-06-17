@@ -61,6 +61,14 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
 
             if (rpcError) throw rpcError;
 
+            // إعادة توجيه طلب الإلغاء للمدير الأول في السلسلة
+            if (type === 'canceled' && request.approval_chain && request.approval_chain.length > 0) {
+                await supabase.from('leave_requests').update({
+                    current_approval_step: 1,
+                    supervisor_id: request.approval_chain[0]
+                }).eq('id', request.id);
+            }
+
             const response = data as any;
             if (!response || !response.success) {
                 throw new Error(response?.message || 'فشلت عملية التعديل');

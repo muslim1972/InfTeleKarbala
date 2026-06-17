@@ -4,6 +4,7 @@ import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
 import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User, Loader2 } from "lucide-react";
 import { useEmployeeManager } from "../hooks/useEmployeeManager";
+import { smoothScrollToId } from "../hooks/useSmoothScroll";
 import { cn } from "../lib/utils";
 import TipsEditor from "../components/admin/TipsEditor";
 import { PollCreator } from "../components/admin/PollCreator";
@@ -125,13 +126,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         setOpenRecordSection(prev => {
             const newState = prev === section ? null : section;
             if (newState) {
-                setTimeout(() => {
-                    const element = document.getElementById(`record-section-${section}`);
-                    if (element) {
-                        const y = element.getBoundingClientRect().top + window.scrollY - 250;
-                        window.scrollTo({ top: y, behavior: 'smooth' });
-                    }
-                }, 100);
+                smoothScrollToId(`record-section-${section}`, 250);
             }
             return newState;
         });
@@ -159,13 +154,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
             };
             if (!isCurrentlyOpen) {
                 newState[sectionId as keyof typeof newState] = true;
-                setTimeout(() => {
-                    const element = document.getElementById(`section-${sectionId}`);
-                    if (element) {
-                        const offsetPosition = element.getBoundingClientRect().top + window.pageYOffset - 125;
-                        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-                    }
-                }, 100);
+                smoothScrollToId(`section-${sectionId}`, 125);
             }
             return newState;
         });

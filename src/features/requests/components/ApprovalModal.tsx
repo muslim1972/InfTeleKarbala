@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Check, X, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { User, Check, X, Calendar, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
 import { sendPushNotification } from '../../../services/notifications';
@@ -16,6 +16,9 @@ interface LeaveRequest {
     modification_type?: string;
     unpaid_days?: number;
     cut_date?: string;
+    prev_manager_name?: string;
+    approval_chain?: string[];
+    current_approval_step?: number;
     profiles?: {
         full_name: string;
         job_number: string;
@@ -43,14 +46,22 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
         try {
             if (request.modification_type === 'canceled') {
                 if (status === 'approved') {
-                    // Call RPC to fully refund leave
-                    const { data: rpcData, error: rpcErr } = await supabase.rpc('process_leave_cancellation', {
-                        p_request_id: request.id
-                    });
-                    if (rpcErr) throw rpcErr;
-                    if (rpcData && !rpcData.success) throw new Error(rpcData.message);
+                    // Multi-level cancellation escalation
+                    const currentStep = request.current_approval_step ?? 1;
+                    if (request.approval_chain && Array.isArray(request.approval_chain) && currentStep < request.approval_chain.length) {
+                        const nextStep = currentStep + 1;
+                        const nextManagerId = request.approval_chain[currentStep]; // 0-based index means currentStep points to the NEXT manager
+                        updatePayload.current_approval_step = nextStep;
+                        updatePayload.supervisor_id = nextManagerId;
+                        rpcResult = { status: 'escalated', next_supervisor: nextManagerId };
+                    } else {
+                        // Fully approved by all managers, goes to HR
+                        updatePayload.cancellation_status = 'approved';
+                        updatePayload.is_read_by_employee = false;
+                    }
                 } else {
-                    updatePayload.cancellation_status = status;
+                    updatePayload.cancellation_status = 'rejected';
+                    updatePayload.is_read_by_employee = false;
                 }
             } else if (request.modification_type === 'cut') {
                 updatePayload.cut_status = status;
@@ -138,7 +149,13 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             }
         } catch (err: any) {
             console.error('Error processing request:', err);
-            setError(err.message || 'حدث خطأ أثناء معالجة الطلب');
+            
+            // Smart error handling for network issues
+            if (err.message === 'Failed to fetch' || err.message?.includes('Failed to fetch') || err.message?.includes('Network Error')) {
+                setError('حدث خطأ في الاتصال بالخادم. يرجى التحقق من جودة الاتصال بالإنترنت والمحاولة مرة أخرى.');
+            } else {
+                setError(err.message || 'حدث خطأ أثناء معالجة الطلب');
+            }
         } finally {
             setIsProcessing(false);
         }
@@ -162,6 +179,13 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 {request.modification_type === 'cut' && (
                     <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-center py-2 font-bold text-sm shadow-sm z-10">
                         تم قطع الإجازة (تاريخ المباشرة: {request.cut_date})
+                    </div>
+                )}
+
+                {request.prev_manager_name && (
+                    <div className={`mx-4 mt-12 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3 flex items-center gap-2 text-emerald-800 dark:text-emerald-300`}>
+                        <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <p className="text-sm font-bold">حاصل على موافقة ({request.prev_manager_name})</p>
                     </div>
                 )}
 

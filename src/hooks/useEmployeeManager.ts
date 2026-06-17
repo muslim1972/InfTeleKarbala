@@ -475,9 +475,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             setSelectedEmployee(user);
             setFinancialData({ user_id: user.id, nominal_salary: 0 });
 
-            setTimeout(() => {
-                if (detailsRef?.current) detailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (detailsRef?.current) detailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
 
             setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user", admin_role: "developer", department_id: null });
         } catch (error: any) {

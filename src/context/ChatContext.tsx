@@ -181,8 +181,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     playBuzzSound();
                 }
             })
-            .subscribe((status) => {
-                console.log('ChatContext: Subscription status:', status);
+            .subscribe(() => {
+                // Silenced status log for clean console
             });
 
         // Helper: Play buzz sound with 3x repeat using a FRESH Audio object each time

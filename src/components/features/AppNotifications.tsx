@@ -92,7 +92,14 @@ export const AppNotifications = () => {
             }
 
             const validIds = activeRequests.map(r => r.user_id).filter(Boolean);
-            const userIds = [...new Set(validIds)];
+            const prevManagerIds = activeRequests.map(r => {
+                if (r.approval_chain && Array.isArray(r.approval_chain) && r.current_approval_step > 1 && r.approval_chain[r.current_approval_step - 2]) {
+                    return r.approval_chain[r.current_approval_step - 2];
+                }
+                return null;
+            }).filter(Boolean);
+            
+            const userIds = [...new Set([...validIds, ...prevManagerIds])];
             let profileMap: Record<string, any> = {};
 
             if (userIds.length > 0) {
@@ -100,10 +107,18 @@ export const AppNotifications = () => {
                 if (profilesData) { profilesData.forEach(p => { profileMap[p.id] = p; }); }
             }
 
-            const formattedData = activeRequests.map(item => ({
-                ...item,
-                profiles: item.user_id && profileMap[item.user_id] ? profileMap[item.user_id] : null
-            }));
+            const formattedData = activeRequests.map(item => {
+                let prevManagerName = null;
+                if (item.approval_chain && Array.isArray(item.approval_chain) && item.current_approval_step > 1 && item.approval_chain[item.current_approval_step - 2]) {
+                    const prevId = item.approval_chain[item.current_approval_step - 2];
+                    prevManagerName = profileMap[prevId]?.full_name;
+                }
+                return {
+                    ...item,
+                    profiles: item.user_id && profileMap[item.user_id] ? profileMap[item.user_id] : null,
+                    prev_manager_name: prevManagerName
+                };
+            });
             setSupervisorRequests(formattedData);
             setSupervisorPendingCount(activeRequests.length);
         } else {
@@ -204,7 +219,6 @@ export const AppNotifications = () => {
     }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications]);
 
     const totalNotifications = 
-        employeeUnreadCount + 
         supervisorPendingCount + 
         (hrRequests.filter(r => !dismissedHRRequestIds.has(r.id)).length) + 
         (employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length) +
@@ -440,10 +454,10 @@ export const AppNotifications = () => {
                                         let isApproved = false;
                                         let requestType = 'إجازتك';
                                         
-                                        if (req.cancellation_status) {
+                                        if (req.cancellation_status && req.cancellation_status !== 'none') {
                                             isApproved = req.cancellation_status === 'approved';
                                             requestType = 'إلغاء إجازتك';
-                                        } else if (req.cut_status) {
+                                        } else if (req.cut_status && req.cut_status !== 'none') {
                                             isApproved = req.cut_status === 'approved';
                                             requestType = 'قطع إجازتك';
                                         } else {

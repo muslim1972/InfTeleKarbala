@@ -5,6 +5,7 @@ import { LeavePrintTemplate } from './LeavePrintTemplate';
 import { PendingCutApprovalsCard } from './PendingCutApprovalsCard';
 import { ApprovedRequestsCard } from './ApprovedRequestsCard';
 import { AdminLeaveArchive } from './AdminLeaveArchive';
+import { smoothScrollToId } from '../../hooks/useSmoothScroll';
 
 interface AdminLeaveRequestsProps {
     employeeId?: string;
@@ -85,20 +86,12 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             setActiveHighlightId(highlightRequestId);
             
             // Give the DOM a moment to render the new records
-            timeoutId = setTimeout(() => {
-                const element = document.getElementById(`request-${highlightRequestId}`);
-                if (element) {
-                    console.log("🎯 AdminLeaveRequests: Scrolling to element", highlightRequestId);
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                    // Clear the highlight after 5 seconds of visibility
-                    clearId = setTimeout(() => {
-                        setActiveHighlightId(null);
-                    }, 5000);
-                } else {
-                    console.error("❌ AdminLeaveRequests: Element not found for ID:", highlightRequestId);
-                }
-            }, 50); // Reduced for instant feel
+            smoothScrollToId(`request-${highlightRequestId}`, 0);
+            
+            // Clear the highlight after 5 seconds of visibility
+            clearId = setTimeout(() => {
+                setActiveHighlightId(null);
+            }, 5000);
         }
 
         return () => {

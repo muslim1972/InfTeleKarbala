@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { smoothScrollToId } from "./useSmoothScroll";
 
 export const useDashboardData = (activeTab: string) => {
     const { user } = useAuth();
@@ -34,13 +35,7 @@ export const useDashboardData = (activeTab: string) => {
 
             // Auto-scroll when opening
             if (newState) {
-                setTimeout(() => {
-                    const element = document.getElementById(`financial-group-${section}`);
-                    if (element) {
-                        const y = element.getBoundingClientRect().top + window.scrollY - 180; // Adjusted offset
-                        window.scrollTo({ top: y, behavior: 'smooth' });
-                    }
-                }, 100);
+                smoothScrollToId(`financial-group-${section}`, 180);
             }
             return newState;
         });
