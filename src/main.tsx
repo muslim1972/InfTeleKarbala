@@ -8,13 +8,7 @@ import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { ChatSettingsProvider } from './context/ChatSettingsContext';
 
-// 🛡️ تنظيف الكونسول: إخفاء رسائل الديباغ وإبقاء رسائل الخطأ فقط
-if (typeof window !== 'undefined') {
-  console.log = () => {};
-  console.info = () => {};
-  console.debug = () => {};
-  // سنبقي على console.error و console.warn للضرورة
-}
+// تم إزالة قفل الكونسول مؤقتاً لمعرفة سبب تأخر الواجهة 3 دقائق
 
 // 🛡️ حماية Geolocation: مراقبة ومنع الطلبات المفرطة وغير المصرح بها
 if (typeof window !== 'undefined' && navigator.geolocation) {
