@@ -70,10 +70,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const profileMap: Record<string, any> = {};
             if (otherUserIds.length > 0) {
                 const { data: profiles } = await supabase
-                    .from('available_profiles')
-                    .select('id, full_name, avatar_url')
-                    .in('id', otherUserIds);
-                profiles?.forEach(p => { profileMap[p.id] = p; });
+                    .rpc('get_available_profiles_by_ids', { profile_ids: otherUserIds });
+                profiles?.forEach((p: any) => { profileMap[p.id] = p; });
             }
 
             // 4. Transform into final display format
@@ -221,12 +219,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!user) return null;
         try {
             // Logic from useConversations.ts...
-            const { data: partnerProfile } = await supabase.from('available_profiles').select('id, job_number').eq('id', partnerId).single();
+            const { data: profiles } = await supabase.rpc('get_available_profiles_by_ids', { profile_ids: [partnerId] });
+            const partnerProfile = profiles?.[0];
             const partnerUuids = [partnerId];
             const jobNumber = partnerProfile?.job_number;
             if (jobNumber) {
-                const { data: siblings } = await supabase.from('available_profiles').select('id').eq('job_number', jobNumber);
-                if (siblings) siblings.forEach(s => { if (!partnerUuids.includes(s.id)) partnerUuids.push(s.id); });
+                const { data: siblings } = await supabase.rpc('search_available_profiles', { search_term: jobNumber, limit_count: 5 });
+                if (siblings) siblings.forEach((s: any) => { if (!partnerUuids.includes(s.id)) partnerUuids.push(s.id); });
             }
             const { data: possibles } = await supabase.from('conversations').select('*').eq('is_group', false).contains('participants', JSON.stringify([user.id]));
             if (possibles) {

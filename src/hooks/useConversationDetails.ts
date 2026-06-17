@@ -48,11 +48,9 @@ export function useConversationDetails(conversationId: string) {
       if (!conv.is_group && conv.participants) {
         const otherUserId = conv.participants.find((id: string) => id !== user.id);
         if (otherUserId) {
-          const { data: profile } = await supabase
-            .from('available_profiles')
-            .select('id, full_name, avatar_url')
-            .eq('id', otherUserId)
-            .single();
+          const { data: profiles } = await supabase
+            .rpc('get_available_profiles_by_ids', { profile_ids: [otherUserId] });
+          const profile = profiles?.[0];
 
           if (profile) {
             name = profile.full_name || 'مستخدم';
@@ -67,12 +65,10 @@ export function useConversationDetails(conversationId: string) {
       } else if (conv.is_group && conv.participants && conv.participants.length > 0) {
         // Fetch all participants for group chat
         const { data: profiles } = await supabase
-          .from('available_profiles')
-          .select('id, full_name, avatar_url')
-          .in('id', conv.participants);
+          .rpc('get_available_profiles_by_ids', { profile_ids: conv.participants });
         
         if (profiles) {
-          member_profiles = profiles.map(p => ({
+          member_profiles = profiles.map((p: any) => ({
             id: p.id,
             full_name: p.full_name || 'مستخدم',
             avatar: p.avatar_url

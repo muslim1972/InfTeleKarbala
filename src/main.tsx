@@ -8,7 +8,13 @@ import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { ChatSettingsProvider } from './context/ChatSettingsContext';
 
-// تم إزالة قفل الكونسول مؤقتاً لمعرفة سبب تأخر الواجهة 3 دقائق
+// 🛡️ تنظيف الكونسول: إخفاء رسائل الديباغ وإبقاء رسائل الخطأ فقط
+if (typeof window !== 'undefined') {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  // سنبقي على console.error و console.warn للضرورة
+}
 
 // 🛡️ معالجة مشكلة التخزين المؤقت (Cache) عند رفع تحديث جديد
 // عندما يحتفظ المتصفح بنسخة قديمة ويحاول جلب ملفات JS لم تعد موجودة في السيرفر الجديد

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import toast from 'react-hot-toast';
 import { Login } from "./Login";
 import { GovernorateSelection } from "./GovernorateSelection";
 import { Smartphone, MonitorPlay, Download } from "lucide-react";
@@ -109,8 +110,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
                     {/* Android APK Button */}
                     <button 
                         onClick={() => {
-                            const timestamp = new Date().getTime();
-                            window.location.href = `https://raw.githubusercontent.com/muslim1972/InfTeleKarbala/main/public/app.apk?v=${timestamp}`;
+                            toast('سيتم اضافة هذه الميزة ، قريبا .....', { icon: '⏳' });
                         }}
                         className={`group relative flex flex-col items-center gap-3 p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 cursor-pointer overflow-hidden
                             ${os === 'android' 

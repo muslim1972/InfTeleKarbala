@@ -221,8 +221,8 @@ export const useDashboardData = (activeTab: string) => {
 
                             if (nearestManagerId !== user.id) { 
                                 // جلب اسم المدير المباشر لمعرفة مع من الإجازة معلقة
-                                const { data: mgrProfile } = await supabase.from('available_profiles').select('full_name').eq('id', nearestManagerId).single();
-                                if (mgrProfile) managerName = mgrProfile.full_name;
+                                const { data: mgrProfiles } = await supabase.rpc('get_available_profiles_by_ids', { profile_ids: [nearestManagerId] });
+                                if (mgrProfiles && mgrProfiles.length > 0) managerName = mgrProfiles[0].full_name;
                             } else {
                                 managerName = 'الإدارة العليا';
                             }

@@ -88,16 +88,21 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                 let orClause = `job_number.ilike.${trimmed}%,full_name.ilike.${trimmed}%`;
                 if (searchUsername) orClause += `,username.ilike.${trimmed}%`;
 
-                // تحديد مصدر البيانات: النافذة العامة للمحادثات أو الجدول الأصلي للمخوّلين
-                const tableName = usePublicView ? 'available_profiles' : 'profiles';
-
-                let queryBuilder = supabase
-                    .from(tableName)
-                    .select(select)
-                    .or(orClause)
-                    .order('full_name')
-                    .limit(limit)
-                    .abortSignal(controller.signal);
+                let queryBuilder;
+                if (usePublicView) {
+                    queryBuilder = supabase.rpc('search_available_profiles', {
+                        search_term: trimmed,
+                        limit_count: limit
+                    }).abortSignal(controller.signal);
+                } else {
+                    queryBuilder = supabase
+                        .from('profiles')
+                        .select(select)
+                        .or(orClause)
+                        .order('full_name')
+                        .limit(limit)
+                        .abortSignal(controller.signal);
+                }
 
                 const { data, error } = await queryBuilder;
 

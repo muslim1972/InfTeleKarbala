@@ -210,14 +210,12 @@ export function useChatState(conversationId: string) {
             // 2. Fetch sender profile async
             if (newMsg.sender_id && !newMsg.sender) {
               supabase
-                .from('available_profiles')
-                .select('full_name')
-                .eq('id', newMsg.sender_id)
-                .single()
+                .rpc('get_available_profiles_by_ids', { profile_ids: [newMsg.sender_id] })
                 .then(({ data }) => {
-                  if (data) {
+                  const profile = data?.[0];
+                  if (profile) {
                     setMessages(current =>
-                      current.map(m => m.id === newMsg.id ? { ...m, sender: { full_name: data.full_name } } : m)
+                      current.map(m => m.id === newMsg.id ? { ...m, sender: { full_name: profile.full_name } } : m)
                     );
                   }
                 });
@@ -290,12 +288,10 @@ export function useChatState(conversationId: string) {
         const cleanParticipants = (convData.participants as string[]).filter(id => id !== user.id);
         if (cleanParticipants.length > 0) {
            const { data: profiles } = await supabase
-             .from('available_profiles')
-             .select('id, full_name')
-             .in('id', cleanParticipants);
+             .rpc('get_available_profiles_by_ids', { profile_ids: cleanParticipants });
            
            if (profiles) {
-             profiles.forEach(p => {
+             profiles.forEach((p: any) => {
                if (text.includes(`@${p.full_name}`)) {
                  mentionsIds.push(p.id);
                }
