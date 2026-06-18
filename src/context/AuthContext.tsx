@@ -251,7 +251,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single() as { data: any; error: any };
 
       if (fetchErr || !fullProfile) {
-        return { success: false, error: 'تعذر جلب بيانات الملف الشخصي' };
+        console.error("Exact fetch error:", fetchErr);
+        const errorDetails = fetchErr ? (fetchErr.message || fetchErr.details || JSON.stringify(fetchErr)) : 'Profile not found';
+        return { success: false, error: 'تعذر جلب بيانات الملف الشخصي: ' + errorDetails };
       }
 
       const appUser: AppUser = {
