@@ -117,11 +117,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             });
 
             // جلب بيانات المتصل
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id, username, avatar_url')
-              .eq('id', newCall.sender_id)
-              .single();
+            const { data: profiles } = await supabase
+              .rpc('get_available_profiles_by_ids', { profile_ids: [newCall.sender_id] });
+            const profile = profiles?.[0];
 
             setRemotePeer({
               id: newCall.sender_id,
@@ -211,11 +209,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setIsIncoming(false);
       
       // جلب بيانات الطرف الآخر فوراً للواجهة
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .eq('id', recipientId)
-        .single();
+      const { data: profiles } = await supabase
+        .rpc('get_available_profiles_by_ids', { profile_ids: [recipientId] });
+      const profile = profiles?.[0];
 
       setRemotePeer({
         id: recipientId,
