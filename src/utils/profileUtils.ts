@@ -57,13 +57,13 @@ export async function fetchProfilesMap(userIds: string[]): Promise<Record<string
     const deptIds = [...new Set(profiles?.map(p => p.department_id).filter(Boolean) as string[])];
     if (deptIds.length > 0) {
         const { data: depts } = await supabase
-            .from('departments')
+            .rpc('get_departments_bypass_rls')
             .select('id, name')
             .in('id', deptIds);
             
         const deptMap: Record<string, string> = {};
-        if (depts) {
-            depts.forEach(d => { deptMap[d.id] = d.name; });
+        if (depts && Array.isArray(depts)) {
+            depts.forEach((d: any) => { deptMap[d.id] = d.name; });
             
             // Assign back to profiles
             Object.values(profileMap).forEach(p => {

@@ -127,7 +127,7 @@ export const useDashboardData = (activeTab: string) => {
                             .eq('user_id', user.id),
 
                         supabase
-                            .from('departments')
+                            .rpc('get_departments_bypass_rls')
                             .select('*')
                     ]);
 

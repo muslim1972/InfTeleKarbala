@@ -97,7 +97,7 @@ const AppContent = () => {
       try {
         // جلب القسم الحالي للموظف
         const { data: dept } = await supabase
-          .from('departments')
+          .rpc('get_departments_bypass_rls')
           .select('id, parent_id')
           .eq('id', user.department_id)
           .single();

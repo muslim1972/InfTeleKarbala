@@ -98,7 +98,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
             if (!fullUserData.department_id) {
                 const { data: managedDept } = await supabase
-                    .from('departments')
+                    .rpc('get_departments_bypass_rls')
                     .select('parent_id')
                     .eq('manager_id', fullUserData.id)
                     .maybeSingle();
