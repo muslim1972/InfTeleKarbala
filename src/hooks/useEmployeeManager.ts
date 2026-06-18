@@ -14,7 +14,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         password: "",
         full_name: "",
         job_number: "",
-        iban: "",
         role: "user",
         admin_role: "developer",
         department_id: null as string | null
@@ -107,12 +106,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     fullUserData.department_id = managedDept.parent_id;
                     supabase.from('profiles').update({ department_id: managedDept.parent_id }).eq('id', fullUserData.id).then();
                 }
-            }
-
-            // جلب IBAN المفكوك عبر RPC آمن (للمدير)
-            const { data: ibanData } = await supabase.rpc('get_employee_iban_secure', { p_uid: fullUserData.id });
-            if (ibanData) {
-                fullUserData.iban = ibanData;
             }
 
             setSelectedEmployee(fullUserData);
@@ -325,7 +318,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     ...passwordUpdatePayload,
                     role: selectedEmployee.role,
                     admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
-                    iban: selectedEmployee.iban?.trim(),
                     department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar,
                     specialization: selectedEmployee.specialization,
@@ -459,7 +451,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     full_name, job_number, username, 
                     password: null, // Don't store plain text
                     password_hash: syncData.hash, // Use hash returned from Edge Function
-                    iban: formData.iban?.trim(),
                     updated_at: new Date().toISOString(),
                     governorate: finalGovernorate
                 }])
@@ -481,7 +472,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             });
 
-            setFormData({ username: "", password: "", full_name: "", job_number: "", iban: "", role: "user", admin_role: "developer", department_id: null });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: "developer", department_id: null });
         } catch (error: any) {
             toast.error("فشل إكمال العملية: " + error.message);
         } finally {

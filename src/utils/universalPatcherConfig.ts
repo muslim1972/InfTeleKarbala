@@ -42,7 +42,6 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'job_number', label: 'الرقم الوظيفي', type: 'text' },
             { value: 'username', label: 'اسم المستخدم', type: 'text' },
             { value: 'password', label: 'كلمة المرور', type: 'text' },
-            { value: 'iban', label: 'IBAN', type: 'text' },
             { value: 'card_number', label: 'رقم البطاقة', type: 'text' },
             { value: 'graduation_year', label: 'سنة التخرج', type: 'text' },
             { value: 'work_nature', label: 'طبيعة العمل', type: 'text' },

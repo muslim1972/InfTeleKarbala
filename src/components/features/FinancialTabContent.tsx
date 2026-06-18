@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, Scissors, Calculator, Loader2, Eye, EyeOff } from 'lucide-react';
+import { motion } from "framer-motion";
+import { Wallet, Scissors, Calculator, Loader2 } from 'lucide-react';
 import { AccordionSection } from "../ui/AccordionSection";
 import { SalaryCalculator } from "./SalaryCalculator";
 import { formatDateTime } from "../../utils/formatDate";
@@ -32,8 +32,6 @@ interface FinancialTabContentProps {
     user: any;
     financialData: any;
     loading: boolean;
-    showIban: boolean;
-    setShowIban: (val: boolean) => void;
     adminData: any;
     openSection: string | null;
     toggleSection: (section: string) => void;
@@ -43,8 +41,6 @@ export const FinancialTabContent = ({
     user,
     financialData,
     loading,
-    showIban,
-    setShowIban,
     adminData,
     openSection,
     toggleSection
@@ -235,30 +231,6 @@ export const FinancialTabContent = ({
                         </AccordionSection>
                     </motion.div>
                 ))}
-
-                <motion.div variants={itemVariants} className="mt-6 px-1">
-                    <button
-                        onClick={() => setShowIban(!showIban)}
-                        className="w-full flex items-center justify-center gap-2 bg-brand-yellow-DEFAULT/10 hover:bg-brand-yellow-DEFAULT/20 text-brand-yellow-DEFAULT p-4 rounded-xl transition-all font-bold border border-brand-yellow-DEFAULT/20 shadow-lg hover:shadow-brand-yellow-DEFAULT/10"
-                    >
-                        {showIban ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        {showIban ? 'اخفاء رمز IBAN المصرفي' : 'اظهار رمز IBAN المصرفي'}
-                    </button>
-
-                    <AnimatePresence>
-                        {showIban && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
-                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                className="bg-card border border-border p-4 rounded-xl font-mono text-center text-lg md:text-2xl tracking-tight md:tracking-widest text-foreground shadow-2xl overflow-hidden relative whitespace-nowrap"
-                            >
-                                <div className="absolute inset-0 bg-brand-yellow-DEFAULT/5 animate-pulse pointer-events-none" />
-                                {user?.iban || financialData.iban || 'لا يوجد رقم IBAN مسجل'}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.div>
             </motion.div>
         </div>
     );

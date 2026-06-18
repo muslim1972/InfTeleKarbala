@@ -26,7 +26,6 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         { key: 'password', label: 'كلمة المرور' },
         { key: 'role', label: 'نوع الحساب (مشرف/موظف)' },
         { key: 'job_number', label: 'الرقم الوظيفي الموحد' },
-        { key: 'iban', label: 'رمز ( IBAN )' },
         { key: 'first_hire_date', label: 'تاريخ اول تعيين' },
         { key: 'department_id', label: 'القسم / الشعبة (التشكيل الإداري)' },
         // --- السجلات الإدارية ---

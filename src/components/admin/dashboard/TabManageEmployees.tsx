@@ -269,16 +269,7 @@ export const TabManageEmployees = ({
                                 </div>
                             </div>
 
-                            {/* IBAN */}
-                            <EditableField
-                                label="IBAN (المصرف)"
-                                value={selectedEmployee.iban}
-                                onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, iban: val })}
-                                recordId={selectedEmployee.id}
-                                tableName="profiles"
-                                dbField="iban"
-                                isReadOnly={isFieldReadOnly('iban')}
-                            />
+                            {/* Removed IBAN */}
 
                             {/* Auth Info */}
                             <div className="grid grid-cols-[132px_1fr] items-center gap-2">

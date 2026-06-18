@@ -179,19 +179,7 @@ export const TabAddEmployee = ({
                         </div>
                     </div>
 
-                    {/* Row 4: IBAN */}
-                    <div className="grid gap-2">
-                        <Label htmlFor="iban">رمز ( IBAN )</Label>
-                        <Input
-                            id="iban"
-                            type="text"
-                            value={formData.iban}
-                            onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
-                            placeholder="IQ..."
-                            className="font-mono text-left"
-                            dir="ltr"
-                        />
-                    </div>
+                    {/* Row 4: Removed IBAN */}
 
                     {/* Row 5: Username */}
                     <div className="grid gap-2">

@@ -6,7 +6,6 @@ interface FinancialCardProps {
     label: string;
     value: string | number;
     highlight?: boolean;
-    isIban?: boolean;
     copyable?: boolean;
     className?: string;
 }
@@ -15,7 +14,6 @@ export const FinancialCard = ({
     label,
     value,
     highlight = false,
-    isIban = false,
     copyable = false,
     className
 }: FinancialCardProps) => {
@@ -42,7 +40,7 @@ export const FinancialCard = ({
             <div className="flex items-center justify-between gap-2">
                 <span className={cn(
                     "font-bold text-lg md:text-xl",
-                    isIban ? "font-mono tracking-wider text-brand-yellow-DEFAULT" : "text-white"
+                    "text-white"
                 )}>
                     {value}
                 </span>

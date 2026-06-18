@@ -54,7 +54,6 @@ const TARGET_FIELDS = [
     { key: 'other_deductions', label: 'استقطاعات أخرى', isMoney: true },
     { key: 'total_deductions', label: 'مجموع الاستقطاعات', isMoney: true },
     { key: 'net_salary', label: 'صافي الراتب', isMoney: true },
-    { key: 'iban', label: 'IBAN', isText: true },
     { key: 'remaining_leaves_balance', label: 'رصيد الإجازات المتبقي', isMoney: true },
     { key: 'leaves_balance_expiry_date', label: 'تاريخ انتهاء الرصيد', isText: true },
 ];
@@ -86,7 +85,6 @@ const DEFAULT_MAPPING_HINTS: Record<string, string[]> = {
     'other_deductions': ['استقطاعات أخرى', 'طرح مبلغ'],
     'total_deductions': ['مجموع الاستقطاعات', 'اجمالي الاستقطاعات'],
     'net_salary': ['صافي الراتب', 'الراتب الصافي'],
-    'iban': ['IBAN', 'الايبان'],
 };
 
 export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onClose, theme = 'light' }) => {

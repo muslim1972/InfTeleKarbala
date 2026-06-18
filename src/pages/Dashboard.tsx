@@ -20,7 +20,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge'>('administrative');
 
     const {
-        financialData, loading, showIban, setShowIban, departmentInfo,
+        financialData, loading, departmentInfo,
         openSection, toggleSection,
         selectedYear, setSelectedYear, adminData, currentYearRecord,
         expandedDetail, handleDetailClick, detailLoading, detailItems,
@@ -90,8 +90,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                         user={user}
                         financialData={financialData}
                         loading={loading}
-                        showIban={showIban}
-                        setShowIban={setShowIban}
                         adminData={adminData}
                         openSection={openSection}
                         toggleSection={toggleSection}

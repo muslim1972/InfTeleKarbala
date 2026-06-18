@@ -12,7 +12,6 @@ export interface AppUser {
   role: string;
   admin_role?: string; // developer, media, etc.
   avatar_url?: string | null;
-  iban?: string;
   department_id?: string | null;
   can_view_requests?: boolean;
   specialization?: string;
@@ -154,7 +153,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               role: profile.role || 'user',
               admin_role: profile.admin_role,
               avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
-              iban: profile.iban,
               department_id: profile.department_id,
               can_view_requests: profile.can_view_requests,
               specialization: profile.specialization,
@@ -264,7 +262,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: fullProfile.role || 'user',
         admin_role: fullProfile.admin_role,
         avatar_url: fullProfile.avatar || fullProfile.avatar_url,
-        iban: fullProfile.iban,
         department_id: fullProfile.department_id,
         can_view_requests: fullProfile.can_view_requests,
         specialization: fullProfile.specialization,

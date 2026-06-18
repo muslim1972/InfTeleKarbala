@@ -9,7 +9,6 @@ export const useDashboardData = (activeTab: string) => {
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [showIban, setShowIban] = useState(false);
     const [departmentInfo, setDepartmentInfo] = useState({ name: 'غير محدد', managerName: 'غير محدد' });
 
     // UI State for Collapsible Sections
@@ -169,15 +168,8 @@ export const useDashboardData = (activeTab: string) => {
                         const grossSalary = nominalSalary + totalAllowances;
                         const netSalary = grossSalary - totalDeductions;
 
-                        // فك تشفير IBAN من financial_records عبر RPC آمن
-                        let decryptedIban = data.iban; // fallback للبيانات غير المشفرة
-                        if (!decryptedIban) {
-                            const { data: ibanData } = await supabase.rpc('get_financial_iban_secure', { p_uid: user.id });
-                            if (ibanData) decryptedIban = ibanData;
-                        }
                         setFinancialData({
                             ...data,
-                            iban: decryptedIban,
                             total_allowances: totalAllowances,
                             gross_salary: grossSalary,
                             total_deductions: totalDeductions,
@@ -247,7 +239,7 @@ export const useDashboardData = (activeTab: string) => {
     }, [selectedYear]);
 
     return {
-        financialData, loading, showIban, setShowIban, departmentInfo,
+        financialData, loading, departmentInfo,
         openSection, toggleSection,
         selectedYear, setSelectedYear, adminData, yearlyData, currentYearRecord,
         expandedDetail, setExpandedDetail, detailItems, detailLoading, handleDetailClick,

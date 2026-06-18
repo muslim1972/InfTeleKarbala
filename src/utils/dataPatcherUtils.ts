@@ -25,7 +25,6 @@ export const dbFields = [
     { label: 'استقطاع الضريبة', value: 'tax_deduction_amount' },
     { label: 'رصيد الاجازات المتبقي (أيام)', value: 'remaining_leaves_balance' },
     { label: 'تاريخ نفاذ الرصيد', value: 'leaves_balance_expiry_date' },
-    { label: 'رقم الايبان (IBAN)', value: 'iban' },
 ];
 
 export const normalizeText = (text: string) => {
