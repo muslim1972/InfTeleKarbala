@@ -101,7 +101,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             if (!currentUser) return;
             try {
                 const { data, error } = await supabase
-                    .from('departments')
+                    .rpc('get_departments_bypass_rls')
                     .select('id')
                     .eq('manager_id', currentUser.id)
                     .maybeSingle();
@@ -275,14 +275,14 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const inferPositionDetails = async (empId: string) => {
         try {
             const { data: depts, error } = await supabase
-                .from('departments')
+                .rpc('get_departments_bypass_rls')
                 .select('name, level')
                 .eq('manager_id', empId);
 
             if (error) console.error("Error inferring position:", error);
-            if (depts && depts.length > 0) {
+            const deptArr = depts as any[]; if (deptArr && deptArr.length > 0) {
                 // الموظف يدير قسماً، نأخذ المنصب المناسب لأعلى مستوى قسم يديره
-                const sorted = [...depts].sort((a, b) => a.level - b.level); // الأقل رقماً هو الأعلى مستوى
+                const sorted = [...deptArr].sort((a, b) => a.level - b.level); // الأقل رقماً هو الأعلى مستوى
                 const topDept = sorted[0];
                 
                 let position_name = "";

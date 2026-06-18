@@ -175,7 +175,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         let visitedDepts = new Set<string>();
         while (currentDeptId && !visitedDepts.has(currentDeptId)) {
           visitedDepts.add(currentDeptId);
-          const { data: dept } = await supabase.from('departments')
+          const { data: dept } = await supabase.rpc('get_departments_bypass_rls')
             .select(`
               id, name, manager_id, parent_id, level,
               profiles:manager_id(full_name)

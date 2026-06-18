@@ -128,7 +128,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         setLoading(true);
         try {
             const { data, error } = await supabase
-                .from('departments')
+                .rpc('get_departments_bypass_rls')
                 .select('*')
                 .order('level', { ascending: true })
                 .order('name', { ascending: true });

@@ -94,6 +94,10 @@ const AppContent = () => {
     }
 
     const checkDepartment = async () => {
+      if (!user.department_id) {
+          setHasCapacities(false);
+          return;
+      }
       try {
         // جلب القسم الحالي للموظف
         const { data: dept } = await supabase

@@ -60,8 +60,8 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
                 profiles.forEach(p => { profileMap[p.id] = p; });
                 const deptIds = [...new Set(profiles.map(p => p.department_id).filter(Boolean))];
                 if (deptIds.length > 0) {
-                    const { data: depts } = await supabase.from('departments').select('id, name').in('id', deptIds);
-                    if (depts) depts.forEach(d => { deptMap[d.id] = d.name; });
+                    const { data: depts } = await supabase.rpc('get_departments_bypass_rls').select('id, name').in('id', deptIds);
+                    if (depts) (depts as any[]).forEach((d: any) => { deptMap[d.id] = d.name; });
                 }
             }
         }

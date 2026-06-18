@@ -72,7 +72,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         // Fetch department info
         if (employee.department_id) {
             try {
-                const { data: depts } = await supabase.from('departments').select('*');
+                const { data: depts } = await supabase.rpc('get_departments_bypass_rls').select('*');
                 if (depts) {
                     let currentDept = depts.find((d: any) => d.id === employee.department_id);
                     setDepartmentName(currentDept?.name || 'غير محدد');
