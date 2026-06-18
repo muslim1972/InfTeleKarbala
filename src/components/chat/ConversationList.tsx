@@ -31,7 +31,6 @@ export const ConversationList = () => {
 
             setShowNewChatModal(false);
             navigate(`/chat/${newConv.id}`);
-            window.location.reload();
         } catch (error) {
             console.error('Error in startConversation:', error);
         }
@@ -44,7 +43,6 @@ export const ConversationList = () => {
 
             setShowNewChatModal(false);
             navigate(`/chat/${newConv.id}`);
-            window.location.reload();
         } catch (error) {
             console.error('Error creating group chat:', error);
         }
