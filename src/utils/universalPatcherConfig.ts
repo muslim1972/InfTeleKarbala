@@ -85,7 +85,6 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'other_deductions', label: 'استقطاعات أخرى', type: 'numeric' },
             { value: 'total_deductions', label: 'مجموع الاستقطاعات', type: 'numeric' },
             { value: 'net_salary', label: 'الراتب الصافي', type: 'numeric' },
-            { value: 'iban', label: 'IBAN', type: 'text' },
             { value: 'full_name', label: 'الاسم في السجل المالي', type: 'text' },
             { value: 'remaining_leaves_balance', label: 'رصيد الإجازات', type: 'integer' },
             { value: 'leaves_balance_expiry_date', label: 'تاريخ انتهاء رصيد الإجازات', type: 'text' },
