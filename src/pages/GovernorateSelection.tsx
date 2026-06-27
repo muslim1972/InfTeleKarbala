@@ -125,9 +125,9 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
                                 className="absolute inset-0 w-full h-full object-contain z-0 transition-transform duration-700 group-hover:scale-105" 
                             />
                             
-                            {/* Text Content - Aligned to bottom with a semi-transparent dark bar for readability */}
-                            <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm py-1.5 z-20">
-                                <span className="font-bold text-sm text-center block text-white drop-shadow-md">
+                            {/* Text Content - Aligned to bottom without background */}
+                            <div className="absolute bottom-2 inset-x-0 z-20">
+                                <span className="font-bold text-sm text-center block text-white drop-shadow-[0_2px_4px_rgba(0,0,0,1)]" style={{ textShadow: '0px 2px 8px rgba(0,0,0,0.9), 0px 0px 4px rgba(0,0,0,0.8)' }}>
                                     {gov.name}
                                 </span>
                             </div>
