@@ -162,6 +162,12 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                                                 <p className="text-sm opacity-80">حاصل على بكلوريوس هندسة (حاسبات / اتصالات)</p>
                                             </div>
                                         </li>
+                                        <li className="flex gap-4 items-start border-r-2 border-blue-500/30 pr-4">
+                                            <div>
+                                                <p className="font-bold text-blue-300">2022</p>
+                                                <p className="text-sm opacity-80">حاصل على ماجستير شبكات</p>
+                                            </div>
+                                        </li>
                                     </ul>
                                 </motion.section>
 
