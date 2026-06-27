@@ -104,38 +104,36 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
                         <button
                             key={gov.id}
                             onClick={() => handleSelect(gov)}
-                            className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 overflow-hidden min-h-[120px] shadow-sm hover:shadow-md animate-in fade-in slide-in-from-bottom-4
+                            className={`group relative flex flex-col p-0 rounded-2xl border transition-all duration-300 overflow-hidden min-h-[120px] shadow-sm hover:shadow-md animate-in fade-in slide-in-from-bottom-4
                                 ${gov.isActive 
-                                    ? 'border-brand-green/50 hover:border-brand-green hover:ring-2 hover:ring-brand-green/30' 
-                                    : 'border-white/20 opacity-80 hover:opacity-100 hover:scale-[1.02]'
+                                    ? 'border-brand-green hover:ring-2 hover:ring-brand-green/30' 
+                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:scale-[1.02]'
                                 }
                             `}
                             style={{ 
                                 animationDelay: `${idx * 50}ms`,
-                                backgroundColor: isDark ? '#1e293b' : '#f8fafc'
+                                backgroundColor: isDark ? '#1e293b' : '#ffffff'
                             }}
                         >
-                            {/* Background Image */}
+                            {/* Background Image - Using object-contain so no parts are cropped */}
                             <img 
                                 src={`/govs/${gov.name}.jpeg`} 
                                 alt={gov.name} 
                                 onError={(e) => { 
-                                    // Fallback if image not found
                                     e.currentTarget.style.display = 'none'; 
                                 }} 
-                                className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-110" 
+                                className="absolute inset-0 w-full h-full object-contain z-0 transition-transform duration-700 group-hover:scale-105" 
                             />
                             
-                            {/* Dark Gradient Overlay for Text Readability */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 z-10 transition-opacity duration-300 group-hover:opacity-80"></div>
-
-                            {/* Text Content */}
-                            <span className={`font-bold text-sm text-center relative z-20 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]`}>
-                                {gov.name}
-                            </span>
+                            {/* Text Content - Aligned to bottom with a semi-transparent dark bar for readability */}
+                            <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm py-1.5 z-20">
+                                <span className="font-bold text-sm text-center block text-white drop-shadow-md">
+                                    {gov.name}
+                                </span>
+                            </div>
                             
                             {gov.isActive && (
-                                <div className="absolute top-0 right-0 bg-brand-green text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg z-20 shadow-md">
+                                <div className="absolute top-0 right-0 bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-20 shadow-md">
                                     متاح
                                 </div>
                             )}
