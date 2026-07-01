@@ -1,3 +1,4 @@
+// IncentivesTabContent v5 - محرك الحساب المركزي مع إصلاح التحميل من DB
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
