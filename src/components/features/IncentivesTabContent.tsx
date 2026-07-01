@@ -37,7 +37,6 @@ interface IncentiveRecord {
     eval_initiative: number;
     eval_cooperation: number;
     eval_skills_development: number;
-    eval_general_manager: number;
     is_project_manager: boolean;
     project_management_points: number;
     is_financial_legal: boolean;
@@ -201,7 +200,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     // مزامنة احتساب الحافز المالي عند تغيير قيمة النقطة أو إجمالي النقاط
     useEffect(() => {
         if (incentiveData) {
-            const newCalc = Math.round(incentiveData.total_points * pointValue);
+            const newCalc = Math.ceil(incentiveData.total_points * pointValue);
             if (incentiveData.calculated_incentive !== newCalc) {
                 setIncentiveData(prev => {
                     if (!prev) return null;
@@ -295,10 +294,10 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     position_name = "معاون مدير المديرية";
                     position_points = 25;
                 } else if (topDept.level === 3) {
-                    position_name = "مدير قسم/مجمع رئيسي";
+                    position_name = "مدير قسم خارج المقر او المحافظات";
                     position_points = 18;
                 } else if (topDept.level === 4) {
-                    position_name = "مسؤول شعبة";
+                    position_name = "معاون مدير قسم او شعبة خارج المقر";
                     position_points = 12;
                 } else {
                     position_name = `مسؤول إداري (${topDept.name})`;
@@ -388,7 +387,6 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     eval_initiative: 2,
                     eval_cooperation: 2,
                     eval_skills_development: 2,
-                    eval_general_manager: 20,
                     is_project_manager: false,
                     project_management_points: 0,
                     is_financial_legal: false,
@@ -430,8 +428,8 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const calculateIncentivesLocally = (data: IncentiveRecord): IncentiveRecord => {
         const newData = { ...data };
 
-        // 1. حساب الخدمة الوظيفية (0.5 نقطة لكل سنة بحد أقصى 13 نقطة)
-        newData.service_points = Math.min(13, newData.service_years * 0.5);
+        // 1. حساب الخدمة الوظيفية (0.5 نقطة لكل سنة بحد أقصى 13 نقطة، مع التقريب للأعلى)
+        newData.service_points = Math.ceil(Math.min(13, newData.service_years * 0.5));
 
         // 2. حساب نقاط الشهادة
         newData.certificate_points = getCertificatePoints(newData.certificate_text);
@@ -445,8 +443,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             Number(newData.eval_speed_accuracy) + 
             Number(newData.eval_initiative) + 
             Number(newData.eval_cooperation) + 
-            Number(newData.eval_skills_development) + 
-            Number(newData.eval_general_manager);
+            Number(newData.eval_skills_development);
 
         const basePoints = 
             Number(newData.certificate_points) + 
@@ -491,8 +488,8 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
 
         newData.total_points = Math.max(0, Math.round(finalPoints * 100) / 100);
         
-        // 7. الحساب المالي
-        newData.calculated_incentive = Math.round(newData.total_points * pointValue);
+        // 7. الحساب المالي (التقريب للأعلى لمنع الكسور في المبالغ المالية)
+        newData.calculated_incentive = Math.ceil(newData.total_points * pointValue);
 
         return newData;
     };
@@ -544,7 +541,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
         
         setSaving(true);
         try {
-            const latestCalculatedIncentive = Math.round(incentiveData.total_points * pointValue);
+            const latestCalculatedIncentive = Math.ceil(incentiveData.total_points * pointValue);
             const payload = {
                 ...incentiveData,
                 calculated_incentive: latestCalculatedIncentive,
@@ -676,7 +673,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                 <div className="text-right">
                                     <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-0.5">مبلغ الحافز المالي النهائي</div>
                                     <div className={`text-2xl font-black ${theme === 'light' ? 'text-emerald-950' : 'text-emerald-100'}`}>
-                                        {(userRecord.total_points * pointValue).toLocaleString()} <span className="text-sm font-normal">د.ع</span>
+                                        {(userRecord.calculated_incentive || Math.ceil(userRecord.total_points * pointValue)).toLocaleString()} <span className="text-sm font-normal">د.ع</span>
                                     </div>
                                 </div>
                                 <span className={`text-[10px] px-3 py-1 rounded-full font-bold whitespace-nowrap ${userRecord.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
@@ -701,7 +698,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                             <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50/50' : 'bg-white/5'}`}>
                                 <h3 className="font-bold text-sm mb-3">التقييم واللجان والإضافات</h3>
                                 <div className="space-y-2 text-xs">
-                                    <div className="flex justify-between"><span>مجموع نقاط تقييم المسؤول:</span><span className="font-bold">{(userRecord.eval_commitment + userRecord.eval_speed_accuracy + userRecord.eval_initiative + userRecord.eval_cooperation + userRecord.eval_skills_development + userRecord.eval_general_manager)} / 30 نقطة</span></div>
+                                    <div className="flex justify-between"><span>مجموع نقاط تقييم المسؤول:</span><span className="font-bold">{(userRecord.eval_commitment + userRecord.eval_speed_accuracy + userRecord.eval_initiative + userRecord.eval_cooperation + userRecord.eval_skills_development)} / 10 نقاط</span></div>
                                     <div className="flex justify-between"><span>إدارة المشاريع (مهندس عقد/مدير مشروع):</span><span className="font-bold">{userRecord.project_management_points} نقاط</span></div>
                                     <div className="flex justify-between"><span>تخصص مالي وقانوني وعقود وتدقيق:</span><span className="font-bold">{userRecord.financial_legal_points} نقاط</span></div>
                                     <div className="flex justify-between"><span>المشاركة في اللجان ({userRecord.committees_count} لجان):</span><span className="font-bold">{userRecord.committees_points} نقاط</span></div>
@@ -727,36 +724,36 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             {/* الجزء الأيمن: البحث واختيار الموظف وقيمة النقطة */}
             <div className="lg:col-span-1 space-y-6 relative z-30">
                 
-                {/* قيمة النقطة لهذا الشهر */}
-                <div className={`p-5 rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-brand-green"><Coins className="w-4 h-4" /> قيمة النقطة الواحدة</h3>
-                    <div className="space-y-4">
-                        <div className="flex gap-2">
-                            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                                <SelectTrigger className="flex-1">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[2025, 2026, 2027].map(yr => (
-                                        <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                {/* قيمة النقطة لهذا الشهر - تظهر للمطور والمشرف العام فقط */}
+                {isDeveloperOrGeneral && (
+                    <div className={`p-5 rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
+                        <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-brand-green"><Coins className="w-4 h-4" /> إعداد قيمة النقطة الواحدة</h3>
+                        <div className="space-y-4">
+                            <div className="flex gap-2">
+                                <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[2025, 2026, 2027].map(yr => (
+                                            <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
-                            <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
-                                <SelectTrigger className="flex-1">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(mth => (
-                                        <SelectItem key={mth} value={mth.toString()}>شهر {mth}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(mth => (
+                                            <SelectItem key={mth} value={mth.toString()}>شهر {mth}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div className={`p-4 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-blue-950/10 border-blue-900/20'}`}>
-                            {isDeveloperOrGeneral ? (
+                            <div className={`p-4 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-blue-950/10 border-blue-900/20'}`}>
                                 <div className="w-full space-y-3">
                                     <span className="text-[10px] text-muted-foreground block font-bold">تحديد القيمة المعتمدة للشهر المختار:</span>
                                     <div className="flex flex-wrap items-center gap-2 w-full">
@@ -793,17 +790,10 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                         </button>
                                     </div>
                                 </div>
-                            ) : (
-                                <div>
-                                    <span className="text-[10px] text-muted-foreground block">القيمة المعتمدة للشهر المختار:</span>
-                                    <span className={`text-xl font-extrabold ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'}`}>
-                                        {loadingPoint ? <Loader2 className="w-4 h-4 animate-spin inline ml-1" /> : pointValue.toLocaleString()} د.ع
-                                    </span>
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* البحث عن الموظفين */}
                 <div className={`p-5 rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
@@ -931,9 +921,9 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                         else if (val === "عضو مجلس الادارة") pts = 35;
                                         else if (val === "مدير المديرية") pts = 30;
                                         else if (val === "معاون مدير المديرية") pts = 25;
-                                        else if (val === "مدير القسم في مقر الشركة") pts = 25;
-                                        else if (val === "معاون مدير قسم او مسؤول شعبة في الشركة") pts = 20;
-                                        else if (val === "مدير قسم خارج المقر") pts = 18;
+                                        else if (val === "مدير القسم في مقر الشركة") pts = 20;
+                                        else if (val === "معاون مدير قسم او مسؤول شعبة في الشركة / اقسام نوعية") pts = 20;
+                                        else if (val === "مدير قسم خارج المقر او المحافظات") pts = 18;
                                         else if (val === "معاون مدير قسم او شعبة خارج المقر") pts = 12;
                                         handleFieldChange('position_name', val === "لا يوجد" ? "" : val);
                                         handleFieldChange('position_points', pts);
@@ -942,7 +932,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {["لا يوجد", "المدير العام", "المعاون", "عضو مجلس الادارة", "مدير المديرية", "معاون مدير المديرية", "مدير القسم في مقر الشركة", "معاون مدير قسم او مسؤول شعبة في الشركة", "مدير قسم خارج المقر", "معاون مدير قسم او شعبة خارج المقر"].map(pos => (
+                                            {["لا يوجد", "المدير العام", "المعاون", "عضو مجلس الادارة", "مدير المديرية", "معاون مدير المديرية", "مدير القسم في مقر الشركة", "معاون مدير قسم او مسؤول شعبة في الشركة / اقسام نوعية", "مدير قسم خارج المقر او المحافظات", "معاون مدير قسم او شعبة خارج المقر"].map(pos => (
                                                 <SelectItem key={pos} value={pos}>{pos}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -970,7 +960,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
 
                         {/* 2. تقييم المسؤول المباشر */}
                         <div className="space-y-4">
-                            <h3 className="font-bold text-xs text-brand-green border-b pb-1">2. تقييم المسؤول المباشر (الحد الأقصى 30 نقطة)</h3>
+                            <h3 className="font-bold text-xs text-brand-green border-b pb-1">2. تقييم المسؤول المباشر (الحد الأقصى 10 نقاط)</h3>
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-1">
@@ -1024,17 +1014,6 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                         min="0" max="2" step="0.5"
                                         value={incentiveData.eval_skills_development}
                                         onChange={(e) => handleFieldChange('eval_skills_development', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
-                                        className="text-xs"
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-muted-foreground">تقييم المسؤول العام للموظف (0-20)</label>
-                                    <Input
-                                        type="number"
-                                        min="0" max="20"
-                                        value={incentiveData.eval_general_manager}
-                                        onChange={(e) => handleFieldChange('eval_general_manager', Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
                                 </div>
