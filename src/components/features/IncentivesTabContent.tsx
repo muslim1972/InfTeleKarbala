@@ -349,22 +349,31 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                 .maybeSingle();
 
             if (error) console.error("Error loading incentive record:", error);
-            if (record) {
-                setIncentiveData(record as IncentiveRecord);
-            } else {
-                // 2. إذا لم يكن مسجلاً، نقوم بتهيئة السجل الجديد بالقيم التلقائية
-                // جلب التحصيل العلمي من السجل المالي
-                const { data: finData } = await supabase
-                    .from('financial_records')
-                    .select('certificate_text')
-                    .eq('user_id', emp.id)
-                    .maybeSingle();
 
-                const certText = finData?.certificate_text || "بدون شهادة";
+            // جلب البيانات الديناميكية الحقيقية دائماً (سواء كان هناك سجل محفوظ أم لا)
+            const { data: finData } = await supabase
+                .from('financial_records')
+                .select('certificate_text')
+                .eq('user_id', emp.id)
+                .maybeSingle();
+
+            const certText = finData?.certificate_text || "بدون شهادة";
+            const serviceYears = calculateServiceYears(emp.appointment_date);
+
+            if (record) {
+                // تحديث القيم الديناميكية في السجل المحفوظ (سنوات الخدمة والشهادة) 
+                // لأنها قد تكون قديمة أو من تجارب سابقة
+                const refreshedRecord = {
+                    ...(record as IncentiveRecord),
+                    service_years: serviceYears,
+                    certificate_text: certText,
+                };
+                // إعادة تشغيل محرك الحساب الكامل لضمان تناسق جميع القيم
+                const calculatedData = calculateIncentivesLocally(refreshedRecord);
+                setIncentiveData(calculatedData);
+            } else {
+                // إذا لم يكن مسجلاً، نقوم بتهيئة السجل الجديد بالقيم التلقائية
                 const certPoints = getCertificatePoints(certText);
-                
-                // احتساب سنوات الخدمة والنقاط
-                const serviceYears = calculateServiceYears(emp.appointment_date);
                 const servicePoints = Math.min(13, serviceYears * 0.5);
 
                 // استنتاج المنصب الإداري ونقاطه
@@ -452,8 +461,21 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
         else if (pos === "معاون مدير قسم او شعبة خارج المقر") posPts = 12;
         newData.position_points = posPts;
 
+        // 2.6 استنتاج نقاط موقع العمل ديناميكياً
+        let locPts = 0;
+        const loc = newData.work_location_type;
+        if (loc === "مقر الشركة والمديريات التخصصية والتخطيط") locPts = 15;
+        else if (loc === "مقرات المديريات والأقسام خارج المقر الرئيس") locPts = 10;
+        else if (loc === "موقع يبعد 40 كم فأكثر عن السكن") locPts = 10;
+        else if (loc === "مراكز السيطرة والتشغيل") locPts = 30;
+        newData.work_location_points = locPts;
+
         // 3. حساب اللجان
-        newData.committees_points = newData.committees_count * 5; // اللجان الاعتيادية 5 نقاط بحد أقصى 15
+        newData.committees_points = Math.min(15, newData.committees_count * 5);
+
+        // 3.5 نقاط المشاريع والتخصص المالي من الأعلام (flags)
+        newData.project_management_points = newData.is_project_manager ? 10 : 0;
+        newData.financial_legal_points = newData.is_financial_legal ? 5 : 0;
         
         // 4. مجموع نقاط المعيار الوظيفي الإجمالي
         const evaluationTotal = 
