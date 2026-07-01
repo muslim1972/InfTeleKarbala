@@ -370,7 +370,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                 // استنتاج المنصب الإداري ونقاطه
                 const posDetails = await inferPositionDetails(emp.id);
 
-                setIncentiveData({
+                const initialData = {
                     user_id: emp.id,
                     year: selectedYear,
                     month: selectedMonth,
@@ -406,7 +406,11 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     total_points: 0,
                     calculated_incentive: 0,
                     status: 'draft'
-                });
+                };
+                
+                // احتساب القيم فوراً حتى لا يظهر 0 عند تحديد موظف لأول مرة
+                const calculatedData = calculateIncentivesLocally(initialData as any);
+                setIncentiveData(calculatedData);
             }
         } catch (e) {
             console.error("Error loading incentive record:", e);
@@ -428,11 +432,25 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const calculateIncentivesLocally = (data: IncentiveRecord): IncentiveRecord => {
         const newData = { ...data };
 
-        // 1. حساب الخدمة الوظيفية (0.5 نقطة لكل سنة بحد أقصى 13 نقطة، مع التقريب للأعلى)
-        newData.service_points = Math.ceil(Math.min(13, newData.service_years * 0.5));
+        // 1. حساب الخدمة الوظيفية (بدون تقريب هنا، التقريب في النهاية فقط)
+        newData.service_points = Math.min(13, newData.service_years * 0.5);
 
         // 2. حساب نقاط الشهادة
         newData.certificate_points = getCertificatePoints(newData.certificate_text);
+
+        // 2.5 استنتاج نقاط المنصب ديناميكياً
+        let posPts = 0;
+        const pos = newData.position_name;
+        if (pos === "المدير العام") posPts = 50;
+        else if (pos === "المعاون") posPts = 45;
+        else if (pos === "عضو مجلس الادارة") posPts = 35;
+        else if (pos === "مدير المديرية") posPts = 30;
+        else if (pos === "معاون مدير المديرية") posPts = 25;
+        else if (pos === "مدير القسم في مقر الشركة") posPts = 20;
+        else if (pos === "معاون مدير قسم او مسؤول شعبة في الشركة / اقسام نوعية") posPts = 20;
+        else if (pos === "مدير قسم خارج المقر او المحافظات") posPts = 18;
+        else if (pos === "معاون مدير قسم او شعبة خارج المقر") posPts = 12;
+        newData.position_points = posPts;
 
         // 3. حساب اللجان
         newData.committees_points = newData.committees_count * 5; // اللجان الاعتيادية 5 نقاط بحد أقصى 15
@@ -918,18 +936,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-muted-foreground">المنصب الإداري (المستوى الوظيفي)</label>
                                     <Select value={incentiveData.position_name || "لا يوجد"} onValueChange={(val) => {
-                                        let pts = 0;
-                                        if (val === "المدير العام") pts = 50;
-                                        else if (val === "المعاون") pts = 45;
-                                        else if (val === "عضو مجلس الادارة") pts = 35;
-                                        else if (val === "مدير المديرية") pts = 30;
-                                        else if (val === "معاون مدير المديرية") pts = 25;
-                                        else if (val === "مدير القسم في مقر الشركة") pts = 20;
-                                        else if (val === "معاون مدير قسم او مسؤول شعبة في الشركة / اقسام نوعية") pts = 20;
-                                        else if (val === "مدير قسم خارج المقر او المحافظات") pts = 18;
-                                        else if (val === "معاون مدير قسم او شعبة خارج المقر") pts = 12;
                                         handleFieldChange('position_name', val === "لا يوجد" ? "" : val);
-                                        handleFieldChange('position_points', pts);
                                     }}>
                                         <SelectTrigger className="w-full text-xs">
                                             <SelectValue />
@@ -971,7 +978,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0" max="2" step="0.5"
-                                        value={incentiveData.eval_commitment}
+                                        value={incentiveData.eval_commitment === 0 ? "" : incentiveData.eval_commitment}
                                         onChange={(e) => handleFieldChange('eval_commitment', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
@@ -982,7 +989,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0" max="2" step="0.5"
-                                        value={incentiveData.eval_speed_accuracy}
+                                        value={incentiveData.eval_speed_accuracy === 0 ? "" : incentiveData.eval_speed_accuracy}
                                         onChange={(e) => handleFieldChange('eval_speed_accuracy', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
@@ -993,7 +1000,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0" max="2" step="0.5"
-                                        value={incentiveData.eval_initiative}
+                                        value={incentiveData.eval_initiative === 0 ? "" : incentiveData.eval_initiative}
                                         onChange={(e) => handleFieldChange('eval_initiative', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
@@ -1004,7 +1011,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0" max="2" step="0.5"
-                                        value={incentiveData.eval_cooperation}
+                                        value={incentiveData.eval_cooperation === 0 ? "" : incentiveData.eval_cooperation}
                                         onChange={(e) => handleFieldChange('eval_cooperation', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
@@ -1015,7 +1022,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0" max="2" step="0.5"
-                                        value={incentiveData.eval_skills_development}
+                                        value={incentiveData.eval_skills_development === 0 ? "" : incentiveData.eval_skills_development}
                                         onChange={(e) => handleFieldChange('eval_skills_development', Math.min(2, Math.max(0, parseFloat(e.target.value) || 0)))}
                                         className="text-xs"
                                     />
@@ -1065,7 +1072,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                         <Input
                                             type="number"
                                             min="0" max="3"
-                                            value={incentiveData.committees_count}
+                                            value={incentiveData.committees_count === 0 ? "" : incentiveData.committees_count}
                                             onChange={(e) => handleFieldChange('committees_count', Math.min(3, Math.max(0, parseInt(e.target.value) || 0)))}
                                             className="text-xs"
                                         />
@@ -1079,7 +1086,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                             <Input
                                                 type="number"
                                                 min="0" max="10"
-                                                value={incentiveData.extraordinary_points}
+                                                value={incentiveData.extraordinary_points === 0 ? "" : incentiveData.extraordinary_points}
                                                 onChange={(e) => handleFieldChange('extraordinary_points', Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
                                                 className="text-xs"
                                             />
@@ -1090,7 +1097,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                             <Input
                                                 type="number"
                                                 min="0" max="10"
-                                                value={incentiveData.special_cases_points}
+                                                value={incentiveData.special_cases_points === 0 ? "" : incentiveData.special_cases_points}
                                                 onChange={(e) => handleFieldChange('special_cases_points', Math.min(10, Math.max(0, parseFloat(e.target.value) || 0)))}
                                                 className="text-xs"
                                             />
@@ -1111,7 +1118,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0"
-                                        value={incentiveData.penalty_days_deduction}
+                                        value={incentiveData.penalty_days_deduction === 0 ? "" : incentiveData.penalty_days_deduction}
                                         onChange={(e) => handleFieldChange('penalty_days_deduction', Math.max(0, parseInt(e.target.value) || 0))}
                                         placeholder="لفت نظر 30، انذار 60، إلخ"
                                         className="text-xs"
@@ -1124,7 +1131,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0"
-                                        value={incentiveData.unauthorized_absence_days}
+                                        value={incentiveData.unauthorized_absence_days === 0 ? "" : incentiveData.unauthorized_absence_days}
                                         onChange={(e) => handleFieldChange('unauthorized_absence_days', Math.max(0, parseInt(e.target.value) || 0))}
                                         className="text-xs"
                                     />
@@ -1137,7 +1144,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0"
-                                        value={incentiveData.regular_leave_days}
+                                        value={incentiveData.regular_leave_days === 0 ? "" : incentiveData.regular_leave_days}
                                         onChange={(e) => handleFieldChange('regular_leave_days', Math.max(0, parseInt(e.target.value) || 0))}
                                         className="text-xs"
                                     />
@@ -1150,7 +1157,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                                     <Input
                                         type="number"
                                         min="0"
-                                        value={incentiveData.sick_leave_days}
+                                        value={incentiveData.sick_leave_days === 0 ? "" : incentiveData.sick_leave_days}
                                         onChange={(e) => handleFieldChange('sick_leave_days', Math.max(0, parseInt(e.target.value) || 0))}
                                         className="text-xs"
                                     />
