@@ -364,6 +364,16 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             if (record) {
                 // تحديث القيم الديناميكية في السجل المحفوظ (سنوات الخدمة والشهادة) 
                 // لأنها قد تكون قديمة أو من تجارب سابقة
+                console.log('[INCENTIVE-DEBUG] سجل محفوظ - القيم القديمة:', {
+                    db_service_years: (record as any).service_years,
+                    db_position_name: (record as any).position_name,
+                    db_position_points: (record as any).position_points,
+                });
+                console.log('[INCENTIVE-DEBUG] القيم الديناميكية المحدثة:', {
+                    fresh_service_years: serviceYears,
+                    emp_appointment_date: emp.appointment_date,
+                    fresh_cert: certText,
+                });
                 const refreshedRecord = {
                     ...(record as IncentiveRecord),
                     service_years: serviceYears,
@@ -371,6 +381,13 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                 };
                 // إعادة تشغيل محرك الحساب الكامل لضمان تناسق جميع القيم
                 const calculatedData = calculateIncentivesLocally(refreshedRecord);
+                console.log('[INCENTIVE-DEBUG] بعد الحساب المركزي:', {
+                    final_service_years: calculatedData.service_years,
+                    final_service_points: calculatedData.service_points,
+                    final_position_name: calculatedData.position_name,
+                    final_position_points: calculatedData.position_points,
+                    final_total_points: calculatedData.total_points,
+                });
                 setIncentiveData(calculatedData);
             } else {
                 // إذا لم يكن مسجلاً، نقوم بتهيئة السجل الجديد بالقيم التلقائية
