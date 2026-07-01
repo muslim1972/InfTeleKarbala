@@ -86,24 +86,7 @@ export interface WorkLocationEmployee {
   id: string;
   location_id: string;
   employee_id: string;
-  location?: WorkLocation;
-}
-
-export interface WorkLocation {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  radius_meters: number;
-  is_active: boolean;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkLocationEmployee {
-  id: string;
-  location_id: string;
-  employee_id: string;
+  shift_start?: string; // Format: 'HH:mm'
+  shift_end?: string; // Format: 'HH:mm'
   location?: WorkLocation;
 }

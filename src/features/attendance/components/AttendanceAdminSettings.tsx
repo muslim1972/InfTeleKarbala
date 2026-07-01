@@ -30,6 +30,8 @@ export default function AttendanceAdminSettings() {
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [shiftStart, setShiftStart] = useState('08:00');
+  const [shiftEnd, setShiftEnd] = useState('14:00');
 
   // Reports State
   const [reportType, setReportType] = useState<'daily' | 'range'>('daily');
@@ -266,7 +268,7 @@ export default function AttendanceAdminSettings() {
   const handleAssignEmployee = async (employeeId: string) => {
     if (!selectedLocId) return;
     try {
-      await workLocationService.assignEmployee(selectedLocId, employeeId);
+      await workLocationService.assignEmployee(selectedLocId, employeeId, shiftStart, shiftEnd);
       toast.success('تم ربط الموظف بالموقع بنجاح');
       setEmployeeSearch('');
       setSearchResults([]);
@@ -643,6 +645,27 @@ export default function AttendanceAdminSettings() {
                         <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
                       </div>
 
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 dark:text-slate-300">وقت بداية الدوام</label>
+                          <input
+                            type="time"
+                            value={shiftStart}
+                            onChange={(e) => setShiftStart(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 dark:text-slate-300">وقت نهاية الدوام</label>
+                          <input
+                            type="time"
+                            value={shiftEnd}
+                            onChange={(e) => setShiftEnd(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                          />
+                        </div>
+                      </div>
+
                       {/* Dropdown Suggestions */}
                       {searchResults.length > 0 && (
                         <div className="absolute z-30 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl mt-1 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700 max-h-60 overflow-y-auto">
@@ -681,9 +704,16 @@ export default function AttendanceAdminSettings() {
                           <div key={ae.id} className="py-4 flex justify-between items-center">
                             <div>
                               <p className="font-bold">{ae.employee?.full_name}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                الرقم الوظيفي: {ae.employee?.job_number}
-                              </p>
+                              <div className="flex gap-4 mt-1">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  الرقم الوظيفي: {ae.employee?.job_number}
+                                </p>
+                                {(ae.shift_start || ae.shift_end) && (
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
+                                    الدوام: {ae.shift_start?.slice(0,5) || '--:--'} إلى {ae.shift_end?.slice(0,5) || '--:--'}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <button
                               onClick={() => handleRemoveEmployee(ae.employee_id)}

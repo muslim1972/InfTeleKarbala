@@ -76,6 +76,8 @@ export const workLocationService = {
         id,
         location_id,
         employee_id,
+        shift_start,
+        shift_end,
         employee:profiles (
           id,
           full_name,
@@ -92,12 +94,14 @@ export const workLocationService = {
   /**
    * Assigns an employee to a work location
    */
-  async assignEmployee(locationId: string, employeeId: string): Promise<void> {
+  async assignEmployee(locationId: string, employeeId: string, shiftStart?: string, shiftEnd?: string): Promise<void> {
     const { error } = await supabase
       .from('work_location_employees')
       .insert({
         location_id: locationId,
-        employee_id: employeeId
+        employee_id: employeeId,
+        shift_start: shiftStart || null,
+        shift_end: shiftEnd || null
       });
     if (error) throw error;
   },
