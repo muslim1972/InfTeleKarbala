@@ -30,8 +30,14 @@ export default function AttendanceAdminSettings() {
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [shiftStart, setShiftStart] = useState('08:00');
-  const [shiftEnd, setShiftEnd] = useState('14:00');
+  const [shiftStart, setShiftStart] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('lastShiftStart') || '08:00';
+    return '08:00';
+  });
+  const [shiftEnd, setShiftEnd] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('lastShiftEnd') || '14:00';
+    return '14:00';
+  });
 
   // Reports State
   const [reportType, setReportType] = useState<'daily' | 'range'>('daily');
@@ -313,7 +319,7 @@ export default function AttendanceAdminSettings() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-white transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-8 pb-32">
         
         {/* Print Stylesheet */}
         <style>{`
@@ -651,7 +657,10 @@ export default function AttendanceAdminSettings() {
                           <input
                             type="time"
                             value={shiftStart}
-                            onChange={(e) => setShiftStart(e.target.value)}
+                            onChange={(e) => {
+                              setShiftStart(e.target.value);
+                              localStorage.setItem('lastShiftStart', e.target.value);
+                            }}
                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
                           />
                         </div>
@@ -660,7 +669,10 @@ export default function AttendanceAdminSettings() {
                           <input
                             type="time"
                             value={shiftEnd}
-                            onChange={(e) => setShiftEnd(e.target.value)}
+                            onChange={(e) => {
+                              setShiftEnd(e.target.value);
+                              localStorage.setItem('lastShiftEnd', e.target.value);
+                            }}
                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
                           />
                         </div>
