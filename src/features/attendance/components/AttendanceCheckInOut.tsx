@@ -165,7 +165,7 @@ export default function AttendanceCheckInOut({
                 : isAllowed
                   ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
                   : nearestLoc
-                    ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance} متر. (النطاق المطلوب: 50 متر)`
+                    ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : nearestDistance + ' متر'}. (النطاق المطلوب: 50 متر)`
                     : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
             </p>
           </div>
