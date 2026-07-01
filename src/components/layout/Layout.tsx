@@ -51,7 +51,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                 {/* Global Chat FAB */}
                 <button
                     onClick={() => navigate('/chat')}
-                    className="fixed bottom-[calc(11rem+env(safe-area-inset-bottom))] left-6 z-50 w-20 h-20 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
+                    className="fixed bottom-3 left-3 md:bottom-4 md:left-4 z-[100] w-12 h-12 md:w-14 md:h-14 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
                 >
                     {/* Main Icon - Increased Z-index */}
                     <div className="relative w-full h-full">
