@@ -1,11 +1,11 @@
-import { User, ShieldCheck, GraduationCap } from "lucide-react";
+import { User, ShieldCheck, GraduationCap, Fingerprint } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
     /** Whether this user is eligible for Promotion Courses */
@@ -23,7 +23,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
 
     // Build cards list
     const cards: {
-        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives';
+        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance';
         label: string;
         desc: string;
         icon: React.ReactNode;
@@ -83,6 +83,15 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             icon: <img src="/icon-192.png" alt="Incentives" className="w-6 h-6 object-contain" />,
             hoverGlow: 'hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]',
             iconBg: isDark ? 'bg-brand-green/20 border-brand-green/30 group-hover:bg-brand-green/30' : 'bg-brand-green/10 border-brand-green/20',
+            show: true,
+        },
+        {
+            id: 'attendance',
+            label: 'الحضور والانصراف',
+            desc: 'تسجيل الحضور والإنصراف اليومي بيوميترياً وبالموقع الجغرافي',
+            icon: <Fingerprint className="w-6 h-6 text-cyan-500" />,
+            hoverGlow: 'hover:shadow-[0_0_30px_rgba(6,182,212,0.2)]',
+            iconBg: isDark ? 'bg-cyan-500/20 border-cyan-500/30 group-hover:bg-cyan-500/30' : 'bg-cyan-500/10 border-cyan-500/20',
             show: true,
         },
     ];

@@ -31,6 +31,7 @@ const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCo
 const SummerTrainingPage = lazy(() => import("./features/training/components/SummerTrainingPage").then(m => ({ default: m.SummerTrainingPage })));
 import { CapacitiesIframe } from "./components/admin/dashboard/CapacitiesIframe";
 import { NotFound } from "./pages/NotFound";
+import { AttendanceDashboard } from "./features/attendance";
 
 // Loading Component
 const LoadingScreen = () => (
@@ -54,7 +55,7 @@ const AppContent = () => {
     };
   }, [navigate]);
 
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | null>(() => {
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
@@ -239,6 +240,17 @@ const AppContent = () => {
                  العودة للصفحة الرئيسية
              </button>
              <IncentivesTabContent isAdminView={false} />
+         </div>
+       );
+    }
+    // عرض الحضور والانصراف لجميع المستخدمين
+    if (adminViewMode === 'attendance') {
+       return (
+         <div className="pt-8 px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+              <button onClick={() => setAdminViewMode(null)} className="mb-4 text-sm bg-secondary px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2 hover:bg-secondary/80 font-bold">
+                  العودة للصفحة الرئيسية
+              </button>
+              <AttendanceDashboard employeeId={user.id} />
          </div>
        );
     }

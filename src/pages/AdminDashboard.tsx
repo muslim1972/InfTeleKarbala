@@ -26,6 +26,7 @@ import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
 import { AudioHub } from "../components/features/AudioHub";
 import { SupervisorPermissions } from "../components/admin/SupervisorPermissions";
 import { IncentivesTabContent } from "../components/features/IncentivesTabContent";
+import { AttendanceAdminSettings } from "../features/attendance";
 
 
 
@@ -46,7 +47,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     else if (canAddEmployee) baseTab = 'admin_add';
 
     const defaultTab = location.state?.activeTab || baseTab;
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
 
     // Handle initial tab from URL
     useEffect(() => {
@@ -432,6 +433,11 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                 <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>}>
                     <AdminPromotionTab isAdminView={true} />
                 </Suspense>
+            )}
+
+            {/* ======= إعداد البصمة TAB ======= */}
+            {activeTab === 'admin_attendance' && (
+                <AttendanceAdminSettings />
             )}
 
             <FiveYearLeaveDetailsModal
