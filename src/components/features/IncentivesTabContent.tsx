@@ -483,10 +483,13 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
         let finalPoints = basePoints - deductions;
         if (newData.is_fully_suspended || newData.leaves_over_30_days || newData.special_leaves_hajj_maternity) {
             finalPoints = 0;
-            newData.deductions_points = basePoints; // خصم كامل النقاط
         }
 
-        newData.total_points = Math.max(0, Math.round(finalPoints * 100) / 100);
+        // التقريب للأعلى للحصول على رقم صحيح دائمًا
+        newData.total_points = Math.max(0, Math.ceil(finalPoints));
+        
+        // تعديل نقاط الخصم الظاهرة لتكون مطابقة تماماً للمجموع (لإخفاء الكسور عن المستخدم)
+        newData.deductions_points = basePoints - newData.total_points;
         
         // 7. الحساب المالي (التقريب للأعلى لمنع الكسور في المبالغ المالية)
         newData.calculated_incentive = Math.ceil(newData.total_points * pointValue);
