@@ -21,6 +21,9 @@ export interface AttendanceRecord {
   check_out_verified_by_biometric: boolean;
   check_in_device_id?: string;
   check_out_device_id?: string;
+  is_auto_check_in?: boolean;
+  is_auto_check_out?: boolean;
+  admin_notes?: string;
   notes?: string;
   status: 'present' | 'absent' | 'late' | 'early_leave';
   created_at: string;

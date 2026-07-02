@@ -118,7 +118,7 @@ export default function AttendanceCheckInOut({
     });
   };
 
-  const canCheckIn = !todayAttendance?.check_in;
+  const canCheckIn = !todayAttendance || (todayAttendance.check_in && todayAttendance.check_out);
   const canCheckOut = todayAttendance?.check_in && !todayAttendance?.check_out;
 
   return (
