@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { webauthnService, type WebAuthnCredential } from '../services/webauthnService';
-import { Fingerprint, Loader2, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Loader2, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const BiometricEnrollment = () => {
@@ -42,9 +42,9 @@ export const BiometricEnrollment = () => {
     const handleEnroll = async () => {
         if (!user) return;
         
-        // حد أقصى 2 بصمة
+        // حد أقصى جهازين
         if (credentials.length >= 2) {
-            toast.error("لقد وصلت للحد الأقصى (بصمتين). يرجى حذف واحدة لتسجيل أخرى.");
+            toast.error("لقد وصلت للحد الأقصى (جهازين). يرجى حذف جهاز لتسجيل جهاز آخر.");
             return;
         }
 
@@ -57,7 +57,7 @@ export const BiometricEnrollment = () => {
         else if (/windows/i.test(userAgent)) deviceType = "جهاز ويندوز";
         else if (/mac/i.test(userAgent)) deviceType = "جهاز ماك";
 
-        const label = `إصبع ${credentials.length + 1}`;
+        const label = `توثيق ${deviceType} (${credentials.length + 1})`;
 
         try {
             const result = await webauthnService.register(
@@ -81,7 +81,7 @@ export const BiometricEnrollment = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("هل أنت متأكد من حذف هذه البصمة؟ لن تتمكن من تسجيل الحضور من هذا الجهاز بهذه البصمة بعد الآن.")) {
+        if (!confirm("هل أنت متأكد من حذف هذا الجهاز؟ لن تتمكن من تسجيل الحضور من هذا الجهاز بعد الآن إلا بإعادة توثيقه.")) {
             return;
         }
 
@@ -89,10 +89,10 @@ export const BiometricEnrollment = () => {
         try {
             const success = await webauthnService.removeCredential(id);
             if (success) {
-                toast.success("تم حذف البصمة بنجاح");
+                toast.success("تم إزالة التوثيق بنجاح");
                 setCredentials(credentials.filter(c => c.id !== id));
             } else {
-                toast.error("فشل حذف البصمة");
+                toast.error("فشل إزالة التوثيق");
             }
         } catch (error) {
             toast.error("حدث خطأ أثناء الحذف");
@@ -113,9 +113,9 @@ export const BiometricEnrollment = () => {
         return (
             <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg flex flex-col items-center text-center space-y-3">
                 <ShieldAlert className="w-12 h-12 text-orange-500" />
-                <h3 className="font-bold text-orange-700">جهازك لا يدعم البصمة المشفرة</h3>
+                <h3 className="font-bold text-orange-700">جهازك لا يدعم التوثيق الآمن</h3>
                 <p className="text-sm text-orange-600">
-                    هذا الجهاز لا يحتوي على مستشعر بصمة، أو أن المتصفح لا يدعم تقنية WebAuthn الآمنة.
+                    هذا الجهاز لا يحتوي على ميزة الأمان الحيوي (بصمة، وجه، رمز PIN)، أو أن المتصفح لا يدعم تقنية WebAuthn الآمنة.
                 </p>
             </div>
         );
@@ -125,12 +125,12 @@ export const BiometricEnrollment = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="bg-brand-green/5 px-4 py-3 border-b border-brand-green/10 flex items-center space-x-2 space-x-reverse">
                 <ShieldCheck className="w-5 h-5 text-brand-green" />
-                <h3 className="font-bold text-gray-800">الأمان المتقدم (البصمة المشفرة)</h3>
+                <h3 className="font-bold text-gray-800">الأمان المتقدم (توثيق الأجهزة)</h3>
             </div>
             
             <div className="p-4 space-y-4">
                 <p className="text-sm text-gray-600">
-                    لحماية حسابك، يجب ربط بصمتك بهذا الجهاز. لا يمكن لأي شخص تسجيل الحضور نيابة عنك من جهاز آخر حتى لو كان يعرف كلمة المرور الخاصة بك.
+                    لحماية حسابك، يجب توثيق جهازك. عند تسجيل الحضور، سيطلب منك النظام تأكيد هويتك باستخدام قفل الشاشة (بصمة إصبعك، وجهك، أو رمز PIN الخاص بهاتفك).
                 </p>
 
                 <div className="space-y-3">
@@ -138,7 +138,7 @@ export const BiometricEnrollment = () => {
                         <div key={cred.id} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg">
                             <div className="flex items-center space-x-3 space-x-reverse">
                                 <div className="p-2 bg-brand-green/10 rounded-full text-brand-green">
-                                    <Fingerprint className="w-5 h-5" />
+                                    <ShieldCheck className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <p className="font-bold text-sm text-gray-800">{cred.finger_label}</p>
@@ -149,7 +149,7 @@ export const BiometricEnrollment = () => {
                                 onClick={() => handleDelete(cred.id)}
                                 disabled={deleting === cred.id}
                                 className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                title="حذف البصمة"
+                                title="إلغاء توثيق الجهاز"
                             >
                                 {deleting === cred.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -162,8 +162,8 @@ export const BiometricEnrollment = () => {
 
                     {credentials.length === 0 && (
                         <div className="text-center py-6 px-4 bg-gray-50 border border-dashed rounded-lg">
-                            <Fingerprint className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500 font-medium">لا توجد أي بصمة مسجلة بعد</p>
+                            <ShieldCheck className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500 font-medium">لم يتم توثيق هذا الجهاز بعد</p>
                         </div>
                     )}
                 </div>
@@ -181,18 +181,18 @@ export const BiometricEnrollment = () => {
                         {enrolling ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>جاري طلب البصمة...</span>
+                                <span>جاري طلب التوثيق...</span>
                             </>
                         ) : (
                             <>
-                                <Fingerprint className="w-4 h-4" />
-                                <span>{credentials.length > 0 ? 'تسجيل إصبع بديل (حد أقصى 2)' : 'تسجيل بصمتي على هذا الجهاز'}</span>
+                                <ShieldCheck className="w-4 h-4" />
+                                <span>{credentials.length > 0 ? 'توثيق جهاز آخر (حد أقصى 2)' : 'توثيق جهازي الحالي'}</span>
                             </>
                         )}
                     </button>
                     {credentials.length >= 2 && (
                         <p className="text-xs text-center text-gray-500 mt-2">
-                            لقد وصلت للحد الأقصى المسموح به (بصمتين).
+                            لقد وصلت للحد الأقصى المسموح به (جهازين).
                         </p>
                     )}
                 </div>
