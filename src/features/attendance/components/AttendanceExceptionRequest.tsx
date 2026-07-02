@@ -6,6 +6,8 @@ import { useAttendance } from '../hooks/useAttendance';
 import type { AttendanceException } from '../types';
 import { FileText, Plus, Calendar, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
+import { sendPushNotification } from '../../../services/notifications';
 
 interface AttendanceExceptionRequestProps {
   employeeId: string;
@@ -51,6 +53,42 @@ export default function AttendanceExceptionRequest({
         end_time: formattedEndTime,
         employee_id: employeeId
       });
+
+      // Find direct supervisor to notify
+      try {
+        const { data: profile } = await supabase.from('profiles').select('department_id, full_name').eq('id', employeeId).single();
+        if (profile?.department_id) {
+          let currentDeptId = profile.department_id;
+          let supervisorId = null;
+          let visitedDepts = new Set<string>();
+          
+          while (currentDeptId && !visitedDepts.has(currentDeptId)) {
+            visitedDepts.add(currentDeptId);
+            const { data: dept } = await supabase.rpc('get_departments_bypass_rls')
+              .select('id, manager_id, parent_id')
+              .eq('id', currentDeptId).single();
+              
+            if (!dept) break;
+            
+            if (dept.manager_id && dept.manager_id !== employeeId) {
+              supervisorId = dept.manager_id;
+              break;
+            }
+            currentDeptId = dept.parent_id;
+          }
+          
+          if (supervisorId) {
+            sendPushNotification(
+              supervisorId,
+              `قام الموظف ${profile.full_name || 'موظف'} بتقديم طلب إجازة زمنية جديد (${formData.exception_date})`,
+              { title: "طلب إجازة زمنية", url: `${window.location.origin}/attendance` }
+            );
+          }
+        }
+      } catch (notifyErr) {
+        console.error("Failed to notify supervisor:", notifyErr);
+      }
+
       toast.success('تم إرسال الطلب بنجاح إلى الإدارة');
       setShowForm(false);
       setFormData({
