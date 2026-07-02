@@ -31,16 +31,10 @@ CREATE POLICY "Users can view own webauthn credentials"
     ON public.webauthn_credentials FOR SELECT
     USING (auth.uid() = user_id);
 
--- الموظف يمكنه إضافة بصمة لنفسه (بحد أقصى 2 بصمات فعالة)
+-- الموظف يمكنه إضافة بصمة لنفسه (الحد الأقصى مبرمج في التطبيق)
 CREATE POLICY "Users can insert own webauthn credentials"
     ON public.webauthn_credentials FOR INSERT
-    WITH CHECK (
-        auth.uid() = user_id
-        AND (
-            SELECT COUNT(*) FROM public.webauthn_credentials
-            WHERE user_id = auth.uid() AND is_active = true
-        ) < 2
-    );
+    WITH CHECK (auth.uid() = user_id);
 
 -- الموظف يمكنه تعطيل بصماته (soft delete)
 CREATE POLICY "Users can deactivate own webauthn credentials"
