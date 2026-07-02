@@ -112,6 +112,7 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
               employeeId={employeeId}
               todayAttendance={todayAttendance}
               loading={loading}
+              onAttendanceUpdate={loadTodayAttendance}
             />
           )}
           {activeTab === 'history' && (

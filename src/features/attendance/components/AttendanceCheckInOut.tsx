@@ -16,12 +16,14 @@ interface AttendanceCheckInOutProps {
   employeeId: string;
   todayAttendance: AttendanceRecord | null;
   loading: boolean;
+  onAttendanceUpdate: () => void;
 }
 
 export default function AttendanceCheckInOut({
   employeeId,
   todayAttendance,
-  loading
+  loading,
+  onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
   const { checkIn, checkOut } = useAttendance(employeeId);
   const [useBiometric, setUseBiometric] = useState(true);
@@ -89,6 +91,7 @@ export default function AttendanceCheckInOut({
     try {
       await checkIn(locationText, undefined, useBiometric);
       toast.success('تم تسجيل الحضور بنجاح');
+      onAttendanceUpdate();
       verifyLocationAndGeofence(false);
     } catch (err: any) {
       toast.error(err.message || 'فشل تسجيل الحضور');
@@ -104,6 +107,7 @@ export default function AttendanceCheckInOut({
     try {
       await checkOut(locationText, undefined, useBiometric);
       toast.success('تم تسجيل الانصراف بنجاح');
+      onAttendanceUpdate();
       verifyLocationAndGeofence(false);
     } catch (err: any) {
       toast.error(err.message || 'فشل تسجيل الانصراف');
