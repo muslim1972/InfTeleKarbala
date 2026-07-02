@@ -13,10 +13,7 @@ interface AttendanceExceptionRequestProps {
 }
 
 const exceptionTypes = [
-  { value: 'vacation', label: 'إجازة سنوية' },
-  { value: 'sick_leave', label: 'إجازة مرضية' },
-  { value: 'personal_leave', label: 'إجازة شخصية' },
-  { value: 'business_trip', label: 'رحلة عمل' }
+  { value: 'time_leave', label: 'إجازة زمنية' }
 ];
 
 const statusConfig: Record<string, { icon: any; color: string; label: string; bg: string }> = {
@@ -34,7 +31,7 @@ export default function AttendanceExceptionRequest({
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     exception_date: new Date().toISOString().split('T')[0],
-    exception_type: 'vacation' as const,
+    exception_type: 'time_leave' as const,
     start_time: '',
     end_time: '',
     reason: ''
@@ -50,7 +47,7 @@ export default function AttendanceExceptionRequest({
       setShowForm(false);
       setFormData({
         exception_date: new Date().toISOString().split('T')[0],
-        exception_type: 'vacation',
+        exception_type: 'time_leave',
         start_time: '',
         end_time: '',
         reason: ''
@@ -67,10 +64,6 @@ export default function AttendanceExceptionRequest({
       month: 'long',
       day: 'numeric'
     });
-  };
-
-  const getExceptionTypeLabel = (type: string) => {
-    return exceptionTypes.find(t => t.value === type)?.label || type;
   };
 
   return (
@@ -217,7 +210,7 @@ export default function AttendanceExceptionRequest({
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-semibold text-lg text-gray-800">
-                          {getExceptionTypeLabel(exception.exception_type)}
+                          {exception.exception_type === 'time_leave' ? 'إجازة زمنية' : exception.exception_type === 'vacation' ? 'إجازة سنوية' : exception.exception_type === 'sick_leave' ? 'إجازة مرضية' : exception.exception_type === 'personal_leave' ? 'إجازة شخصية' : exception.exception_type === 'business_trip' ? 'رحلة عمل' : exception.exception_type}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${config.bg} ${config.color}`}>
                           <Icon className="w-4 h-4" />

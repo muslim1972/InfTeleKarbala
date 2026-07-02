@@ -47,7 +47,7 @@ export interface AttendanceException {
   id: string;
   employee_id: string;
   exception_date: string;
-  exception_type: 'vacation' | 'sick_leave' | 'personal_leave' | 'business_trip';
+  exception_type: 'time_leave' | 'vacation' | 'sick_leave' | 'personal_leave' | 'business_trip';
   start_time?: string;
   end_time?: string;
   reason?: string;

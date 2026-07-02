@@ -228,7 +228,7 @@ export default function AdminAttendanceDashboard() {
                             {exception.employee_id}
                           </h3>
                           <p className="text-gray-600 mb-2">
-                            نوع الإجازة: {exception.exception_type}
+                            نوع الإجازة: {exception.exception_type === 'time_leave' ? 'إجازة زمنية' : exception.exception_type === 'vacation' ? 'إجازة سنوية' : exception.exception_type === 'sick_leave' ? 'إجازة مرضية' : exception.exception_type === 'personal_leave' ? 'إجازة شخصية' : exception.exception_type === 'business_trip' ? 'رحلة عمل' : exception.exception_type}
                           </p>
                           <p className="text-gray-600 mb-2">
                             التاريخ: {new Date(exception.exception_date).toLocaleDateString('ar-SA')}
