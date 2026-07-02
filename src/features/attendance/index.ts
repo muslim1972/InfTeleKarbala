@@ -7,8 +7,9 @@ export {
   attendanceRecordService,
   attendanceDeviceService,
   attendanceExceptionService,
-  biometricVerificationService
+  attendanceStatsService
 } from './services/attendanceService';
+export { webauthnService } from './services/webauthnService';
 export { geofenceService } from './services/geofenceService';
 export { workLocationService } from './services/workLocationService';
 

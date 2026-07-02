@@ -7,13 +7,14 @@ import AttendanceCheckInOut from './AttendanceCheckInOut';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceStatistics from './AttendanceStatistics';
 import AttendanceExceptionRequest from './AttendanceExceptionRequest';
-import { Fingerprint, Calendar, BarChart3, FileText } from 'lucide-react';
+import { BiometricEnrollment } from './BiometricEnrollment';
+import { Fingerprint, Calendar, BarChart3, FileText, ShieldCheck } from 'lucide-react';
 
 interface AttendanceDashboardProps {
   employeeId: string;
 }
 
-type ActiveTab = 'check' | 'history' | 'stats' | 'exceptions';
+type ActiveTab = 'check' | 'history' | 'stats' | 'exceptions' | 'settings';
 
 export default function AttendanceDashboard({ employeeId }: AttendanceDashboardProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('check');
@@ -51,7 +52,8 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
     { id: 'check' as ActiveTab, label: 'الحضور والانصراف', icon: Fingerprint },
     { id: 'history' as ActiveTab, label: 'سجل الحضور', icon: Calendar },
     { id: 'stats' as ActiveTab, label: 'الإحصائيات', icon: BarChart3 },
-    { id: 'exceptions' as ActiveTab, label: 'الإجازات', icon: FileText }
+    { id: 'exceptions' as ActiveTab, label: 'الإجازات', icon: FileText },
+    { id: 'settings' as ActiveTab, label: 'إعدادات البصمة', icon: ShieldCheck }
   ];
 
   return (
@@ -130,6 +132,11 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
               exceptions={exceptions}
               loading={loading}
             />
+          )}
+          {activeTab === 'settings' && (
+            <div className="max-w-2xl mx-auto">
+              <BiometricEnrollment />
+            </div>
           )}
         </motion.div>
       </div>

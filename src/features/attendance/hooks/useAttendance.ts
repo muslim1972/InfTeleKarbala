@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import {
   attendanceRecordService,
   attendanceExceptionService,
-  biometricVerificationService
+  attendanceStatsService
 } from '../services/attendanceService';
+import { webauthnService } from '../services/webauthnService';
 import type { AttendanceRecord, AttendanceException, AttendanceStats, BiometricVerificationResult } from '../types';
 
 export function useAttendance(employeeId: string) {
@@ -57,7 +58,7 @@ export function useAttendance(employeeId: string) {
     setLoading(true);
     setError(null);
     try {
-      const statistics = await attendanceRecordService.getStats(employeeId, startDate, endDate);
+      const statistics = await attendanceStatsService.getStats(employeeId, startDate, endDate);
       setStats(statistics);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ');
@@ -73,7 +74,7 @@ export function useAttendance(employeeId: string) {
       let verifiedByBiometric = false;
       
       if (useBiometric) {
-        const verification = await biometricVerificationService.verify();
+        const verification = await webauthnService.verify(employeeId);
         if (!verification.success) {
           throw new Error(verification.message || 'فشل التحقق البيومتري');
         }
@@ -98,7 +99,7 @@ export function useAttendance(employeeId: string) {
       let verifiedByBiometric = false;
       
       if (useBiometric) {
-        const verification = await biometricVerificationService.verify();
+        const verification = await webauthnService.verify(employeeId);
         if (!verification.success) {
           throw new Error(verification.message || 'فشل التحقق البيومتري');
         }
@@ -156,12 +157,12 @@ export function useBiometricVerification() {
   const [result, setResult] = useState<BiometricVerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const verify = useCallback(async () => {
+  const verify = useCallback(async (employeeId: string) => {
     setIsVerifying(true);
     setError(null);
     setResult(null);
     try {
-      const verificationResult = await biometricVerificationService.verify();
+      const verificationResult = await webauthnService.verify(employeeId);
       setResult(verificationResult);
       return verificationResult;
     } catch (err) {
