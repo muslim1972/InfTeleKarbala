@@ -4,8 +4,7 @@ import type {
   AttendanceRecord,
   AttendanceDevice,
   AttendanceException,
-  AttendanceStats,
-  BiometricVerificationResult
+  AttendanceStats
 } from '../types';
 
 // =============================================

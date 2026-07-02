@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
 import {
   attendanceRecordService,
-  attendanceExceptionService,
-  attendanceStatsService
+  attendanceExceptionService
 } from '../services/attendanceService';
 import { webauthnService } from '../services/webauthnService';
 import type { AttendanceRecord, AttendanceException, AttendanceStats, BiometricVerificationResult } from '../types';
@@ -58,7 +57,7 @@ export function useAttendance(employeeId: string) {
     setLoading(true);
     setError(null);
     try {
-      const statistics = await attendanceStatsService.getStats(employeeId, startDate, endDate);
+      const statistics = await attendanceRecordService.getStats(employeeId, startDate, endDate);
       setStats(statistics);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ');
@@ -162,7 +161,13 @@ export function useBiometricVerification() {
     setError(null);
     setResult(null);
     try {
-      const verificationResult = await webauthnService.verify(employeeId);
+      const result = await webauthnService.verify(employeeId);
+      const verificationResult: BiometricVerificationResult = {
+        success: result.success,
+        confidence: result.success ? 1.0 : 0.0,
+        message: result.message,
+        employee_id: employeeId
+      };
       setResult(verificationResult);
       return verificationResult;
     } catch (err) {

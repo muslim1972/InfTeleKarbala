@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 /**
  * خدمة WebAuthn للتحقق البيومتري (البصمة)
@@ -96,7 +96,6 @@ export const webauthnService = {
             // 4. استخراج البيانات
             const response = credential.response as AuthenticatorAttestationResponse;
             const credentialId = credential.id;
-            const clientDataJSON = bufferToBase64url(response.clientDataJSON);
             const attestationObject = bufferToBase64url(response.attestationObject);
             
             // في التطبيق الحقيقي يجب استخراج الـ publicKey من attestationObject في السيرفر
@@ -153,7 +152,7 @@ export const webauthnService = {
             window.crypto.getRandomValues(challenge);
 
             // 3. تحديد الأجهزة المسموحة (allowCredentials)
-            const allowCredentials = credentials.map(c => ({
+            const allowCredentials = credentials.map((c: any) => ({
                 type: 'public-key' as const,
                 id: base64urlToBuffer(c.credential_id),
                 transports: ['internal'] as AuthenticatorTransport[] // فقط الجهاز المحلي

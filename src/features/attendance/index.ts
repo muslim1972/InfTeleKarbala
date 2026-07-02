@@ -6,8 +6,7 @@ export {
   fingerprintTemplateService,
   attendanceRecordService,
   attendanceDeviceService,
-  attendanceExceptionService,
-  attendanceStatsService
+  attendanceExceptionService
 } from './services/attendanceService';
 export { webauthnService } from './services/webauthnService';
 export { geofenceService } from './services/geofenceService';

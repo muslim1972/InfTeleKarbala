@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { webauthnService, WebAuthnCredential } from '../services/webauthnService';
+import { webauthnService, type WebAuthnCredential } from '../services/webauthnService';
 import { Fingerprint, Loader2, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const BiometricEnrollment = () => {
-    const { currentUser } = useAuth();
+    const { user } = useAuth();
     const [credentials, setCredentials] = useState<WebAuthnCredential[]>([]);
     const [loading, setLoading] = useState(true);
     const [enrolling, setEnrolling] = useState(false);
@@ -14,10 +14,10 @@ export const BiometricEnrollment = () => {
 
     useEffect(() => {
         checkSupportAndLoad();
-    }, [currentUser]);
+    }, [user]);
 
     const checkSupportAndLoad = async () => {
-        if (!currentUser) return;
+        if (!user) return;
         setLoading(true);
         try {
             const isSupported = await webauthnService.isSupported();
@@ -34,13 +34,13 @@ export const BiometricEnrollment = () => {
     };
 
     const loadCredentials = async () => {
-        if (!currentUser) return;
-        const creds = await webauthnService.getCredentials(currentUser.id);
+        if (!user) return;
+        const creds = await webauthnService.getCredentials(user.id);
         setCredentials(creds);
     };
 
     const handleEnroll = async () => {
-        if (!currentUser) return;
+        if (!user) return;
         
         // حد أقصى 2 بصمة
         if (credentials.length >= 2) {
@@ -61,8 +61,8 @@ export const BiometricEnrollment = () => {
 
         try {
             const result = await webauthnService.register(
-                currentUser.id,
-                currentUser.email || currentUser.id,
+                user.id,
+                user.email || user.id,
                 label,
                 deviceType
             );
@@ -134,7 +134,7 @@ export const BiometricEnrollment = () => {
                 </p>
 
                 <div className="space-y-3">
-                    {credentials.map((cred, index) => (
+                    {credentials.map((cred) => (
                         <div key={cred.id} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg">
                             <div className="flex items-center space-x-3 space-x-reverse">
                                 <div className="p-2 bg-brand-green/10 rounded-full text-brand-green">
