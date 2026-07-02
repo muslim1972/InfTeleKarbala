@@ -5,11 +5,11 @@ import type { WorkLocation } from '../types';
 import { 
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
-  Check, X, Navigation, Eye, EyeOff
+  Check, X, Navigation, Eye, EyeOff, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-type Tab = 'locations' | 'assignments' | 'reports';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs';
 
 export default function AttendanceAdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('locations');
@@ -52,6 +52,10 @@ export default function AttendanceAdminSettings() {
     late: 0,
     earlyLeave: 0
   });
+
+  // Device Logs State
+  const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Fetch Locations
   const loadLocations = async () => {
@@ -110,6 +114,37 @@ export default function AttendanceAdminSettings() {
 
     return () => clearTimeout(delayDebounce);
   }, [employeeSearch, assignedEmployees]);
+
+  // Load Device Logs
+  const loadDeviceLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('device_enrollment_logs')
+        .select(`
+          id,
+          action_type,
+          device_name,
+          created_at,
+          profiles:user_id(full_name, job_number)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      setDeviceLogs(data || []);
+    } catch (err: any) {
+      toast.error('فشل تحميل سجل الأجهزة: ' + err.message);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'deviceLogs') {
+      loadDeviceLogs();
+    }
+  }, [activeTab]);
 
   // Load Reports
   const loadReports = async () => {
@@ -373,14 +408,21 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-6 py-4 font-bold border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'reports'
-                ? 'border-blue-500 text-blue-500'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             <BarChart3 className="w-5 h-5" />
-            تقارير الحضور والطباعة
+            تقارير الحضور
+          </button>
+          <button
+            onClick={() => setActiveTab('deviceLogs')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            سجل توثيق الأجهزة
           </button>
         </div>
 
@@ -958,6 +1000,74 @@ export default function AttendanceAdminSettings() {
           </div>
         )}
 
+        {/* DEVICE LOGS TAB */}
+        {activeTab === 'deviceLogs' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">سجل توثيق أجهزة الحضور</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">يعرض هذا السجل عمليات ربط أو إلغاء ربط أجهزة الموظفين بالبصمة المشفرة</p>
+              </div>
+              <button onClick={loadDeviceLogs} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full" title="تحديث">
+                <svg className={`w-5 h-5 ${loadingLogs ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+
+            {loadingLogs ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : deviceLogs.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200">
+                لا توجد أي حركات في السجل حالياً
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600">
+                    <tr>
+                      <th className="px-4 py-3 font-medium rounded-r-lg">الموظف</th>
+                      <th className="px-4 py-3 font-medium">نوع الحركة</th>
+                      <th className="px-4 py-3 font-medium">الجهاز</th>
+                      <th className="px-4 py-3 font-medium rounded-l-lg">التاريخ والوقت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {deviceLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-slate-800 dark:text-slate-200">{log.profiles?.full_name || 'غير معروف'}</div>
+                          <div className="text-xs text-slate-500">{log.profiles?.job_number || 'بدون رقم وظيفي'}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                            log.action_type === 'ENROLL' 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                              : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                          }`}>
+                            {log.action_type === 'ENROLL' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                            {log.action_type === 'ENROLL' ? 'توثيق جهاز' : 'إلغاء توثيق'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                          {log.device_name}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500" dir="ltr" style={{ textAlign: 'right' }}>
+                          {new Date(log.created_at).toLocaleString('ar-IQ', {
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

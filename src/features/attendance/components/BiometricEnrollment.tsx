@@ -42,9 +42,9 @@ export const BiometricEnrollment = () => {
     const handleEnroll = async () => {
         if (!user) return;
         
-        // حد أقصى جهازين
-        if (credentials.length >= 2) {
-            toast.error("لقد وصلت للحد الأقصى (جهازين). يرجى حذف جهاز لتسجيل جهاز آخر.");
+        // حد أقصى جهاز واحد
+        if (credentials.length >= 1) {
+            toast.error("لقد وصلت للحد الأقصى (جهاز واحد). يرجى إلغاء توثيق الجهاز الحالي لتتمكن من توثيق جهاز جديد.");
             return;
         }
 
@@ -57,7 +57,7 @@ export const BiometricEnrollment = () => {
         else if (/windows/i.test(userAgent)) deviceType = "جهاز ويندوز";
         else if (/mac/i.test(userAgent)) deviceType = "جهاز ماك";
 
-        const label = `توثيق ${deviceType} (${credentials.length + 1})`;
+        const label = `توثيق ${deviceType}`;
 
         try {
             const result = await webauthnService.register(
@@ -171,9 +171,9 @@ export const BiometricEnrollment = () => {
                 <div className="pt-2">
                     <button
                         onClick={handleEnroll}
-                        disabled={enrolling || credentials.length >= 2}
+                        disabled={enrolling || credentials.length >= 1}
                         className={`w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center space-x-2 space-x-reverse transition-all ${
-                            credentials.length >= 2
+                            credentials.length >= 1
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : 'bg-brand-green text-white shadow-md hover:bg-brand-green/90 active:scale-[0.98]'
                         }`}
@@ -186,13 +186,13 @@ export const BiometricEnrollment = () => {
                         ) : (
                             <>
                                 <ShieldCheck className="w-4 h-4" />
-                                <span>{credentials.length > 0 ? 'توثيق جهاز آخر (حد أقصى 2)' : 'توثيق جهازي الحالي'}</span>
+                                <span>توثيق جهازي الحالي</span>
                             </>
                         )}
                     </button>
-                    {credentials.length >= 2 && (
+                    {credentials.length >= 1 && (
                         <p className="text-xs text-center text-gray-500 mt-2">
-                            لقد وصلت للحد الأقصى المسموح به (جهازين).
+                            لقد قمت بتوثيق جهازك مسبقاً. لتوثيق جهاز جديد، يجب إلغاء توثيق الجهاز الحالي أولاً.
                         </p>
                     )}
                 </div>
