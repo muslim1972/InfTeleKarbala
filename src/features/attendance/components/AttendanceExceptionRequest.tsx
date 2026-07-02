@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
 import type { AttendanceException } from '../types';
 import { FileText, Plus, Calendar, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface AttendanceExceptionRequestProps {
   employeeId: string;
@@ -40,10 +41,17 @@ export default function AttendanceExceptionRequest({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Convert time strings (HH:mm) to valid ISO timestamps using the selected date
+      const formattedStartTime = formData.start_time ? new Date(`${formData.exception_date}T${formData.start_time}:00`).toISOString() : undefined;
+      const formattedEndTime = formData.end_time ? new Date(`${formData.exception_date}T${formData.end_time}:00`).toISOString() : undefined;
+
       await requestException({
         ...formData,
+        start_time: formattedStartTime,
+        end_time: formattedEndTime,
         employee_id: employeeId
       });
+      toast.success('تم إرسال الطلب بنجاح إلى الإدارة');
       setShowForm(false);
       setFormData({
         exception_date: new Date().toISOString().split('T')[0],
@@ -52,8 +60,9 @@ export default function AttendanceExceptionRequest({
         end_time: '',
         reason: ''
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to request exception:', err);
+      toast.error(err.message || 'فشل إرسال الطلب، الرجاء المحاولة مرة أخرى');
     }
   };
 
