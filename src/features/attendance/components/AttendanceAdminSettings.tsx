@@ -5,7 +5,7 @@ import type { WorkLocation } from '../types';
 import { 
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
-  Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle
+  Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -62,6 +62,33 @@ export default function AttendanceAdminSettings() {
   const [adminAction, setAdminAction] = useState<'accept' | 'absent' | 'vacation' | 'late'>('accept');
   const [adminNotes, setAdminNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Inline Editing State
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [editShiftStart, setEditShiftStart] = useState<string>('');
+  const [editShiftEnd, setEditShiftEnd] = useState<string>('');
+
+  const handleUpdateShift = async (employeeId: string) => {
+    try {
+      if (!selectedLocId) return;
+      const { error } = await supabase
+        .from('work_location_employees')
+        .update({
+          shift_start: editShiftStart || null,
+          shift_end: editShiftEnd || null
+        })
+        .eq('employee_id', employeeId)
+        .eq('location_id', selectedLocId);
+
+      if (error) throw error;
+      
+      toast.success('تم تحديث وقت الدوام بنجاح');
+      setEditingEmployeeId(null);
+      loadAssignments(selectedLocId); // Reload the list
+    } catch (err: any) {
+      toast.error('فشل تحديث الوقت: ' + err.message);
+    }
+  };
 
   // Fetch Locations
   const loadLocations = async () => {
@@ -796,30 +823,85 @@ export default function AttendanceAdminSettings() {
                       </div>
                     ) : (
                       <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        {assignedEmployees.map((ae) => (
+                        {assignedEmployees.map((ae) => {
+                          const isEditing = editingEmployeeId === ae.employee_id;
+                          return (
                           <div key={ae.id} className="py-4 flex justify-between items-center">
-                            <div>
+                            <div className="flex-1">
                               <p className="font-bold">{ae.employee?.full_name}</p>
-                              <div className="flex gap-4 mt-1">
+                              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-1">
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                   الرقم الوظيفي: {ae.employee?.job_number}
                                 </p>
-                                {(ae.shift_start || ae.shift_end) && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
-                                    الدوام: {ae.shift_start?.slice(0,5) || '--:--'} إلى {ae.shift_end?.slice(0,5) || '--:--'}
-                                  </p>
+                                
+                                {isEditing ? (
+                                  <div className="flex items-center gap-2 mt-2 md:mt-0">
+                                    <input 
+                                      type="time" 
+                                      value={editShiftStart} 
+                                      onChange={e => setEditShiftStart(e.target.value)} 
+                                      className="text-xs bg-slate-50 border rounded px-2 py-1 dark:bg-slate-900 dark:border-slate-700" 
+                                    />
+                                    <span className="text-xs text-slate-400">إلى</span>
+                                    <input 
+                                      type="time" 
+                                      value={editShiftEnd} 
+                                      onChange={e => setEditShiftEnd(e.target.value)} 
+                                      className="text-xs bg-slate-50 border rounded px-2 py-1 dark:bg-slate-900 dark:border-slate-700" 
+                                    />
+                                  </div>
+                                ) : (
+                                  (ae.shift_start || ae.shift_end) && (
+                                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
+                                      الدوام: {ae.shift_start?.slice(0,5) || '--:--'} إلى {ae.shift_end?.slice(0,5) || '--:--'}
+                                    </p>
+                                  )
                                 )}
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleRemoveEmployee(ae.employee_id)}
-                              className="text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 p-2.5 rounded-xl transition-all"
-                              title="إلغاء الربط بالموقع"
-                            >
-                              <UserMinus className="w-5 h-5" />
-                            </button>
+                            <div className="flex gap-2 mr-4">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => handleUpdateShift(ae.employee_id)}
+                                    className="text-emerald-500 hover:text-emerald-600 bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl transition-all"
+                                    title="حفظ الوقت"
+                                  >
+                                    <Save className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingEmployeeId(null)}
+                                    className="text-slate-500 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl transition-all"
+                                    title="إلغاء"
+                                  >
+                                    <X className="w-5 h-5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingEmployeeId(ae.employee_id);
+                                      setEditShiftStart(ae.shift_start?.slice(0,5) || '08:00');
+                                      setEditShiftEnd(ae.shift_end?.slice(0,5) || '14:00');
+                                    }}
+                                    className="text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 p-2.5 rounded-xl transition-all"
+                                    title="تعديل وقت الدوام"
+                                  >
+                                    <Edit2 className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveEmployee(ae.employee_id)}
+                                    className="text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 p-2.5 rounded-xl transition-all"
+                                    title="إلغاء الربط بالموقع"
+                                  >
+                                    <UserMinus className="w-5 h-5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                     )}
                   </div>
