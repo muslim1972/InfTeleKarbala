@@ -126,12 +126,47 @@ export const attendanceRecordService = {
   async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false) {
     const now = new Date().toISOString();
     
-    // Get department from employee profile
+    // Get department and device info from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id')
+      .select('department_id, primary_device_id')
       .eq('id', employeeId)
       .single();
+
+    let isDevicePending = false;
+
+    // 1. If primary_device_id is null, set it to the current deviceId
+    if (!profile?.primary_device_id && deviceId) {
+      await supabase
+        .from('profiles')
+        .update({ primary_device_id: deviceId })
+        .eq('id', employeeId);
+    } 
+    // 2. If primary_device_id exists and doesn't match deviceId, it's a pending device
+    else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+      isDevicePending = true;
+      
+      // Check if a pending request already exists
+      const { data: existingReq } = await supabase
+        .from('device_change_requests')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .eq('new_device_id', deviceId)
+        .eq('status', 'pending')
+        .single();
+        
+      if (!existingReq) {
+        // Create a device change request
+        await supabase
+          .from('device_change_requests')
+          .insert({
+            employee_id: employeeId,
+            old_device_id: profile.primary_device_id,
+            new_device_id: deviceId,
+            status: 'pending'
+          });
+      }
+    }
 
     const { data, error } = await supabase
       .from('attendance_records')
@@ -142,7 +177,8 @@ export const attendanceRecordService = {
         check_in_location: location,
         check_in_device_id: deviceId,
         check_in_verified_by_biometric: verifiedByBiometric,
-        status: 'present'
+        status: 'present',
+        is_device_pending: isDevicePending
       })
       .select()
       .single();
@@ -157,14 +193,54 @@ export const attendanceRecordService = {
       throw new Error('لم يتم تسجيل الحضور اليوم');
     }
 
+    // Check device match
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('primary_device_id')
+      .eq('id', employeeId)
+      .single();
+
+    let isDevicePending = false;
+
+    if (!profile?.primary_device_id && deviceId) {
+      await supabase
+        .from('profiles')
+        .update({ primary_device_id: deviceId })
+        .eq('id', employeeId);
+    } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+      isDevicePending = true;
+      
+      const { data: existingReq } = await supabase
+        .from('device_change_requests')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .eq('new_device_id', deviceId)
+        .eq('status', 'pending')
+        .single();
+        
+      if (!existingReq) {
+         await supabase.from('device_change_requests').insert({
+            employee_id: employeeId,
+            old_device_id: profile.primary_device_id,
+            new_device_id: deviceId,
+            status: 'pending'
+         });
+      }
+    }
+
     const now = new Date().toISOString();
+    
+    // We only update is_device_pending to true if it is true now, we don't clear it if it was true in check-in
+    const updatedStatus = isDevicePending || todayRecord.is_device_pending;
+
     const { data, error } = await supabase
       .from('attendance_records')
       .update({
         check_out: now,
         check_out_location: location,
         check_out_device_id: deviceId,
-        check_out_verified_by_biometric: verifiedByBiometric
+        check_out_verified_by_biometric: verifiedByBiometric,
+        is_device_pending: updatedStatus
       })
       .eq('id', todayRecord.id)
       .select()

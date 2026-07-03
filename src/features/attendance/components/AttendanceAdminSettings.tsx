@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests';
 
 export default function AttendanceAdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('locations');
@@ -56,6 +56,10 @@ export default function AttendanceAdminSettings() {
   // Device Logs State
   const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Device Requests State
+  const [deviceRequests, setDeviceRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   // Processing Auto Attendance State
   const [processingRecord, setProcessingRecord] = useState<any>(null);
@@ -173,9 +177,73 @@ export default function AttendanceAdminSettings() {
     }
   };
 
+  // Load Device Requests
+  const loadDeviceRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      const { data, error } = await supabase
+        .from('device_change_requests')
+        .select(`
+          id,
+          employee_id,
+          old_device_id,
+          new_device_id,
+          status,
+          created_at,
+          profiles:employee_id(full_name, job_number)
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setDeviceRequests(data || []);
+    } catch (err: any) {
+      toast.error('فشل تحميل طلبات الأجهزة: ' + err.message);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleApproveDevice = async (req: any) => {
+    try {
+      const { error: pErr } = await supabase.from('profiles').update({ primary_device_id: req.new_device_id }).eq('id', req.employee_id);
+      if (pErr) throw pErr;
+      
+      await supabase.from('attendance_records')
+        .update({ is_device_pending: false })
+        .eq('employee_id', req.employee_id)
+        .eq('is_device_pending', true);
+        
+      await supabase.from('device_change_requests').update({ status: 'approved' }).eq('id', req.id);
+      
+      toast.success('تم اعتماد الجهاز بنجاح');
+      loadDeviceRequests();
+    } catch (err: any) {
+      toast.error('حدث خطأ أثناء اعتماد الجهاز: ' + err.message);
+    }
+  };
+
+  const handleRejectDevice = async (req: any) => {
+    try {
+      await supabase.from('attendance_records')
+        .delete()
+        .eq('employee_id', req.employee_id)
+        .eq('is_device_pending', true);
+        
+      await supabase.from('device_change_requests').update({ status: 'rejected' }).eq('id', req.id);
+      
+      toast.success('تم رفض الجهاز وحذف البصمة المعلقة');
+      loadDeviceRequests();
+    } catch (err: any) {
+      toast.error('حدث خطأ أثناء رفض الجهاز: ' + err.message);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'deviceLogs') {
       loadDeviceLogs();
+    } else if (activeTab === 'deviceRequests') {
+      loadDeviceRequests();
     }
   }, [activeTab]);
 
@@ -492,6 +560,20 @@ export default function AttendanceAdminSettings() {
           >
             <ShieldCheck className="w-5 h-5" />
             سجل توثيق الأجهزة
+          </button>
+          <button
+            onClick={() => setActiveTab('deviceRequests')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <AlertTriangle className="w-5 h-5" />
+            طلبات تغيير الأجهزة
+            {deviceRequests.length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full mr-2">
+                {deviceRequests.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1196,6 +1278,88 @@ export default function AttendanceAdminSettings() {
                             year: 'numeric', month: '2-digit', day: '2-digit',
                             hour: '2-digit', minute: '2-digit', second: '2-digit'
                           })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        {/* DEVICE REQUESTS TAB */}
+        {activeTab === 'deviceRequests' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">طلبات تغيير الأجهزة</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">الموظفون الذين سجلوا دخول من أجهزة جديدة بانتظار الموافقة</p>
+              </div>
+              <button onClick={loadDeviceRequests} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full" title="تحديث">
+                <svg className={`w-5 h-5 ${loadingRequests ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+
+            {loadingRequests ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+              </div>
+            ) : deviceRequests.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200">
+                لا توجد طلبات تغيير أجهزة معلقة حالياً
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600">
+                    <tr>
+                      <th className="px-4 py-3 font-medium rounded-r-lg">الموظف</th>
+                      <th className="px-4 py-3 font-medium">معرف الجهاز الجديد</th>
+                      <th className="px-4 py-3 font-medium">تاريخ الطلب</th>
+                      <th className="px-4 py-3 font-medium rounded-l-lg text-center">الإجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {deviceRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-slate-800 dark:text-slate-200">{req.profiles?.full_name || 'غير معروف'}</div>
+                          <div className="text-xs text-slate-500">{req.profiles?.job_number || 'بدون رقم وظيفي'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono text-xs">
+                          {req.new_device_id}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500" dir="ltr" style={{ textAlign: 'right' }}>
+                          {new Date(req.created_at).toLocaleString('ar-IQ', {
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                if (window.confirm('هل أنت متأكد من اعتماد هذا الجهاز؟ ستتحول بصمات الموظف المعلقة إلى معتمدة.')) {
+                                  handleApproveDevice(req);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              موافقة
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm('هل أنت متأكد من الرفض؟ سيتم حذف بصمات الموظف المعلقة لهذا اليوم.')) {
+                                  handleRejectDevice(req);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              رفض
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

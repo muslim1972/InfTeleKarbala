@@ -194,16 +194,34 @@ export default function AttendanceCheckInOut({
       >
         <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 border-b dark:border-slate-700 pb-3">حالة البصمة لليوم</h2>
 
+        {todayAttendance?.is_device_pending && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl p-4 flex items-start gap-3 dark:bg-yellow-900/20 dark:border-yellow-900/50 dark:text-yellow-200">
+            <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold mb-1">تنبيه: جهاز غير معتمد</p>
+              <p className="text-sm">
+                تم تسجيل حضورك مبدئياً، لكن لاحظنا استخدامك لجهاز جديد. تم رفع طلب للإدارة لاعتماد هذا الجهاز، وستبقى حالة البصمة معلقة لحين الموافقة.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Check In Status */}
           <div className={`p-6 rounded-2xl border-2 transition-all ${
             todayAttendance?.check_in
-              ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10'
+              ? todayAttendance.is_device_pending
+                  ? 'border-yellow-400 bg-yellow-50/50 dark:bg-yellow-900/10'
+                  : 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10'
               : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40'
           }`}>
             <div className="flex items-center gap-3 mb-3">
               <LogIn className={`w-6 h-6 ${
-                todayAttendance?.check_in ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-slate-500'
+                todayAttendance?.check_in 
+                  ? todayAttendance.is_device_pending
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-gray-400 dark:text-slate-500'
               }`} />
               <span className="font-bold text-gray-800 dark:text-slate-200">وقت الحضور</span>
             </div>
@@ -211,7 +229,7 @@ export default function AttendanceCheckInOut({
               {formatTime(todayAttendance?.check_in)}
             </div>
             {todayAttendance?.check_in_verified_by_biometric && (
-              <div className="flex items-center gap-2 mt-3 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+              <div className={`flex items-center gap-2 mt-3 text-sm font-bold ${todayAttendance.is_device_pending ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                 <ShieldCheck className="w-5 h-5" />
                 <span>تم التحقق بيوميترياً بنجاح</span>
               </div>
@@ -221,12 +239,18 @@ export default function AttendanceCheckInOut({
           {/* Check Out Status */}
           <div className={`p-6 rounded-2xl border-2 transition-all ${
             todayAttendance?.check_out
-              ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/10'
+              ? todayAttendance.is_device_pending
+                  ? 'border-yellow-400 bg-yellow-50/50 dark:bg-yellow-900/10'
+                  : 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/10'
               : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40'
           }`}>
             <div className="flex items-center gap-3 mb-3">
               <LogOut className={`w-6 h-6 ${
-                todayAttendance?.check_out ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-slate-500'
+                todayAttendance?.check_out 
+                  ? todayAttendance.is_device_pending
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-teal-600 dark:text-teal-400'
+                  : 'text-gray-400 dark:text-slate-500'
               }`} />
               <span className="font-bold text-gray-800 dark:text-slate-200">وقت الانصراف</span>
             </div>
@@ -234,7 +258,7 @@ export default function AttendanceCheckInOut({
               {formatTime(todayAttendance?.check_out)}
             </div>
             {todayAttendance?.check_out_verified_by_biometric && (
-              <div className="flex items-center gap-2 mt-3 text-teal-600 dark:text-teal-400 text-sm font-bold">
+              <div className={`flex items-center gap-2 mt-3 text-sm font-bold ${todayAttendance.is_device_pending ? 'text-yellow-600 dark:text-yellow-400' : 'text-teal-600 dark:text-teal-400'}`}>
                 <ShieldCheck className="w-5 h-5" />
                 <span>تم التحقق بيوميترياً بنجاح</span>
               </div>

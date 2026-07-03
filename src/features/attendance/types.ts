@@ -21,6 +21,7 @@ export interface AttendanceRecord {
   check_out_verified_by_biometric: boolean;
   check_in_device_id?: string;
   check_out_device_id?: string;
+  is_device_pending?: boolean;
   is_auto_check_in?: boolean;
   is_auto_check_out?: boolean;
   admin_notes?: string;
@@ -92,4 +93,18 @@ export interface WorkLocationEmployee {
   shift_start?: string; // Format: 'HH:mm'
   shift_end?: string; // Format: 'HH:mm'
   location?: WorkLocation;
+}
+
+export interface DeviceChangeRequest {
+  id: string;
+  employee_id: string;
+  old_device_id?: string;
+  new_device_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  employee?: {
+    full_name: string;
+    job_number: string;
+  };
 }
