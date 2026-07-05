@@ -82,7 +82,8 @@ export const workLocationService = {
           id,
           full_name,
           job_number,
-          role
+          role,
+          work_schedule_id
         )
       `)
       .eq('location_id', locationId);
@@ -92,17 +93,36 @@ export const workLocationService = {
   },
 
   /**
-   * Assigns an employee to a work location
+   * Assigns an employee to a work location and optionally sets their work schedule
    */
-  async assignEmployee(locationId: string, employeeId: string, shiftStart?: string, shiftEnd?: string): Promise<void> {
-    const { error } = await supabase
+  async assignEmployee(locationId: string, employeeId: string, workScheduleId?: string | null): Promise<void> {
+    // 1. Link to location
+    const { error: locError } = await supabase
       .from('work_location_employees')
-      .insert({
+      .upsert({
         location_id: locationId,
-        employee_id: employeeId,
-        shift_start: shiftStart || null,
-        shift_end: shiftEnd || null
-      });
+        employee_id: employeeId
+      }, { onConflict: 'location_id,employee_id' });
+    if (locError) throw locError;
+
+    // 2. Set work schedule in profiles
+    if (workScheduleId !== undefined) {
+      const { error: profError } = await supabase
+        .from('profiles')
+        .update({ work_schedule_id: workScheduleId })
+        .eq('id', employeeId);
+      if (profError) throw profError;
+    }
+  },
+
+  /**
+   * Updates an employee's work schedule
+   */
+  async updateEmployeeSchedule(employeeId: string, workScheduleId: string | null): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ work_schedule_id: workScheduleId })
+      .eq('id', employeeId);
     if (error) throw error;
   },
 

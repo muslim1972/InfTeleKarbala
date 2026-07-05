@@ -116,6 +116,48 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
+  const timeLeaveOut = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      let verifiedByBiometric = false;
+      if (useBiometric) {
+        const verification = await webauthnService.verify(employeeId);
+        if (!verification.success) throw new Error(verification.message || 'فشل التحقق البيومتري');
+        verifiedByBiometric = true;
+      }
+      const record = await attendanceRecordService.timeLeaveOut(employeeId, location, deviceId, verifiedByBiometric);
+      setTodayAttendance(record);
+      return record;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [employeeId]);
+
+  const timeLeaveReturn = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      let verifiedByBiometric = false;
+      if (useBiometric) {
+        const verification = await webauthnService.verify(employeeId);
+        if (!verification.success) throw new Error(verification.message || 'فشل التحقق البيومتري');
+        verifiedByBiometric = true;
+      }
+      const record = await attendanceRecordService.timeLeaveReturn(employeeId, location, deviceId, verifiedByBiometric);
+      setTodayAttendance(record);
+      return record;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [employeeId]);
+
   const requestException = useCallback(async (exception: Omit<AttendanceException, 'id' | 'created_at' | 'updated_at' | 'status' | 'approved_by' | 'approved_at'>) => {
     setLoading(true);
     setError(null);
@@ -147,6 +189,8 @@ export function useAttendance(employeeId: string) {
     loadStats,
     checkIn,
     checkOut,
+    timeLeaveOut,
+    timeLeaveReturn,
     requestException
   };
 }

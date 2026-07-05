@@ -9,7 +9,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests';
+import WorkSchedulesTab from './WorkSchedulesTab';
+
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules';
 
 export default function AttendanceAdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('locations');
@@ -30,14 +32,7 @@ export default function AttendanceAdminSettings() {
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [shiftStart, setShiftStart] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('lastShiftStart') || '08:00';
-    return '08:00';
-  });
-  const [shiftEnd, setShiftEnd] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('lastShiftEnd') || '14:00';
-    return '14:00';
-  });
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
 
   // Reports State
   const [reportType, setReportType] = useState<'daily' | 'range'>('daily');
@@ -61,6 +56,24 @@ export default function AttendanceAdminSettings() {
   const [deviceRequests, setDeviceRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
 
+  // Work Schedules State
+  const [workSchedules, setWorkSchedules] = useState<any[]>([]);
+
+  // Load Locations on mount
+  useEffect(() => {
+    loadLocations();
+    loadWorkSchedules();
+  }, []);
+
+  const loadWorkSchedules = async () => {
+    try {
+      const { data } = await supabase.from('work_schedules').select('id, name').order('is_default', { ascending: false });
+      setWorkSchedules(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Processing Auto Attendance State
   const [processingRecord, setProcessingRecord] = useState<any>(null);
   const [adminAction, setAdminAction] = useState<'accept' | 'absent' | 'vacation' | 'late'>('accept');
@@ -69,28 +82,17 @@ export default function AttendanceAdminSettings() {
 
   // Inline Editing State
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
-  const [editShiftStart, setEditShiftStart] = useState<string>('');
-  const [editShiftEnd, setEditShiftEnd] = useState<string>('');
+  const [editScheduleId, setEditScheduleId] = useState<string>('');
 
   const handleUpdateShift = async (employeeId: string) => {
+    if (!selectedLocId) return;
     try {
-      if (!selectedLocId) return;
-      const { error } = await supabase
-        .from('work_location_employees')
-        .update({
-          shift_start: editShiftStart || null,
-          shift_end: editShiftEnd || null
-        })
-        .eq('employee_id', employeeId)
-        .eq('location_id', selectedLocId);
-
-      if (error) throw error;
-      
-      toast.success('تم تحديث وقت الدوام بنجاح');
+      await workLocationService.updateEmployeeSchedule(employeeId, editScheduleId || null);
+      toast.success('تم تحديث جدول دوام الموظف بنجاح');
       setEditingEmployeeId(null);
-      loadAssignments(selectedLocId); // Reload the list
+      loadAssignments(selectedLocId);
     } catch (err: any) {
-      toast.error('فشل تحديث الوقت: ' + err.message);
+      toast.error('فشل تحديث الجدول: ' + err.message);
     }
   };
 
@@ -416,7 +418,7 @@ export default function AttendanceAdminSettings() {
   const handleAssignEmployee = async (employeeId: string) => {
     if (!selectedLocId) return;
     try {
-      await workLocationService.assignEmployee(selectedLocId, employeeId, shiftStart, shiftEnd);
+      await workLocationService.assignEmployee(selectedLocId, employeeId, selectedScheduleId || null);
       toast.success('تم ربط الموظف بالموقع بنجاح');
       setEmployeeSearch('');
       setSearchResults([]);
@@ -574,6 +576,15 @@ export default function AttendanceAdminSettings() {
                 {deviceRequests.length}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('workSchedules')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            جداول العمل
           </button>
         </div>
 
@@ -844,31 +855,18 @@ export default function AttendanceAdminSettings() {
                         <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 dark:text-slate-300">وقت بداية الدوام</label>
-                          <input
-                            type="time"
-                            value={shiftStart}
-                            onChange={(e) => {
-                              setShiftStart(e.target.value);
-                              localStorage.setItem('lastShiftStart', e.target.value);
-                            }}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 dark:text-slate-300">وقت نهاية الدوام</label>
-                          <input
-                            type="time"
-                            value={shiftEnd}
-                            onChange={(e) => {
-                              setShiftEnd(e.target.value);
-                              localStorage.setItem('lastShiftEnd', e.target.value);
-                            }}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                          />
-                        </div>
+                      <div className="mt-4">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-2">جدول الدوام (اختياري)</label>
+                        <select
+                          value={selectedScheduleId}
+                          onChange={(e) => setSelectedScheduleId(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                        >
+                          <option value="">الجدول الافتراضي للنظام</option>
+                          {workSchedules.map(sch => (
+                            <option key={sch.id} value={sch.id}>{sch.name} {sch.is_default ? '(الافتراضي)' : ''}</option>
+                          ))}
+                        </select>
                       </div>
 
                       {/* Dropdown Suggestions */}
@@ -918,26 +916,25 @@ export default function AttendanceAdminSettings() {
                                 
                                 {isEditing ? (
                                   <div className="flex items-center gap-2 mt-2 md:mt-0">
-                                    <input 
-                                      type="time" 
-                                      value={editShiftStart} 
-                                      onChange={e => setEditShiftStart(e.target.value)} 
-                                      className="text-xs bg-slate-50 border rounded px-2 py-1 dark:bg-slate-900 dark:border-slate-700" 
-                                    />
-                                    <span className="text-xs text-slate-400">إلى</span>
-                                    <input 
-                                      type="time" 
-                                      value={editShiftEnd} 
-                                      onChange={e => setEditShiftEnd(e.target.value)} 
-                                      className="text-xs bg-slate-50 border rounded px-2 py-1 dark:bg-slate-900 dark:border-slate-700" 
-                                    />
+                                    <select
+                                      value={editScheduleId}
+                                      onChange={e => setEditScheduleId(e.target.value)}
+                                      className="text-xs bg-slate-50 border rounded-lg px-2 py-1.5 dark:bg-slate-900 dark:border-slate-700 font-bold"
+                                    >
+                                      <option value="">الجدول الافتراضي</option>
+                                      {workSchedules.map(sch => (
+                                        <option key={sch.id} value={sch.id}>{sch.name}</option>
+                                      ))}
+                                    </select>
                                   </div>
                                 ) : (
-                                  (ae.shift_start || ae.shift_end) && (
-                                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
-                                      الدوام: {ae.shift_start?.slice(0,5) || '--:--'} إلى {ae.shift_end?.slice(0,5) || '--:--'}
-                                    </p>
-                                  )
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
+                                    جدول الدوام: {
+                                      ae.employee?.work_schedule_id 
+                                      ? workSchedules.find(s => s.id === ae.employee.work_schedule_id)?.name || 'مخصص'
+                                      : 'الافتراضي'
+                                    }
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -964,11 +961,10 @@ export default function AttendanceAdminSettings() {
                                   <button
                                     onClick={() => {
                                       setEditingEmployeeId(ae.employee_id);
-                                      setEditShiftStart(ae.shift_start?.slice(0,5) || '08:00');
-                                      setEditShiftEnd(ae.shift_end?.slice(0,5) || '14:00');
+                                      setEditScheduleId(ae.employee?.work_schedule_id || '');
                                     }}
                                     className="text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 p-2.5 rounded-xl transition-all"
-                                    title="تعديل وقت الدوام"
+                                    title="تعديل جدول الدوام"
                                   >
                                     <Edit2 className="w-5 h-5" />
                                   </button>
@@ -1368,6 +1364,11 @@ export default function AttendanceAdminSettings() {
               </div>
             )}
           </div>
+        )}
+
+        {/* WORK SCHEDULES TAB */}
+        {activeTab === 'workSchedules' && (
+          <WorkSchedulesTab />
         )}
       </div>
 

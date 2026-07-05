@@ -98,6 +98,43 @@ export const attendanceRecordService = {
     return data as AttendanceRecord[];
   },
 
+  async timeLeaveOut(employeeId: string, _location?: string, _deviceId?: string, _verifiedByBiometric: boolean = false) {
+    const todayRecord = await this.getTodayByEmployeeId(employeeId);
+    if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .update({
+        time_leave_out: now,
+      })
+      .eq('id', todayRecord.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as AttendanceRecord;
+  },
+
+  async timeLeaveReturn(employeeId: string, _location?: string, _deviceId?: string, _verifiedByBiometric: boolean = false) {
+    const todayRecord = await this.getTodayByEmployeeId(employeeId);
+    if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
+    if (!todayRecord.time_leave_out) throw new Error('لم يتم تسجيل خروج زمني مسبقاً');
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .update({
+        time_leave_return: now,
+      })
+      .eq('id', todayRecord.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as AttendanceRecord;
+  },
+
   async getByDate(date: string) {
     const { data, error } = await supabase
       .from('attendance_records')
@@ -126,10 +163,10 @@ export const attendanceRecordService = {
   async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false) {
     const now = new Date().toISOString();
     
-    // Get department and device info from employee profile
+    // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id')
+      .select('department_id, primary_device_id, work_schedule_id')
       .eq('id', employeeId)
       .single();
 
@@ -168,6 +205,42 @@ export const attendanceRecordService = {
       }
     }
 
+    // --- Calculate Lateness Based on Work Schedule ---
+    let initialStatus = 'present';
+    
+    // Fetch schedule if assigned, otherwise use default
+    let scheduleQuery = supabase.from('work_schedules').select('*');
+    if (profile?.work_schedule_id) {
+      scheduleQuery = scheduleQuery.eq('id', profile.work_schedule_id);
+    } else {
+      scheduleQuery = scheduleQuery.eq('is_default', true);
+    }
+    
+    const { data: scheduleData } = await scheduleQuery.limit(1).single();
+    
+    if (scheduleData) {
+      const today = new Date();
+      // Check if weekend (0 = Sunday, 1 = Monday... 5 = Friday, 6 = Saturday in JS, but depends on array in DB)
+      // scheduleData.weekend_days usually contains ['Friday', 'Saturday']
+      const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
+      const isWeekend = scheduleData.weekend_days?.includes(dayName);
+      
+      if (!isWeekend) {
+        // Build expected start time Date object
+        const [hours, minutes] = scheduleData.start_time.split(':').map(Number);
+        const expectedStart = new Date(today);
+        expectedStart.setHours(hours, minutes, 0, 0);
+        
+        // Add grace period
+        const gracePeriodMs = (scheduleData.grace_period_minutes || 0) * 60000;
+        const allowedStart = new Date(expectedStart.getTime() + gracePeriodMs);
+        
+        if (today > allowedStart) {
+          initialStatus = 'late';
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from('attendance_records')
       .insert({
@@ -177,7 +250,7 @@ export const attendanceRecordService = {
         check_in_location: location,
         check_in_device_id: deviceId,
         check_in_verified_by_biometric: verifiedByBiometric,
-        status: 'present',
+        status: initialStatus,
         is_device_pending: isDevicePending
       })
       .select()

@@ -22,6 +22,9 @@ export interface AttendanceRecord {
   check_in_device_id?: string;
   check_out_device_id?: string;
   is_device_pending?: boolean;
+  time_leave_out?: string;
+  time_leave_return?: string;
+  overtime_minutes?: number;
   is_auto_check_in?: boolean;
   is_auto_check_out?: boolean;
   admin_notes?: string;

@@ -25,7 +25,7 @@ export default function AttendanceCheckInOut({
   loading,
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
-  const { checkIn, checkOut } = useAttendance(employeeId);
+  const { checkIn, checkOut, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
   const [useBiometric, setUseBiometric] = useState(true);
   
   // Location and Geofencing State
@@ -98,6 +98,36 @@ export default function AttendanceCheckInOut({
     }
   };
 
+  const handleTimeLeaveOut = async () => {
+    if (!isAllowed) {
+      toast.error('لا يمكن تسجيل الخروج الزمني: يجب أن تكون متواجداً في نطاق العمل');
+      return;
+    }
+    try {
+      await timeLeaveOut(locationText, undefined, useBiometric);
+      toast.success('تم تسجيل الخروج الزمني بنجاح');
+      onAttendanceUpdate();
+      verifyLocationAndGeofence(false);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تسجيل الخروج الزمني');
+    }
+  };
+
+  const handleTimeLeaveReturn = async () => {
+    if (!isAllowed) {
+      toast.error('لا يمكن تسجيل العودة: يجب أن تكون متواجداً في نطاق العمل');
+      return;
+    }
+    try {
+      await timeLeaveReturn(locationText, undefined, useBiometric);
+      toast.success('تم تسجيل العودة من الإجازة الزمنية بنجاح');
+      onAttendanceUpdate();
+      verifyLocationAndGeofence(false);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تسجيل العودة');
+    }
+  };
+
   const handleCheckOut = async () => {
     if (!isAllowed) {
       toast.error('لا يمكن تسجيل الانصراف: يجب أن تكون متواجداً في نطاق الدائرة (50 متر)');
@@ -123,7 +153,12 @@ export default function AttendanceCheckInOut({
   };
 
   const canCheckIn = !todayAttendance || (todayAttendance.check_in && todayAttendance.check_out);
-  const canCheckOut = todayAttendance?.check_in && !todayAttendance?.check_out;
+  // can check out if checked in, AND not currently in a time leave, OR returned from it
+  const canCheckOut = todayAttendance?.check_in && !todayAttendance?.check_out && 
+                      (!todayAttendance?.time_leave_out || todayAttendance?.time_leave_return);
+                      
+  const canTimeLeaveOut = todayAttendance?.check_in && !todayAttendance?.check_out && !todayAttendance?.time_leave_out;
+  const canTimeLeaveReturn = todayAttendance?.time_leave_out && !todayAttendance?.time_leave_return && !todayAttendance?.check_out;
 
   return (
     <div className="space-y-6">
@@ -350,11 +385,46 @@ export default function AttendanceCheckInOut({
             ) : (
               <>
                 <LogOut className="w-5 h-5" />
-                <span>تسجيل الانصراف</span>
+                <span>تسجيل الانصراف (نهاية الدوام)</span>
               </>
             )}
           </button>
         </div>
+
+        {/* Time Leave Actions */}
+        {(canTimeLeaveOut || canTimeLeaveReturn) && (
+          <div className="grid grid-cols-1 mt-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            {canTimeLeaveOut && (
+              <button
+                onClick={handleTimeLeaveOut}
+                disabled={loading || loadingLocation || !geofenceChecked || !isAllowed}
+                className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+                  isAllowed
+                    ? 'bg-amber-500 hover:bg-amber-600 shadow-md hover:shadow-lg shadow-amber-500/20'
+                    : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <LogOut className="w-5 h-5" />
+                <span>خروج زمني (إجازة زمنية)</span>
+              </button>
+            )}
+
+            {canTimeLeaveReturn && (
+              <button
+                onClick={handleTimeLeaveReturn}
+                disabled={loading || loadingLocation || !geofenceChecked || !isAllowed}
+                className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+                  isAllowed
+                    ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg shadow-blue-600/20'
+                    : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <LogIn className="w-5 h-5" />
+                <span>عودة من الإجازة الزمنية</span>
+              </button>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );
