@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Calendar, Clock, Plus, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import WorkScheduleForm from './WorkScheduleForm';
 
 export default function WorkSchedulesTab() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingSchedule, setEditingSchedule] = useState<any>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Load schedules
   const loadSchedules = async () => {
@@ -64,7 +67,10 @@ export default function WorkSchedulesTab() {
             إدارة أوقات الدوام وأيام العطل لمختلف أقسام وفئات الموظفين.
           </p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors">
+        <button 
+          onClick={() => { setEditingSchedule(null); setIsFormOpen(true); }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors"
+        >
           <Plus className="w-5 h-5" />
           إضافة جدول جديد
         </button>
@@ -92,11 +98,28 @@ export default function WorkSchedulesTab() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                <button 
+                  onClick={() => { setEditingSchedule(schedule); setIsFormOpen(true); }}
+                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 {!schedule.is_default && (
-                  <button className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                  <button 
+                    onClick={async () => {
+                      if(window.confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
+                        try {
+                          const { error } = await supabase.from('work_schedules').delete().eq('id', schedule.id);
+                          if(error) throw error;
+                          toast.success('تم حذف الجدول بنجاح');
+                          loadSchedules();
+                        } catch(err: any) {
+                          toast.error('فشل الحذف: ' + err.message);
+                        }
+                      }
+                    }}
+                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
@@ -139,6 +162,17 @@ export default function WorkSchedulesTab() {
           </div>
         ))}
       </div>
+
+      {isFormOpen && (
+        <WorkScheduleForm 
+          schedule={editingSchedule}
+          onClose={() => setIsFormOpen(false)}
+          onSave={() => {
+            setIsFormOpen(false);
+            loadSchedules();
+          }}
+        />
+      )}
     </div>
   );
 }

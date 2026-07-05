@@ -116,7 +116,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             </div>
 
             {/* Main Content Container */}
-            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(3rem+env(safe-area-inset-top))] pb-32">
+            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(5.5rem+env(safe-area-inset-top))] pb-32">
 
                 <div className="text-center mb-6 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <h1 className={`text-2xl md:text-3xl font-bold font-tajawal drop-shadow-lg leading-relaxed transition-colors duration-500 ${
@@ -156,22 +156,24 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     ))}
                 </div>
 
-                {/* Logout Button */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-16 duration-1000 delay-200">
+                {/* Logout Button moved to top */}
+                <div className="fixed top-[calc(1.5rem+env(safe-area-inset-top))] left-6 z-[100] animate-in fade-in slide-in-from-top-8 duration-700">
                     <button
                         onClick={() => {
                             if (window.confirm("هل أنت متأكد من تسجيل الخروج؟")) {
                                 logout();
                             }
                         }}
-                        className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-[0_10px_20px_rgba(239,68,68,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
+                        className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group shadow-lg backdrop-blur-xl border active:scale-90 ${
+                            isDark 
+                                ? 'bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/40' 
+                                : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                        }`}
+                        title="تسجيل الخروج"
                     >
-                        <div className="p-2 bg-white/20 rounded-xl group-hover:rotate-12 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                        </div>
-                        <span>تسجيل الخروج من النظام</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 transition-transform duration-500 group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
                     </button>
                 </div>
             </div>
