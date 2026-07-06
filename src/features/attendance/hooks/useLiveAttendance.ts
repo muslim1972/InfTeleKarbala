@@ -18,7 +18,7 @@ export function useLiveAttendance() {
         .from('attendance_records')
         .select(`
           *,
-          employee:profiles(id, full_name, job_number, department_id),
+          employee:profiles!attendance_records_employee_id_fkey(id, full_name, job_number, department_id),
           department:departments(name)
         `)
         .gte('created_at', start)

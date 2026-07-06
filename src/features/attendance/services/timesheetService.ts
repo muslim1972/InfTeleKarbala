@@ -11,7 +11,7 @@ export const timesheetService = {
       .from('attendance_records')
       .select(`
         *,
-        employee:profiles!inner(id, full_name, job_number, department_id),
+        employee:profiles!inner!attendance_records_employee_id_fkey(id, full_name, job_number, department_id),
         department:departments(name)
       `)
       .gte('check_in', start)
