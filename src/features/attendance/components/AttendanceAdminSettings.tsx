@@ -5,16 +5,23 @@ import type { WorkLocation } from '../types';
 import { 
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
-  Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save
+  Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
+  Activity, FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
 
 import WorkSchedulesTab from './WorkSchedulesTab';
+import LiveAttendanceBoard from './LiveAttendanceBoard';
+import Timesheets from './Timesheets';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets';
 
 export default function AttendanceAdminSettings() {
-  const [activeTab, setActiveTab] = useState<Tab>('locations');
+  const { user } = useAuth();
+  const isHighAdmin = user?.admin_role === 'developer' || user?.admin_role === 'general';
+  
+  const [activeTab, setActiveTab] = useState<Tab>(isHighAdmin ? 'liveBoard' : 'locations');
   const [locations, setLocations] = useState<WorkLocation[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -521,14 +528,42 @@ export default function AttendanceAdminSettings() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto no-print">
+        {/* Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar">
+          {isHighAdmin && (
+            <button
+              onClick={() => setActiveTab('liveBoard')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+                activeTab === 'liveBoard'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Activity className="w-5 h-5" />
+              اللوحة الحية
+            </button>
+          )}
+          
+          {isHighAdmin && (
+            <button
+              onClick={() => setActiveTab('timesheets')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+                activeTab === 'timesheets'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <FileSpreadsheet className="w-5 h-5" />
+              التقارير المتقدمة (Timesheets)
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('locations')}
-            className={`flex items-center gap-2 px-6 py-4 font-bold border-b-2 whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
               activeTab === 'locations'
-                ? 'border-blue-500 text-blue-500'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             <MapPinned className="w-5 h-5" />
@@ -536,10 +571,10 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('assignments')}
-            className={`flex items-center gap-2 px-6 py-4 font-bold border-b-2 whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
               activeTab === 'assignments'
-                ? 'border-blue-500 text-blue-500'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             <UserPlus className="w-5 h-5" />
@@ -547,8 +582,8 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
             }`}
           >
             <BarChart3 className="w-5 h-5" />
@@ -556,8 +591,8 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('deviceLogs')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
             }`}
           >
             <ShieldCheck className="w-5 h-5" />
@@ -565,8 +600,8 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('deviceRequests')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
             }`}
           >
             <AlertTriangle className="w-5 h-5" />
@@ -579,8 +614,8 @@ export default function AttendanceAdminSettings() {
           </button>
           <button
             onClick={() => setActiveTab('workSchedules')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
             }`}
           >
             <Calendar className="w-5 h-5" />
@@ -1368,9 +1403,17 @@ export default function AttendanceAdminSettings() {
 
         {/* WORK SCHEDULES TAB */}
         {activeTab === 'workSchedules' && (
-          <WorkSchedulesTab />
-        )}
-      </div>
+        <WorkSchedulesTab />
+      )}
+
+      {activeTab === 'liveBoard' && isHighAdmin && (
+        <LiveAttendanceBoard />
+      )}
+
+      {activeTab === 'timesheets' && isHighAdmin && (
+        <Timesheets />
+      )}
+    </div>
 
       {/* Processing Modal */}
       {processingRecord && (
