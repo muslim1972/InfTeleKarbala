@@ -19,6 +19,9 @@ export default function Timesheets() {
   const [loading, setLoading] = useState(false);
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
 
+  const [empSearchOpen, setEmpSearchOpen] = useState(false);
+  const [empSearchText, setEmpSearchText] = useState('');
+
   useEffect(() => {
     loadFilters();
   }, []);
@@ -94,9 +97,12 @@ export default function Timesheets() {
       sheet.columns = [
         { header: 'اسم الموظف', key: 'name', width: 25 },
         { header: 'الرقم الوظيفي', key: 'job_number', width: 15 },
-        { header: 'إجمالي الساعات', key: 'total_hours', width: 15 },
-        { header: 'مرات التأخير', key: 'late_count', width: 15 },
-        { header: 'أيام الغياب', key: 'absent_count', width: 15 },
+        { header: 'التاريخ', key: 'date', width: 25 },
+        { header: 'الدخول', key: 'check_in', width: 15 },
+        { header: 'الخروج', key: 'check_out', width: 15 },
+        { header: 'استراحة ز.', key: 'break_time', width: 20 },
+        { header: 'المدة الصافية', key: 'net_time', width: 20 },
+        { header: 'الحالة', key: 'status', width: 15 },
       ];
 
       // Add styling to header
@@ -104,13 +110,43 @@ export default function Timesheets() {
       sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
       groupedData.forEach(group => {
-        sheet.addRow({
+        const sumRow = sheet.addRow({
           name: group.employee.full_name,
           job_number: group.employee.job_number,
-          total_hours: (group.totalMins / 60).toFixed(2),
-          late_count: group.lateCount,
-          absent_count: group.absenceCount
+          date: `إجمالي: ${(group.totalMins / 60).toFixed(2)} ساعة`,
+          check_in: `تأخير: ${group.lateCount}`,
+          check_out: `غياب: ${group.absenceCount}`,
+          break_time: '',
+          net_time: '',
+          status: ''
         });
+        sumRow.font = { bold: true, color: { argb: 'FF1E40AF' } }; // Text-blue-800
+        sumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // bg-blue-50
+
+        group.records.forEach(rec => {
+          const dateObj = parseISO(rec.check_in);
+          const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+          const inTime = format(dateObj, 'HH:mm');
+          const outTime = rec.check_out ? format(parseISO(rec.check_out), 'HH:mm') : '--:--';
+          const leaveStr = (rec.time_leave_out && rec.time_leave_return) 
+            ? `${format(parseISO(rec.time_leave_out),'HH:mm')} - ${format(parseISO(rec.time_leave_return),'HH:mm')}`
+            : '--';
+          const netMins = computeWorkedMinutes(rec);
+          
+          sheet.addRow({
+            name: '',
+            job_number: '',
+            date: dateStr,
+            check_in: inTime,
+            check_out: outTime,
+            break_time: leaveStr,
+            net_time: formatDurationArabic(netMins),
+            status: rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status
+          });
+        });
+        
+        // Add empty row separator
+        sheet.addRow({});
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -156,14 +192,58 @@ export default function Timesheets() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="relative">
             <label className="block text-xs font-medium text-slate-500 mb-1">الموظف</label>
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none w-48 dark:text-white">
-              <option value="all">كل الموظفين</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-              ))}
-            </select>
+            <div 
+              className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm cursor-pointer dark:text-white w-56 flex justify-between items-center"
+              onClick={() => setEmpSearchOpen(!empSearchOpen)}
+            >
+              <span className="truncate">
+                {employeeId === 'all' ? 'كل الموظفين' : employees.find(e => e.id === employeeId)?.full_name || 'كل الموظفين'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            </div>
+            
+            {empSearchOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setEmpSearchOpen(false)}
+                ></div>
+                <div className="absolute z-50 top-full mt-1 w-72 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden right-0 md:right-auto">
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+                    <input 
+                      type="text" 
+                      autoFocus
+                      placeholder="ابحث عن اسم الموظف..."
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none dark:text-white"
+                      value={empSearchText}
+                      onChange={e => setEmpSearchText(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-1">
+                    <div 
+                      className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${employeeId === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
+                      onClick={() => { setEmployeeId('all'); setEmpSearchOpen(false); setEmpSearchText(''); }}
+                    >
+                      كل الموظفين
+                    </div>
+                    {employees.filter(e => e.full_name.includes(empSearchText)).map(emp => (
+                      <div 
+                        key={emp.id}
+                        className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${employeeId === emp.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
+                        onClick={() => { setEmployeeId(emp.id); setEmpSearchOpen(false); setEmpSearchText(''); }}
+                      >
+                        {emp.full_name}
+                      </div>
+                    ))}
+                    {employees.filter(e => e.full_name.includes(empSearchText)).length === 0 && (
+                      <div className="px-3 py-4 text-sm text-slate-500 text-center">لا توجد نتائج تطابق "{empSearchText}"</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
