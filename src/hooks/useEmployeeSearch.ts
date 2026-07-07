@@ -61,7 +61,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
     useEffect(() => {
         const trimmed = query.trim();
 
-        if (!trimmed || !enabled) {
+        if (!trimmed || trimmed.length < 2 || !enabled) {
             setResults([]);
             setIsSearching(false);
             return;
@@ -84,9 +84,9 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                     if (includeFinancialRecords) select += ', financial_records(*)';
                 }
 
-                // بناء شرط البحث: "يبدأ بـ" للاسم والرقم الوظيفي
-                let orClause = `job_number.ilike.${trimmed}%,full_name.ilike.${trimmed}%`;
-                if (searchUsername) orClause += `,username.ilike.${trimmed}%`;
+                // بناء شرط البحث: "يحتوي على" للاسم والرقم الوظيفي
+                let orClause = `job_number.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`;
+                if (searchUsername) orClause += `,username.ilike.%${trimmed}%`;
 
                 let queryBuilder;
                 if (usePublicView) {
@@ -100,7 +100,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                         .select(select)
                         .or(orClause)
                         .order('full_name')
-                        .limit(limit)
+                        .limit(limit * 2) // Fetch more to allow local sorting
                         .abortSignal(controller.signal);
                 }
 
@@ -113,6 +113,24 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                 let filtered: any[] = data || [];
                 if (excludeUserId) {
                     filtered = filtered.filter((u: any) => u.id !== excludeUserId);
+                }
+
+                // ترتيب النتائج: الأسماء التي تبدأ بكلمة البحث أولاً
+                const lowerTrimmed = trimmed.toLowerCase();
+                filtered.sort((a, b) => {
+                    const aFull = a.full_name?.toLowerCase() || '';
+                    const bFull = b.full_name?.toLowerCase() || '';
+                    const aStarts = aFull.startsWith(lowerTrimmed);
+                    const bStarts = bFull.startsWith(lowerTrimmed);
+                    
+                    if (aStarts && !bStarts) return -1;
+                    if (!aStarts && bStarts) return 1;
+                    return aFull.localeCompare(bFull);
+                });
+
+                // Apply limit after sorting
+                if (filtered.length > limit) {
+                    filtered = filtered.slice(0, limit);
                 }
 
                 setResults(filtered as EmployeeSearchResult[]);
