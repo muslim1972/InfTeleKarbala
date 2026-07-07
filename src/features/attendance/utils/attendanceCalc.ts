@@ -3,11 +3,26 @@ import type { AttendanceRecord } from '../types';
 
 export type LiveStatus = 'working' | 'on_break' | 'late' | 'checked_out' | 'absent' | 'not_checked_in';
 
-export function computeWorkedMinutes(record: AttendanceRecord, toTime?: Date): number {
+export function computeWorkedMinutes(record: AttendanceRecord, toTime?: Date, expectedCheckout?: string): number {
   if (!record.check_in) return 0;
   
   const inTime = parseISO(record.check_in);
-  const outTime = record.check_out ? parseISO(record.check_out) : (toTime || new Date());
+  let outTime = record.check_out ? parseISO(record.check_out) : (toTime || new Date());
+  
+  // Cap at expectedCheckout or 15:00 for past days without checkout
+  if (!record.check_out) {
+    const isToday = inTime.toDateString() === new Date().toDateString();
+    if (!isToday) {
+      const defaultOut = new Date(inTime);
+      if (expectedCheckout) {
+        const [hh, mm] = expectedCheckout.split(':').map(Number);
+        defaultOut.setHours(hh, mm, 0, 0);
+      } else {
+        defaultOut.setHours(15, 0, 0, 0);
+      }
+      outTime = defaultOut;
+    }
+  }
   
   if (!isValid(inTime) || !isValid(outTime)) return 0;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { computeWorkedMinutes, formatDurationArabic } from '../utils/attendanceCalc';
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet } from 'lucide-react';
@@ -20,6 +20,7 @@ export default function Timesheets() {
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
 
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
+  const [workSchedules, setWorkSchedules] = useState<any[]>([]);
 
   useEffect(() => {
     loadFilters();
@@ -39,6 +40,9 @@ export default function Timesheets() {
     try {
       const deps = await timesheetService.getDepartments();
       setDepartments(deps);
+      
+      const schedules = await timesheetService.getWorkSchedules();
+      setWorkSchedules(schedules);
     } catch (err) {
       console.error('Failed to load filters', err);
     }
@@ -55,6 +59,31 @@ export default function Timesheets() {
       setLoading(false);
     }
   };
+
+  const getExpectedCheckoutTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
+    const defaultSchedule = workSchedules.find(s => s.is_default) || workSchedules[0];
+    const schedule = empScheduleId ? workSchedules.find(s => s.id === empScheduleId) : defaultSchedule;
+    if (!schedule) return '15:00';
+    
+    const dateObj = new Date(dateStr);
+    const dayOfWeek = dateObj.getDay(); 
+    
+    const daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
+    
+    // If the specific day has an end time, use it
+    if (daySchedule && !daySchedule.is_rest_day && daySchedule.end_time) {
+      return daySchedule.end_time.substring(0, 5); 
+    }
+    
+    // If they checked in on a rest day or the day has no specific end time,
+    // fallback to the first available working day's end time in their schedule!
+    const anyWorkingDay = schedule.days?.find((d: any) => !d.is_rest_day && d.end_time);
+    if (anyWorkingDay) {
+      return anyWorkingDay.end_time.substring(0, 5);
+    }
+    
+    return '15:00';
+  }, [workSchedules]);
 
   // Group records by employee
   const groupedData = useMemo(() => {
@@ -73,7 +102,9 @@ export default function Timesheets() {
       }
       
       groups[empId].records.push(rec);
-      groups[empId].totalMins += computeWorkedMinutes(rec);
+      const scheduleId = rec.work_schedule_id || rec.employee?.work_schedule_id;
+      const expectedCheckout = getExpectedCheckoutTime(scheduleId, rec.check_in);
+      groups[empId].totalMins += computeWorkedMinutes(rec, undefined, expectedCheckout);
       if (rec.status === 'late') groups[empId].lateCount++;
       if (rec.status === 'absent') groups[empId].absenceCount++;
     });
@@ -92,6 +123,7 @@ export default function Timesheets() {
         { header: 'اسم الموظف', key: 'name', width: 25 },
         { header: 'الرقم الوظيفي', key: 'job_number', width: 15 },
         { header: 'التاريخ', key: 'date', width: 25 },
+        { header: 'نوع الدوام', key: 'shift_type', width: 20 },
         { header: 'الدخول', key: 'check_in', width: 15 },
         { header: 'الخروج', key: 'check_out', width: 15 },
         { header: 'استراحة ز.', key: 'break_time', width: 20 },
@@ -104,40 +136,72 @@ export default function Timesheets() {
       sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
       groupedData.forEach(group => {
-        const sumRow = sheet.addRow({
+        const topRow = sheet.addRow({
           name: group.employee.full_name,
           job_number: group.employee.job_number,
-          date: `إجمالي: ${(group.totalMins / 60).toFixed(2)} ساعة`,
-          check_in: `تأخير: ${group.lateCount}`,
-          check_out: `غياب: ${group.absenceCount}`,
+          date: '',
+          shift_type: '',
+          check_in: '',
+          check_out: '',
           break_time: '',
           net_time: '',
           status: ''
         });
-        sumRow.font = { bold: true, color: { argb: 'FF1E40AF' } }; // Text-blue-800
-        sumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // bg-blue-50
+        topRow.font = { bold: true, color: { argb: 'FF1E40AF' } }; // Text-blue-800
+        topRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // bg-blue-50
 
         group.records.forEach(rec => {
           const dateObj = parseISO(rec.check_in);
           const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
           const inTime = format(dateObj, 'HH:mm');
-          const outTime = rec.check_out ? format(parseISO(rec.check_out), 'HH:mm') : '--:--';
+          const isPastDay = dateObj.toDateString() !== new Date().toDateString();
+          const isForgotCheckout = !rec.check_out && isPastDay;
+          const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
+          const expectedCheckout = getExpectedCheckoutTime(scheduleId, rec.check_in);
+          const outTime = rec.check_out 
+            ? format(parseISO(rec.check_out), 'HH:mm') 
+            : (isForgotCheckout ? expectedCheckout : '--:--');
+
+          const scheduleName = scheduleId 
+            ? workSchedules.find(s => s.id === scheduleId)?.name || 'مخصص' 
+            : (workSchedules.find(s => s.is_default)?.name || 'الجدول الافتراضي');
+
           const leaveStr = (rec.time_leave_out && rec.time_leave_return) 
             ? `${format(parseISO(rec.time_leave_out),'HH:mm')} - ${format(parseISO(rec.time_leave_return),'HH:mm')}`
             : '--';
-          const netMins = computeWorkedMinutes(rec);
+          const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
           
-          sheet.addRow({
+          const recordRow = sheet.addRow({
             name: '',
             job_number: '',
             date: dateStr,
+            shift_type: scheduleName,
             check_in: inTime,
             check_out: outTime,
             break_time: leaveStr,
             net_time: formatDurationArabic(netMins),
             status: rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status
           });
+
+          if (isForgotCheckout || rec.is_auto_check_out) {
+            recordRow.getCell('check_out').font = { color: { argb: 'FFE11D48' }, bold: true }; // Tailwind rose-600
+          }
         });
+
+        // Add summary row at the bottom
+        const sumRow = sheet.addRow({
+          name: '',
+          job_number: '',
+          date: `إجمالي: ${(group.totalMins / 60).toFixed(2)} ساعة`,
+          shift_type: '',
+          check_in: `تأخير: ${group.lateCount}`,
+          check_out: `غياب: ${group.absenceCount}`,
+          break_time: '',
+          net_time: '',
+          status: ''
+        });
+        sumRow.font = { bold: true, color: { argb: 'FF1E40AF' } };
+        sumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
         
         // Add empty row separator
         sheet.addRow({});
@@ -266,6 +330,7 @@ export default function Timesheets() {
                       <thead className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-lg">
                         <tr>
                           <th className="px-4 py-3 rounded-r-lg">التاريخ</th>
+                          <th className="px-4 py-3">نوع الدوام</th>
                           <th className="px-4 py-3">الدخول</th>
                           <th className="px-4 py-3">الخروج</th>
                           <th className="px-4 py-3">استراحة ز.</th>
@@ -278,17 +343,31 @@ export default function Timesheets() {
                           const dateObj = parseISO(rec.check_in);
                           const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
                           const inTime = format(dateObj, 'HH:mm');
-                          const outTime = rec.check_out ? format(parseISO(rec.check_out), 'HH:mm') : '--:--';
+                          const isPastDay = dateObj.toDateString() !== new Date().toDateString();
+                          const isForgotCheckout = !rec.check_out && isPastDay;
+                          const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
+                          const expectedCheckout = getExpectedCheckoutTime(scheduleId, rec.check_in);
+                          const outTime = rec.check_out 
+                            ? format(parseISO(rec.check_out), 'HH:mm') 
+                            : (isForgotCheckout ? expectedCheckout : '--:--');
+                          
+                          const scheduleName = scheduleId 
+                            ? workSchedules.find(s => s.id === scheduleId)?.name || 'مخصص' 
+                            : (workSchedules.find(s => s.is_default)?.name || 'الجدول الافتراضي');
+
                           const leaveStr = (rec.time_leave_out && rec.time_leave_return) 
                             ? `${format(parseISO(rec.time_leave_out),'HH:mm')} - ${format(parseISO(rec.time_leave_return),'HH:mm')}`
                             : '--';
-                          const netMins = computeWorkedMinutes(rec);
+                          const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
 
                           return (
                             <tr key={rec.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors">
                               <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
-                              <td className="px-4 py-3 text-emerald-600 font-mono">{inTime}</td>
-                              <td className="px-4 py-3 text-rose-600 font-mono">{outTime}</td>
+                              <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                                <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-xs">{scheduleName}</span>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{inTime}</td>
+                              <td className={`px-4 py-3 font-mono ${isForgotCheckout ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
                               <td className="px-4 py-3 text-amber-600 font-mono">{leaveStr}</td>
                               <td className="px-4 py-3 font-bold text-blue-600">{formatDurationArabic(netMins)}</td>
                               <td className="px-4 py-3">

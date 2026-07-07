@@ -11,7 +11,7 @@ export const timesheetService = {
       .from('attendance_records')
       .select(`
         *,
-        employee:profiles!inner!attendance_records_employee_id_fkey(id, full_name, job_number, department_id),
+        employee:profiles!inner!attendance_records_employee_id_fkey(id, full_name, job_number, department_id, work_schedule_id),
         department:departments(name)
       `)
       .gte('check_in', start)
@@ -44,6 +44,14 @@ export const timesheetService = {
       query = query.eq('department_id', departmentId);
     }
     const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getWorkSchedules() {
+    const { data, error } = await supabase
+      .from('work_schedules')
+      .select('*, days:work_schedule_days(*)');
     if (error) throw error;
     return data || [];
   }

@@ -1,0 +1,1 @@
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS work_schedule_id UUID REFERENCES public.work_schedules(id) ON DELETE SET NULL;

@@ -246,6 +246,7 @@ export const attendanceRecordService = {
       .insert({
         employee_id: employeeId,
         department_id: profile?.department_id,
+        work_schedule_id: scheduleData?.id,
         check_in: now,
         check_in_location: location,
         check_in_device_id: deviceId,

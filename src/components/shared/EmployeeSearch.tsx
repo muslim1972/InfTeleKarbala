@@ -1,6 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
@@ -34,7 +34,7 @@ export function EmployeeSearch({
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
     const searchRef = useRef<HTMLDivElement>(null);
-    const showRef = useRef(false);
+    const [show, setShow] = useState(false);
 
     const {
         query: internalQuery,
@@ -54,7 +54,7 @@ export function EmployeeSearch({
     const handleQueryChange = (val: string) => {
         if (onChange) onChange(val);
         else setInternalQuery(val);
-        showRef.current = true;
+        setShow(true);
     };
 
     // Sync controlled value into the hook for search
@@ -64,24 +64,46 @@ export function EmployeeSearch({
         }
     }, [value, setInternalQuery]);
 
-    const showSuggestions = showRef.current && suggestions.length > 0 && query.trim().length > 0;
+    const showSuggestions = show && suggestions.length > 0 && query.trim().length > 0;
 
-    // Close suggestions on outside click
+    // Close suggestions on outside click and scroll
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-                showRef.current = false;
+                setShow(prev => {
+                    if (prev) {
+                        setInternalQuery('');
+                        if (onChange) onChange('');
+                    }
+                    return false;
+                });
             }
         };
+
+        const handleScroll = (e: Event) => {
+            if (searchRef.current && searchRef.current.contains(e.target as Node)) return;
+            setShow(prev => {
+                if (prev) {
+                    setInternalQuery('');
+                    if (onChange) onChange('');
+                }
+                return false;
+            });
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        document.addEventListener('scroll', handleScroll, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [onChange, setInternalQuery]);
 
     const handleSelect = (user: any) => {
         if (onChange) onChange(user.full_name);
         else setInternalQuery(user.full_name);
 
-        showRef.current = false;
+        setShow(false);
         onSelect(user);
     };
 
@@ -98,7 +120,7 @@ export function EmployeeSearch({
                     value={query}
                     onChange={e => handleQueryChange(e.target.value)}
                     onFocus={() => {
-                        if (query.trim() && suggestions.length > 0) showRef.current = true;
+                        if (query.trim().length > 0) setShow(true);
                     }}
                     disabled={disabled}
                     className={cn(
@@ -109,11 +131,23 @@ export function EmployeeSearch({
                     )}
                 />
                 <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
-                {isSearching && (
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <Loader2 className="w-4 h-4 animate-spin text-brand-green/50" />
-                    </div>
-                )}
+                
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {isSearching && <Loader2 className="w-4 h-4 animate-spin text-brand-green/50" />}
+                    {query && !disabled && (
+                        <button 
+                            type="button"
+                            onClick={() => {
+                                setInternalQuery('');
+                                if (onChange) onChange('');
+                                setShow(false);
+                            }}
+                            className={cn("p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors", labelClr)}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Suggestions Portal to avoid clipping issues */}
