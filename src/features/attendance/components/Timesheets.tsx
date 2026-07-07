@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { toast } from 'react-hot-toast';
+import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -14,13 +15,11 @@ export default function Timesheets() {
   const [employeeId, setEmployeeId] = useState('all');
   
   const [departments, setDepartments] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
 
-  const [empSearchOpen, setEmpSearchOpen] = useState(false);
-  const [empSearchText, setEmpSearchText] = useState('');
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   useEffect(() => {
     loadFilters();
@@ -28,10 +27,7 @@ export default function Timesheets() {
 
   useEffect(() => {
     if (departmentId !== 'all') {
-      timesheetService.getEmployees(departmentId).then(setEmployees);
       setEmployeeId('all');
-    } else {
-      timesheetService.getEmployees().then(setEmployees);
     }
   }, [departmentId]);
 
@@ -43,8 +39,6 @@ export default function Timesheets() {
     try {
       const deps = await timesheetService.getDepartments();
       setDepartments(deps);
-      const emps = await timesheetService.getEmployees();
-      setEmployees(emps);
     } catch (err) {
       console.error('Failed to load filters', err);
     }
@@ -192,58 +186,20 @@ export default function Timesheets() {
               ))}
             </select>
           </div>
-          <div className="relative">
+          <div className="w-56">
             <label className="block text-xs font-medium text-slate-500 mb-1">الموظف</label>
-            <div 
-              className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm cursor-pointer dark:text-white w-56 flex justify-between items-center"
-              onClick={() => setEmpSearchOpen(!empSearchOpen)}
-            >
-              <span className="truncate">
-                {employeeId === 'all' ? 'كل الموظفين' : employees.find(e => e.id === employeeId)?.full_name || 'كل الموظفين'}
-              </span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </div>
-            
-            {empSearchOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setEmpSearchOpen(false)}
-                ></div>
-                <div className="absolute z-50 top-full mt-1 w-72 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden right-0 md:right-auto">
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-                    <input 
-                      type="text" 
-                      autoFocus
-                      placeholder="ابحث عن اسم الموظف..."
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none dark:text-white"
-                      value={empSearchText}
-                      onChange={e => setEmpSearchText(e.target.value)}
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto p-1">
-                    <div 
-                      className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${employeeId === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
-                      onClick={() => { setEmployeeId('all'); setEmpSearchOpen(false); setEmpSearchText(''); }}
-                    >
-                      كل الموظفين
-                    </div>
-                    {employees.filter(e => e.full_name.includes(empSearchText)).map(emp => (
-                      <div 
-                        key={emp.id}
-                        className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${employeeId === emp.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
-                        onClick={() => { setEmployeeId(emp.id); setEmpSearchOpen(false); setEmpSearchText(''); }}
-                      >
-                        {emp.full_name}
-                      </div>
-                    ))}
-                    {employees.filter(e => e.full_name.includes(empSearchText)).length === 0 && (
-                      <div className="px-3 py-4 text-sm text-slate-500 text-center">لا توجد نتائج تطابق "{empSearchText}"</div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            <EmployeeSearch 
+              value={employeeSearchQuery}
+              onChange={(val: string) => {
+                setEmployeeSearchQuery(val);
+                if (!val) setEmployeeId('all');
+              }}
+              onSelect={(emp: any) => {
+                setEmployeeId(emp.id);
+                setEmployeeSearchQuery(emp.full_name);
+              }}
+              placeholder="كل الموظفين..."
+            />
           </div>
         </div>
 

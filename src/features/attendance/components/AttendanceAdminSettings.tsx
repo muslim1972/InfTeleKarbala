@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { workLocationService } from '../services/workLocationService';
 import type { WorkLocation } from '../types';
@@ -6,7 +6,7 @@ import {
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
   Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
-  Activity, FileSpreadsheet
+  Activity, FileSpreadsheet, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -40,6 +40,16 @@ export default function AttendanceAdminSettings() {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
+
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsRef.current) {
+      const scrollAmount = 200;
+      tabsRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
+
 
   // Reports State
   const [reportType, setReportType] = useState<'daily' | 'range'>('daily');
@@ -529,7 +539,16 @@ export default function AttendanceAdminSettings() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar">
+        <div className="relative flex items-center group w-full mb-4">
+          <button 
+            onClick={() => scrollTabs('right')}
+            className="absolute right-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 md:hidden flex translate-x-1/2"
+            title="تمرير لليمين"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          
+          <div ref={tabsRef} className="flex gap-2 overflow-x-auto py-2 px-4 hide-scrollbar scroll-smooth w-full items-center">
           {isHighAdmin && (
             <button
               onClick={() => setActiveTab('liveBoard')}
@@ -620,6 +639,15 @@ export default function AttendanceAdminSettings() {
           >
             <Calendar className="w-5 h-5" />
             جداول العمل
+          </button>
+          </div>
+
+          <button 
+            onClick={() => scrollTabs('left')}
+            className="absolute left-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 md:hidden flex -translate-x-1/2"
+            title="تمرير لليسار"
+          >
+            <ChevronLeft className="w-5 h-5" />
           </button>
         </div>
 
