@@ -225,7 +225,7 @@ export const attendanceRecordService = {
       const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
       const isWeekend = scheduleData.weekend_days?.includes(dayName);
       
-      if (!isWeekend) {
+      if (!isWeekend && scheduleData.start_time) {
         // Build expected start time Date object
         const [hours, minutes] = scheduleData.start_time.split(':').map(Number);
         const expectedStart = new Date(today);
