@@ -10,7 +10,7 @@ import type { AttendanceRecord, WorkLocation } from '../types';
 import { 
   LogIn, LogOut, MapPin, CheckCircle, 
   AlertTriangle, RefreshCw, Camera,
-  ShieldCheck, Fingerprint
+  ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -28,8 +28,6 @@ export default function AttendanceCheckInOut({
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
   const { checkIn, checkOut, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
-  const [useBiometric, setUseBiometric] = useState(true);
-  
   // Location and Geofencing State
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationText, setLocationText] = useState<string>('');
@@ -149,10 +147,10 @@ export default function AttendanceCheckInOut({
       const { url, notes } = await takeSnapshotSilently();
       
       if (action === 'checkIn') {
-        await checkIn(locationText, undefined, useBiometric, url, notes);
+        await checkIn(locationText, undefined, false, url, notes);
         toast.success('تم تسجيل الحضور بنجاح');
       } else {
-        await checkOut(locationText, undefined, useBiometric, url, notes);
+        await checkOut(locationText, undefined, false, url, notes);
         toast.success('تم تسجيل الانصراف بنجاح');
       }
       
@@ -172,7 +170,7 @@ export default function AttendanceCheckInOut({
       return;
     }
     try {
-      await timeLeaveOut(locationText, undefined, useBiometric);
+      await timeLeaveOut(locationText, undefined, false);
       toast.success('تم تسجيل الخروج الزمني بنجاح');
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
@@ -187,7 +185,7 @@ export default function AttendanceCheckInOut({
       return;
     }
     try {
-      await timeLeaveReturn(locationText, undefined, useBiometric);
+      await timeLeaveReturn(locationText, undefined, false);
       toast.success('تم تسجيل العودة من الإجازة الزمنية بنجاح');
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
@@ -376,28 +374,6 @@ export default function AttendanceCheckInOut({
         transition={{ delay: 0.1 }}
         className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 md:p-8"
       >
-        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 border-b dark:border-slate-700 pb-3">البصمة والمصادقة الحيوية</h2>
-
-        {/* Biometric Toggle */}
-        <div className="flex items-center justify-between mb-6 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl">
-          <div className="flex items-center gap-3">
-            <Fingerprint className="w-8 h-8 text-blue-500" />
-            <div>
-              <div className="font-bold text-gray-800 dark:text-white text-sm md:text-base">استخدام البصمة البيومترية للأمان</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">التحقق بواسطة بصمة الإصبع أو التعرف على الوجه المدمج بجهازك</div>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useBiometric}
-              onChange={(e) => setUseBiometric(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-14 h-7 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500"></div>
-          </label>
-        </div>
-
         {/* Loading Overlay when capturing */}
         {uploadingImage && (
           <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
