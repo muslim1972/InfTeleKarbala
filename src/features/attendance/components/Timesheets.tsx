@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { computeWorkedMinutes, formatDurationArabic } from '../utils/attendanceCalc';
-import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X, Camera } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
@@ -18,6 +18,7 @@ export default function Timesheets() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
   const [workSchedules, setWorkSchedules] = useState<any[]>([]);
@@ -331,10 +332,12 @@ export default function Timesheets() {
                         <tr>
                           <th className="px-4 py-3 rounded-r-lg">التاريخ</th>
                           <th className="px-4 py-3">نوع الدوام</th>
+                          <th className="px-4 py-3">الصور</th>
                           <th className="px-4 py-3">الدخول</th>
                           <th className="px-4 py-3">الخروج</th>
                           <th className="px-4 py-3">استراحة ز.</th>
                           <th className="px-4 py-3">المدة الصافية</th>
+                          <th className="px-4 py-3">ملاحظات</th>
                           <th className="px-4 py-3 rounded-l-lg">الحالة</th>
                         </tr>
                       </thead>
@@ -366,10 +369,25 @@ export default function Timesheets() {
                               <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
                                 <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-xs">{scheduleName}</span>
                               </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                  {rec.check_in_snapshot_url && (
+                                    <button onClick={() => setSelectedImage(rec.check_in_snapshot_url)} className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors" title="عرض صورة الدخول">
+                                      <Camera className="w-4 h-4 text-emerald-600" />
+                                    </button>
+                                  )}
+                                  {rec.check_out_snapshot_url && (
+                                    <button onClick={() => setSelectedImage(rec.check_out_snapshot_url)} className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors" title="عرض صورة الخروج">
+                                      <Camera className="w-4 h-4 text-teal-600" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{inTime}</td>
                               <td className={`px-4 py-3 font-mono ${isForgotCheckout ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
                               <td className="px-4 py-3 text-amber-600 font-mono">{leaveStr}</td>
                               <td className="px-4 py-3 font-bold text-blue-600">{formatDurationArabic(netMins)}</td>
+                              <td className="px-4 py-3 text-xs text-slate-500">{rec.notes || '--'}</td>
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-1 rounded text-xs ${
                                   rec.status === 'present' ? 'bg-emerald-100 text-emerald-800' :
@@ -389,6 +407,23 @@ export default function Timesheets() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedImage(null)}>
+          <div className="relative max-w-lg w-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-4 flex justify-between items-center border-b dark:border-slate-700">
+              <h3 className="font-bold text-slate-800 dark:text-white">صورة الحضور</h3>
+              <button onClick={() => setSelectedImage(null)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <X className="w-6 h-6 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-4 flex justify-center bg-slate-50 dark:bg-slate-900">
+              <img src={selectedImage} alt="لقطة الحضور" className="max-w-full rounded-xl shadow-md border border-slate-200 dark:border-slate-700" />
+            </div>
+          </div>
         </div>
       )}
     </div>

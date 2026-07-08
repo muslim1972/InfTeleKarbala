@@ -17,8 +17,10 @@ export interface AttendanceRecord {
   check_out?: string;
   check_in_location?: string;
   check_out_location?: string;
-  check_in_verified_by_biometric: boolean;
-  check_out_verified_by_biometric: boolean;
+  check_in_verified_by_biometric?: boolean;
+  check_out_verified_by_biometric?: boolean;
+  check_in_snapshot_url?: string;
+  check_out_snapshot_url?: string;
   check_in_device_id?: string;
   check_out_device_id?: string;
   is_device_pending?: boolean;

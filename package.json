@@ -11,6 +11,7 @@
     "publish-app": "powershell -ExecutionPolicy Bypass -File publish-android.ps1"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1081.0",
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
@@ -28,6 +29,7 @@
     "cordova-plugin-audiotoggle": "^1.0.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
@@ -44,9 +46,9 @@
     "react-hot-toast": "^2.6.0",
     "react-katex": "^3.1.0",
     "react-router-dom": "^7.14.2",
+    "react-webcam": "^7.2.0",
     "tailwind-merge": "^3.4.1",
     "uuid": "^14.0.0",
-    "exceljs": "^4.4.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

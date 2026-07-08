@@ -66,7 +66,7 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const checkIn = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false) => {
+  const checkIn = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -80,7 +80,7 @@ export function useAttendance(employeeId: string) {
         verifiedByBiometric = true;
       }
 
-      const record = await attendanceRecordService.checkIn(employeeId, location, deviceId, verifiedByBiometric);
+      const record = await attendanceRecordService.checkIn(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes);
       setTodayAttendance(record);
       return record;
     } catch (err) {
@@ -91,7 +91,7 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const checkOut = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false) => {
+  const checkOut = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -105,7 +105,7 @@ export function useAttendance(employeeId: string) {
         verifiedByBiometric = true;
       }
 
-      const record = await attendanceRecordService.checkOut(employeeId, location, deviceId, verifiedByBiometric);
+      const record = await attendanceRecordService.checkOut(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes);
       setTodayAttendance(record);
       return record;
     } catch (err) {

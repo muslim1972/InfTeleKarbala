@@ -160,7 +160,7 @@ export const attendanceRecordService = {
     return data[0] as AttendanceRecord | undefined;
   },
 
-  async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false) {
+  async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
     const now = new Date().toISOString();
     
     // Get department, device info, and work schedule from employee profile
@@ -251,6 +251,8 @@ export const attendanceRecordService = {
         check_in_location: location,
         check_in_device_id: deviceId,
         check_in_verified_by_biometric: verifiedByBiometric,
+        check_in_snapshot_url: snapshotUrl,
+        notes: notes,
         status: initialStatus,
         is_device_pending: isDevicePending
       })
@@ -261,7 +263,7 @@ export const attendanceRecordService = {
     return data as AttendanceRecord;
   },
 
-  async checkOut(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false) {
+  async checkOut(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, additionalNotes?: string) {
     const todayRecord = await this.getTodayByEmployeeId(employeeId);
     if (!todayRecord) {
       throw new Error('لم يتم تسجيل الحضور اليوم');
@@ -314,6 +316,8 @@ export const attendanceRecordService = {
         check_out_location: location,
         check_out_device_id: deviceId,
         check_out_verified_by_biometric: verifiedByBiometric,
+        check_out_snapshot_url: snapshotUrl,
+        notes: additionalNotes ? (todayRecord.notes ? `${todayRecord.notes} | ${additionalNotes}` : additionalNotes) : todayRecord.notes,
         is_device_pending: updatedStatus
       })
       .eq('id', todayRecord.id)
