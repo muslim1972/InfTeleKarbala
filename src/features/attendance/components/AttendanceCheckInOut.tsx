@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import Webcam from 'react-webcam';
 import { useAttendance } from '../hooks/useAttendance';
 import { geofenceService } from '../services/geofenceService';
 import { geolocationManager } from '../../../utils/GeolocationManager';
@@ -41,10 +40,9 @@ export default function AttendanceCheckInOut({
   const [nearestLoc, setNearestLoc] = useState<WorkLocation | undefined>(undefined);
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
 
-  // Webcam State
-  const webcamRef = useRef<Webcam>(null);
-  const [cameraError, setCameraError] = useState(false);
+  // Camera State
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [capturingAction, setCapturingAction] = useState<'checkIn' | 'checkOut' | null>(null);
 
   // Perform geofence verification
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
@@ -90,44 +88,81 @@ export default function AttendanceCheckInOut({
     verifyLocationAndGeofence(false);
   }, [verifyLocationAndGeofence]);
 
-  const captureAndUploadSnapshot = async (): Promise<{ url?: string, notes?: string }> => {
-    if (cameraError || !webcamRef.current) {
-      return { notes: '(بدون صورة)' };
-    }
-    
-    setUploadingImage(true);
+  const takeSnapshotSilently = async (): Promise<{ url?: string, notes?: string }> => {
     try {
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (!imageSrc) {
-        return { notes: '(تعذر التقاط الصورة)' };
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: 320, height: 240, frameRate: 15 } 
+      });
+      
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      video.muted = true;
+      await video.play();
+      
+      // Wait a moment for camera auto-focus and auto-exposure to adjust
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        stream.getTracks().forEach(track => track.stop());
+        return { notes: '(فشل تقني في رسم الصورة)' };
       }
-      const url = await uploadSnapshotToR2(imageSrc, 'snapshot');
-      if (!url) {
-        return { notes: '(فشل رفع الصورة)' };
-      }
+      
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      stream.getTracks().forEach(track => track.stop());
+
+      const base64Data = canvas.toDataURL('image/webp', 0.8);
+      const url = await uploadSnapshotToR2(base64Data, 'snapshot');
+      
+      if (!url) return { notes: '(فشل رفع الصورة للسحابة)' };
       return { url };
-    } catch (err) {
-      console.error('Error capturing snapshot:', err);
-      return { notes: '(خطأ في الكاميرا)' };
-    } finally {
-      setUploadingImage(false);
+
+    } catch (err: any) {
+      console.error('Camera Error:', err);
+      if (err.name === 'NotAllowedError') {
+        return { notes: '(صلاحية الكاميرا مرفوضة من المستخدم)' };
+      } else if (err.name === 'NotFoundError') {
+        return { notes: '(لا توجد كاميرا في الجهاز)' };
+      } else if (err.name === 'NotReadableError') {
+        return { notes: '(الكاميرا مستخدمة من تطبيق آخر)' };
+      } else {
+        return { notes: '(تعذر فتح الكاميرا لخلل تقني)' };
+      }
     }
   };
 
-  const handleCheckIn = async () => {
+  const handleActionClick = async (action: 'checkIn' | 'checkOut') => {
     if (!isAllowed) {
-      toast.error('لا يمكن تسجيل الحضور: يجب أن تكون متواجداً في نطاق الدائرة (50 متر)');
+      toast.error('لا يمكن التنفيذ: يجب أن تكون متواجداً في نطاق الدائرة');
       return;
     }
-    
+
+    setCapturingAction(action);
+    setUploadingImage(true);
+
     try {
-      const { url, notes } = await captureAndUploadSnapshot();
-      await checkIn(locationText, undefined, useBiometric, url, notes);
-      toast.success('تم تسجيل الحضور بنجاح');
+      const { url, notes } = await takeSnapshotSilently();
+      
+      if (action === 'checkIn') {
+        await checkIn(locationText, undefined, useBiometric, url, notes);
+        toast.success('تم تسجيل الحضور بنجاح');
+      } else {
+        await checkOut(locationText, undefined, useBiometric, url, notes);
+        toast.success('تم تسجيل الانصراف بنجاح');
+      }
+      
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
     } catch (err: any) {
-      toast.error(err.message || 'فشل تسجيل الحضور');
+      toast.error(err.message || 'فشل تنفيذ العملية');
+    } finally {
+      setUploadingImage(false);
+      setCapturingAction(null);
     }
   };
 
@@ -161,22 +196,7 @@ export default function AttendanceCheckInOut({
     }
   };
 
-  const handleCheckOut = async () => {
-    if (!isAllowed) {
-      toast.error('لا يمكن تسجيل الانصراف: يجب أن تكون متواجداً في نطاق الدائرة (50 متر)');
-      return;
-    }
-    
-    try {
-      const { url, notes } = await captureAndUploadSnapshot();
-      await checkOut(locationText, undefined, useBiometric, url, notes);
-      toast.success('تم تسجيل الانصراف بنجاح');
-      onAttendanceUpdate();
-      verifyLocationAndGeofence(false);
-    } catch (err: any) {
-      toast.error(err.message || 'فشل تسجيل الانصراف');
-    }
-  };
+
 
   const formatTime = (timeString?: string) => {
     if (!timeString) return '--:--';
@@ -378,77 +398,46 @@ export default function AttendanceCheckInOut({
           </label>
         </div>
 
-        {/* Webcam View */}
-        {(canCheckIn || canCheckOut) && (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 relative">
-            {!cameraError ? (
-              <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/webp"
-                videoConstraints={{ facingMode: "user" }}
-                onUserMediaError={() => setCameraError(true)}
-                className="w-full h-48 object-cover transform -scale-x-100"
-              />
-            ) : (
-              <div className="w-full h-48 flex flex-col items-center justify-center text-slate-500 gap-2">
-                <AlertTriangle className="w-8 h-8 opacity-50" />
-                <p className="font-bold text-sm">تعذر الوصول للكاميرا الأمامية</p>
-                <p className="text-xs">سيتم تسجيل الحضور مع ملاحظة (بدون صورة)</p>
-              </div>
-            )}
-            {uploadingImage && (
-              <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
-              </div>
-            )}
+        {/* Loading Overlay when capturing */}
+        {uploadingImage && (
+          <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+            <p className="font-bold text-slate-700 dark:text-slate-300">
+              {capturingAction === 'checkIn' ? 'جاري التقاط الصورة وتسجيل الحضور...' : 'جاري التقاط الصورة وتسجيل الانصراف...'}
+            </p>
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
-            onClick={handleCheckIn}
+            onClick={() => handleActionClick('checkIn')}
             disabled={!canCheckIn || loading || uploadingImage || loadingLocation || !geofenceChecked || !isAllowed}
-            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
               canCheckIn && isAllowed
                 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg shadow-emerald-600/20'
                 : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
             }`}
           >
-            {loading || uploadingImage ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>جاري تسجيل الحضور...</span>
-              </>
-            ) : (
-              <>
-                <LogIn className="w-5 h-5" />
-                <span>تسجيل الحضور</span>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              <Camera className="w-5 h-5" />
+              <span>تسجيل الحضور (صورة مباشرة)</span>
+            </div>
           </button>
 
           <button
-            onClick={handleCheckOut}
+            onClick={() => handleActionClick('checkOut')}
             disabled={!canCheckOut || loading || uploadingImage || loadingLocation || !geofenceChecked || !isAllowed}
-            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
               canCheckOut && isAllowed
                 ? 'bg-teal-600 hover:bg-teal-700 shadow-md hover:shadow-lg shadow-teal-600/20'
                 : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
             }`}
           >
-            {loading || uploadingImage ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>جاري تسجيل الانصراف...</span>
-              </>
-            ) : (
-              <>
-                <LogOut className="w-5 h-5" />
-                <span>تسجيل الانصراف (نهاية الدوام)</span>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              <Camera className="w-5 h-5" />
+              <span>تسجيل الانصراف (صورة مباشرة)</span>
+            </div>
           </button>
         </div>
 
