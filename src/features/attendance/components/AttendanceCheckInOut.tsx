@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
 import { geofenceService } from '../services/geofenceService';
@@ -9,8 +8,9 @@ import { geolocationManager } from '../../../utils/GeolocationManager';
 import { uploadSnapshotToR2 } from '../utils/r2Storage';
 import type { AttendanceRecord, WorkLocation } from '../types';
 import { 
-  Fingerprint, LogIn, LogOut, MapPin, ShieldCheck, 
-  RefreshCw, AlertTriangle, CheckCircle 
+  LogIn, LogOut, MapPin, CheckCircle, 
+  AlertTriangle, RefreshCw, Camera,
+  ShieldCheck, Fingerprint
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
