@@ -330,7 +330,7 @@ export default function AttendanceCheckInOut({
           if (consecutiveDetected >= 4) msg = 'يرجى الثبات...';
           if (consecutiveDetected >= 8) msg = 'لحظة واحدة...';
           
-          setFaceState(prev => ({ ...prev, message: msg }));
+          setFaceState(prev => ({ ...prev, detected: true, message: msg }));
         }
       } else {
         consecutiveDetected = 0;
