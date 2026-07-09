@@ -218,22 +218,26 @@ export default function AttendanceCheckInOut({
     const canvas = canvasRef.current;
     if (!video || !canvas) return { notes: '(فشل تقني في التقاط الصورة)' };
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return { notes: '(فشل تقني في رسم الصورة)' };
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
+    // Stop camera and close overlay immediately to avoid UI freezing
+    stopCamera();
+    setCameraOpen(false);
+    setProcessing(true);
+
     const base64Data = canvas.toDataURL('image/webp', 0.8);
     const url = await uploadSnapshotToR2(base64Data, 'snapshot');
     return url ? { url } : { notes: '(فشل رفع الصورة للسحابة)' };
-  }, []);
+  }, [stopCamera]);
 
   // ---- Complete Action (after capture) ----
   const completeAction = useCallback(async (snapshotResult: { url?: string; notes?: string }) => {
     if (!capturingAction) return;
-    setProcessing(true);
     
     try {
       const deviceId = await getDeviceFingerprint();
@@ -251,7 +255,6 @@ export default function AttendanceCheckInOut({
       toast.error(err.message || 'فشل تنفيذ العملية');
     } finally {
       setProcessing(false);
-      setCameraOpen(false);
       setCapturingAction(null);
     }
   }, [capturingAction, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence]);
@@ -270,7 +273,7 @@ export default function AttendanceCheckInOut({
 
       analysisCanvas.width = video.videoWidth;
       analysisCanvas.height = video.videoHeight;
-      const ctx = analysisCanvas.getContext('2d');
+      const ctx = analysisCanvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
 
       ctx.drawImage(video, 0, 0);
@@ -292,7 +295,6 @@ export default function AttendanceCheckInOut({
           // Brief stabilization pause then capture
           window.setTimeout(async () => {
             const result = await captureAndUpload();
-            stopCamera();
             await completeAction(result);
           }, 600);
         } else {
@@ -307,7 +309,7 @@ export default function AttendanceCheckInOut({
         }));
       }
     }, FACE_DETECT_INTERVAL_MS);
-  }, [captureAndUpload, stopCamera, completeAction]);
+  }, [captureAndUpload, completeAction]);
 
   // ---- Open Camera & Start Process ----
   const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
