@@ -7,6 +7,27 @@ import type {
   AttendanceStats
 } from '../types';
 
+async function notifyAdminsForDeviceChange(employeeName: string) {
+  try {
+    const { data: admins } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+      .in('admin_role', ['developer', 'general']);
+      
+    if (admins && admins.length > 0) {
+      const notifications = admins.map(admin => ({
+        recipient_id: admin.id,
+        title: 'طلب اعتماد جهاز جديد',
+        content: `طلب الموظف (${employeeName}) اعتماد جهاز جديد لتسجيل الحضور. يرجى مراجعة الطلب في لوحة الإدارة.`,
+      }));
+      await supabase.from('system_notifications').insert(notifications);
+    }
+  } catch (err) {
+    console.error('Error notifying admins:', err);
+  }
+}
+
 // =============================================
 // Fingerprint Template Services
 // =============================================
@@ -202,6 +223,12 @@ export const attendanceRecordService = {
             new_device_id: deviceId,
             status: 'pending'
           });
+          
+        // Notify admins
+        const { data: empInfo } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+        if (empInfo) {
+          await notifyAdminsForDeviceChange(empInfo.full_name);
+        }
       }
     }
 
@@ -301,6 +328,12 @@ export const attendanceRecordService = {
             new_device_id: deviceId,
             status: 'pending'
          });
+         
+         // Notify admins
+         const { data: empInfo } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+         if (empInfo) {
+           await notifyAdminsForDeviceChange(empInfo.full_name);
+         }
       }
     }
 
