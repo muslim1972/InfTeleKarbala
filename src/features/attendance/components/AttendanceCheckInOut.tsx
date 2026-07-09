@@ -222,9 +222,24 @@ export default function AttendanceCheckInOut({
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return { notes: '(فشل تقني في رسم الصورة)' };
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+      // Scale down for extreme storage economy (~5-10KB per image)
+      const MAX_DIM = 300;
+      let targetWidth = video.videoWidth;
+      let targetHeight = video.videoHeight;
+      
+      if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
+        if (targetWidth > targetHeight) {
+          targetHeight = Math.floor(targetHeight * (MAX_DIM / targetWidth));
+          targetWidth = MAX_DIM;
+        } else {
+          targetWidth = Math.floor(targetWidth * (MAX_DIM / targetHeight));
+          targetHeight = MAX_DIM;
+        }
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
 
       // Stop camera and close overlay immediately to avoid UI freezing
       stopCamera();
@@ -308,7 +323,7 @@ export default function AttendanceCheckInOut({
               setProcessing(false);
               setCapturingAction(null);
             }
-          }, 600);
+          }, 1200);
         } else {
           setFaceState(prev => ({ ...prev, message: 'تم اكتشاف وجه... يرجى الثبات' }));
         }
@@ -342,7 +357,7 @@ export default function AttendanceCheckInOut({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 }, frameRate: { ideal: 15 } },
+        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
       });
       streamRef.current = stream;
       setCameraOpen(true);
