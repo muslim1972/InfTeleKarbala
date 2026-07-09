@@ -37,72 +37,14 @@ const getDeviceFingerprint = async (): Promise<string> => {
 };
 
 // ============================================
-// Face Detection via Skin-tone & Motion Analysis
-// No external AI libraries required
+// Manual Capture Variables
 // ============================================
-const FACE_DETECT_INTERVAL_MS = 200;
-const FACE_DETECT_TIMEOUT_S = 10;
-const STABILIZE_FRAMES = 10; // need 10 consecutive detected frames (2 full seconds)
+const CAMERA_TIMEOUT_S = 30;
 
-interface FaceDetectState {
-  detected: boolean;
-  consecutiveCount: number;
+interface CameraState {
+  capturing: boolean;
   message: string;
   countdown: number;
-}
-
-/**
- * Analyze a canvas region for face-like features:
- * - Skin tone pixel ratio in the oval zone
- * - Sufficient brightness variance (not a blank wall / black screen)
- */
-function analyzeFaceRegion(
-  ctx: CanvasRenderingContext2D, 
-  cx: number, cy: number, 
-  rx: number, ry: number
-): boolean {
-  const x0 = Math.max(0, Math.floor(cx - rx));
-  const y0 = Math.max(0, Math.floor(cy - ry));
-  const w = Math.min(Math.floor(rx * 2), ctx.canvas.width - x0);
-  const h = Math.min(Math.floor(ry * 2), ctx.canvas.height - y0);
-  
-  if (w <= 0 || h <= 0) return false;
-  
-  const imageData = ctx.getImageData(x0, y0, w, h);
-  const pixels = imageData.data;
-  const totalPixels = w * h;
-  
-  let skinPixels = 0;
-  let brightnessSum = 0;
-  let brightnessSqSum = 0;
-  
-  for (let i = 0; i < pixels.length; i += 16) { // sample every 4th pixel for performance
-    const r = pixels[i];
-    const g = pixels[i + 1];
-    const b = pixels[i + 2];
-    const brightness = (r + g + b) / 3;
-    
-    brightnessSum += brightness;
-    brightnessSqSum += brightness * brightness;
-    
-    // Skin-tone detection (works across multiple skin colors)
-    const isSkin = (
-      r > 60 && g > 40 && b > 20 &&
-      r > g && r > b &&
-      Math.abs(r - g) > 10 &&
-      r - b > 15 &&
-      brightness > 50 && brightness < 230
-    );
-    if (isSkin) skinPixels++;
-  }
-  
-  const sampledCount = Math.ceil(totalPixels / 4);
-  const skinRatio = skinPixels / sampledCount;
-  const avgBrightness = brightnessSum / sampledCount;
-  const variance = (brightnessSqSum / sampledCount) - (avgBrightness * avgBrightness);
-  
-  // Face criteria: enough skin pixels AND enough brightness variance (not blank)
-  return skinRatio > 0.15 && skinRatio < 0.85 && variance > 200;
 }
 
 
@@ -136,21 +78,20 @@ export default function AttendanceCheckInOut({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [capturingAction, setCapturingAction] = useState<'checkIn' | 'checkOut' | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [cameraAttempt, setCameraAttempt] = useState(1);
   const [alertInfo, setAlertInfo] = useState<{ show: boolean; action: 'checkIn' | 'checkOut' | null }>({
     show: false,
     action: null
   });
-  const [faceState, setFaceState] = useState<FaceDetectState>({
-    detected: false, consecutiveCount: 0, message: 'يرجى وضع وجهك داخل الدائرة', countdown: FACE_DETECT_TIMEOUT_S,
+  const [cameraState, setCameraState] = useState<CameraState>({
+    capturing: false,
+    message: 'يرجى وضع وجهك داخل الدائرة واضغط على زر التقاط الصورة',
+    countdown: CAMERA_TIMEOUT_S
   });
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectIntervalRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const capturedRef = useRef(false);
-  const attemptRef = useRef(1);
 
   // ---- Geofence Logic ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
@@ -193,10 +134,6 @@ export default function AttendanceCheckInOut({
 
   // ---- Camera Cleanup ----
   const stopCamera = useCallback(() => {
-    if (detectIntervalRef.current) {
-      clearInterval(detectIntervalRef.current);
-      detectIntervalRef.current = null;
-    }
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
@@ -279,69 +216,31 @@ export default function AttendanceCheckInOut({
     }
   }, [locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence]);
 
-  // ---- Start Face Detection Loop ----
-  const startFaceDetection = useCallback((currentAction: 'checkIn' | 'checkOut') => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    // Create an offscreen canvas for analysis
-    const analysisCanvas = document.createElement('canvas');
-    let consecutiveDetected = 0;
-
-    detectIntervalRef.current = window.setInterval(() => {
-      if (capturedRef.current || !video.videoWidth) return;
-
-      analysisCanvas.width = video.videoWidth;
-      analysisCanvas.height = video.videoHeight;
-      const ctx = analysisCanvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
-
-      ctx.drawImage(video, 0, 0);
-
-      // Oval center and radii (proportional to video size)
-      const cx = video.videoWidth / 2;
-      const cy = video.videoHeight / 2;
-      const rx = video.videoWidth * 0.28;
-      const ry = video.videoHeight * 0.38;
-
-      const detected = analyzeFaceRegion(ctx, cx, cy, rx, ry);
-
-      if (detected) {
-        consecutiveDetected++;
-        if (consecutiveDetected >= STABILIZE_FRAMES && !capturedRef.current) {
-          capturedRef.current = true;
-          setFaceState(prev => ({ ...prev, detected: true, message: 'رائع! تم التقاط الصورة' }));
-          
-          // Capture immediately since user has been perfectly still for 2 seconds
-          (async () => {
-            try {
-              const result = await captureAndUpload();
-              await completeAction(currentAction, result);
-            } catch (err: any) {
-              console.error('Error in face detection capture:', err);
-              toast.error('فشل التقاط الصورة بسبب خلل غير متوقع');
-              setProcessing(false);
-              setCapturingAction(null);
-            }
-          })();
-        } else if (!capturedRef.current) {
-          // Progressive feedback to encourage holding still
-          let msg = 'تم اكتشاف الوجه...';
-          if (consecutiveDetected >= 4) msg = 'يرجى الثبات...';
-          if (consecutiveDetected >= 8) msg = 'لحظة واحدة...';
-          
-          setFaceState(prev => ({ ...prev, detected: true, message: msg }));
-        }
-      } else {
-        consecutiveDetected = 0;
-        setFaceState(prev => ({
-          ...prev,
-          detected: false,
-          message: prev.countdown <= 3 ? `يرجى وضع وجهك داخل الدائرة (${prev.countdown}ث)` : 'يرجى وضع وجهك داخل الدائرة',
-        }));
+  // ---- Manual Capture Action ----
+  const handleManualCapture = useCallback(() => {
+    if (capturedRef.current || !capturingAction) return;
+    capturedRef.current = true;
+    
+    // Clear auto-close timeout
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+    }
+    
+    setCameraState(prev => ({ ...prev, capturing: true, message: 'ابتسم! جاري التقاط الصورة...' }));
+    
+    // 1 second delay to allow user to look at lens
+    window.setTimeout(async () => {
+      try {
+        const result = await captureAndUpload();
+        await completeAction(capturingAction, result);
+      } catch (err: any) {
+        console.error('Error in manual capture:', err);
+        toast.error('فشل التقاط الصورة بسبب خلل غير متوقع');
+        setProcessing(false);
+        setCapturingAction(null);
       }
-    }, FACE_DETECT_INTERVAL_MS);
-  }, [captureAndUpload, completeAction]);
+    }, 1000);
+  }, [capturingAction, captureAndUpload, completeAction]);
 
   // ---- Open Camera & Start Process ----
   const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
@@ -351,13 +250,11 @@ export default function AttendanceCheckInOut({
     }
 
     capturedRef.current = false;
-    attemptRef.current = 1;
-    setCameraAttempt(1);
     setCapturingAction(action);
-    setFaceState({
-      detected: false, consecutiveCount: 0,
-      message: 'يرجى وضع وجهك داخل الدائرة',
-      countdown: FACE_DETECT_TIMEOUT_S,
+    setCameraState({
+      capturing: false,
+      message: 'يرجى وضع وجهك داخل الدائرة واضغط التقاط',
+      countdown: CAMERA_TIMEOUT_S,
     });
 
     try {
@@ -372,53 +269,19 @@ export default function AttendanceCheckInOut({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
-            startFaceDetection(action);
-
-            // Countdown timer
-            let remaining = FACE_DETECT_TIMEOUT_S;
+            // Countdown timer for automatic cancel
+            let remaining = CAMERA_TIMEOUT_S;
             countdownIntervalRef.current = window.setInterval(() => {
               remaining--;
-              setFaceState(prev => ({ ...prev, countdown: remaining }));
+              setCameraState(prev => ({ ...prev, countdown: remaining }));
               
               if (remaining <= 0 && !capturedRef.current) {
-                if (attemptRef.current < 3) {
-                  // Retry attempt
-                  attemptRef.current += 1;
-                  setCameraAttempt(attemptRef.current);
-                  toast.error('انتهت المهلة يرجى اظهار وجهك داخل الدائرة');
-                  setFaceState({
-                    detected: false,
-                    consecutiveCount: 0,
-                    message: `انتهت المهلة يرجى اظهار وجهك داخل الدائرة (محاولة ${attemptRef.current} من 3)`,
-                    countdown: FACE_DETECT_TIMEOUT_S,
-                  });
-                  remaining = FACE_DETECT_TIMEOUT_S;
-                } else {
-                  capturedRef.current = true;
-                  // Timeout on 3rd attempt — close camera and register without photo
-                  stopCamera();
-                  setCameraOpen(false);
-                  
-                  const failNotes = '(فشل كشف الوجه بعد 3 محاولات)';
-                  setProcessing(true);
-                  getDeviceFingerprint().then(async (deviceId) => {
-                    try {
-                      if (action === 'checkIn') {
-                        await checkIn(locationText, deviceId, false, undefined, failNotes);
-                      } else {
-                        await checkOut(locationText, deviceId, false, undefined, failNotes);
-                      }
-                      onAttendanceUpdate();
-                      verifyLocationAndGeofence(false);
-                      setAlertInfo({ show: true, action });
-                    } catch (regErr: any) {
-                      toast.error(regErr.message || 'فشل تنفيذ العملية');
-                    } finally {
-                      setProcessing(false);
-                      setCapturingAction(null);
-                    }
-                  });
-                }
+                capturedRef.current = true;
+                stopCamera();
+                setCameraOpen(false);
+                toast.error('تم إلغاء العملية لعدم التفاعل');
+                setProcessing(false);
+                setCapturingAction(null);
               }
             }, 1000);
           });
@@ -459,7 +322,7 @@ export default function AttendanceCheckInOut({
         setCapturingAction(null);
       }
     }
-  }, [isAllowed, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence, startFaceDetection, stopCamera]);
+  }, [isAllowed, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera]);
 
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
@@ -561,16 +424,16 @@ export default function AttendanceCheckInOut({
                   <ellipse
                     cx="150" cy="180" rx="85" ry="115"
                     fill="none"
-                    stroke={faceState.detected ? '#22c55e' : '#ffffff'}
+                    stroke={cameraState.capturing ? '#22c55e' : '#ffffff'}
                     strokeWidth="3"
-                    strokeDasharray={faceState.detected ? 'none' : '8 4'}
+                    strokeDasharray={cameraState.capturing ? 'none' : '8 4'}
                     className="transition-all duration-300"
                   />
                 </svg>
               </div>
 
               {/* Face Icon Hint */}
-              {!faceState.detected && (
+              {!cameraState.capturing && (
                 <div className="absolute top-[22%] left-1/2 -translate-x-1/2 opacity-30 pointer-events-none">
                   <User className="w-16 h-16 text-white" />
                 </div>
@@ -579,20 +442,24 @@ export default function AttendanceCheckInOut({
 
             {/* Status Message */}
             <div className="mt-6 text-center">
-              <p className={`text-lg font-bold transition-colors duration-300 ${faceState.detected ? 'text-emerald-400' : 'text-white'}`}>
-                {faceState.message}
+              <p className={`text-lg font-bold transition-colors duration-300 ${cameraState.capturing ? 'text-emerald-400' : 'text-white'}`}>
+                {cameraState.message}
               </p>
               <p className="text-sm text-white/60 mt-2">
-                {capturingAction === 'checkIn' ? 'تسجيل الحضور' : 'تسجيل الانصراف'} | المحاولة {cameraAttempt} من 3 — {faceState.countdown > 0 ? `متبقي ${faceState.countdown} ثانية` : 'جاري المعالجة...'}
+                {capturingAction === 'checkIn' ? 'تسجيل الحضور' : 'تسجيل الانصراف'} — {cameraState.countdown > 0 && !cameraState.capturing ? `متبقي ${cameraState.countdown} ثانية` : 'جاري المعالجة...'}
               </p>
             </div>
 
-            {/* Countdown Progress */}
-            <div className="mt-4 w-full max-w-sm bg-white/10 rounded-full h-2 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ease-linear ${faceState.detected ? 'bg-emerald-500' : 'bg-white/40'}`}
-                style={{ width: `${(faceState.countdown / FACE_DETECT_TIMEOUT_S) * 100}%` }}
-              />
+            {/* Manual Capture Button */}
+            <div className="mt-6 w-full max-w-sm">
+              <button
+                onClick={handleManualCapture}
+                disabled={cameraState.capturing}
+                className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white font-bold text-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none shadow-[0_4px_20px_-4px_rgba(16,185,129,0.5)]"
+              >
+                <Camera className="w-6 h-6" />
+                {cameraState.capturing ? 'جاري الالتقاط...' : 'التقاط الصورة'}
+              </button>
             </div>
           </motion.div>
         )}
