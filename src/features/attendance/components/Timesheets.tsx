@@ -332,7 +332,13 @@ export default function Timesheets() {
                         <tr>
                           <th className="px-4 py-3 rounded-r-lg">التاريخ</th>
                           <th className="px-4 py-3">نوع الدوام</th>
-                          <th className="px-4 py-3">الصور</th>
+                          <th className="px-4 py-2 text-center">
+                            <div>الصور</div>
+                            <div className="flex justify-center gap-8 mt-1 text-[10px] font-bold uppercase tracking-widest">
+                              <span className="text-emerald-500">IN</span>
+                              <span className="text-teal-500">OUT</span>
+                            </div>
+                          </th>
                           <th className="px-4 py-3">الدخول</th>
                           <th className="px-4 py-3">الخروج</th>
                           <th className="px-4 py-3">استراحة ز.</th>
@@ -377,18 +383,21 @@ export default function Timesheets() {
                                 <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-xs">{scheduleName}</span>
                               </td>
                               <td className="px-2 py-2 min-w-[120px]">
-                                <div className="flex items-center gap-2">
-                                  {rec.check_in_snapshot_url && (
-                                    <button onClick={() => setSelectedImage(rec.check_in_snapshot_url)} className="relative group overflow-hidden rounded-md border-2 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all w-14 h-14 shrink-0 bg-slate-100 dark:bg-slate-800" title="تكبير صورة الدخول">
+                                <div className="flex items-center justify-center gap-2">
+                                  {rec.check_in_snapshot_url ? (
+                                    <button onClick={() => setSelectedImage(rec.check_in_snapshot_url)} className="relative group overflow-hidden rounded-md border-2 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all w-14 h-14 shrink-0 bg-slate-100 dark:bg-slate-800 shadow-sm" title="تكبير صورة الدخول">
                                       <img src={rec.check_in_snapshot_url} alt="دخول" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
-                                      <div className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] text-center font-bold py-0.5 backdrop-blur-sm">الدخول</div>
                                     </button>
+                                  ) : (
+                                    <div className="w-14 h-14 shrink-0 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700" />
                                   )}
-                                  {rec.check_out_snapshot_url && (
-                                    <button onClick={() => setSelectedImage(rec.check_out_snapshot_url)} className="relative group overflow-hidden rounded-md border-2 border-teal-100 dark:border-teal-900/30 hover:border-teal-500 dark:hover:border-teal-500 transition-all w-14 h-14 shrink-0 bg-slate-100 dark:bg-slate-800" title="تكبير صورة الخروج">
+                                  
+                                  {rec.check_out_snapshot_url ? (
+                                    <button onClick={() => setSelectedImage(rec.check_out_snapshot_url)} className="relative group overflow-hidden rounded-md border-2 border-teal-100 dark:border-teal-900/30 hover:border-teal-500 dark:hover:border-teal-500 transition-all w-14 h-14 shrink-0 bg-slate-100 dark:bg-slate-800 shadow-sm" title="تكبير صورة الخروج">
                                       <img src={rec.check_out_snapshot_url} alt="خروج" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
-                                      <div className="absolute bottom-0 inset-x-0 bg-teal-600/90 text-white text-[9px] text-center font-bold py-0.5 backdrop-blur-sm">الخروج</div>
                                     </button>
+                                  ) : (
+                                    <div className="w-14 h-14 shrink-0 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700" />
                                   )}
                                 </div>
                               </td>
