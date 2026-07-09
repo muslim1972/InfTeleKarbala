@@ -42,7 +42,7 @@ const getDeviceFingerprint = async (): Promise<string> => {
 // ============================================
 const FACE_DETECT_INTERVAL_MS = 200;
 const FACE_DETECT_TIMEOUT_S = 10;
-const STABILIZE_FRAMES = 3; // need 3 consecutive detected frames
+const STABILIZE_FRAMES = 10; // need 10 consecutive detected frames (2 full seconds)
 
 interface FaceDetectState {
   detected: boolean;
@@ -310,22 +310,27 @@ export default function AttendanceCheckInOut({
         consecutiveDetected++;
         if (consecutiveDetected >= STABILIZE_FRAMES && !capturedRef.current) {
           capturedRef.current = true;
-          setFaceState(prev => ({ ...prev, detected: true, message: 'يرجى الثبات لثانية واحدة...' }));
+          setFaceState(prev => ({ ...prev, detected: true, message: 'رائع! تم التقاط الصورة' }));
           
-          // Brief stabilization pause then capture
-          window.setTimeout(async () => {
+          // Capture immediately since user has been perfectly still for 2 seconds
+          (async () => {
             try {
               const result = await captureAndUpload();
               await completeAction(currentAction, result);
             } catch (err: any) {
-              console.error('Error in face detection capture timeout:', err);
+              console.error('Error in face detection capture:', err);
               toast.error('فشل التقاط الصورة بسبب خلل غير متوقع');
               setProcessing(false);
               setCapturingAction(null);
             }
-          }, 1200);
-        } else {
-          setFaceState(prev => ({ ...prev, message: 'تم اكتشاف وجه... يرجى الثبات' }));
+          })();
+        } else if (!capturedRef.current) {
+          // Progressive feedback to encourage holding still
+          let msg = 'تم اكتشاف الوجه...';
+          if (consecutiveDetected >= 4) msg = 'يرجى الثبات...';
+          if (consecutiveDetected >= 8) msg = 'لحظة واحدة...';
+          
+          setFaceState(prev => ({ ...prev, message: msg }));
         }
       } else {
         consecutiveDetected = 0;
