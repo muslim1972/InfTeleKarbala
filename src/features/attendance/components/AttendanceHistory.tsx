@@ -56,6 +56,15 @@ export default function AttendanceHistory({
     );
   }
 
+  const isUnverified = (notes?: string) => {
+    if (!notes) return false;
+    return notes.includes('الكاميرا') || 
+           notes.includes('وجه') || 
+           notes.includes('خلل') || 
+           notes.includes('فشل') ||
+           notes.includes('بدون');
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -74,6 +83,7 @@ export default function AttendanceHistory({
             {attendanceHistory.map((record, index) => {
               const statusStyle = statusColors[record.status] || statusColors.present;
               const isExpanded = expandedId === record.id;
+              const unverified = isUnverified(record.notes);
 
               return (
                 <motion.div
@@ -94,7 +104,13 @@ export default function AttendanceHistory({
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          {formatTime(record.check_in)} - {formatTime(record.check_out)}
+                          <span className={unverified ? 'text-rose-600 font-extrabold' : ''}>
+                            {formatTime(record.check_in)}
+                          </span>
+                          <span> - </span>
+                          <span className={unverified ? 'text-rose-600 font-extrabold' : ''}>
+                            {formatTime(record.check_out)}
+                          </span>
                         </div>
                       </div>
                     </div>

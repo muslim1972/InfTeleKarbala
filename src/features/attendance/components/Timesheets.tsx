@@ -362,9 +362,16 @@ export default function Timesheets() {
                             ? `${format(parseISO(rec.time_leave_out),'HH:mm')} - ${format(parseISO(rec.time_leave_return),'HH:mm')}`
                             : '--';
                           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
+                          const unverified = rec.notes && (
+                            rec.notes.includes('الكاميرا') ||
+                            rec.notes.includes('وجه') ||
+                            rec.notes.includes('خلل') ||
+                            rec.notes.includes('فشل') ||
+                            rec.notes.includes('بدون')
+                          );
 
                           return (
-                            <tr key={rec.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                            <tr key={rec.id} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
                               <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
                                 <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-xs">{scheduleName}</span>
@@ -383,18 +390,22 @@ export default function Timesheets() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{inTime}</td>
-                              <td className={`px-4 py-3 font-mono ${isForgotCheckout ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
+                              <td className={`px-4 py-3 font-mono ${unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{inTime}</td>
+                              <td className={`px-4 py-3 font-mono ${isForgotCheckout || unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
                               <td className="px-4 py-3 text-amber-600 font-mono">{leaveStr}</td>
                               <td className="px-4 py-3 font-bold text-blue-600">{formatDurationArabic(netMins)}</td>
-                              <td className="px-4 py-3 text-xs text-slate-500">{rec.notes || '--'}</td>
+                              <td className="px-4 py-3 text-xs text-slate-500">
+                                {rec.is_device_pending ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">⚠️ جهاز غير معتمد</span> : null}
+                                {rec.notes || '--'}
+                              </td>
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-1 rounded text-xs ${
+                                  rec.is_device_pending ? 'bg-red-100 text-red-800 border border-red-200' :
                                   rec.status === 'present' ? 'bg-emerald-100 text-emerald-800' :
                                   rec.status === 'late' ? 'bg-rose-100 text-rose-800' :
                                   'bg-slate-100 text-slate-800'
                                 }`}>
-                                  {rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status}
+                                  {rec.is_device_pending ? 'معلق (جهاز جديد)' : rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status}
                                 </span>
                               </td>
                             </tr>
