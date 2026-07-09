@@ -214,35 +214,40 @@ export default function AttendanceCheckInOut({
 
   // ---- Capture Frame & Upload ----
   const captureAndUpload = useCallback(async (): Promise<{ url?: string; notes?: string }> => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return { notes: '(فشل تقني في التقاط الصورة)' };
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return { notes: '(فشل تقني في التقاط الصورة)' };
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return { notes: '(فشل تقني في رسم الصورة)' };
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return { notes: '(فشل تقني في رسم الصورة)' };
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
 
-    // Stop camera and close overlay immediately to avoid UI freezing
-    stopCamera();
-    setCameraOpen(false);
-    setProcessing(true);
+      // Stop camera and close overlay immediately to avoid UI freezing
+      stopCamera();
+      setCameraOpen(false);
+      setProcessing(true);
 
-    const base64Data = canvas.toDataURL('image/webp', 0.8);
-    const url = await uploadSnapshotToR2(base64Data, 'snapshot');
-    return url ? { url } : { notes: '(فشل رفع الصورة للسحابة)' };
+      const base64Data = canvas.toDataURL('image/webp', 0.8);
+      const url = await uploadSnapshotToR2(base64Data, 'snapshot');
+      return url ? { url } : { notes: '(فشل رفع الصورة للسحابة)' };
+    } catch (err: any) {
+      console.error('Error inside captureAndUpload:', err);
+      stopCamera();
+      setCameraOpen(false);
+      return { notes: `(خطأ تقني أثناء التقاط الصورة: ${err.message || err})` };
+    }
   }, [stopCamera]);
 
   // ---- Complete Action (after capture) ----
-  const completeAction = useCallback(async (snapshotResult: { url?: string; notes?: string }) => {
-    if (!capturingAction) return;
-    
+  const completeAction = useCallback(async (currentAction: 'checkIn' | 'checkOut', snapshotResult: { url?: string; notes?: string }) => {
     try {
       const deviceId = await getDeviceFingerprint();
       
-      if (capturingAction === 'checkIn') {
+      if (currentAction === 'checkIn') {
         await checkIn(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
         toast.success('تم تسجيل الحضور بنجاح');
       } else {
@@ -257,10 +262,10 @@ export default function AttendanceCheckInOut({
       setProcessing(false);
       setCapturingAction(null);
     }
-  }, [capturingAction, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence]);
+  }, [locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence]);
 
   // ---- Start Face Detection Loop ----
-  const startFaceDetection = useCallback(() => {
+  const startFaceDetection = useCallback((currentAction: 'checkIn' | 'checkOut') => {
     const video = videoRef.current;
     if (!video) return;
 
@@ -294,8 +299,15 @@ export default function AttendanceCheckInOut({
           
           // Brief stabilization pause then capture
           window.setTimeout(async () => {
-            const result = await captureAndUpload();
-            await completeAction(result);
+            try {
+              const result = await captureAndUpload();
+              await completeAction(currentAction, result);
+            } catch (err: any) {
+              console.error('Error in face detection capture timeout:', err);
+              toast.error('فشل التقاط الصورة بسبب خلل غير متوقع');
+              setProcessing(false);
+              setCapturingAction(null);
+            }
           }, 600);
         } else {
           setFaceState(prev => ({ ...prev, message: 'تم اكتشاف وجه... يرجى الثبات' }));
@@ -340,7 +352,7 @@ export default function AttendanceCheckInOut({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
-            startFaceDetection();
+            startFaceDetection(action);
 
             // Countdown timer
             let remaining = FACE_DETECT_TIMEOUT_S;
@@ -745,9 +757,9 @@ export default function AttendanceCheckInOut({
             onClick={() => openCamera('checkIn')}
             disabled={!canCheckIn || loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
             className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-              canCheckIn && isAllowed
+              canCheckIn && isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
                 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg shadow-emerald-600/20'
-                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -760,9 +772,9 @@ export default function AttendanceCheckInOut({
             onClick={() => openCamera('checkOut')}
             disabled={!canCheckOut || loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
             className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-              canCheckOut && isAllowed
+              canCheckOut && isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
                 ? 'bg-teal-600 hover:bg-teal-700 shadow-md hover:shadow-lg shadow-teal-600/20'
-                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
             }`}
           >
             <div className="flex items-center gap-2">
