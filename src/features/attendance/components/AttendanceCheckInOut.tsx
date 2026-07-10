@@ -636,10 +636,8 @@ export default function AttendanceCheckInOut({
               {capturingAction === 'checkIn' ? 'جاري تسجيل الحضور...' : 'جاري تسجيل الانصراف...'}
             </p>
           </div>
-        ) : null}
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => openCamera('checkIn')}
             disabled={!canCheckIn || loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
@@ -670,6 +668,24 @@ export default function AttendanceCheckInOut({
             </div>
           </button>
         </div>
+        )}
+        
+        {/* Debug Camera Button */}
+        <button
+          onClick={async () => {
+            try {
+              alert(`Secure Context: ${window.isSecureContext}\nMediaDevices: ${!!navigator.mediaDevices}\nUserAgent: ${navigator.userAgent}`);
+              if (!navigator.mediaDevices) return alert("navigator.mediaDevices is undefined");
+              await navigator.mediaDevices.getUserMedia({ video: true });
+              alert("نجح فتح الكاميرا في الفحص المبدئي!");
+            } catch (e: any) {
+              alert(`فشل الفحص:\nName: ${e.name}\nMessage: ${e.message}`);
+            }
+          }}
+          className="mt-4 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
+        >
+          فحص الكاميرا (للمطور)
+        </button>
 
         {/* Time Leave Actions */}
         {(canTimeLeaveOut || canTimeLeaveReturn) ? (
