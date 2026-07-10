@@ -1,6 +1,6 @@
 export const uploadSnapshotToR2 = async (base64Data: string, prefix: string = 'snapshot'): Promise<string | null> => {
   try {
-    const response = await fetch('/api/upload-snapshot', {
+    const response = await fetch('https://itpc-hr.vercel.app/api/upload-snapshot', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
