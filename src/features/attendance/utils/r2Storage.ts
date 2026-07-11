@@ -9,14 +9,16 @@ export const uploadSnapshotToR2 = async (base64Data: string, prefix: string = 's
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
+      alert(`Upload Error: ${response.status} - ${JSON.stringify(errorData)}`);
       console.error('Server upload error:', errorData);
       return null;
     }
 
     const data = await response.json();
     return data.url;
-  } catch (error) {
+  } catch (error: any) {
+    alert(`Fetch Error: ${error.message || error}`);
     console.error('Error uploading snapshot via API:', error);
     return null;
   }
