@@ -2,7 +2,6 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export default async function handler(req: any, res: any) {
   // Allow CORS for local dev, Vercel handles production CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
