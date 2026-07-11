@@ -224,12 +224,17 @@ export default function Timesheets() {
               });
               sheet.addImage(imageId, {
                 tl: { col: col - 1, row: recordRow.number - 1 },
-                ext: { width: 50, height: 50 }
-              });
+                ext: { width: 50, height: 50 },
+                editAs: 'oneCell',
+                hyperlinks: {
+                  hyperlink: url,
+                  tooltip: 'انقر لفتح الصورة الأصلية'
+                }
+              } as any);
+              recordRow.getCell(col).value = { text: ' ', hyperlink: url };
               recordRow.height = 40;
             } catch (err) {
               console.error('Image load fail:', err);
-              recordRow.getCell(col).value = 'رابط الصورة';
               recordRow.getCell(col).value = { text: 'رابط الصورة', hyperlink: url };
             }
           };
@@ -257,6 +262,12 @@ export default function Timesheets() {
         
         sheet.addRow({});
       }
+
+      // حماية الشيت (للقراءة فقط) برقم سري بسيط يمكن لمدير النظام فكه إذا لزم الأمر
+      await sheet.protect('123456', {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
