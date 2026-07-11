@@ -116,6 +116,7 @@ export default function Timesheets() {
   const exportToExcel = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
     
+    const toastId = toast.loading('جاري تجهيز الملف وتصدير الصور... يرجى الانتظار');
     try {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Timesheets', { views: [{ rightToLeft: true }] });
@@ -125,33 +126,55 @@ export default function Timesheets() {
         { header: 'الرقم الوظيفي', key: 'job_number', width: 15 },
         { header: 'التاريخ', key: 'date', width: 25 },
         { header: 'نوع الدوام', key: 'shift_type', width: 20 },
+        { header: 'صورة الدخول', key: 'check_in_image', width: 15 },
+        { header: 'صورة الخروج', key: 'check_out_image', width: 15 },
         { header: 'الدخول', key: 'check_in', width: 15 },
         { header: 'الخروج', key: 'check_out', width: 15 },
         { header: 'استراحة ز.', key: 'break_time', width: 20 },
         { header: 'المدة الصافية', key: 'net_time', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
         { header: 'الحالة', key: 'status', width: 15 },
       ];
 
-      // Add styling to header
       sheet.getRow(1).font = { bold: true, size: 12 };
       sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
-      groupedData.forEach(group => {
+      const urlToBase64Png = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = url;
+        });
+      };
+
+      for (const group of groupedData) {
         const topRow = sheet.addRow({
           name: group.employee.full_name,
           job_number: group.employee.job_number,
           date: '',
           shift_type: '',
+          check_in_image: '',
+          check_out_image: '',
           check_in: '',
           check_out: '',
           break_time: '',
           net_time: '',
+          notes: '',
           status: ''
         });
-        topRow.font = { bold: true, color: { argb: 'FF1E40AF' } }; // Text-blue-800
-        topRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // bg-blue-50
+        topRow.font = { bold: true, color: { argb: 'FF1E40AF' } };
+        topRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
 
-        group.records.forEach(rec => {
+        for (const rec of group.records) {
           const dateObj = parseISO(rec.check_in);
           const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
           const inTime = format(dateObj, 'HH:mm');
@@ -177,47 +200,76 @@ export default function Timesheets() {
             job_number: '',
             date: dateStr,
             shift_type: scheduleName,
+            check_in_image: '',
+            check_out_image: '',
             check_in: inTime,
             check_out: outTime,
             break_time: leaveStr,
             net_time: formatDurationArabic(netMins),
+            notes: rec.notes || '',
             status: rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status
           });
 
           if (isForgotCheckout || rec.is_auto_check_out) {
-            recordRow.getCell('check_out').font = { color: { argb: 'FFE11D48' }, bold: true }; // Tailwind rose-600
+            recordRow.getCell('check_out').font = { color: { argb: 'FFE11D48' }, bold: true };
           }
-        });
 
-        // Add summary row at the bottom
+          // Fetch and embed images
+          const embedImage = async (url: string, col: number) => {
+            try {
+              const base64 = await urlToBase64Png(url);
+              const imageId = workbook.addImage({
+                base64: base64,
+                extension: 'png',
+              });
+              sheet.addImage(imageId, {
+                tl: { col: col - 1, row: recordRow.number - 1 },
+                ext: { width: 50, height: 50 }
+              });
+              recordRow.height = 40;
+            } catch (err) {
+              console.error('Image load fail:', err);
+              recordRow.getCell(col).value = 'رابط الصورة';
+              recordRow.getCell(col).value = { text: 'رابط الصورة', hyperlink: url };
+            }
+          };
+
+          if (rec.check_in_snapshot_url) await embedImage(rec.check_in_snapshot_url, 5);
+          if (rec.check_out_snapshot_url) await embedImage(rec.check_out_snapshot_url, 6);
+        }
+
         const sumRow = sheet.addRow({
           name: '',
           job_number: '',
           date: `إجمالي: ${(group.totalMins / 60).toFixed(2)} ساعة`,
           shift_type: '',
+          check_in_image: '',
+          check_out_image: '',
           check_in: `تأخير: ${group.lateCount}`,
           check_out: `غياب: ${group.absenceCount}`,
           break_time: '',
           net_time: '',
+          notes: '',
           status: ''
         });
         sumRow.font = { bold: true, color: { argb: 'FF1E40AF' } };
         sumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
         
-        // Add empty row separator
         sheet.addRow({});
-      });
+      }
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Timesheets_${year}_${month}.xlsx`;
+      const lastDay = new Date(year, month, 0).getDate();
+      a.download = `جدول الحضور والانصراف العام من 1-${month}-${year} الى ${lastDay}-${month}-${year}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
-      toast.error('فشل تصدير الملف: ' + err.message);
+      toast.error('فشل تصدير الملف: ' + err.message, { id: toastId });
     }
   };
 

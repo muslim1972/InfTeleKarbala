@@ -235,10 +235,12 @@ const AppContent = () => {
     // عرض الحوافز المستقلة لجميع المستخدمين
     if (adminViewMode === 'user_incentives') {
        return (
-         <div className="pt-8 px-4 relative max-w-5xl mx-auto pb-20">
-             <button onClick={() => setAdminViewMode(null)} className="mb-4 text-sm bg-secondary px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2 hover:bg-secondary/80">
-                 العودة للصفحة الرئيسية
-             </button>
+         <div className="pt-4 px-4 relative max-w-5xl mx-auto pb-20">
+             <div className="sticky top-4 z-50 flex justify-end mb-4">
+                 <button onClick={() => setAdminViewMode(null)} className="text-sm bg-secondary/90 backdrop-blur-md px-4 py-2 rounded-xl border border-border shadow-md flex items-center gap-2 hover:bg-secondary transition-all">
+                     العودة للصفحة الرئيسية
+                 </button>
+             </div>
              <IncentivesTabContent isAdminView={false} />
          </div>
        );
@@ -246,11 +248,13 @@ const AppContent = () => {
     // عرض الحضور والانصراف لجميع المستخدمين
     if (adminViewMode === 'attendance') {
        return (
-         <div className="pt-8 px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
-              <button onClick={() => setAdminViewMode(null)} className="mb-4 text-sm bg-secondary px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2 hover:bg-secondary/80 font-bold">
-                  العودة للصفحة الرئيسية
-              </button>
-              <AttendanceDashboard employeeId={user.id} />
+         <div className="pt-4 px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+             <div className="sticky top-4 z-50 flex justify-end mb-4">
+                 <button onClick={() => setAdminViewMode(null)} className="text-sm bg-secondary/90 backdrop-blur-md px-4 py-2 rounded-xl border border-border shadow-md flex items-center gap-2 hover:bg-secondary font-bold transition-all">
+                     العودة للصفحة الرئيسية
+                 </button>
+             </div>
+             <AttendanceDashboard employeeId={user.id} />
          </div>
        );
     }
