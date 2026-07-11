@@ -263,12 +263,15 @@ export default function Timesheets() {
         sheet.addRow({});
       }
 
-      // حماية الشيت لمنع سحب الصور أو تغيير أحجامها أو التعديل على الخلايا
-      // تم استخدام كلمة مرور فارغة لضمان عمل الحماية برمجياً من داخل المتصفح
-      await sheet.protect('', {
+      // فرض الحماية يدوياً على مستوى النموذج (Model) لتجاوز مشاكل exceljs في المتصفح
+      // `objects: true` تضمن قفل الصور (الكائنات) ومنع سحبها أو تغيير حجمها
+      (sheet as any).model.protect = {
+        sheet: true,
+        objects: true,
+        scenarios: true,
         selectLockedCells: true,
         selectUnlockedCells: true,
-      });
+      };
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
