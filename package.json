@@ -5,13 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "publish-app": "powershell -ExecutionPolicy Bypass -File publish-android.ps1"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1081.0",
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
@@ -26,20 +25,15 @@
     "bidi-js": "^1.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cordova-plugin-audiotoggle": "^1.0.3",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.2.4",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
-    "iconv-lite": "^0.7.2",
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.7",
     "katex": "^0.16.44",
     "localforage": "^1.10.0",
     "lucide-react": "^0.563.0",
-    "onesignal-cordova-plugin": "^5.3.6",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -48,8 +42,7 @@
     "react-router-dom": "^7.14.2",
     "react-webcam": "^7.2.0",
     "tailwind-merge": "^3.4.1",
-    "uuid": "^14.0.0",
-    "xml2js": "^0.6.2"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

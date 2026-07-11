@@ -30,27 +30,13 @@ export default defineConfig({
   build: {
     // ===== تحصين أمني: تعطيل Source Maps نهائياً في الإنتاج =====
     sourcemap: false,
-    // ===== تصعيد مستوى التشفير وإزالة أي خيوط تدل على المطور =====
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,      // إزالة جميع console.log
-        drop_debugger: true,     // إزالة debugger
-        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn', 'console.error'],
-        passes: 3,               // إجراء 3 تمريرات ضغط لتعقيد الكود الناتج وللتأمين الأقصى
-        global_defs: {
-          'process.env.NODE_ENV': JSON.stringify('production')
-        }
-      },
-      mangle: {
-        toplevel: true,          // تشفير أسماء المتغيرات والوظائف في المستوى الأعلى
-        properties: false,        // لا نشفر الخصائص لتجنب كسر واجهات API (إلا إذا حددنا مستثنيات)
-      },
-      format: {
-        comments: false,         // حذف التعليقات نهائياً
-        ascii_only: true,        // تحويل الأحرف غير اللاتينية إلى رموز لمنع قراءتها وللتحصين الأمني
-        beautify: false,
-      },
+    // ===== استخدام esbuild (الافتراضي في Vite) للضغط السريع =====
+    // esbuild أسرع 10-20x من Terser مع نفس جودة الإخراج
+    minify: 'esbuild',
+    // إزالة console و debugger من الإنتاج
+    esbuild: {
+      drop: ['console', 'debugger'],
+      legalComments: 'none',
     },
     rollupOptions: {
       output: {

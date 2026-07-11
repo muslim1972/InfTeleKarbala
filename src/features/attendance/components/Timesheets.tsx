@@ -263,8 +263,9 @@ export default function Timesheets() {
         sheet.addRow({});
       }
 
-      // حماية الشيت (للقراءة فقط) برقم سري بسيط يمكن لمدير النظام فكه إذا لزم الأمر
-      await sheet.protect('123456', {
+      // حماية الشيت لمنع سحب الصور أو تغيير أحجامها أو التعديل على الخلايا
+      // تم استخدام كلمة مرور فارغة لضمان عمل الحماية برمجياً من داخل المتصفح
+      await sheet.protect('', {
         selectLockedCells: true,
         selectUnlockedCells: true,
       });
