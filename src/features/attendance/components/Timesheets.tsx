@@ -211,9 +211,11 @@ export default function Timesheets() {
           if (rec.check_in_snapshot_url) {
             try {
                const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
-               checkInImgHtml = `<a href="${rec.check_in_snapshot_url}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
+               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
+               checkInImgHtml = `<a href="${viewerUrl}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
             } catch (e) {
-               checkInImgHtml = `<a href="${rec.check_in_snapshot_url}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
+               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
+               checkInImgHtml = `<a href="${viewerUrl}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
             }
           }
 
@@ -221,9 +223,11 @@ export default function Timesheets() {
           if (rec.check_out_snapshot_url) {
              try {
                const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
-               checkOutImgHtml = `<a href="${rec.check_out_snapshot_url}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
+               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
+               checkOutImgHtml = `<a href="${viewerUrl}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
             } catch (e) {
-               checkOutImgHtml = `<a href="${rec.check_out_snapshot_url}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
+               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
+               checkOutImgHtml = `<a href="${viewerUrl}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
             }
           }
 
@@ -272,7 +276,7 @@ export default function Timesheets() {
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
           enableLinks: true,
-          pagebreak: { mode: ['css', 'legacy'] }
+          pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
       };
 
       await html2pdf()

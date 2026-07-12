@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عرض الصورة</title>
+  <style>
+    body { 
+      margin: 0; 
+      background: #0f172a; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+      overflow: hidden; 
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    img { 
+      max-width: 90%; 
+      max-height: 90vh; 
+      object-fit: contain; 
+      border-radius: 8px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .close-btn { 
+      position: absolute; 
+      top: 20px; 
+      left: 20px; 
+      background: rgba(255, 255, 255, 0.1); 
+      color: white; 
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 24px; 
+      width: 50px; 
+      height: 50px; 
+      border-radius: 50%; 
+      cursor: pointer; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      transition: all 0.2s ease; 
+      backdrop-filter: blur(4px);
+      z-index: 50;
+    }
+    .close-btn:hover { 
+      background: #ef4444; 
+      border-color: #ef4444;
+      transform: scale(1.05);
+    }
+    .loading {
+      position: absolute;
+      color: #94a3b8;
+      font-size: 1.2rem;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <button class="close-btn" onclick="goBack()" title="العودة للملف">✕</button>
+  <div class="loading">جاري تحميل الصورة...</div>
+  <img id="image" src="" alt="" />
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const imgUrl = urlParams.get('url');
+    const imageEl = document.getElementById('image');
+    
+    if (imgUrl) {
+      imageEl.src = imgUrl;
+      imageEl.onload = () => {
+        document.querySelector('.loading').style.display = 'none';
+      };
+    } else {
+      document.querySelector('.loading').textContent = 'لم يتم العثور على الصورة';
+    }
+
+    function goBack() {
+      // If we have history, go back (useful when PDF is opened in the same tab)
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        // If opened in a new tab, close it
+        window.close();
+      }
+    }
+    
+    // Add escape key support
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        goBack();
+      }
+    });
+  </script>
+</body>
+</html>
