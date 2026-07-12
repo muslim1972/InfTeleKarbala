@@ -473,7 +473,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
               onClick={() => setShowTraineeLogin(true)}
               className="w-full bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] active:scale-[0.98] backdrop-blur-sm border border-white/10"
             >
-              <span>دخول متدربي التدريب الصيفي</span>
+              <span>دخول طلبة التدريب الصيفي</span>
               <GraduationCap className="w-5 h-5" />
             </button>
           </div>
