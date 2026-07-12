@@ -139,7 +139,7 @@ export default function Timesheets() {
       const printDate = new Date().toLocaleDateString('en-GB');
 
       let html = `
-        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1050px; margin: 0 auto; box-sizing: border-box;">
+        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
       `;
 
       for (let i = 0; i < groupedData.length; i++) {
@@ -287,7 +287,7 @@ export default function Timesheets() {
             pdf.setFontSize(10);
             pdf.setTextColor(100);
             pdf.text(
-              `صفحة ${i} من ${totalPages}`, 
+              `${i} / ${totalPages}`, 
               pdf.internal.pageSize.getWidth() / 2, 
               pdf.internal.pageSize.getHeight() - 5, 
               { align: 'center' }
