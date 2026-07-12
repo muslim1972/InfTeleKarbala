@@ -17,23 +17,42 @@ SELECT true, 60
 WHERE NOT EXISTS (SELECT 1 FROM public.summer_training_settings);
 
 -- ==========================================
--- 2. Create summer_training_students table
+-- 2. Create summer_training_students table (Matching exactly your DB structure)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.summer_training_students (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    full_name TEXT NOT NULL,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL, -- hashed using pgcrypto
-    institution_type TEXT NOT NULL,
-    institution_name TEXT NOT NULL,
-    department TEXT NOT NULL,
-    start_date DATE,
-    end_date DATE,
-    supervisor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-    exam_grade TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
+  id uuid not null default gen_random_uuid (),
+  full_name text not null,
+  username text not null,
+  password_hash text not null,
+  institution_type text not null,
+  institution_name text not null,
+  department text not null,
+  start_date date null,
+  end_date date null,
+  exam_grade text null,
+  supervisor_id uuid null,
+  created_at timestamp with time zone null default now(),
+  constraint summer_training_students_pkey primary key (id),
+  constraint summer_training_students_username_key unique (username),
+  constraint summer_training_students_supervisor_id_fkey foreign KEY (supervisor_id) references profiles (id),
+  constraint summer_training_students_exam_grade_check check (
+    (
+      exam_grade = any (
+        array[
+          'excellent'::text,
+          'very_good'::text,
+          'good'::text,
+          'acceptable'::text
+        ]
+      )
+    )
+  ),
+  constraint summer_training_students_institution_type_check check (
+    (
+      institution_type = any (array['college'::text, 'school'::text])
+    )
+  )
+) TABLESPACE pg_default;
 
 -- ==========================================
 -- 3. Create summer_training_results table
@@ -98,7 +117,7 @@ BEGIN
     SELECT *
     FROM public.summer_training_students
     WHERE username = p_username 
-      AND password = crypt(p_password, password);
+      AND password_hash = crypt(p_password, password_hash);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -119,7 +138,7 @@ BEGIN
     INSERT INTO public.summer_training_students (
         full_name,
         username,
-        password,
+        password_hash,
         institution_type,
         institution_name,
         department,
