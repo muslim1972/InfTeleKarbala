@@ -4,7 +4,7 @@ import { computeWorkedMinutes, formatDurationArabic } from '../utils/attendanceC
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import ExcelJS from 'exceljs';
+import html2pdf from 'html2pdf.js';
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 
@@ -113,32 +113,11 @@ export default function Timesheets() {
     return Object.values(groups).sort((a, b) => a.employee.full_name.localeCompare(b.employee.full_name));
   }, [records]);
 
-  const exportToExcel = async () => {
+  const exportToPDF = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
     
-    const toastId = toast.loading('جاري تجهيز الملف وتصدير الصور... يرجى الانتظار');
+    const toastId = toast.loading('جاري تجهيز الملف وتصدير الصور كـ PDF... يرجى الانتظار');
     try {
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('Timesheets', { views: [{ rightToLeft: true }] });
-
-      sheet.columns = [
-        { header: 'اسم الموظف', key: 'name', width: 25 },
-        { header: 'الرقم الوظيفي', key: 'job_number', width: 15 },
-        { header: 'التاريخ', key: 'date', width: 25 },
-        { header: 'نوع الدوام', key: 'shift_type', width: 20 },
-        { header: 'صورة الدخول', key: 'check_in_image', width: 15 },
-        { header: 'صورة الخروج', key: 'check_out_image', width: 15 },
-        { header: 'الدخول', key: 'check_in', width: 15 },
-        { header: 'الخروج', key: 'check_out', width: 15 },
-        { header: 'استراحة ز.', key: 'break_time', width: 20 },
-        { header: 'المدة الصافية', key: 'net_time', width: 20 },
-        { header: 'ملاحظات', key: 'notes', width: 30 },
-        { header: 'الحالة', key: 'status', width: 15 },
-      ];
-
-      sheet.getRow(1).font = { bold: true, size: 12 };
-      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
-
       const urlToBase64Png = (url: string): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
@@ -156,23 +135,66 @@ export default function Timesheets() {
         });
       };
 
+      const container = document.createElement('div');
+      container.style.cssText = `
+          position: fixed;
+          top: -9999px;
+          left: 0;
+          width: 1100px;
+          background: white;
+          padding: 30px;
+          direction: rtl;
+          font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif;
+          color: black;
+      `;
+      
+      const lastDay = new Date(year, month, 0).getDate();
+      const printDate = new Date().toLocaleDateString('en-GB');
+      
+      let html = `
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px;">
+              <div style="text-align: right; flex: 1;">
+                  <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">مديرية اتصالات ومعلوماتية</div>
+                  <div style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">كربلاء المقدسة</div>
+                  <div style="font-size: 14px; font-weight: bold; color: #444;">تطبيق الادارة الموحد</div>
+              </div>
+              <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+                  <img src="/icon-192.png" alt="شعار التطبيق" style="width: 85px; height: 85px; object-fit: contain;" crossorigin="anonymous" />
+              </div>
+              <div style="flex: 1; text-align: left;">
+                  <div style="font-size: 12px; font-weight: bold; color: #555;">تاريخ الطباعة: ${printDate}</div>
+                  <div style="font-size: 16px; font-weight: bold; margin-top: 10px;">جدول الحضور والانصراف</div>
+                  <div style="font-size: 14px; color: #333; margin-top: 5px;">الفترة: 1-${month}-${year} إلى ${lastDay}-${month}-${year}</div>
+              </div>
+          </div>
+      `;
+
+      html += `<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center;">
+        <thead>
+          <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 2px solid #d1d5db;">
+            <th style="padding: 10px; border: 1px solid #d1d5db;">التاريخ</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">الدوام</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">ص. دخول</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">ص. خروج</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">دخول</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">خروج</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">استراحة ز.</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">الصافي</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">ملاحظات</th>
+            <th style="padding: 10px; border: 1px solid #d1d5db;">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+
       for (const group of groupedData) {
-        const topRow = sheet.addRow({
-          name: group.employee.full_name,
-          job_number: group.employee.job_number,
-          date: '',
-          shift_type: '',
-          check_in_image: '',
-          check_out_image: '',
-          check_in: '',
-          check_out: '',
-          break_time: '',
-          net_time: '',
-          notes: '',
-          status: ''
-        });
-        topRow.font = { bold: true, color: { argb: 'FF1E40AF' } };
-        topRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+        html += `
+          <tr style="background-color: #e0f2fe; font-weight: bold;">
+            <td colspan="10" style="padding: 12px; border: 1px solid #d1d5db; text-align: right; color: #0369a1; font-size: 15px;">
+              ${group.employee.full_name} <span style="color: #475569; font-size: 13px;">(${group.employee.job_number})</span>
+            </td>
+          </tr>
+        `;
 
         for (const rec of group.records) {
           const dateObj = parseISO(rec.check_in);
@@ -195,99 +217,78 @@ export default function Timesheets() {
             : '--';
           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
           
-          const recordRow = sheet.addRow({
-            name: '',
-            job_number: '',
-            date: dateStr,
-            shift_type: scheduleName,
-            check_in_image: '',
-            check_out_image: '',
-            check_in: inTime,
-            check_out: outTime,
-            break_time: leaveStr,
-            net_time: formatDurationArabic(netMins),
-            notes: rec.notes || '',
-            status: rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status
-          });
-
-          if (isForgotCheckout || rec.is_auto_check_out) {
-            recordRow.getCell('check_out').font = { color: { argb: 'FFE11D48' }, bold: true };
+          let checkInImgHtml = '-';
+          if (rec.check_in_snapshot_url) {
+            try {
+               const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
+               checkInImgHtml = `<a href="${rec.check_in_snapshot_url}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
+            } catch (e) {
+               checkInImgHtml = `<a href="${rec.check_in_snapshot_url}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
+            }
           }
 
-          // Fetch and embed images
-          const embedImage = async (url: string, col: number) => {
-            try {
-              const base64 = await urlToBase64Png(url);
-              const imageId = workbook.addImage({
-                base64: base64,
-                extension: 'png',
-              });
-              sheet.addImage(imageId, {
-                tl: { col: col - 1, row: recordRow.number - 1 },
-                ext: { width: 50, height: 50 },
-                editAs: 'oneCell',
-                hyperlinks: {
-                  hyperlink: url,
-                  tooltip: 'انقر لفتح الصورة الأصلية'
-                }
-              } as any);
-              recordRow.getCell(col).value = { text: ' ', hyperlink: url };
-              recordRow.height = 40;
-            } catch (err) {
-              console.error('Image load fail:', err);
-              recordRow.getCell(col).value = { text: 'رابط الصورة', hyperlink: url };
+          let checkOutImgHtml = '-';
+          if (rec.check_out_snapshot_url) {
+             try {
+               const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
+               checkOutImgHtml = `<a href="${rec.check_out_snapshot_url}" target="_blank"><img src="${b64}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
+            } catch (e) {
+               checkOutImgHtml = `<a href="${rec.check_out_snapshot_url}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
             }
-          };
+          }
 
-          if (rec.check_in_snapshot_url) await embedImage(rec.check_in_snapshot_url, 5);
-          if (rec.check_out_snapshot_url) await embedImage(rec.check_out_snapshot_url, 6);
+          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
+          const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
+
+          html += `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${dateStr}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${scheduleName}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${checkInImgHtml}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${checkOutImgHtml}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db; ${inTimeColor}">${inTime}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db; ${outTimeColor}">${outTime}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${leaveStr}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${formatDurationArabic(netMins)}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${rec.notes || ''}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status}</td>
+            </tr>
+          `;
         }
 
-        const sumRow = sheet.addRow({
-          name: '',
-          job_number: '',
-          date: `إجمالي: ${(group.totalMins / 60).toFixed(2)} ساعة`,
-          shift_type: '',
-          check_in_image: '',
-          check_out_image: '',
-          check_in: `تأخير: ${group.lateCount}`,
-          check_out: `غياب: ${group.absenceCount}`,
-          break_time: '',
-          net_time: '',
-          notes: '',
-          status: ''
-        });
-        sumRow.font = { bold: true, color: { argb: 'FF1E40AF' } };
-        sumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
-        
-        sheet.addRow({});
+        html += `
+          <tr style="background-color: #f8fafc; font-weight: bold;">
+            <td colspan="10" style="padding: 10px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
+              إجمالي الساعات: ${(group.totalMins / 60).toFixed(2)} | تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
+            </td>
+          </tr>
+        `;
       }
 
-      // حقن الحماية يدوياً برمز سري محزوم مسبقاً (123456) لتجاوز مشكلة غياب مكتبة crypto في المتصفح
-      // ملاحظة: في مكتبة exceljs القيمة false تعني (لا تسمح للمستخدم بالتعديل)، مما ينتج حماية للصورة
-      (sheet as any).sheetProtection = {
-        sheet: true,
-        objects: false,
-        scenarios: false,
-        selectLockedCells: true,
-        selectUnlockedCells: true,
-        algorithmName: "SHA-512",
-        saltValue: "qTrtiNiCULD0wCtJJuS+WQ==",
-        spinCount: 100000,
-        hashValue: "EXxIjC66tEQ+IpV1rG5FuqaqUJ0GK9beshq47IsmyKJ9u/uyHxNAcFuI5LMVmKC4bYgYmZOC0HaIty7RwdbbqA=="
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      const opt = {
+          margin: [10, 10, 10, 10], // mm
+          filename: `جدول_الحضور_والانصراف_${month}_${year}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+              scale: 2, 
+              useCORS: true,
+              logging: false
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          enableLinks: true,
+          pagebreak: { mode: ['css', 'legacy'] }
       };
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const lastDay = new Date(year, month, 0).getDate();
-      a.download = `جدول الحضور والانصراف العام من 1-${month}-${year} الى ${lastDay}-${month}-${year}.xlsx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await html2pdf().set(opt).from(container).save();
+      document.body.removeChild(container);
+
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
+      console.error('Export Error:', err);
       toast.error('فشل تصدير الملف: ' + err.message, { id: toastId });
     }
   };
@@ -339,9 +340,9 @@ export default function Timesheets() {
           </div>
         </div>
 
-        <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
+        <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
           <FileSpreadsheet className="w-4 h-4" />
-          تصدير Excel
+          تصدير PDF
         </button>
       </div>
 
