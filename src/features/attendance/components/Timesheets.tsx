@@ -263,14 +263,18 @@ export default function Timesheets() {
         sheet.addRow({});
       }
 
-      // فرض الحماية يدوياً على مستوى النموذج (Model) لتجاوز مشاكل exceljs في المتصفح
-      // `objects: true` تضمن قفل الصور (الكائنات) ومنع سحبها أو تغيير حجمها
-      (sheet as any).model.protect = {
+      // حقن الحماية يدوياً برمز سري محزوم مسبقاً (123456) لتجاوز مشكلة غياب مكتبة crypto في المتصفح
+      // ملاحظة: في مكتبة exceljs القيمة false تعني (لا تسمح للمستخدم بالتعديل)، مما ينتج حماية للصورة
+      (sheet as any).sheetProtection = {
         sheet: true,
-        objects: true,
-        scenarios: true,
+        objects: false,
+        scenarios: false,
         selectLockedCells: true,
         selectUnlockedCells: true,
+        algorithmName: "SHA-512",
+        saltValue: "qTrtiNiCULD0wCtJJuS+WQ==",
+        spinCount: 100000,
+        hashValue: "EXxIjC66tEQ+IpV1rG5FuqaqUJ0GK9beshq47IsmyKJ9u/uyHxNAcFuI5LMVmKC4bYgYmZOC0HaIty7RwdbbqA=="
       };
 
       const buffer = await workbook.xlsx.writeBuffer();
