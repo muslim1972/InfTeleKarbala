@@ -135,23 +135,11 @@ export default function Timesheets() {
         });
       };
 
-      const container = document.createElement('div');
-      container.style.cssText = `
-          position: fixed;
-          top: -9999px;
-          left: 0;
-          width: 1100px;
-          background: white;
-          padding: 30px;
-          direction: rtl;
-          font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif;
-          color: black;
-      `;
-      
       const lastDay = new Date(year, month, 0).getDate();
       const printDate = new Date().toLocaleDateString('en-GB');
-      
+
       let html = `
+        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; padding: 30px; width: 1100px; margin: 0 auto;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px;">
               <div style="text-align: right; flex: 1;">
                   <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">مديرية اتصالات ومعلوماتية</div>
@@ -265,9 +253,7 @@ export default function Timesheets() {
         `;
       }
 
-      html += `</tbody></table>`;
-      container.innerHTML = html;
-      document.body.appendChild(container);
+      html += `</tbody></table></div>`;
 
       const opt = {
           margin: [10, 10, 10, 10], // mm
@@ -276,15 +262,15 @@ export default function Timesheets() {
           html2canvas: { 
               scale: 2, 
               useCORS: true,
-              logging: false
+              logging: false,
+              windowWidth: 1200
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
           enableLinks: true,
           pagebreak: { mode: ['css', 'legacy'] }
       };
 
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
+      await html2pdf().set(opt).from(html).save();
 
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
