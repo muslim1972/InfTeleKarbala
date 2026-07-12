@@ -139,49 +139,51 @@ export default function Timesheets() {
       const printDate = new Date().toLocaleDateString('en-GB');
 
       let html = `
-        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; padding: 30px; width: 1100px; margin: 0 auto;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px;">
-              <div style="text-align: right; flex: 1;">
-                  <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">مديرية اتصالات ومعلوماتية</div>
-                  <div style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">كربلاء المقدسة</div>
-                  <div style="font-size: 14px; font-weight: bold; color: #444;">تطبيق الادارة الموحد</div>
-              </div>
-              <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
-                  <img src="/icon-192.png" alt="شعار التطبيق" style="width: 85px; height: 85px; object-fit: contain;" crossorigin="anonymous" />
-              </div>
-              <div style="flex: 1; text-align: left;">
-                  <div style="font-size: 12px; font-weight: bold; color: #555;">تاريخ الطباعة: ${printDate}</div>
-                  <div style="font-size: 16px; font-weight: bold; margin-top: 10px;">جدول الحضور والانصراف</div>
-                  <div style="font-size: 14px; color: #333; margin-top: 5px;">الفترة: 1-${month}-${year} إلى ${lastDay}-${month}-${year}</div>
-              </div>
-          </div>
+        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1050px; margin: 0 auto; box-sizing: border-box;">
       `;
 
-      html += `<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center;">
-        <thead>
-          <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 2px solid #d1d5db;">
-            <th style="padding: 10px; border: 1px solid #d1d5db;">التاريخ</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">الدوام</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">ص. دخول</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">ص. خروج</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">دخول</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">خروج</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">استراحة ز.</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">الصافي</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">ملاحظات</th>
-            <th style="padding: 10px; border: 1px solid #d1d5db;">الحالة</th>
-          </tr>
-        </thead>
-        <tbody>
-      `;
+      for (let i = 0; i < groupedData.length; i++) {
+        const group = groupedData[i];
+        const pageBreakStyle = i > 0 ? 'page-break-before: always; padding-top: 10px;' : '';
 
-      for (const group of groupedData) {
         html += `
-          <tr style="background-color: #e0f2fe; font-weight: bold;">
-            <td colspan="10" style="padding: 12px; border: 1px solid #d1d5db; text-align: right; color: #0369a1; font-size: 15px;">
-              ${group.employee.full_name} <span style="color: #475569; font-size: 13px;">(${group.employee.job_number})</span>
-            </td>
-          </tr>
+          <div style="${pageBreakStyle}">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px;">
+                <div style="text-align: right; flex: 1;">
+                    <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">مديرية اتصالات ومعلوماتية</div>
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">كربلاء المقدسة</div>
+                    <div style="font-size: 14px; font-weight: bold; color: #444;">تطبيق الادارة الموحد</div>
+                </div>
+                <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+                    <img src="/icon-192.png" alt="شعار التطبيق" style="width: 85px; height: 85px; object-fit: contain;" crossorigin="anonymous" />
+                </div>
+                <div style="flex: 1; text-align: left;">
+                    <div style="font-size: 12px; font-weight: bold; color: #555;">تاريخ الطباعة: ${printDate}</div>
+                    <div style="font-size: 16px; font-weight: bold; margin-top: 10px;">جدول الحضور والانصراف</div>
+                    <div style="font-size: 14px; color: #333; margin-top: 5px;">الفترة: 1-${month}-${year} إلى ${lastDay}-${month}-${year}</div>
+                </div>
+            </div>
+
+            <div style="background-color: #e0f2fe; padding: 12px; border: 1px solid #d1d5db; text-align: right; color: #0369a1; font-size: 16px; font-weight: bold; margin-bottom: 10px; border-radius: 4px;">
+              ${group.employee.full_name} <span style="color: #475569; font-size: 14px;">(${group.employee.job_number})</span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; margin-bottom: 20px;">
+              <thead>
+                <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 2px solid #d1d5db;">
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">التاريخ</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">الدوام</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">ص. دخول</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">ص. خروج</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">دخول</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">خروج</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">استراحة ز.</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">الصافي</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">ملاحظات</th>
+                  <th style="padding: 10px; border: 1px solid #d1d5db;">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
         `;
 
         for (const rec of group.records) {
@@ -245,32 +247,54 @@ export default function Timesheets() {
         }
 
         html += `
-          <tr style="background-color: #f8fafc; font-weight: bold;">
-            <td colspan="10" style="padding: 10px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
-              إجمالي الساعات: ${(group.totalMins / 60).toFixed(2)} | تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
-            </td>
-          </tr>
+                <tr style="background-color: #f8fafc; font-weight: bold;">
+                  <td colspan="10" style="padding: 10px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
+                    إجمالي الساعات: ${(group.totalMins / 60).toFixed(2)} | تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         `;
       }
 
-      html += `</tbody></table></div>`;
+      html += `</div>`;
 
       const opt = {
-          margin: [10, 10, 10, 10], // mm
+          margin: [10, 10, 15, 10], // mm (top, left, bottom, right)
           filename: `جدول_الحضور_والانصراف_${month}_${year}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { 
               scale: 2, 
               useCORS: true,
               logging: false,
-              windowWidth: 1200
+              windowWidth: 1050
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
           enableLinks: true,
           pagebreak: { mode: ['css', 'legacy'] }
       };
 
-      await html2pdf().set(opt).from(html).save();
+      await html2pdf()
+        .set(opt)
+        .from(html)
+        .toPdf()
+        .get('pdf')
+        .then((pdf: any) => {
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(10);
+            pdf.setTextColor(100);
+            pdf.text(
+              `صفحة ${i} من ${totalPages}`, 
+              pdf.internal.pageSize.getWidth() / 2, 
+              pdf.internal.pageSize.getHeight() - 5, 
+              { align: 'center' }
+            );
+          }
+        })
+        .save();
 
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
