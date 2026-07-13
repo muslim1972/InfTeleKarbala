@@ -1,3 +1,25 @@
+/* Local Fonts Imports */
+@import '@fontsource/tajawal/300.css';
+@import '@fontsource/tajawal/400.css';
+@import '@fontsource/tajawal/500.css';
+@import '@fontsource/tajawal/700.css';
+@import '@fontsource/tajawal/800.css';
+@import '@fontsource/tajawal/900.css';
+
+@import '@fontsource/cairo/300.css';
+@import '@fontsource/cairo/400.css';
+@import '@fontsource/cairo/500.css';
+@import '@fontsource/cairo/700.css';
+@import '@fontsource/cairo/900.css';
+
+@import '@fontsource/poppins/300.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/700.css';
+
+@import '@fontsource/amiri/400.css';
+@import '@fontsource/amiri/700.css';
+
 /* CSS Variables for Safe Area Insets */
 :root {
   --safe-area-top: env(safe-area-inset-top);

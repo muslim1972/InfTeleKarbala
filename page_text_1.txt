@@ -1,2 +1,0 @@
-Access Denied
-Bad Request
