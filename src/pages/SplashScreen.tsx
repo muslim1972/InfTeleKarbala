@@ -87,7 +87,7 @@ interface SplashScreenProps {
 
 export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [isExiting, setIsExiting] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [audioStarted, setAudioStarted] = useState(false);
   const { playIntro, stopAudio } = useSplashAudio();
 
   const handleSkip = useCallback(() => {
@@ -96,24 +96,44 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     stopAudio();
   }, [isExiting, stopAudio]);
 
-  // ── تشغيل المؤقت والموسيقى ─────────────────────────
+  // ── محاولة التشغيل التلقائي فور التحميل ─────────────
   useEffect(() => {
-    const exitTimer = window.setTimeout(() => {
-      setIsExiting(true);
-      stopAudio();
-    }, 10000);
+    // محاولة فورية
+    const autoPlayed = playIntro();
+    if (autoPlayed) {
+      setAudioStarted(true);
+    }
 
-    return () => {
-      window.clearTimeout(exitTimer);
-      stopAudio();
-    };
-  }, [stopAudio]);
+    // إذا لم ينجح التشغيل الفوري، ننتظر أن يستأنف الـ AudioContext
+    // (قد يحصل بعد أجزاء من الثانية في PWA)
+    if (!autoPlayed) {
+      const checkInterval = window.setInterval(() => {
+        const retried = playIntro();
+        if (retried) {
+          setAudioStarted(true);
+          window.clearInterval(checkInterval);
+        }
+      }, 300);
 
-  // ── تفعيل الموسيقى بعد أول تفاعل ──
+      // نوقف المحاولات بعد 3 ثوانٍ لتجنب الإزعاج
+      const stopRetries = window.setTimeout(() => {
+        window.clearInterval(checkInterval);
+      }, 3000);
+
+      return () => {
+        window.clearInterval(checkInterval);
+        window.clearTimeout(stopRetries);
+      };
+    }
+  }, [playIntro]);
+
+  // ── تفعيل الموسيقى عند أول تفاعل (fallback) ──
   useEffect(() => {
+    if (audioStarted) return; // لا حاجة إذا تشغّل تلقائياً
+
     const handleFirstInteraction = () => {
-      if (!hasInteracted) {
-        setHasInteracted(true);
+      if (!audioStarted) {
+        setAudioStarted(true);
         playIntro();
       }
     };
@@ -127,7 +147,20 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
     };
-  }, [playIntro, hasInteracted]);
+  }, [playIntro, audioStarted]);
+
+  // ── تشغيل المؤقت ─────────────────────────
+  useEffect(() => {
+    const exitTimer = window.setTimeout(() => {
+      setIsExiting(true);
+      stopAudio();
+    }, 10000);
+
+    return () => {
+      window.clearTimeout(exitTimer);
+      stopAudio();
+    };
+  }, [stopAudio]);
 
   return (
     <AnimatePresence onExitComplete={onComplete}>
@@ -141,8 +174,8 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           style={{ background: '#030510' }}
           dir="rtl"
           onClick={() => {
-            if (!hasInteracted) {
-              setHasInteracted(true);
+            if (!audioStarted) {
+              setAudioStarted(true);
               playIntro();
             }
           }}
@@ -288,8 +321,8 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             تخطي العرض ←
           </motion.button>
 
-          {/* ── رسالة تلميح الصوت ── */}
-          {!hasInteracted && (
+          {/* ── رسالة تلميح الصوت — تظهر فقط إذا لم يتمكن التشغيل التلقائي ── */}
+          {!audioStarted && (
             <motion.p
               className="absolute bottom-16 text-white/40 text-sm font-tajawal tracking-[0.3em]"
               animate={{ opacity: [0.3, 0.8, 0.3], y: [0, -8, 0] }}

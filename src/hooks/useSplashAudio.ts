@@ -8,6 +8,10 @@
  * - فخمة ورصينة (تناسب جهة حكومية)
  * - مدتها ~8 ثوانٍ مع تلاشي تدريجي
  * - تتكون من أوتار (Chords) + Pad + Bell
+ * 
+ * استراتيجية التشغيل:
+ * 1. محاولة التشغيل التلقائي فوراً (يعمل في PWA والتطبيقات المثبتة)
+ * 2. إذا منع المتصفح التشغيل، ننتظر أول تفاعل من المستخدم
  */
 
 import { useRef, useCallback } from 'react';
@@ -16,13 +20,8 @@ export const useSplashAudio = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const isPlayingRef = useRef(false);
 
-  const playIntro = useCallback(() => {
-    if (isPlayingRef.current) return;
-    isPlayingRef.current = true;
-
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    audioContextRef.current = ctx;
-
+  /** تشغيل جميع طبقات النغمة على AudioContext جاهز */
+  const _startNotes = useCallback((ctx: AudioContext) => {
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 1);
@@ -157,8 +156,49 @@ export const useSplashAudio = () => {
       osc.start(ctx.currentTime + 1.5 + i * 0.2);
       osc.stop(ctx.currentTime + 13);
     });
-
   }, []);
+
+  /**
+   * playIntro — محاولة التشغيل التلقائي
+   * يعود بـ true إذا نجح التشغيل فوراً، false إذا منع المتصفح الصوت
+   */
+  const playIntro = useCallback((): boolean => {
+    if (isPlayingRef.current) return true;
+
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = ctx;
+
+      // إذا كان الـ AudioContext في حالة suspended (المتصفح منع التشغيل)
+      // نحاول استئنافه — هذه الحيلة تعمل في PWA والتطبيقات المثبتة
+      if (ctx.state === 'suspended') {
+        const resumePromise = ctx.resume();
+        resumePromise.then(() => {
+          if (!isPlayingRef.current) {
+            isPlayingRef.current = true;
+            _startNotes(ctx);
+          }
+        }).catch(() => {
+          // المتصفح رفض — سنحتاج تفاعل المستخدم
+        });
+        // نتحقق فوراً: هل نجح الاستئناف بشكل متزامن؟
+        // في بعض المتصفحات ctx.state يتغير فوراً
+        if (ctx.state === 'running') {
+          isPlayingRef.current = true;
+          _startNotes(ctx);
+          return true;
+        }
+        return false;
+      }
+
+      // AudioContext يعمل مباشرة — نشغّل النغمات
+      isPlayingRef.current = true;
+      _startNotes(ctx);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [_startNotes]);
 
   const stopAudio = useCallback(() => {
     if (audioContextRef.current) {
