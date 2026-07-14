@@ -44,7 +44,7 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
 
     const handleStartExam = async () => {
         setLoadingQuestions(true);
-        const loadedQuestions = await loadExamQuestions(`${TRAINING_SUBJECT}_A`); // Note: you might want logic to distribute A & B
+        const loadedQuestions = await loadExamQuestions();
         setQuestions(loadedQuestions);
         setLoadingQuestions(false);
 

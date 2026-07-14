@@ -79,7 +79,10 @@ export const TraineeExamSession = ({
         questions.forEach((q, i) => {
             if (answers[i] === q.correctIndex) correct++;
         });
-        setScore(correct);
+        
+        // احتساب النتيجة: نقطتان لكل إجابة صحيحة
+        const finalScore = correct * 2;
+        setScore(finalScore);
 
         setSaving(true);
         const elapsedExactSeconds = (performance.now() - startTimestampRef.current) / 1000;
@@ -87,8 +90,8 @@ export const TraineeExamSession = ({
 
         const success = await saveTrainingResult({
             student_id: student.id,
-            score: correct,
-            total_questions: questions.length,
+            score: finalScore,
+            total_questions: questions.length, // سيبقى 50 للاحتفاظ بعدد الأسئلة
             attempt_number: currentAttempt,
             started_at: startedAtRef.current,
             duration_seconds: Number(elapsedExactSeconds.toFixed(2)),
@@ -110,9 +113,7 @@ export const TraineeExamSession = ({
     const remainingAttempts = MAX_EXAM_ATTEMPTS - currentAttempt;
 
     if (submitted) {
-        const percentage = Math.round((score / questions.length) * 100);
-        const grade = calculateGrade(percentage);
-        const gradeLabel = EXAM_GRADE_LABELS[grade];
+        const isPassed = score >= 70;
 
         return (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
@@ -120,7 +121,9 @@ export const TraineeExamSession = ({
                 {/* Result Card */}
                 <div className={cn(
                     "relative rounded-2xl p-6 border text-center space-y-4",
-                    isDark ? "bg-emerald-950/30 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"
+                    isPassed 
+                        ? (isDark ? "bg-emerald-950/30 border-emerald-500/20" : "bg-emerald-50 border-emerald-200")
+                        : (isDark ? "bg-red-950/30 border-red-500/20" : "bg-red-50 border-red-200")
                 )}>
                     {/* Back Button */}
                     <button
@@ -135,26 +138,25 @@ export const TraineeExamSession = ({
                     </button>
                     <div className={cn(
                         "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
-                        isDark ? "bg-emerald-500/20" : "bg-emerald-100"
+                        isPassed ? (isDark ? "bg-emerald-500/20" : "bg-emerald-100") : (isDark ? "bg-red-500/20" : "bg-red-100")
                     )}>
-                        <Trophy className={cn("w-10 h-10", "text-emerald-500")} />
+                        {isPassed ? (
+                            <Trophy className={cn("w-10 h-10", "text-emerald-500")} />
+                        ) : (
+                            <XCircle className={cn("w-10 h-10", "text-red-500")} />
+                        )}
                     </div>
+                    
                     <h3 className={cn("text-3xl font-black", isDark ? "text-white" : "text-slate-900")}>
-                        <span dir="ltr">{score} / {questions.length}</span>
+                        <span dir="ltr">{score} / 100</span>
                     </h3>
+                    
                     <p className={cn("text-lg font-bold leading-relaxed", isDark ? "text-white/80" : "text-slate-700")}>
-                        نتيجة اختبار {student.full_name} بنسبة {percentage}%
+                        {isPassed 
+                            ? `ألف مبروك يا ${student.full_name}! لقد اجتزت الاختبار بنجاح.` 
+                            : `حظاً أوفر يا ${student.full_name}، لم تجتز درجة النجاح المطلوبة (70/100).`}
                     </p>
-                    {/* التقدير */}
-                    <div className={cn(
-                        "inline-block px-6 py-2 rounded-full text-sm font-black",
-                        grade === 'excellent' ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
-                        grade === 'very_good' ? "bg-blue-500/20 text-blue-600 dark:text-blue-400" :
-                        grade === 'good' ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
-                        "bg-orange-500/20 text-orange-600 dark:text-orange-400"
-                    )}>
-                        التقدير: {gradeLabel}
-                    </div>
+
                     {exactDuration && (
                         <p className={cn("text-sm font-bold", isDark ? "text-amber-300" : "text-amber-700")}>
                             الوقت المستغرق: <span dir="ltr">{Math.floor(exactDuration / 60)}:{(exactDuration % 60).toFixed(2).padStart(5, '0')}</span>

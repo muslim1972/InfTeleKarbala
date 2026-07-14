@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
-import ExcelJS from 'exceljs';
 import type { MCQQuestion, TrainingSettings, TrainingStudent, TrainingResult } from '../types';
 import { calculateGrade } from '../types';
 
@@ -117,47 +116,20 @@ export function useTrainingData() {
         }
     }, []);
 
-    // ── تحميل أسئلة Excel وتحويلها إلى MCQ ──
-    const loadExamQuestions = useCallback(async (subject: string): Promise<MCQQuestion[]> => {
-        const path = `exams/training/${subject}.xlsx`;
+    // ── جلب أسئلة الاختبار عشوائياً من قاعدة البيانات ──
+    const loadExamQuestions = useCallback(async (): Promise<MCQQuestion[]> => {
         try {
-            const { data, error } = await supabase.storage.from('Lectures').download(path);
+            // استدعاء الدالة (RPC) التي تجلب 15 سهل + 15 متوسط + 20 متقدم
+            const { data, error } = await supabase.rpc('get_random_training_questions');
             if (error) throw error;
+            if (!data || data.length === 0) return [];
 
-            const arrayBuffer = await data.arrayBuffer();
-            const workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(arrayBuffer);
-            const worksheet = workbook.worksheets[0];
-            if (!worksheet) return [];
+            return data.map((row: any) => {
+                const question = row.question_text;
+                const correctAnswer = row.option_1; // دائماً الإجابة الصحيحة هي الأولى من قاعدة البيانات
+                const options = [row.option_1, row.option_2, row.option_3, row.option_4];
 
-            const rows: string[][] = [];
-            worksheet.eachRow((row) => {
-                const rowData: string[] = [];
-                row.eachCell((cell) => {
-                    rowData.push(String(cell.value || ''));
-                });
-                rows.push(rowData);
-            });
-
-            const validRows = rows.filter(row =>
-                row.length >= 5 &&
-                row[0] && String(row[0]).trim() !== '' &&
-                String(row[0]).trim() !== 'السؤال'
-            );
-
-            if (validRows.length === 0) return [];
-
-            return validRows.map(row => {
-                const question = String(row[0]).trim();
-                const correctAnswer = String(row[1]).trim();
-                const options = [
-                    String(row[1]).trim(),
-                    String(row[2]).trim(),
-                    String(row[3]).trim(),
-                    String(row[4]).trim(),
-                ];
-
-                // Fisher-Yates shuffle
+                // Fisher-Yates shuffle لخلط الخيارات
                 const shuffledOptions = [...options];
                 for (let i = shuffledOptions.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -171,7 +143,7 @@ export function useTrainingData() {
                 };
             });
         } catch (err) {
-            console.error('فشل تحميل ملف الأسئلة:', err);
+            console.error('فشل تحميل الأسئلة من قاعدة البيانات:', err);
             return [];
         }
     }, []);
@@ -254,9 +226,9 @@ export function useTrainingData() {
             });
             if (error) throw error;
 
-            // تحديث التقدير في جدول المتدربين
-            const percentage = Math.round((result.score / result.total_questions) * 100);
-            const grade = calculateGrade(percentage);
+            // تحديث التقدير في جدول المتدربين (استناداً لدرجة النجاح 70/100)
+            const isPassed = result.score >= 70;
+            const grade = isPassed ? 'good' : 'acceptable'; // يمكن تعديلها حسب رغبتكم
             await supabase
                 .from('summer_training_students')
                 .update({ exam_grade: grade })
