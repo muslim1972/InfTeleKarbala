@@ -620,8 +620,11 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                             return sortedStudents.map(student => {
                                                 const result = results.find(r => r.student_id === student.id);
                                                 if (result) {
-                                                    const percentage = Math.round((result.score / result.total_questions) * 100);
-                                                    const grade = calculateGrade(percentage);
+                                                    // Normalize score to 100 if it was saved out of 50
+                                                    const isOldFormat = result.total_questions === 50 && result.score <= 50;
+                                                    const finalScore = isOldFormat ? result.score * 2 : result.score;
+                                                    const isPassed = finalScore >= 70;
+
                                                     return (
                                                         <div key={student.id} onClick={() => setSelectedResult(result)} className={cn(
                                                             "relative p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md text-right",
@@ -638,17 +641,19 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                 </button>
                                                                 <span className={cn(
                                                                     "px-2 py-1 rounded-lg text-[10px] font-bold",
-                                                                    isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
+                                                                    isPassed
+                                                                        ? isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
+                                                                        : isDark ? "bg-red-500/15 text-red-300" : "bg-red-100 text-red-700"
                                                                 )}>
-                                                                    {EXAM_GRADE_LABELS[grade]}
+                                                                    {isPassed ? 'ناجح' : 'راسب'}
                                                                 </span>
                                                                 <span className={cn(
                                                                     "px-3 py-1.5 rounded-lg text-sm font-bold",
-                                                                    result.score >= (result.total_questions / 2)
+                                                                    isPassed
                                                                         ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
                                                                         : isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
                                                                 )} dir="ltr">
-                                                                    {result.score} / {result.total_questions}
+                                                                    {finalScore} / 100
                                                                 </span>
                                                             </div>
 
@@ -658,7 +663,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                     {student.institution_name} — {student.department}
                                                                 </p>
                                                                 <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
-                                                                    الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — نسبة الاجابة = <span className="font-mono" dir="ltr">{result.score} / {result.total_questions}</span> — التقدير: {EXAM_GRADE_LABELS[grade]}
+                                                                    الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — الدرجة = <span className="font-mono" dir="ltr">{finalScore} / 100</span> — النتيجة: {isPassed ? 'ناجح' : 'راسب'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -699,8 +704,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             <div>
                                 <h2 className="text-lg font-bold">تفاصيل إجابات الطالب</h2>
                                 <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")}>
-                                    النتيجة: {selectedResult.score}/{selectedResult.total_questions}
-                                    {' — '}التقدير: {EXAM_GRADE_LABELS[calculateGrade(Math.round((selectedResult.score / selectedResult.total_questions) * 100))]}
+                                    النتيجة: {selectedResult.total_questions === 50 && selectedResult.score <= 50 ? selectedResult.score * 2 : selectedResult.score} / 100
+                                    {' — '}النتيجة النهائية: {(selectedResult.total_questions === 50 && selectedResult.score <= 50 ? selectedResult.score * 2 : selectedResult.score) >= 70 ? 'ناجح' : 'راسب'}
                                 </p>
                             </div>
                             <button onClick={() => setSelectedResult(null)} className="p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
