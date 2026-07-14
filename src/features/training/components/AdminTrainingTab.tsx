@@ -620,9 +620,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                             return sortedStudents.map(student => {
                                                 const result = results.find(r => r.student_id === student.id);
                                                 if (result) {
-                                                    // Normalize score to 100 if it was saved out of 50
-                                                    const isOldFormat = result.total_questions === 50 && result.score <= 50;
-                                                    const finalScore = isOldFormat ? result.score * 2 : result.score;
+                                                    const finalScore = result.score;
                                                     const isPassed = finalScore >= 70;
 
                                                     return (
@@ -704,8 +702,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             <div>
                                 <h2 className="text-lg font-bold">تفاصيل إجابات الطالب</h2>
                                 <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")}>
-                                    النتيجة: {selectedResult.total_questions === 50 && selectedResult.score <= 50 ? selectedResult.score * 2 : selectedResult.score} / 100
-                                    {' — '}النتيجة النهائية: {(selectedResult.total_questions === 50 && selectedResult.score <= 50 ? selectedResult.score * 2 : selectedResult.score) >= 70 ? 'ناجح' : 'راسب'}
+                                    النتيجة: {selectedResult.score} / 100
+                                    {' — '}النتيجة النهائية: {selectedResult.score >= 70 ? 'ناجح' : 'راسب'}
                                 </p>
                             </div>
                             <button onClick={() => setSelectedResult(null)} className="p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
