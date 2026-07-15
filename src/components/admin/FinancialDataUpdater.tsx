@@ -22,6 +22,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { cleanCertificate, cleanFinancialAmount, normalizeForComparison } from '../../utils/profileUtils';
 import { CERTIFICATES } from '../../constants/certificates';
+import { useAuth } from '../../context/AuthContext';
 
 interface FinancialDataUpdaterProps {
     onClose: () => void;
@@ -99,9 +100,88 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     const [progress, setProgress] = useState(0);
     const [processedCount, setProcessedCount] = useState(0);
     const [processingMessage, setProcessingMessage] = useState<string>('');
+    const [isImporting, setIsImporting] = useState(false);
+    const { currentUser } = useAuth();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { query: searchQuery, setQuery: setSearchQuery, results, isSearching } = useEmployeeSearch();
+
+    const excelMatches = React.useMemo(() => {
+        const trimmed = searchQuery.trim();
+        if (trimmed.length < 2 || excelData.length === 0) return [];
+        
+        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+        
+        return excelData.filter(row => {
+            const jobStr = String(row[jobIdCol] || '');
+            const nameStr = String(row[nameCol] || '');
+            return jobStr.includes(trimmed) || nameStr.includes(trimmed);
+        }).slice(0, 5);
+    }, [searchQuery, excelData, headers, mapping]);
+
+    const handleImportFromExcel = async (row: any) => {
+        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+
+        const job_number = String(row[jobIdCol] || '').trim();
+        const full_name = String(row[nameCol] || '').trim();
+
+        if (!job_number || !full_name) {
+            toast.error('تعذر تحديد الرقم الوظيفي أو الاسم من الإكسل');
+            return;
+        }
+
+        setIsImporting(true);
+        const toastId = toast.loading('جاري استيراد الموظف...');
+        
+        try {
+            const username = job_number;
+            const password = '123456';
+            const email = `${job_number}@inftele.com`;
+            const newUserId = crypto.randomUUID();
+
+            const { data: syncData, error: syncError } = await supabase.functions.invoke('admin-sync-auth', {
+                body: { user_id: newUserId, email, password }
+            });
+
+            if (syncError) {
+                let detail = syncError.message;
+                try {
+                    if (syncError.context && typeof syncError.context.json === 'function') {
+                        const body = await syncError.context.json();
+                        detail = body?.error || detail;
+                    } else if (syncData?.error) {
+                        detail = syncData.error;
+                    }
+                } catch (_) {}
+                throw new Error(detail);
+            }
+
+            const actualUserId = syncData?.user_id || newUserId;
+            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate') || 'كربلاء';
+
+            const { error: insertError } = await supabase.from('profiles').insert([{
+                id: actualUserId,
+                full_name,
+                job_number,
+                username,
+                role: 'user',
+                governorate: finalGovernorate
+            }]);
+
+            if (insertError) throw insertError;
+
+            toast.success('تم استيراد الموظف بنجاح!', { id: toastId });
+            setSelectedEmployee({ id: actualUserId, full_name, job_number, username });
+            setSearchQuery('');
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || 'فشل في استيراد الموظف', { id: toastId });
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -503,14 +583,53 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                                         {isSearching ? <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4 animate-spin" /> : <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />}
                                         <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="ابحث عن الموظف..." className="pr-10" />
                                     </div>
-                                    {results.length > 0 && !selectedEmployee && (
-                                        <div className="max-h-40 overflow-y-auto rounded-lg border dark:border-slate-700 bg-white dark:bg-slate-800">
-                                            {results.map((emp) => (
-                                                <button key={emp.id} onClick={() => { setSelectedEmployee(emp); setSearchQuery(''); }} className="w-full p-3 text-right hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between border-b last:border-0 dark:border-slate-700">
-                                                    <span className="text-sm font-medium">{emp.full_name}</span>
-                                                    <span className="text-xs text-slate-500">{emp.job_number}</span>
-                                                </button>
-                                            ))}
+                                    {(results.length > 0 || excelMatches.length > 0) && !selectedEmployee && (
+                                        <div className="max-h-60 overflow-y-auto rounded-lg border dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col shadow-sm">
+                                            {results.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-500 sticky top-0 border-b dark:border-slate-700 z-10">من قاعدة البيانات (DB)</div>
+                                                    {results.map((emp) => (
+                                                        <button key={emp.id} onClick={() => { setSelectedEmployee(emp); setSearchQuery(''); }} className="w-full p-3 text-right hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between border-b dark:border-slate-700 last:border-0">
+                                                            <span className="text-sm font-medium">{emp.full_name}</span>
+                                                            <span className="text-xs text-slate-500">{emp.job_number}</span>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                            
+                                            {excelMatches.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-2 bg-amber-50 dark:bg-amber-900/30 text-xs font-bold text-amber-600 dark:text-amber-400 sticky top-0 border-b border-t dark:border-slate-700 flex justify-between items-center z-10">
+                                                        <span>من الإكسل المرفوع (غير مسجلين)</span>
+                                                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    {excelMatches.map((row, idx) => {
+                                                        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+                                                        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+                                                        const rowJob = String(row[jobIdCol] || '');
+                                                        const rowName = String(row[nameCol] || '');
+                                                        
+                                                        if (results.some(r => r.job_number === rowJob)) return null;
+
+                                                        return (
+                                                            <div key={`ex-${idx}`} className="w-full p-3 text-right hover:bg-amber-50/50 dark:hover:bg-amber-900/10 flex items-center justify-between border-b dark:border-slate-700 last:border-0">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{rowName}</span>
+                                                                    <span className="text-xs text-slate-500">{rowJob}</span>
+                                                                </div>
+                                                                <Button size="sm" onClick={() => handleImportFromExcel(row)} disabled={isImporting} className="bg-amber-500 hover:bg-amber-600 text-white text-xs h-7 px-3">
+                                                                    {isImporting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'استيراد'}
+                                                                </Button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                    {searchQuery.trim().length >= 2 && results.length === 0 && excelData.length === 0 && !isSearching && !selectedEmployee && (
+                                        <div className="p-3 text-center text-sm text-slate-500 border rounded-lg border-dashed">
+                                            الموظف غير موجود. يرجى رفع ملف Excel للبحث بداخله واستيراده.
                                         </div>
                                     )}
                                     {selectedEmployee && (
