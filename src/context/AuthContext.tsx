@@ -285,7 +285,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // 5. Enforce 2FA on Everyone
       const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم', 'بشير', 'علي عباس جاسم'];
-      const isBypassedLogin = 
+      const isBypassedLogin = true; // تعطيل المصادقة الثنائية مؤقتاً للجميع لأغراض الصيانة
+      /*
           bypassedAccounts.includes(trimmedUsername) ||
           appUser.full_name?.includes('مسلم') ||
           appUser.full_name?.includes('بشير') ||
@@ -295,6 +296,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           appUser.job_number === '102514467' || // ياسر عبدالامير
           appUser.job_number === 'c121212' || // مستخدم تجريبي
           appUser.admin_role === 'developer';
+      */
           
       if (isBypassedLogin) {
         localStorage.setItem(`2fa_verified_${appUser.id}`, Date.now().toString());
