@@ -52,18 +52,13 @@ serve(async (req: Request) => {
     // 3. Sync Auth User via Admin API
     let authError = null;
     let finalUserId = user_id;
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw new Error(`List users error: ${listError.message}`)
     
-    // Check by ID first, then by email
-    let existingUser = users.find(u => u.id === user_id);
-    if (!existingUser) {
-      existingUser = users.find(u => u.email === email);
-    }
-
-    if (existingUser) {
-      // UPDATE existing user (use their existing ID)
-      finalUserId = existingUser.id;
+    // Instead of listUsers (which crashes if any row is corrupted), use getUserById
+    const { data: userData, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(user_id);
+    
+    if (userData && userData.user) {
+      // UPDATE existing user
+      finalUserId = userData.user.id;
       const { error } = await supabaseAdmin.auth.admin.updateUserById(finalUserId, {
         email: email,
         password: password,

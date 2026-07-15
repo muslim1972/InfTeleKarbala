@@ -234,6 +234,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (authError || !authData.user) {
+        if (authError && authError.status === 500) {
+          return { success: false, error: 'حدث خطأ في قاعدة بيانات المصادقة (500). يرجى مراجعة الدعم الفني.' };
+        }
         return { success: false, error: 'كلمة المرور غير صحيحة' };
       }
 
