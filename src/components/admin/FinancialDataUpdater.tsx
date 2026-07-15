@@ -159,7 +159,7 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
             }
 
             const actualUserId = syncData?.user_id || newUserId;
-            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate') || 'كربلاء';
+            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
 
             const { error: insertError } = await supabase.from('profiles').insert([{
                 id: actualUserId,
