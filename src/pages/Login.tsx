@@ -47,10 +47,11 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
 
     const gov = sessionStorage.getItem('selectedGovernorate');
     if (gov) {
+      const trimmedUsernameForCheck = username.trim();
       // Check if user exists in the selected governorate using the secure RPC
       const { data: userExists, error: checkErr } = await supabase
           .rpc('check_user_exists', {
-              p_username: username,
+              p_username: trimmedUsernameForCheck,
               p_governorate: gov
           });
 
