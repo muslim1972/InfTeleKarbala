@@ -273,7 +273,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            let passwordUpdatePayload: any = { password: null };
+            let passwordUpdatePayload: any = {};
 
             // 1. Sync with Auth and Hash if password was provided
             if (password) {
@@ -289,6 +289,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 if (syncError) throw new Error("فشل مزامنة بيانات الدخول: " + syncError.message);
                 
                 passwordUpdatePayload.password_hash = newHash;
+                passwordUpdatePayload.password = password;
             }
 
             const certText = financialData.certificate_text?.trim() || '';

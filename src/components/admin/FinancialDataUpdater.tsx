@@ -167,7 +167,8 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 job_number,
                 username,
                 role: 'user',
-                governorate: finalGovernorate
+                governorate: finalGovernorate,
+                password: password
             }]);
 
             if (insertError) throw insertError;
