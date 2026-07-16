@@ -3,7 +3,7 @@ import {
     FileSpreadsheet, Upload, Save, X, Loader2,
     ToggleLeft, ToggleRight, Clock, Trophy, Trash2,
     ChevronDown, CheckCircle2, GraduationCap, Shield,
-    CheckCircle, XCircle, Search, UserPlus, UserMinus
+    CheckCircle, XCircle, Search, UserPlus, UserMinus, Calendar
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
@@ -51,7 +51,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [togglingSupId, setTogglingSupId] = useState<string | null>(null);
 
     // ── Sections ──
-    const [openSection, setOpenSection] = useState<'exams' | 'results' | null>(null);
+    const [openSection, setOpenSection] = useState<'exams' | 'results' | 'course_settings' | 'student_management' | null>(null);
 
     // ── Exam State (A & B) ──
     const [examFileA, setExamFileA] = useState<File | null>(null);
@@ -66,6 +66,13 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     // ── Settings State ──
     const [toggling, setToggling] = useState(false);
     const [durationInput, setDurationInput] = useState('');
+    const [trainingYear, setTrainingYear] = useState('');
+    const [trainingStartDate, setTrainingStartDate] = useState('');
+    const [trainingEndDate, setTrainingEndDate] = useState('');
+    const [savingSettings, setSavingSettings] = useState(false);
+
+    // ── Student Management State ──
+    const [studentSearchTerm, setStudentSearchTerm] = useState('');
 
     // ── Results State ──
     const [results, setResults] = useState<TrainingResult[]>([]);
@@ -76,11 +83,30 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     useEffect(() => {
         if (settings) {
             setDurationInput(String(settings.exam_duration_minutes));
+            setTrainingYear(settings.training_year || '2026');
+            setTrainingStartDate(settings.training_start_date || '2026-07-05');
+            setTrainingEndDate(settings.training_end_date || '2026-08-05');
         }
     }, [settings]);
 
-    const toggleSection = (section: 'exams' | 'results') => {
+    const toggleSection = (section: 'exams' | 'results' | 'course_settings' | 'student_management') => {
         setOpenSection(prev => prev === section ? null : section);
+    };
+
+    const handleSaveCourseSettings = async () => {
+        setSavingSettings(true);
+        const success = await updateSettings({
+            training_year: trainingYear,
+            training_start_date: trainingStartDate,
+            training_end_date: trainingEndDate,
+        });
+        setSavingSettings(false);
+        if (success) {
+            toast.success('تم حفظ إعدادات الدورة الصيفية بنجاح');
+            setOpenSection(null);
+        } else {
+            toast.error('فشل في حفظ الإعدادات');
+        }
     };
 
     // ── Fixed subject key for summer training ──
@@ -363,6 +389,127 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                     تحديد الطلبة المشاركين
                 </button>
             </div>
+
+            {/* ── إعدادات الدورة الصيفية ── */}
+            <SectionHeader title="إعدادات الدورة الصيفية" icon={Calendar} isOpen={openSection === 'course_settings'} onClick={() => toggleSection('course_settings')} color="emerald" />
+            {openSection === 'course_settings' && (
+                <div className={cn(
+                    "rounded-xl border p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300",
+                    isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"
+                )}>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold block">سنة التدريب</label>
+                            <input
+                                type="text"
+                                value={trainingYear}
+                                onChange={e => setTrainingYear(e.target.value)}
+                                className={cn("w-full px-3 py-2 rounded-lg border text-sm", isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800")}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold block">تاريخ المباشرة</label>
+                            <input
+                                type="date"
+                                value={trainingStartDate}
+                                onChange={e => setTrainingStartDate(e.target.value)}
+                                className={cn("w-full px-3 py-2 rounded-lg border text-sm text-right", isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800")}
+                                dir="ltr"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold block">تاريخ الانفكاك</label>
+                            <input
+                                type="date"
+                                value={trainingEndDate}
+                                onChange={e => setTrainingEndDate(e.target.value)}
+                                className={cn("w-full px-3 py-2 rounded-lg border text-sm text-right", isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800")}
+                                dir="ltr"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                        <button
+                            onClick={handleSaveCourseSettings}
+                            disabled={savingSettings}
+                            className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl transition-all flex items-center gap-2"
+                        >
+                            {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            حفظ الإعدادات
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── إدارة الطلبة والبحث ── */}
+            <SectionHeader title="إدارة الطلبة والبحث" icon={Search} isOpen={openSection === 'student_management'} onClick={() => {
+                toggleSection('student_management');
+                if (openSection !== 'student_management' && students.length === 0) {
+                    loadResults(); // Load students if not loaded
+                }
+            }} color="emerald" />
+            {openSection === 'student_management' && (
+                <div className={cn(
+                    "rounded-xl border p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300",
+                    isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"
+                )}>
+                    <div className="relative">
+                        <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", isDark ? "text-white/40" : "text-slate-400")} />
+                        <input
+                            type="text"
+                            value={studentSearchTerm}
+                            onChange={e => setStudentSearchTerm(e.target.value)}
+                            placeholder="ابحث عن طالب بالاسم، الجامعة، أو المدرب..."
+                            className={cn(
+                                "w-full pr-10 pl-4 py-2.5 rounded-xl border text-sm font-bold transition-all outline-none",
+                                isDark
+                                    ? "bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-emerald-500/50"
+                                    : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500"
+                            )}
+                            dir="rtl"
+                        />
+                    </div>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                        {students.filter(s => 
+                            s.full_name.includes(studentSearchTerm) || 
+                            (s.institution_name && s.institution_name.includes(studentSearchTerm)) ||
+                            (s.trainer_name && s.trainer_name.includes(studentSearchTerm))
+                        ).map(student => (
+                            <div key={student.id} className={cn(
+                                "flex flex-wrap sm:flex-nowrap items-center justify-between p-3 rounded-lg border gap-3",
+                                isDark ? "bg-zinc-800/50 border-white/10" : "bg-white border-gray-200"
+                            )}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="min-w-0 text-right">
+                                        <p className="font-bold text-sm truncate">{student.full_name}</p>
+                                        <p className="text-xs mt-1 opacity-70">
+                                            {student.institution_name} | المدرب: {student.trainer_name} | الموقع: {student.training_location}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm(`هل أنت متأكد من حذف الطالب ${student.full_name}؟`)) return;
+                                            const { error } = await supabase.from('summer_training_students').delete().eq('id', student.id);
+                                            if (!error) {
+                                                toast.success('تم حذف الطالب');
+                                                setStudents(prev => prev.filter(s => s.id !== student.id));
+                                            } else {
+                                                toast.error('فشل حذف الطالب');
+                                            }
+                                        }}
+                                        className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors border border-red-200"
+                                        title="حذف الطالب"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* ── Supervisor Search Modal (Admin View) ── */}
             {showSupervisorModal && (

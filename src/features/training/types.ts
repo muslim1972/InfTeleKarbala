@@ -47,11 +47,9 @@ export interface TrainingStudent {
     id: string;
     full_name: string;
     username: string;
-    institution_type: InstitutionType;
     institution_name: string;
-    department: string;
-    start_date: string | null;
-    end_date: string | null;
+    training_location: string;
+    trainer_name: string;
     exam_grade: ExamGrade | null;
     supervisor_id: string;
     created_at: string;
@@ -79,6 +77,9 @@ export interface TrainingSettings {
     id: string;
     exam_active: boolean;
     exam_duration_minutes: number;
+    training_year: string | null;
+    training_start_date: string | null;
+    training_end_date: string | null;
     updated_at: string;
     updated_by: string | null;
 }

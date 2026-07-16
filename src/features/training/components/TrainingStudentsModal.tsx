@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, Calendar, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { X, Loader2, Trash2, GraduationCap, User, Plus, Building2, MapPin, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { useAuth } from '../../../context/AuthContext';
 import { Input } from '../../../components/ui/Input';
 import { useTrainingData } from '../hooks/useTrainingData';
-import type { TrainingStudent, InstitutionType } from '../types';
-import { INSTITUTION_TYPE_LABELS, EXAM_GRADE_LABELS } from '../types';
+import type { TrainingStudent } from '../types';
+import { EXAM_GRADE_LABELS } from '../types';
 
 interface TrainingStudentsModalProps {
     onClose: () => void;
@@ -80,7 +80,6 @@ const AutocompleteField = ({
 
 /**
  * مودال تحديد الطلبة المتدربين (طلاب الجامعات/المدارس)
- * يستخدم من قبل مشرف التدريب الصيفي لإضافة وإدارة المتدربين
  */
 export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ onClose, theme }) => {
     const { user } = useAuth();
@@ -88,14 +87,11 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
 
     // ── حالة النموذج ──
     const [fullName, setFullName] = useState('');
-    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [institutionType, setInstitutionType] = useState<InstitutionType>('college');
     const [institutionName, setInstitutionName] = useState('');
-    const [department, setDepartment] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [trainingLocation, setTrainingLocation] = useState('');
+    const [trainerName, setTrainerName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // ── قائمة الطلاب ──
@@ -104,14 +100,14 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
 
     // ── الإكمال التلقائي ──
     const [institutionSuggestions, setInstitutionSuggestions] = useState<string[]>([]);
-    const [departmentSuggestions, setDepartmentSuggestions] = useState<string[]>([]);
+    const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+    const [trainerSuggestions, setTrainerSuggestions] = useState<string[]>([]);
     const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
-    const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+    const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+    const [showTrainerDropdown, setShowTrainerDropdown] = useState(false);
     const institutionRef = useRef<HTMLDivElement>(null);
-    const departmentRef = useRef<HTMLDivElement>(null);
-
-    // ── حفظ آخر تاريخ انفكاك مستخدم ──
-    const lastEndDateRef = useRef<string>('');
+    const locationRef = useRef<HTMLDivElement>(null);
+    const trainerRef = useRef<HTMLDivElement>(null);
 
     // ── جلب البيانات عند التحميل ──
     useEffect(() => {
@@ -125,8 +121,11 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
             if (institutionRef.current && !institutionRef.current.contains(e.target as Node)) {
                 setShowInstitutionDropdown(false);
             }
-            if (departmentRef.current && !departmentRef.current.contains(e.target as Node)) {
-                setShowDepartmentDropdown(false);
+            if (locationRef.current && !locationRef.current.contains(e.target as Node)) {
+                setShowLocationDropdown(false);
+            }
+            if (trainerRef.current && !trainerRef.current.contains(e.target as Node)) {
+                setShowTrainerDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -144,12 +143,14 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
     };
 
     const loadSuggestions = async () => {
-        const [instData, deptData] = await Promise.all([
+        const [instData, locData, trainData] = await Promise.all([
             getAutocompleteSuggestions('institution_name'),
-            getAutocompleteSuggestions('department'),
+            getAutocompleteSuggestions('training_location'),
+            getAutocompleteSuggestions('trainer_name'),
         ]);
         setInstitutionSuggestions(instData);
-        setDepartmentSuggestions(deptData);
+        setLocationSuggestions(locData);
+        setTrainerSuggestions(trainData);
     };
 
     // ── تصفية الاقتراحات محلياً ──
@@ -160,25 +161,37 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
         );
     }, [institutionName, institutionSuggestions]);
 
-    const filteredDepartments = useMemo(() => {
-        if (!department.trim()) return departmentSuggestions;
-        return departmentSuggestions.filter(s =>
-            s.toLowerCase().includes(department.toLowerCase())
+    const filteredLocations = useMemo(() => {
+        if (!trainingLocation.trim()) return locationSuggestions;
+        return locationSuggestions.filter(s =>
+            s.toLowerCase().includes(trainingLocation.toLowerCase())
         );
-    }, [department, departmentSuggestions]);
+    }, [trainingLocation, locationSuggestions]);
+
+    const filteredTrainers = useMemo(() => {
+        if (!trainerName.trim()) return trainerSuggestions;
+        return trainerSuggestions.filter(s =>
+            s.toLowerCase().includes(trainerName.toLowerCase())
+        );
+    }, [trainerName, trainerSuggestions]);
+
 
     // ── إضافة متدرب ──
     const handleAddStudent = async () => {
-        if (!fullName.trim() || !username.trim() || !password.trim()) {
-            toast.error('يرجى ملء الحقول المطلوبة (الاسم، اسم المستخدم، كلمة المرور)');
+        if (!fullName.trim() || !password.trim()) {
+            toast.error('يرجى إدخال الاسم الثلاثي وكلمة المرور');
             return;
         }
         if (!institutionName.trim()) {
             toast.error('يرجى إدخال اسم المؤسسة');
             return;
         }
-        if (!department.trim()) {
-            toast.error('يرجى إدخال القسم');
+        if (!trainingLocation.trim()) {
+            toast.error('يرجى إدخال موقع التدريب');
+            return;
+        }
+        if (!trainerName.trim()) {
+            toast.error('يرجى إدخال اسم المدرب');
             return;
         }
 
@@ -186,34 +199,22 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
         try {
             const result = await createStudent({
                 full_name: fullName.trim(),
-                username: username.trim(),
+                username: fullName.trim(), // الاسم كاسم مستخدم
                 password: password.trim(),
-                institution_type: institutionType,
                 institution_name: institutionName.trim(),
-                department: department.trim(),
-                start_date: startDate || null,
-                end_date: endDate || null,
+                training_location: trainingLocation.trim(),
+                trainer_name: trainerName.trim(),
                 supervisor_id: user?.id || '',
             });
 
             if (result.success) {
                 toast.success(`تم إضافة المتدرب "${fullName.trim()}" بنجاح`);
 
-                // حفظ آخر تاريخ انفكاك
-                if (endDate) {
-                    lastEndDateRef.current = endDate;
-                }
-
-                // إعادة تعيين النموذج مع الاحتفاظ بنوع المؤسسة والتواريخ
+                // إعادة تعيين النموذج (فقط الاسم والرمز)
                 setFullName('');
-                setUsername('');
                 setPassword('');
-                setInstitutionName('');
-                setDepartment('');
-                setStartDate('');
-                // ملء تاريخ الانفكاك تلقائياً من آخر قيمة مستخدمة
-                setEndDate(lastEndDateRef.current);
-
+                // نبقي المؤسسة وموقع التدريب واسم المدرب كما هي لتسهيل الإدخال المتكرر
+                
                 // تحديث القائمة والاقتراحات
                 loadStudents();
                 loadSuggestions();
@@ -240,8 +241,6 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
             toast.error('فشل في حذف المتدرب');
         }
     };
-
-
 
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
@@ -281,45 +280,29 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                             <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">إضافة متدرب جديد</span>
                         </div>
 
-                        {/* الصف الأول: الاسم الرباعي + اسم المستخدم */}
+                        {/* الصف الأول: الاسم الثلاثي + كلمة المرور / الرمز */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold block">
-                                    الاسم الرباعي <span className="text-red-500">*</span>
+                                    الاسم الثلاثي <span className="text-red-500">*</span>
                                 </label>
                                 <Input
                                     value={fullName}
                                     onChange={e => setFullName(e.target.value)}
-                                    placeholder="أدخل الاسم الرباعي..."
+                                    placeholder="أدخل الاسم الثلاثي..."
                                     className="text-right"
                                 />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold block">
-                                    اسم المستخدم <span className="text-red-500">*</span>
-                                </label>
-                                <Input
-                                    value={username}
-                                    onChange={e => setUsername(e.target.value)}
-                                    placeholder="username"
-                                    className="text-left"
-                                    dir="ltr"
-                                />
-                            </div>
-                        </div>
-
-                        {/* الصف الثاني: كلمة المرور + نوع المؤسسة */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold block">
-                                    كلمة المرور <span className="text-red-500">*</span>
+                                    كلمة المرور (الرمز) <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <Input
                                         type={showPassword ? "text" : "password"}
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
-                                        placeholder="أدخل كلمة المرور"
+                                        placeholder="أدخل كلمة المرور أو الرمز"
                                         className="text-right text-end pl-10 font-sans tracking-normal"
                                         dir="rtl"
                                     />
@@ -332,91 +315,47 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                     </button>
                                 </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold block">
-                                    نوع المؤسسة <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        value={institutionType}
-                                        onChange={e => setInstitutionType(e.target.value as InstitutionType)}
-                                        className={cn(
-                                            "w-full h-11 px-4 pl-10 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-right appearance-none bg-none",
-                                            theme === 'light'
-                                                ? "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
-                                                : "bg-white/5 border-white/10 text-gray-100 hover:bg-white/10"
-                                        )}
-                                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
-                                        dir="rtl"
-                                    >
-                                        <option value="college">كلية</option>
-                                        <option value="school">إعدادية</option>
-                                    </select>
-                                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                </div>
-                            </div>
                         </div>
 
-                        {/* الصف الثالث: اسم المؤسسة + القسم (مع الإكمال التلقائي) */}
+                        {/* الصف الثاني: اسم المؤسسة + موقع التدريب */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <AutocompleteField
-                                label="اسم المؤسسة"
+                                label="الجامعة او المعهد او الإعدادية"
                                 value={institutionName}
                                 onChange={setInstitutionName}
                                 suggestions={filteredInstitutions}
                                 showDropdown={showInstitutionDropdown}
                                 setShowDropdown={setShowInstitutionDropdown}
                                 containerRef={institutionRef as React.RefObject<HTMLDivElement>}
-                                placeholder="مثال: جامعة كربلاء"
+                                placeholder="مثال: اعدادية الحسين المهني"
                                 theme={theme}
                             />
                             <AutocompleteField
-                                label="القسم"
-                                value={department}
-                                onChange={setDepartment}
-                                suggestions={filteredDepartments}
-                                showDropdown={showDepartmentDropdown}
-                                setShowDropdown={setShowDepartmentDropdown}
-                                containerRef={departmentRef as React.RefObject<HTMLDivElement>}
-                                placeholder="مثال: كهرباء، اتصالات، حاسبات"
+                                label="موقع التدريب"
+                                value={trainingLocation}
+                                onChange={setTrainingLocation}
+                                suggestions={filteredLocations}
+                                showDropdown={showLocationDropdown}
+                                setShowDropdown={setShowLocationDropdown}
+                                containerRef={locationRef as React.RefObject<HTMLDivElement>}
+                                placeholder="مثال: الشبكات / المركز"
                                 theme={theme}
                             />
                         </div>
 
-                        {/* الصف الرابع: التواريخ */}
+                        {/* الصف الثالث: اسم المدرب */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold block">
-                                    <Calendar className="w-3.5 h-3.5 inline-block ml-1 opacity-60" />
-                                    تاريخ المباشرة
-                                </label>
-                                <div className="relative">
-                                    <Input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={e => setStartDate(e.target.value)}
-                                        className="text-right pr-12 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                                        dir="ltr"
-                                    />
-                                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-slate-400" />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold block">
-                                    <Calendar className="w-3.5 h-3.5 inline-block ml-1 opacity-60" />
-                                    تاريخ الانفكاك
-                                </label>
-                                <div className="relative">
-                                    <Input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        className="text-right pr-12 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                                        dir="ltr"
-                                    />
-                                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-slate-400" />
-                                </div>
-                            </div>
+                            <AutocompleteField
+                                label="اسم المدرب"
+                                value={trainerName}
+                                onChange={setTrainerName}
+                                suggestions={filteredTrainers}
+                                showDropdown={showTrainerDropdown}
+                                setShowDropdown={setShowTrainerDropdown}
+                                containerRef={trainerRef as React.RefObject<HTMLDivElement>}
+                                placeholder="مثال: م.صبا جابر"
+                                theme={theme}
+                            />
                         </div>
 
                         {/* زر الإضافة */}
@@ -424,7 +363,7 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                             onClick={handleAddStudent}
                             disabled={isSubmitting}
                             className={cn(
-                                "w-full h-11 rounded-xl text-sm font-bold text-white transition-all flex items-center justify-center gap-2",
+                                "w-full h-11 rounded-xl text-sm font-bold text-white transition-all flex items-center justify-center gap-2 mt-2",
                                 isSubmitting
                                     ? "bg-emerald-500/50 cursor-not-allowed"
                                     : "bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98]"
@@ -474,12 +413,6 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-bold text-sm truncate">{student.full_name}</p>
-                                                        <span className={cn(
-                                                            "px-1.5 py-0.5 text-[9px] font-bold rounded shrink-0 border",
-                                                            "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                                        )}>
-                                                            {INSTITUTION_TYPE_LABELS[student.institution_type]} 
-                                                        </span>
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                         <div className="flex items-center gap-1">
@@ -487,15 +420,15 @@ export const TrainingStudentsModal: React.FC<TrainingStudentsModalProps> = ({ on
                                                             <p className="text-xs text-muted-foreground">{student.institution_name}</p>
                                                         </div>
                                                         <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                        <p className="text-xs text-muted-foreground">{student.department}</p>
-                                                        {student.start_date && student.end_date && (
-                                                            <>
-                                                                <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                                <p className="text-[10px] text-muted-foreground font-mono" dir="ltr">
-                                                                    {student.start_date} → {student.end_date}
-                                                                </p>
-                                                            </>
-                                                        )}
+                                                        <div className="flex items-center gap-1">
+                                                            <MapPin className="w-3 h-3 opacity-40" />
+                                                            <p className="text-xs text-muted-foreground">{student.training_location}</p>
+                                                        </div>
+                                                        <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                        <div className="flex items-center gap-1">
+                                                            <UserCheck className="w-3 h-3 opacity-40" />
+                                                            <p className="text-xs text-muted-foreground">{student.trainer_name}</p>
+                                                        </div>
                                                         {student.exam_grade && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-border"></span>

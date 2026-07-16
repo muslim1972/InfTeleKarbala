@@ -1,1 +1,0 @@
-ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_snapshot_url TEXT; ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_snapshot_url TEXT;

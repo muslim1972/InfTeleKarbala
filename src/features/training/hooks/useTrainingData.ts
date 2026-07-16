@@ -168,11 +168,9 @@ export function useTrainingData() {
         full_name: string;
         username: string;
         password: string;
-        institution_type: string;
         institution_name: string;
-        department: string;
-        start_date: string | null;
-        end_date: string | null;
+        training_location: string;
+        trainer_name: string;
         supervisor_id: string;
     }): Promise<{ success: boolean; error?: string }> => {
         try {
@@ -180,11 +178,9 @@ export function useTrainingData() {
                 p_full_name: student.full_name,
                 p_username: student.username,
                 p_password: student.password,
-                p_institution_type: student.institution_type,
                 p_institution_name: student.institution_name,
-                p_department: student.department,
-                p_start_date: student.start_date,
-                p_end_date: student.end_date,
+                p_training_location: student.training_location,
+                p_trainer_name: student.trainer_name,
                 p_supervisor_id: student.supervisor_id,
             });
             if (error) throw error;
@@ -273,7 +269,7 @@ export function useTrainingData() {
     }, []);
 
     // ── جلب القيم الفريدة للاقتراحات (Autocomplete) ──
-    const getAutocompleteSuggestions = useCallback(async (fieldName: 'institution_name' | 'department'): Promise<string[]> => {
+    const getAutocompleteSuggestions = useCallback(async (fieldName: 'institution_name' | 'training_location' | 'trainer_name'): Promise<string[]> => {
         try {
             const { data, error } = await supabase
                 .from('summer_training_students')

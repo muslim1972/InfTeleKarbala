@@ -22,6 +22,9 @@ export const CapacitiesIframe = ({ onBack }: { onBack: () => void }) => {
 
         const handleMessage = (event: MessageEvent) => {
             if (event.data?.type === 'BACK_TO_DASHBOARD') {
+                if (event.data?.message) {
+                    alert(event.data.message);
+                }
                 onBack();
             }
         };
