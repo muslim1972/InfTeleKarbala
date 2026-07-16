@@ -18,7 +18,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
 
     const [formData, setFormData] = useState({
         full_name: student.full_name || '',
-        password_hash: student.password_hash || '',
+        password: '',
         institution_name: student.institution_name || '',
         training_location: student.training_location || '',
         trainer_name: student.trainer_name || ''
@@ -29,7 +29,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.full_name || !formData.password_hash || !formData.institution_name) {
+        if (!formData.full_name || !formData.institution_name) {
             toast.error('يرجى تعبئة الحقول الأساسية');
             return;
         }
@@ -42,16 +42,23 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
             const usernameParts = formData.full_name.trim().split(' ');
             const newUsername = usernameParts.slice(0, 3).join(' ');
 
+            const updatePayload: any = {
+                full_name: formData.full_name.trim(),
+                username: newUsername,
+                institution_name: formData.institution_name.trim(),
+                training_location: formData.training_location.trim(),
+                trainer_name: formData.trainer_name.trim()
+            };
+
+            if (formData.password) {
+                const { data: newHash, error: hashErr } = await supabase.rpc('hash_password', { password: formData.password.trim() });
+                if (hashErr) throw new Error("فشل تشفير كلمة المرور: " + hashErr.message);
+                updatePayload.password_hash = newHash;
+            }
+
             const { data, error } = await supabase
                 .from('summer_training_students')
-                .update({
-                    full_name: formData.full_name.trim(),
-                    username: newUsername,
-                    password_hash: formData.password_hash.trim(),
-                    institution_name: formData.institution_name.trim(),
-                    training_location: formData.training_location.trim(),
-                    trainer_name: formData.trainer_name.trim()
-                })
+                .update(updatePayload)
                 .eq('id', student.id)
                 .select()
                 .single();
@@ -111,17 +118,16 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-sm font-bold block">كلمة المرور (الرمز) <span className="text-red-500">*</span></label>
+                        <label className="text-sm font-bold block">كلمة المرور (الرمز)</label>
                         <input
                             type="text"
-                            required
-                            value={formData.password_hash}
-                            onChange={e => setFormData(prev => ({ ...prev, password_hash: e.target.value }))}
+                            value={formData.password}
+                            onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
                             className={cn(
                                 "w-full px-3 py-2.5 rounded-xl border text-sm transition-colors",
                                 isDark ? "bg-black/20 border-white/10 focus:border-emerald-500/50" : "bg-slate-50 border-slate-200 focus:border-emerald-500"
                             )}
-                            placeholder="كلمة المرور"
+                            placeholder="اتركه فارغاً للاحتفاظ بكلمة المرور الحالية"
                         />
                     </div>
 
