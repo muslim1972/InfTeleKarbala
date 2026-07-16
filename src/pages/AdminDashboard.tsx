@@ -6,27 +6,29 @@ import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User,
 import { useEmployeeManager } from "../hooks/useEmployeeManager";
 import { smoothScrollToId } from "../hooks/useSmoothScroll";
 import { cn } from "../lib/utils";
-import TipsEditor from "../components/admin/TipsEditor";
-import { PollCreator } from "../components/admin/PollCreator";
-import { MediaSectionEditor } from "../components/admin/MediaSectionEditor";
-import { CustomAudit } from "../components/admin/CustomAudit";
+import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
+import { AppNotifications } from "../components/features/AppNotifications";
 import { useAuth } from "../context/AuthContext";
 import { lazy, Suspense } from "react";
-const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
 import { useTheme } from "../context/ThemeContext";
-import { AdminLeaveRequests } from "../components/admin/AdminLeaveRequests";
-import { AppNotifications } from "../components/features/AppNotifications";
-import { DepartmentsManager } from "../components/admin/DepartmentsManager";
-import { FiveYearLeaveDetailsModal } from "../components/admin/FiveYearLeaveDetailsModal";
-import { FiveYearLeaveHistoryModal } from "../components/admin/FiveYearLeaveHistoryModal";
-import { TabAddEmployee } from "../components/admin/dashboard/TabAddEmployee";
-import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
-import { TabManageEmployees } from "../components/admin/dashboard/TabManageEmployees";
-import { TabAdminRecords } from "../components/admin/dashboard/TabAdminRecords";
-import { AudioHub } from "../components/features/AudioHub";
-import { SupervisorPermissions } from "../components/admin/SupervisorPermissions";
-import { IncentivesTabContent } from "../components/features/IncentivesTabContent";
-import { AttendanceAdminSettings } from "../features/attendance";
+
+const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
+
+const TipsEditor = lazy(() => import("../components/admin/TipsEditor"));
+const PollCreator = lazy(() => import("../components/admin/PollCreator").then(m => ({ default: m.PollCreator })));
+const MediaSectionEditor = lazy(() => import("../components/admin/MediaSectionEditor").then(m => ({ default: m.MediaSectionEditor })));
+const CustomAudit = lazy(() => import("../components/admin/CustomAudit").then(m => ({ default: m.CustomAudit })));
+const AdminLeaveRequests = lazy(() => import("../components/admin/AdminLeaveRequests").then(m => ({ default: m.AdminLeaveRequests })));
+const DepartmentsManager = lazy(() => import("../components/admin/DepartmentsManager").then(m => ({ default: m.DepartmentsManager })));
+const FiveYearLeaveDetailsModal = lazy(() => import("../components/admin/FiveYearLeaveDetailsModal").then(m => ({ default: m.FiveYearLeaveDetailsModal })));
+const FiveYearLeaveHistoryModal = lazy(() => import("../components/admin/FiveYearLeaveHistoryModal").then(m => ({ default: m.FiveYearLeaveHistoryModal })));
+const TabAddEmployee = lazy(() => import("../components/admin/dashboard/TabAddEmployee").then(m => ({ default: m.TabAddEmployee })));
+const TabManageEmployees = lazy(() => import("../components/admin/dashboard/TabManageEmployees").then(m => ({ default: m.TabManageEmployees })));
+const TabAdminRecords = lazy(() => import("../components/admin/dashboard/TabAdminRecords").then(m => ({ default: m.TabAdminRecords })));
+const AudioHub = lazy(() => import("../components/features/AudioHub").then(m => ({ default: m.AudioHub })));
+const SupervisorPermissions = lazy(() => import("../components/admin/SupervisorPermissions").then(m => ({ default: m.SupervisorPermissions })));
+const IncentivesTabContent = lazy(() => import("../components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
+const AttendanceAdminSettings = lazy(() => import("../features/attendance").then(m => ({ default: m.AttendanceAdminSettings })));
 
 
 

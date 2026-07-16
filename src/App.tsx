@@ -8,9 +8,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { AdminRoleSelector } from "./components/auth/AdminRoleSelector";
-import { IncentivesTabContent } from "./components/features/IncentivesTabContent";
 import { AudioProvider } from "./context/AudioContext";
-import { FloatingAudioPlayer } from "./components/features/FloatingAudioPlayer";
 import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
@@ -29,9 +27,11 @@ const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
 const PromotionCoursesPage = lazy(() => import("./features/promotion/PromotionCoursesPage").then(m => ({ default: m.PromotionCoursesPage })));
 const SummerTrainingPage = lazy(() => import("./features/training/components/SummerTrainingPage").then(m => ({ default: m.SummerTrainingPage })));
-import { CapacitiesIframe } from "./components/admin/dashboard/CapacitiesIframe";
-import { NotFound } from "./pages/NotFound";
-import { AttendanceDashboard } from "./features/attendance";
+const CapacitiesIframe = lazy(() => import("./components/admin/dashboard/CapacitiesIframe").then(m => ({ default: m.CapacitiesIframe })));
+const NotFound = lazy(() => import("./pages/NotFound").then(m => ({ default: m.NotFound })));
+const AttendanceDashboard = lazy(() => import("./features/attendance").then(m => ({ default: m.AttendanceDashboard })));
+const IncentivesTabContent = lazy(() => import("./components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
+const FloatingAudioPlayer = lazy(() => import("./components/features/FloatingAudioPlayer").then(m => ({ default: m.FloatingAudioPlayer })));
 
 // Loading Component
 const LoadingScreen = () => (
@@ -298,8 +298,8 @@ function App() {
                     <Route path="/login" element={<AppContent />} />
                     <Route path="/*" element={<NotFound />} />
                   </Routes>
+                  <FloatingAudioPlayer />
                 </Suspense>
-                <FloatingAudioPlayer />
               </KnowledgeProvider>
             </CallProvider>
           </ChatProvider>
