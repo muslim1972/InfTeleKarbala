@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     FileSpreadsheet, Upload, Save, X, Loader2,
     ToggleLeft, ToggleRight, Clock, Trophy, Trash2,
-    ChevronDown, CheckCircle2, GraduationCap, Shield,
+    ChevronDown, CheckCircle2, GraduationCap, Shield, Edit2,
     CheckCircle, XCircle, Search, UserPlus, UserMinus, Calendar
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -14,6 +14,7 @@ import type { TrainingResult, TrainingStudent } from '../types';
 import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
+import { EditStudentModal } from './EditStudentModal';
 interface AdminTrainingTabProps {
     isAdminView?: boolean;
 }
@@ -40,6 +41,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
     // ── Students Modal ──
     const [showStudentsModal, setShowStudentsModal] = useState(false);
+    const [editingStudent, setEditingStudent] = useState<TrainingStudent | null>(null);
 
     // ── Supervisor Search (Admin View) ──
     const [showSupervisorModal, setShowSupervisorModal] = useState(false);
@@ -489,6 +491,13 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button
+                                        onClick={() => setEditingStudent(student)}
+                                        className="p-2 rounded-lg text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200"
+                                        title="تعديل الطالب"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
                                         onClick={async () => {
                                             if (!confirm(`هل أنت متأكد من حذف الطالب ${student.full_name}؟`)) return;
                                             const { error } = await supabase.from('summer_training_students').delete().eq('id', student.id);
@@ -654,6 +663,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                         setShowStudentsModal(false);
                         loadResults();
                     }}
+                    onRefresh={loadResults}
                     theme={theme}
                 />
             )}
@@ -908,6 +918,16 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                         </div>
                     </div>
                 </div>
+            )}
+            {editingStudent && (
+                <EditStudentModal
+                    student={editingStudent}
+                    onClose={() => setEditingStudent(null)}
+                    onUpdate={(updated) => {
+                        loadResults(); // Refresh results to sync everything
+                        setEditingStudent(null);
+                    }}
+                />
             )}
         </div>
     );
