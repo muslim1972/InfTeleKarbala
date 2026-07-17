@@ -1,0 +1,1 @@
+docker exec -i supabase-db sh -c "PGPASSWORD=Itpc_Karbala_2026 pg_dump -U postgres.jvnjkqxpnhridlbczkgw -h aws-1-us-west-1.pooler.supabase.com -p 5432 -d postgres -t storage.objects -s" > ~/storage_policies.sql

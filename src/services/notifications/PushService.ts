@@ -1,11 +1,10 @@
 /**
  * PushService.ts
  * 
- * Handles sending push notifications via our Vercel API relay.
- * This isolates the notification sending logic from the rest of the app.
+ * Handles sending push notifications via our local self-hosted Ntfy server.
+ * This replaces OneSignal and ensures 100% offline capability.
  */
 
-// Define standard options for notifications to keep them consistent
 export interface PushNotificationOptions {
   title?: string;
   url?: string;
@@ -14,94 +13,49 @@ export interface PushNotificationOptions {
   type?: 'call' | 'chat' | 'buzz' | 'default';
 }
 
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
-
-// الرابط الأساسي للـ API في نسخة الـ APK لضمان الوصول للسيرفر من خارج localhost
-const PROD_API_URL = 'https://khr-itpc.egov.iq';
-
 export const sendPushNotification = async (
   recipientId: string,
   message: string,
   options?: PushNotificationOptions
 ): Promise<void> => {
-  // Defensive check: Do not block the UI if something is missing
   if (!recipientId || !message) {
     console.warn('sendPushNotification: Missing recipientId or message');
     return;
   }
 
-  // تحديد ما إذا كان التطبيق يعمل كـ Native (APK)
-  const isNative = Capacitor.isNativePlatform();
-
-  // السماح بالإشعارات في حالة الـ APK حتى لو كان العنوان localhost
-  const isLocalhost = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-  if (isLocalhost && !isNative) {
-    console.log('📬 [Localhost Dev] Push notification blocked. Payload:', { recipientId, message, options });
-    return;
+  // في بيئة التطوير، يتم توجيه الطلبات عبر Kong إلى ntfy
+  let ntfyUrl = 'http://10.56.3.3/ntfy';
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      // إذا كان المضيف هو khr-itpc.egov.iq
+      ntfyUrl = 'http://10.56.3.3/ntfy'; // مبدئيا حتى يتم إعداد الـ Proxy
   }
 
+  // Topic name depends on recipientId (removed hyphens if necessary, but ntfy supports hyphens)
+  const topic = `hr_alerts_${recipientId}`;
+  
   try {
-    const baseUrl = isNative ? PROD_API_URL : '';
-    const url = `${baseUrl}/api/notify`;
-    
-    // تحويل الرابط الكامل إلى مسار نسبي للتنقل الداخلي
-    let internalPath = options?.url;
-    if (internalPath && internalPath.startsWith('http')) {
-      try {
-        const urlObj = new URL(internalPath);
-        internalPath = urlObj.pathname + urlObj.search + urlObj.hash;
-      } catch (e) { /* اتركها كما هي إذا فشل التحليل */ }
-    }
-
-    const payload = {
-      recipientId,
-      message,
-      title: options?.title || 'إشعار جديد',
-      // نترك الـ url فارغاً لمنع المتصفح من الفتح التلقائي
-      url: undefined, 
-      data: {
-        ...options?.data,
-        path: internalPath, // نضع المسار هنا ليتم التعامل معه برمجياً
-        type: options?.type 
-      },
-      isBuzz: options?.isBuzz,
-      type: options?.type
+    const headers: Record<string, string> = {
+      'Title': options?.title || 'مديرية الاتصالات - إشعار جديد',
+      'Priority': options?.isBuzz || options?.type === 'call' ? 'high' : 'default',
+      'Tags': options?.type === 'call' ? 'telephone_receiver' : 'bell'
     };
 
-    if (isNative) {
-      // استخدام CapacitorHttp لتخطي قيود CORS في الـ APK
-      const response = await CapacitorHttp.post({
-        url,
-        headers: { 'Content-Type': 'application/json' },
-        data: payload
-      });
+    if (options?.url) {
+      headers['Click'] = options.url;
+    }
 
-      if (response.status >= 300) {
-        console.warn('OneSignal API Relay Error (Native):', response.status, response.data);
-      } else {
-        console.log('📬 Push notification sent successfully to', recipientId);
-      }
+    const response = await fetch(`${ntfyUrl}/${topic}`, {
+      method: 'POST',
+      headers,
+      body: message
+    });
+
+    if (!response.ok) {
+      console.warn('Ntfy Push Error:', response.status);
     } else {
-      // استخدام fetch التقليدي في المتصفح (PWA)
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.warn('OneSignal API Relay Error:', response.status, errorData);
-      } else {
-        console.log('📬 Push notification sent successfully to', recipientId);
-      }
+      console.log('📬 Ntfy Push notification sent successfully to', topic);
     }
   } catch (error) {
-    // Network errors or other unexpected exceptions
-    console.warn('Failed to send push notification (Network/CORS):', error);
+    console.warn('Failed to send ntfy push notification:', error);
   }
 };

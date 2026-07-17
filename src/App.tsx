@@ -48,12 +48,7 @@ const AppContent = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // جسر التنقل: يسمح لخدمة OneSignal بالتنقل داخل التطبيق
-  useEffect(() => {
-    (window as any).navigateApp = (path: string) => {
-      if (path) navigate(path);
-    };
-  }, [navigate]);
+
 
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | null>(() => {
     const stateMode = (location.state as any)?.adminViewMode;

@@ -1,0 +1,1 @@
+echo y | plink -pw mu@ITPC@2026 muslim@10.56.3.3 "docker exec -i supabase-db pg_dump -U postgres -h aws-1-us-west-1.pooler.supabase.com -p 5432 -d postgres -t storage.objects -s > storage_policies.sql"
