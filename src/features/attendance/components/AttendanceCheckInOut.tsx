@@ -88,7 +88,8 @@ export default function AttendanceCheckInOut({
     minDistance: 999,
     minEar: 999,
     lastDistance: 999,
-    lastEar: 999
+    lastEar: 999,
+    matchFrames: 0
   });
 
   const showDebugAlert = useCallback(() => {
@@ -97,9 +98,10 @@ export default function AttendanceCheckInOut({
     const msg = `📊 تقرير الفحص (Debug):
 - اللقطات المعالجة: ${stats.frames}
 - مرات رصد الوجه: ${stats.faces}
+- إطارات التطابق المستمرة: ${stats.matchFrames}
 - أفضل مسافة (التطابق): ${stats.minDistance === 999 ? 'N/A' : stats.minDistance.toFixed(3)} (المطلوب < 0.55)
 - آخر مسافة مقاسة: ${stats.lastDistance === 999 ? 'N/A' : stats.lastDistance.toFixed(3)}
-- أفضل رمشة (EAR): ${stats.minEar === 999 ? 'N/A' : stats.minEar.toFixed(3)} (المطلوب < 0.25)
+- أفضل رمشة (EAR): ${stats.minEar === 999 ? 'N/A' : stats.minEar.toFixed(3)} (المطلوب < 0.30)
 - آخر EAR: ${stats.lastEar === 999 ? 'N/A' : stats.lastEar.toFixed(3)}`;
     // Use setTimeout so the alert doesn't block the UI update immediately
     setTimeout(() => alert(msg), 100);
@@ -319,7 +321,8 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.lastDistance = distance;
           
           if (distance < 0.55) {
-            setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى رمش العينين الآن...' }));
+            debugStatsRef.current.matchFrames++;
+            setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى الثبات أو رمش العينين...' }));
             
             // Check for blink (EAR)
             const leftEye = detection.landmarks.getLeftEye();
@@ -330,7 +333,7 @@ export default function AttendanceCheckInOut({
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
-            if (ear < 0.25) { // Threshold for blink (relaxed to 0.25)
+            if (ear < 0.30 || debugStatsRef.current.matchFrames >= 10) { // Threshold for blink or steady match
               // Liveness verified!
               if (capturedRef.current) return;
               capturedRef.current = true;
@@ -374,7 +377,8 @@ export default function AttendanceCheckInOut({
       minDistance: 999,
       minEar: 999,
       lastDistance: 999,
-      lastEar: 999
+      lastEar: 999,
+      matchFrames: 0
     };
 
     capturedRef.current = false;
