@@ -285,20 +285,25 @@ export default function AttendanceCheckInOut({
   const startFaceDetection = useCallback(async () => {
     if (!videoRef.current || !isEnrolled || !user?.face_descriptor) return;
     
-    // Load Models if not already loaded
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
-      faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
-      faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
-    ]);
+    try {
+      setCameraState(prev => ({ ...prev, message: 'جاري تحميل نماذج الذكاء الاصطناعي...' }));
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
+      ]);
+      setCameraState(prev => ({ ...prev, message: 'تم التحميل. يرجى النظر للكاميرا ورمش العينين' }));
+      toast('يرجى النظر للكاميرا ورمش العينين للمطابقة', { icon: '👀', duration: 4000 });
+    } catch (err) {
+      console.error("Error loading face models:", err);
+      toast.error('تعذر تحميل نماذج الذكاء الاصطناعي. يرجى التأكد من جودة الإنترنت.');
+      return;
+    }
     
     const referenceDescriptor = new Float32Array(user.face_descriptor);
-    
-    // Announce voice guidance
-    toast('يرجى النظر للكاميرا ورمش العينين للمطابقة', { icon: '👀', duration: 4000 });
 
     const detectLoop = async () => {
-      if (!cameraOpen || capturedRef.current || !videoRef.current) return;
+      if (capturedRef.current || !videoRef.current) return;
 
       try {
         debugStatsRef.current.frames++;
@@ -453,7 +458,7 @@ export default function AttendanceCheckInOut({
         setCapturingAction(null);
       }
     }
-  }, [isAllowed, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera]);
+  }, [isAllowed, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
 
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
