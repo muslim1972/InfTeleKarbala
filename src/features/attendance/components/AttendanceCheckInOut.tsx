@@ -339,11 +339,12 @@ export default function AttendanceCheckInOut({
     });
 
     try {
-      await startCamera();
+      const stream = await startCamera();
 
       // Attach to video element after state update
       requestAnimationFrame(() => {
-        if (videoRef.current) {
+        if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
             // Start Face Detection if enrolled
             if (isEnrolled) {

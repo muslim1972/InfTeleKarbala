@@ -36,7 +36,13 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
         try {
             await loadModels();
             setStep('camera');
-            await startCamera();
+            const stream = await startCamera();
+            
+            requestAnimationFrame(() => {
+                if (videoRef.current && stream) {
+                    videoRef.current.srcObject = stream;
+                }
+            });
         } catch (err) {
             console.error("Error loading face models or camera:", err);
             toast.error("فشل تهيئة الكاميرا أو نماذج الذكاء الاصطناعي");
