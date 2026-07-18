@@ -103,8 +103,8 @@ export default function AttendanceCheckInOut({
 - آخر مسافة مقاسة: ${stats.lastDistance === 999 ? 'N/A' : stats.lastDistance.toFixed(3)}
 - أفضل رمشة (EAR): ${stats.minEar === 999 ? 'N/A' : stats.minEar.toFixed(3)} (المطلوب < 0.30)
 - آخر EAR: ${stats.lastEar === 999 ? 'N/A' : stats.lastEar.toFixed(3)}`;
-    // Use setTimeout so the alert doesn't block the UI update immediately
-    setTimeout(() => alert(msg), 100);
+    // setTimeout(() => alert(msg), 100);
+    console.log(msg); // Log to console instead of showing alert to users
   }, [isEnrolled]);
 
   // Location & Geofencing
