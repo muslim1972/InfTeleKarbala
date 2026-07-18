@@ -82,6 +82,29 @@ export default function AttendanceCheckInOut({
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
 
+  const debugStatsRef = useRef({
+    frames: 0,
+    faces: 0,
+    minDistance: 999,
+    minEar: 999,
+    lastDistance: 999,
+    lastEar: 999
+  });
+
+  const showDebugAlert = useCallback(() => {
+    if (!isEnrolled) return;
+    const stats = debugStatsRef.current;
+    const msg = `📊 تقرير الفحص (Debug):
+- اللقطات المعالجة: ${stats.frames}
+- مرات رصد الوجه: ${stats.faces}
+- أفضل مسافة (التطابق): ${stats.minDistance === 999 ? 'N/A' : stats.minDistance.toFixed(3)} (المطلوب < 0.55)
+- آخر مسافة مقاسة: ${stats.lastDistance === 999 ? 'N/A' : stats.lastDistance.toFixed(3)}
+- أفضل رمشة (EAR): ${stats.minEar === 999 ? 'N/A' : stats.minEar.toFixed(3)} (المطلوب < 0.25)
+- آخر EAR: ${stats.lastEar === 999 ? 'N/A' : stats.lastEar.toFixed(3)}`;
+    // Use setTimeout so the alert doesn't block the UI update immediately
+    setTimeout(() => alert(msg), 100);
+  }, [isEnrolled]);
+
   // Location & Geofencing
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationText, setLocationText] = useState('');
@@ -278,13 +301,17 @@ export default function AttendanceCheckInOut({
       if (!cameraOpen || capturedRef.current || !videoRef.current) return;
 
       try {
+        debugStatsRef.current.frames++;
         const detection = await faceapi.detectSingleFace(
           videoRef.current,
           new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
         ).withFaceLandmarks().withFaceDescriptor();
 
         if (detection) {
+          debugStatsRef.current.faces++;
           const distance = faceapi.euclideanDistance(detection.descriptor, referenceDescriptor);
+          debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
+          debugStatsRef.current.lastDistance = distance;
           
           if (distance < 0.55) {
             setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى رمش العينين الآن...' }));
@@ -295,6 +322,8 @@ export default function AttendanceCheckInOut({
             const leftEAR = getEAR(leftEye);
             const rightEAR = getEAR(rightEye);
             const ear = (leftEAR + rightEAR) / 2.0;
+            debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
+            debugStatsRef.current.lastEar = ear;
 
             if (ear < 0.25) { // Threshold for blink (relaxed to 0.25)
               // Liveness verified!
@@ -302,6 +331,7 @@ export default function AttendanceCheckInOut({
               capturedRef.current = true;
               
               setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري التسجيل...' }));
+              showDebugAlert();
               
               const result = await captureAndUpload();
               await completeAction(capturingAction!, result);
@@ -332,17 +362,27 @@ export default function AttendanceCheckInOut({
       return;
     }
 
+    // Reset debug stats for a new session
+    debugStatsRef.current = {
+      frames: 0,
+      faces: 0,
+      minDistance: 999,
+      minEar: 999,
+      lastDistance: 999,
+      lastEar: 999
+    };
+
     capturedRef.current = false;
     setCapturingAction(action);
     setCameraState({
       capturing: false,
-      message: 'يرجى وضع وجهك داخل الدائرة واضغط التقاط',
+      message: isEnrolled ? 'يرجى وضع وجهك داخل الدائرة للمطابقة التلقائية' : 'يرجى وضع وجهك داخل الدائرة واضغط التقاط',
       countdown: CAMERA_TIMEOUT_S,
     });
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
       });
       streamRef.current = stream;
       setCameraOpen(true);
@@ -368,6 +408,9 @@ export default function AttendanceCheckInOut({
                 stopCamera();
                 setCameraOpen(false);
                 toast.error('تم إلغاء العملية لعدم التفاعل');
+                if (isEnrolled) {
+                  showDebugAlert();
+                }
                 setProcessing(false);
                 setCapturingAction(null);
               }
