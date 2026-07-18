@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
+import toast from 'react-hot-toast';
 
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance') => void;
@@ -136,7 +137,14 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                     {visibleCards.map(card => (
                         <button
                             key={card.id}
-                            onClick={() => onSelect(card.id)}
+                            onClick={() => {
+                                const isSupervisorOrDeveloper = isAdmin || user?.admin_role === 'developer';
+                                if (!isSupervisorOrDeveloper && ['promotion', 'user_incentives', 'attendance'].includes(card.id)) {
+                                    toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
+                                    return;
+                                }
+                                onSelect(card.id);
+                            }}
                             className={`group relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                                 isDark
                                     ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`

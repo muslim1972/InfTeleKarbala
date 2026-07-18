@@ -2,6 +2,8 @@ import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface TabSystemProps {
     activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge';
@@ -12,6 +14,9 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
     const [showRightArrow, setShowRightArrow] = useState(false);
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    const isDeveloper = user?.admin_role === 'developer';
 
     const baseTabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
@@ -99,7 +104,13 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => onTabChange(tab.id as any)}
+                            onClick={() => {
+                                if (tab.id === 'requests' && !isAdmin && !isDeveloper) {
+                                    toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
+                                    return;
+                                }
+                                onTabChange(tab.id as any);
+                            }}
                             className={cn(
                                 "relative flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold rounded-lg transition-all duration-300 z-0 overflow-hidden shrink-0",
                                 isActive
