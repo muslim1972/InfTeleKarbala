@@ -284,7 +284,7 @@ export default function AttendanceCheckInOut({
   }, [capturingAction, captureAndUpload, completeAction]);
 
   // ---- Open Camera & Start Process ----
-  const startFaceDetection = useCallback(async () => {
+  const startFaceDetection = useCallback(async (action: 'checkIn' | 'checkOut') => {
     if (!videoRef.current || !isEnrolled || !user?.face_descriptor) return;
     
     try {
@@ -342,7 +342,7 @@ export default function AttendanceCheckInOut({
               showDebugAlert();
               
               const result = await captureAndUpload();
-              await completeAction(capturingAction!, result);
+              await completeAction(action, result);
               return; // Stop loop
             }
           } else {
@@ -362,7 +362,7 @@ export default function AttendanceCheckInOut({
     };
     
     detectLoop();
-  }, [cameraOpen, user, isEnrolled, capturingAction, captureAndUpload, completeAction]);
+  }, [user, isEnrolled, captureAndUpload, completeAction, showDebugAlert]);
 
   const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
     if (!isAllowed) {
@@ -403,7 +403,7 @@ export default function AttendanceCheckInOut({
           videoRef.current.play().then(() => {
             // Start Face Detection if enrolled
             if (isEnrolled) {
-              startFaceDetection();
+              startFaceDetection(action);
             }
 
             // Countdown timer for automatic cancel
