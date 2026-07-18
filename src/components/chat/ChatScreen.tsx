@@ -4,7 +4,7 @@ import { useChatState } from '../../hooks/useChatState';
 import { useConversationDetails } from '../../hooks/useConversationDetails';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { ArrowRight, Palette, Check, RotateCcw, Phone } from 'lucide-react';
+import { ArrowRight, Palette, Check, RotateCcw, Phone, Video } from 'lucide-react';
 import { SelectionHeader } from './SelectionHeader';
 import { MessageInfoModal } from './MessageInfoModal';
 import { useChatSettings, type FontSize } from '../../hooks/useChatSettings';
@@ -175,22 +175,40 @@ export function ChatScreen() {
 
                         {/* Voice Call Button ✨ */}
                         {!details?.is_group && (
-                            <button
-                                onClick={() => {
-                                    const recipient = details?.member_profiles?.find(p => p.id !== user?.id);
-                                    if (recipient && conversationId) {
-                                        startCall(recipient.id, conversationId);
-                                    }
-                                }}
-                                disabled={status !== 'idle'}
-                                className={cn(
-                                    "p-2 hover:bg-gray-100 rounded-full transition-all text-gray-600",
-                                    status !== 'idle' && "opacity-50 cursor-not-allowed"
-                                )}
-                                title="اتصال صوتي مباشر"
-                            >
-                                <Phone className="w-5 h-5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => {
+                                        const recipient = details?.member_profiles?.find(p => p.id !== user?.id);
+                                        if (recipient && conversationId) {
+                                            startCall(recipient.id, conversationId, false); // false for audio only
+                                        }
+                                    }}
+                                    disabled={status !== 'idle'}
+                                    className={cn(
+                                        "p-2 hover:bg-gray-100 rounded-full transition-all text-gray-600",
+                                        status !== 'idle' && "opacity-50 cursor-not-allowed"
+                                    )}
+                                    title="اتصال صوتي مباشر"
+                                >
+                                    <Phone className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const recipient = details?.member_profiles?.find(p => p.id !== user?.id);
+                                        if (recipient && conversationId) {
+                                            startCall(recipient.id, conversationId, true); // true for video
+                                        }
+                                    }}
+                                    disabled={status !== 'idle'}
+                                    className={cn(
+                                        "p-2 hover:bg-gray-100 rounded-full transition-all text-gray-600",
+                                        status !== 'idle' && "opacity-50 cursor-not-allowed"
+                                    )}
+                                    title="اتصال فيديو مباشر"
+                                >
+                                    <Video className="w-5 h-5" />
+                                </button>
+                            </div>
                         )}
 
                         {/* Settings Popover */}
