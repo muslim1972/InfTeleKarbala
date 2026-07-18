@@ -17,18 +17,13 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
     const { theme } = useTheme();
     
     // modes: 'launcher' (choose platform) -> 'governorate' (choose city) -> 'login'
-    const [mode, setMode] = useState<'launcher' | 'governorate' | 'login'>(initialShowLogin ? 'governorate' : 'launcher');
+    const [mode, setMode] = useState<'launcher' | 'governorate' | 'login'>(() => {
+        const gov = sessionStorage.getItem('selectedGovernorate');
+        return gov ? 'login' : 'governorate';
+    });
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
 
-    // If initialShowLogin is true, but governorate is already selected, go straight to login
-    useEffect(() => {
-        if (initialShowLogin) {
-            const gov = sessionStorage.getItem('selectedGovernorate');
-            if (gov) {
-                setMode('login');
-            }
-        }
-    }, [initialShowLogin]);
+
 
     useEffect(() => {
         const ua = navigator.userAgent;

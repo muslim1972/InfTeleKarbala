@@ -26,6 +26,7 @@ export interface AppUser {
   is_promotion_lecturer?: boolean;
   is_training_supervisor?: boolean;
   email?: string | null;
+  face_descriptor?: number[] | null;
 }
 
 interface AuthContextType {
@@ -165,7 +166,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               has_capacities_access: profile.has_capacities_access,
               can_access_promotion: profile.can_access_promotion,
               is_promotion_lecturer: profile.is_promotion_lecturer,
-              is_training_supervisor: profile.is_training_supervisor
+              is_training_supervisor: profile.is_training_supervisor,
+              face_descriptor: profile.face_descriptor
             };
             setUser(appUser);
             logVisit(appUser);
@@ -276,7 +278,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         can_access_promotion: fullProfile.can_access_promotion,
         is_promotion_lecturer: fullProfile.is_promotion_lecturer,
         is_training_supervisor: fullProfile.is_training_supervisor,
-        email: fullProfile.email
+        email: fullProfile.email,
+        face_descriptor: fullProfile.face_descriptor
       };
 
       // 5. Enforce 2FA on Everyone

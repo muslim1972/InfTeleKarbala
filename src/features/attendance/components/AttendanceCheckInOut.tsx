@@ -13,6 +13,9 @@ import {
   ShieldCheck, X, User
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
+import { FaceEnrollment } from './FaceEnrollment';
+import * as faceapi from '@vladmandic/face-api';
 
 // ============================================
 // Device Fingerprint — Cybersecurity Layer
@@ -47,6 +50,16 @@ interface CameraState {
   countdown: number;
 }
 
+// ============================================
+// Liveness Detection (Blink - EAR)
+// ============================================
+const getEAR = (eye: faceapi.Point[]) => {
+  const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+  const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+  const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+  return (v1 + v2) / (2.0 * h);
+};
+
 
 // ============================================
 // Main Component
@@ -65,6 +78,9 @@ export default function AttendanceCheckInOut({
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
   const { checkIn, checkOut, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
+  const { user } = useAuth();
+  const [showEnrollment, setShowEnrollment] = useState(false);
+  const isEnrolled = !!user?.face_descriptor;
 
   // Location & Geofencing
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -243,6 +259,73 @@ export default function AttendanceCheckInOut({
   }, [capturingAction, captureAndUpload, completeAction]);
 
   // ---- Open Camera & Start Process ----
+  const startFaceDetection = useCallback(async () => {
+    if (!videoRef.current || !isEnrolled || !user?.face_descriptor) return;
+    
+    // Load Models if not already loaded
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
+      faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
+    ]);
+    
+    const referenceDescriptor = new Float32Array(user.face_descriptor);
+    
+    // Announce voice guidance
+    toast('يرجى النظر للكاميرا ورمش العينين للمطابقة', { icon: '👀', duration: 4000 });
+
+    const detectLoop = async () => {
+      if (!cameraOpen || capturedRef.current || !videoRef.current) return;
+
+      try {
+        const detection = await faceapi.detectSingleFace(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+        ).withFaceLandmarks().withFaceDescriptor();
+
+        if (detection) {
+          const distance = faceapi.euclideanDistance(detection.descriptor, referenceDescriptor);
+          
+          if (distance < 0.55) {
+            setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى رمش العينين الآن...' }));
+            
+            // Check for blink (EAR)
+            const leftEye = detection.landmarks.getLeftEye();
+            const rightEye = detection.landmarks.getRightEye();
+            const leftEAR = getEAR(leftEye);
+            const rightEAR = getEAR(rightEye);
+            const ear = (leftEAR + rightEAR) / 2.0;
+
+            if (ear < 0.25) { // Threshold for blink (relaxed to 0.25)
+              // Liveness verified!
+              if (capturedRef.current) return;
+              capturedRef.current = true;
+              
+              setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري التسجيل...' }));
+              
+              const result = await captureAndUpload();
+              await completeAction(capturingAction!, result);
+              return; // Stop loop
+            }
+          } else {
+            setCameraState(prev => ({ ...prev, message: 'الوجه غير متطابق. يرجى تعديل وضعيتك.' }));
+          }
+        } else {
+          setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة' }));
+        }
+      } catch (err) {
+        console.error("Face detection error:", err);
+      }
+      
+      // Continue loop
+      if (!capturedRef.current) {
+        requestAnimationFrame(detectLoop);
+      }
+    };
+    
+    detectLoop();
+  }, [cameraOpen, user, isEnrolled, capturingAction, captureAndUpload, completeAction]);
+
   const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
     if (!isAllowed) {
       toast.error('لا يمكن التنفيذ: يجب أن تكون متواجداً في نطاق الدائرة');
@@ -269,6 +352,11 @@ export default function AttendanceCheckInOut({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
+            // Start Face Detection if enrolled
+            if (isEnrolled) {
+              startFaceDetection();
+            }
+
             // Countdown timer for automatic cancel
             let remaining = CAMERA_TIMEOUT_S;
             countdownIntervalRef.current = window.setInterval(() => {
@@ -451,16 +539,18 @@ export default function AttendanceCheckInOut({
             </div>
 
             {/* Manual Capture Button */}
-            <div className="mt-6 w-full max-w-sm">
-              <button
-                onClick={handleManualCapture}
-                disabled={cameraState.capturing}
-                className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white font-bold text-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none shadow-[0_4px_20px_-4px_rgba(16,185,129,0.5)]"
-              >
-                <Camera className="w-6 h-6" />
-                {cameraState.capturing ? 'جاري الالتقاط...' : 'التقاط الصورة'}
-              </button>
-            </div>
+            {!isEnrolled && (
+              <div className="mt-6 w-full max-w-sm">
+                <button
+                  onClick={handleManualCapture}
+                  disabled={cameraState.capturing}
+                  className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white font-bold text-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none shadow-[0_4px_20px_-4px_rgba(16,185,129,0.5)]"
+                >
+                  <Camera className="w-6 h-6" />
+                  {cameraState.capturing ? 'جاري الالتقاط...' : 'التقاط الصورة'}
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -636,6 +726,21 @@ export default function AttendanceCheckInOut({
               {capturingAction === 'checkIn' ? 'جاري تسجيل الحضور...' : 'جاري تسجيل الانصراف...'}
             </p>
           </div>
+        ) : !isEnrolled ? (
+          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-center">
+            <ShieldCheck className="w-12 h-12 text-brand-green mb-4" />
+            <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">تسجيل الوجه مطلوب</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-sm">
+              لتمكين ميزة تسجيل الحضور الذكية، يجب أولاً توثيق بصمة وجهك بإشراف المسؤول.
+            </p>
+            <button
+              onClick={() => setShowEnrollment(true)}
+              className="bg-brand-green hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 flex items-center gap-2"
+            >
+              <User className="w-5 h-5" />
+              توثيق بصمة الوجه (يتطلب مسؤول)
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
@@ -752,6 +857,17 @@ export default function AttendanceCheckInOut({
           </div>
         )}
       </AnimatePresence>
+
+      {showEnrollment && (
+        <FaceEnrollment
+          employeeId={employeeId}
+          onClose={() => setShowEnrollment(false)}
+          onSuccess={() => {
+            // Need to reload window to fetch new profile with face_descriptor
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }
