@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
-import * as faceapi from '@vladmandic/face-api';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { Camera, ShieldCheck, UserCheck, X, Loader2, AlertTriangle } from 'lucide-react';
+import { Camera, ShieldCheck, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useCamera } from '../hooks/useCamera';
+import { useFaceDetection } from '../hooks/useFaceDetection';
 
 interface FaceEnrollmentProps {
     employeeId: string;
@@ -15,8 +16,8 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     const [password, setPassword] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
     
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
+    const { videoRef, startCamera, stopCamera } = useCamera();
+    const { loadModels, extractFaceDescriptor } = useFaceDetection();
 
     // 1. Check Admin Password
     const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -24,41 +25,21 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
         const secret = import.meta.env.VITE_FACE_ENROLL_SECRET || 'admin1234'; // Default fallback
         if (password === secret) {
             setStep('loading_models');
-            loadModels();
+            handleLoadModelsAndCamera();
         } else {
             setErrorMsg('كلمة المرور غير صحيحة. هذه الميزة للمسؤولين فقط.');
         }
     };
 
-    // 2. Load Face API Models
-    const loadModels = async () => {
+    // 2. Load Face API Models & Start Camera
+    const handleLoadModelsAndCamera = async () => {
         try {
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
-                faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
-                faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
-            ]);
+            await loadModels();
             setStep('camera');
-            startCamera();
+            await startCamera();
         } catch (err) {
-            console.error("Error loading face models:", err);
-            toast.error("فشل تحميل نماذج الذكاء الاصطناعي");
-            onClose();
-        }
-    };
-
-    // 3. Start Camera
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
-            });
-            streamRef.current = stream;
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (err) {
-            toast.error("يرجى إعطاء صلاحية الكاميرا");
+            console.error("Error loading face models or camera:", err);
+            toast.error("فشل تهيئة الكاميرا أو نماذج الذكاء الاصطناعي");
             onClose();
         }
     };
@@ -66,11 +47,9 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     // Cleanup camera on unmount
     useEffect(() => {
         return () => {
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-            }
+            stopCamera();
         };
-    }, []);
+    }, [stopCamera]);
 
     // 4. Capture and Save Descriptor
     const handleCapture = async () => {
@@ -83,21 +62,15 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
         setStep('processing');
         
         try {
-            // Detect single face and compute descriptor
-            const detection = await faceapi.detectSingleFace(
-                videoRef.current, 
-                new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-            ).withFaceLandmarks().withFaceDescriptor();
+            // Detect single face and compute descriptor using our hook
+            const descriptorArray = await extractFaceDescriptor(videoRef.current);
 
-            if (!detection) {
+            if (!descriptorArray) {
                 toast.error("لم يتم العثور على وجه واضح، يرجى المحاولة مرة أخرى.");
                 videoRef.current.play(); // Resume video on failure
                 setStep('camera');
                 return;
             }
-
-            // Convert Float32Array to standard array for JSON storage
-            const descriptorArray = Array.from(detection.descriptor);
 
             // Save to database
             const { error } = await supabase
@@ -114,6 +87,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
         } catch (err) {
             console.error("Enrollment error:", err);
             toast.error("حدث خطأ أثناء حفظ البصمة");
+            if (videoRef.current) videoRef.current.play();
             setStep('camera');
         }
     };

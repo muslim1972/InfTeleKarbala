@@ -15,7 +15,8 @@ import {
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { FaceEnrollment } from './FaceEnrollment';
-import * as faceapi from '@vladmandic/face-api';
+import { useCamera } from '../hooks/useCamera';
+import { useFaceDetection } from '../hooks/useFaceDetection';
 
 // ============================================
 // Device Fingerprint — Cybersecurity Layer
@@ -49,16 +50,6 @@ interface CameraState {
   message: string;
   countdown: number;
 }
-
-// ============================================
-// Liveness Detection (Blink - EAR)
-// ============================================
-const getEAR = (eye: faceapi.Point[]) => {
-  const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-  const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-  const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-  return (v1 + v2) / (2.0 * h);
-};
 
 
 // ============================================
@@ -116,7 +107,6 @@ export default function AttendanceCheckInOut({
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
 
   // Camera & Face Detection
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [capturingAction, setCapturingAction] = useState<'checkIn' | 'checkOut' | null>(null);
   const [processing, setProcessing] = useState(false);
   const [alertInfo, setAlertInfo] = useState<{ show: boolean; action: 'checkIn' | 'checkOut' | null }>({
@@ -128,11 +118,13 @@ export default function AttendanceCheckInOut({
     message: 'يرجى وضع وجهك داخل الدائرة واضغط على زر التقاط الصورة',
     countdown: CAMERA_TIMEOUT_S
   });
-  const videoRef = useRef<HTMLVideoElement>(null);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const capturedRef = useRef(false);
+
+  const { videoRef, isCameraOpen: cameraOpen, startCamera, stopCamera, captureFrame } = useCamera();
+  const { loadModels, detectFaceInFrame } = useFaceDetection();
 
   // ---- Geofence Logic ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
@@ -174,68 +166,39 @@ export default function AttendanceCheckInOut({
   }, [verifyLocationAndGeofence]);
 
   // ---- Camera Cleanup ----
-  const stopCamera = useCallback(() => {
+  const handleStopCamera = useCallback(() => {
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
+    stopCamera();
+  }, [stopCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+    return () => handleStopCamera();
+  }, [handleStopCamera]);
 
   // ---- Capture Frame & Upload ----
   const captureAndUpload = useCallback(async (): Promise<{ url?: string; notes?: string }> => {
     try {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas) return { notes: '(فشل تقني في التقاط الصورة)' };
-
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return { notes: '(فشل تقني في رسم الصورة)' };
-
-      // Scale down for extreme storage economy (~5-10KB per image)
-      const MAX_DIM = 300;
-      let targetWidth = video.videoWidth;
-      let targetHeight = video.videoHeight;
-      
-      if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
-        if (targetWidth > targetHeight) {
-          targetHeight = Math.floor(targetHeight * (MAX_DIM / targetWidth));
-          targetWidth = MAX_DIM;
-        } else {
-          targetWidth = Math.floor(targetWidth * (MAX_DIM / targetHeight));
-          targetHeight = MAX_DIM;
-        }
-      }
-
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      if (!canvasRef.current) return { notes: '(فشل تقني في التقاط الصورة)' };
 
       // Stop camera and close overlay immediately to avoid UI freezing
-      stopCamera();
-      setCameraOpen(false);
       setProcessing(true);
 
-      const base64Data = canvas.toDataURL('image/webp', 0.8);
+      const base64Data = await captureFrame(canvasRef.current);
+      handleStopCamera();
+
       const url = await uploadSnapshotToR2(base64Data, 'snapshot');
       return url ? { url } : { notes: '(فشل رفع الصورة للسحابة)' };
     } catch (err: any) {
       console.error('Error inside captureAndUpload:', err);
-      stopCamera();
-      setCameraOpen(false);
+      handleStopCamera();
       return { notes: `(خطأ تقني أثناء التقاط الصورة: ${err.message || err})` };
     }
-  }, [stopCamera]);
+  }, [captureFrame, handleStopCamera]);
 
-  // ---- Complete Action (after capture) ----
   const completeAction = useCallback(async (currentAction: 'checkIn' | 'checkOut', snapshotResult: { url?: string; notes?: string }) => {
     try {
       const deviceId = await getDeviceFingerprint();
@@ -289,15 +252,10 @@ export default function AttendanceCheckInOut({
     
     try {
       setCameraState(prev => ({ ...prev, message: 'جاري تحميل نماذج الذكاء الاصطناعي...' }));
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
-        faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
-        faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
-      ]);
+      await loadModels();
       setCameraState(prev => ({ ...prev, message: 'تم التحميل. يرجى النظر للكاميرا ورمش العينين' }));
       toast('يرجى النظر للكاميرا ورمش العينين للمطابقة', { icon: '👀', duration: 4000 });
     } catch (err) {
-      console.error("Error loading face models:", err);
       toast.error('تعذر تحميل نماذج الذكاء الاصطناعي. يرجى التأكد من جودة الإنترنت.');
       return;
     }
@@ -309,14 +267,11 @@ export default function AttendanceCheckInOut({
 
       try {
         debugStatsRef.current.frames++;
-        const detection = await faceapi.detectSingleFace(
-          videoRef.current,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-        ).withFaceLandmarks().withFaceDescriptor();
+        
+        const { detection, distance, ear } = await detectFaceInFrame(videoRef.current, referenceDescriptor);
 
         if (detection) {
           debugStatsRef.current.faces++;
-          const distance = faceapi.euclideanDistance(detection.descriptor, referenceDescriptor);
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
           
@@ -324,12 +279,6 @@ export default function AttendanceCheckInOut({
             debugStatsRef.current.matchFrames++;
             setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى الثبات أو رمش العينين...' }));
             
-            // Check for blink (EAR)
-            const leftEye = detection.landmarks.getLeftEye();
-            const rightEye = detection.landmarks.getRightEye();
-            const leftEAR = getEAR(leftEye);
-            const rightEAR = getEAR(rightEye);
-            const ear = (leftEAR + rightEAR) / 2.0;
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
@@ -362,7 +311,7 @@ export default function AttendanceCheckInOut({
     };
     
     detectLoop();
-  }, [user, isEnrolled, captureAndUpload, completeAction, showDebugAlert]);
+  }, [user, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
 
   const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
     if (!isAllowed) {
@@ -390,16 +339,11 @@ export default function AttendanceCheckInOut({
     });
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      });
-      streamRef.current = stream;
-      setCameraOpen(true);
+      await startCamera();
 
       // Attach to video element after state update
       requestAnimationFrame(() => {
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
             // Start Face Detection if enrolled
             if (isEnrolled) {
@@ -414,8 +358,7 @@ export default function AttendanceCheckInOut({
               
               if (remaining <= 0 && !capturedRef.current) {
                 capturedRef.current = true;
-                stopCamera();
-                setCameraOpen(false);
+                handleStopCamera();
                 toast.error('تم إلغاء العملية لعدم التفاعل');
                 if (isEnrolled) {
                   showDebugAlert();
@@ -424,24 +367,14 @@ export default function AttendanceCheckInOut({
                 setCapturingAction(null);
               }
             }, 1000);
+          }).catch(err => {
+             console.error("Video play error", err);
           });
         }
       });
     } catch (err: any) {
-      console.error('Camera Error:', err);
-      setCameraOpen(false);
-
       // Determine exact error and register with note
-      let notes: string;
-      if (err.name === 'NotAllowedError') {
-        notes = '(صلاحية الكاميرا مرفوضة من المستخدم)';
-      } else if (err.name === 'NotFoundError') {
-        notes = '(لا توجد كاميرا في الجهاز)';
-      } else if (err.name === 'NotReadableError') {
-        notes = '(الكاميرا مستخدمة من تطبيق آخر)';
-      } else {
-        notes = '(تعذر فتح الكاميرا لخلل تقني)';
-      }
+      let notes = cameraError || '(تعذر فتح الكاميرا لخلل تقني)';
 
       // Register attendance without photo
       setProcessing(true);
@@ -467,10 +400,9 @@ export default function AttendanceCheckInOut({
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
     capturedRef.current = true; // prevent further captures
-    stopCamera();
-    setCameraOpen(false);
+    handleStopCamera();
     setCapturingAction(null);
-  }, [stopCamera]);
+  }, [handleStopCamera]);
 
   // ---- Time Leave Handlers (with device fingerprint) ----
   const handleTimeLeaveOut = useCallback(async () => {
