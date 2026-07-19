@@ -80,7 +80,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [results, setResults] = useState<TrainingResult[]>([]);
     const [students, setStudents] = useState<TrainingStudent[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
-    const [selectedResult, setSelectedResult] = useState<TrainingResult | null>(null);
+    const [selectedStudentResults, setSelectedStudentResults] = useState<TrainingResult[] | null>(null);
+    const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
 
     useEffect(() => {
         if (settings) {
@@ -787,7 +788,11 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                     const isPassed = finalScore >= 70;
 
                                                     return (
-                                                        <div key={student.id} onClick={() => setSelectedResult(result)} className={cn(
+                                                        <div key={student.id} onClick={() => {
+                                                            const sortedAttempts = [...studentResults].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                                                            setSelectedStudentResults(sortedAttempts);
+                                                            setActiveAttemptIndex(sortedAttempts.length - 1);
+                                                        }} className={cn(
                                                             "relative p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md text-right",
                                                             isDark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-white border-slate-200 hover:border-emerald-300"
                                                         )}>
@@ -829,7 +834,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                 <p className={cn("text-sm mt-1.5 font-bold", isDark ? "text-white/70" : "text-slate-600")}>
                                                                     {student.institution_name} — {student.department}
                                                                 </p>
-                                                                <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
+                                                <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
                                                                     الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — الدرجة = <span className="font-mono" dir="ltr">{finalScore} / 100</span> — النتيجة: {isPassed ? 'ناجح' : 'راسب'}
                                                                 </p>
                                                             </div>
@@ -860,29 +865,48 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
 
             {/* Modal for viewing exam details */}
-            {selectedResult && (
+            {selectedStudentResults && selectedStudentResults.length > 0 && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedResult(null)} />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudentResults(null)} />
                     <div className={cn(
                         "relative w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
                         isDark ? 'bg-zinc-900 text-white border border-white/10' : 'bg-white text-slate-900 border border-slate-200'
                     )}>
                         <div className={cn("p-4 border-b flex items-center justify-between", isDark ? "border-white/10" : "border-slate-100")}>
-                            <div>
-                                <h2 className="text-lg font-bold">تفاصيل إجابات الطالب</h2>
-                                <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")}>
-                                    النتيجة: {selectedResult.score} / 100
-                                    {' — '}النتيجة النهائية: {selectedResult.score >= 70 ? 'ناجح' : 'راسب'}
+                            <div className="flex-1">
+                                <div className="flex items-center justify-between ml-8">
+                                    <h2 className="text-lg font-bold">تفاصيل إجابات الطالب</h2>
+                                    {selectedStudentResults.length > 1 && (
+                                        <div className="flex items-center gap-2 mr-4" dir="rtl">
+                                            <label className={cn("text-xs font-bold", isDark ? "text-white/70" : "text-slate-600")}>اختر المحاولة:</label>
+                                            <select 
+                                                value={activeAttemptIndex} 
+                                                onChange={(e) => setActiveAttemptIndex(Number(e.target.value))}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg text-sm font-bold border outline-none",
+                                                    isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                                                )}
+                                            >
+                                                {selectedStudentResults.map((res, idx) => (
+                                                    <option key={idx} value={idx}>المحاولة {idx + 1} {idx === selectedStudentResults.length - 1 ? '(الأخيرة)' : ''}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")} dir="rtl">
+                                    النتيجة: {selectedStudentResults[activeAttemptIndex].score} / 100
+                                    {' — '}النتيجة النهائية: {selectedStudentResults[activeAttemptIndex].score >= 70 ? 'ناجح' : 'راسب'}
                                 </p>
                             </div>
-                            <button onClick={() => setSelectedResult(null)} className="p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
+                            <button onClick={() => setSelectedStudentResults(null)} className="absolute top-4 left-4 p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar text-right">
-                            {selectedResult.exam_details ? (
-                                selectedResult.exam_details.questions.map((q, i) => {
-                                    const userAnswer = selectedResult.exam_details!.answers[i];
+                            {selectedStudentResults[activeAttemptIndex].exam_details ? (
+                                selectedStudentResults[activeAttemptIndex].exam_details.questions.map((q, i) => {
+                                    const userAnswer = selectedStudentResults[activeAttemptIndex].exam_details!.answers[i];
                                     const isCorrect = userAnswer === q.correctIndex;
                                     return (
                                         <div key={i} className={cn(
@@ -908,7 +932,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                             ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30"
                                                             : j === userAnswer && j !== q.correctIndex
                                                                 ? "bg-red-500/20 text-red-700 dark:text-red-300 line-through border border-red-500/30"
-                                                                : isDark ? "text-white/50 bg-white/5" : "text-slate-500 bg-slate-50"
+                                                                : isDark ? "text-white/50 bg-white/5" : "text-slate-500 bg-slate-50 border border-slate-100"
                                                     )}>
                                                         {opt}
                                                     </div>
