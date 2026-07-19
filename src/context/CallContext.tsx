@@ -4,11 +4,11 @@
  * نظام المكالمات المحدث باستخدام LiveKit لضمان جودة عالية للاتصال الصوتي والمرئي
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
-import { CallOverlayWrapper } from '../components/call/CallOverlayWrapper';
+const CallOverlayWrapper = React.lazy(() => import('../components/call/CallOverlayWrapper').then(m => ({ default: m.CallOverlayWrapper })));
 import { globalAudioManager } from '../services/GlobalAudioManager';
 import { RingbackToneGenerator } from '../services/RingbackToneGenerator';
 
@@ -230,7 +230,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   return (
     <CallContext.Provider value={value}>
       {children}
-      <CallOverlayWrapper />
+      {status !== 'idle' && (
+        <Suspense fallback={null}>
+          <CallOverlayWrapper />
+        </Suspense>
+      )}
     </CallContext.Provider>
   );
 }
