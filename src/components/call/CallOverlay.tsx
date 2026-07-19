@@ -69,9 +69,9 @@ const ActiveCallUI = () => {
 
       {/* مسارات الفيديو */}
       <div className="absolute inset-0 z-0">
-        {tracks.filter(t => t.publication.kind === Track.Kind.Video).map((trackReference) => (
+        {tracks.filter(t => t.source === Track.Source.Camera || t.publication?.kind === Track.Kind.Video).map((trackReference) => (
           <VideoTrack 
-            key={trackReference.publication.trackSid} 
+            key={trackReference.publication?.trackSid || trackReference.participant.identity + '-video'} 
             trackRef={trackReference} 
             className="w-full h-full object-cover" 
           />

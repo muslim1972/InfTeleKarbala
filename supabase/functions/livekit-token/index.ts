@@ -14,11 +14,11 @@ serve(async (req) => {
   }
 
   try {
-    const { roomName, participantName } = await req.json();
+    const { roomName, participantName, participantId } = await req.json();
 
-    if (!roomName || !participantName) {
+    if (!roomName || !participantName || !participantId) {
       return new Response(
-        JSON.stringify({ error: 'roomName and participantName are required' }),
+        JSON.stringify({ error: 'roomName, participantName, and participantId are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -35,7 +35,8 @@ serve(async (req) => {
 
     // Create a new token for the participant
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: participantName,
+      identity: participantId,
+      name: participantName,
     });
 
     at.addGrant({

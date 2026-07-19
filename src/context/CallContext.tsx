@@ -63,7 +63,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
     try {
       const { data, error } = await supabase.functions.invoke('livekit-token', {
-        body: { roomName: roomId, participantName: user.full_name || user.username || 'User' }
+        body: { 
+          roomName: roomId, 
+          participantName: user.full_name || user.username || 'User',
+          participantId: user.id
+        }
       });
       if (error) throw error;
       return data.token;
