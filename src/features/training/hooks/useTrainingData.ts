@@ -206,14 +206,9 @@ export function useTrainingData() {
         }
     }, []);
 
-    // ── حفظ نتيجة الاختبار (مع حذف النتيجة السابقة) ──
+    // ── حفظ نتيجة الاختبار ──
     const saveTrainingResult = useCallback(async (result: Omit<TrainingResult, 'id' | 'created_at' | 'completed_at'>): Promise<boolean> => {
         try {
-            // حذف النتيجة السابقة إن وجدت
-            await supabase
-                .from('summer_training_results')
-                .delete()
-                .eq('student_id', result.student_id);
 
             // حفظ النتيجة الجديدة
             const { error } = await supabase.from('summer_training_results').insert({
@@ -252,17 +247,15 @@ export function useTrainingData() {
         }
     }, []);
 
-    // ── جلب عدد محاولات الطالب ──
+    // ── معرفة عدد محاولات الطالب ──
     const getStudentAttemptCount = useCallback(async (studentId: string): Promise<number> => {
         try {
-            const { data, error } = await supabase
+            const { count, error } = await supabase
                 .from('summer_training_results')
-                .select('attempt_number')
-                .eq('student_id', studentId)
-                .order('attempt_number', { ascending: false })
-                .limit(1);
+                .select('*', { count: 'exact', head: true })
+                .eq('student_id', studentId);
             if (error) throw error;
-            return data && data.length > 0 ? data[0].attempt_number : 0;
+            return count || 0;
         } catch {
             return 0;
         }

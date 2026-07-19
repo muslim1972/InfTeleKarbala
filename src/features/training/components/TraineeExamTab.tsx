@@ -44,6 +44,14 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
 
     const handleStartExam = async () => {
         setLoadingQuestions(true);
+        const realCount = await getStudentAttemptCount(student.id);
+        
+        if (realCount >= MAX_EXAM_ATTEMPTS) {
+            setLoadingQuestions(false);
+            alert(`عذراً، لقد استنفذت جميع المحاولات المتاحة (${MAX_EXAM_ATTEMPTS} محاولات).`);
+            return;
+        }
+
         const loadedQuestions = await loadExamQuestions();
         setQuestions(loadedQuestions);
         setLoadingQuestions(false);
