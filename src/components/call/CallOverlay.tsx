@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState, memo } from 'react';
 import { useCall } from '../../context/CallContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VideoOff, Video, User, Clock } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Volume1, VideoOff, Video, User, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useLocalParticipant, useTracks, VideoTrack, AudioTrack, RoomAudioRenderer } from '@livekit/components-react';
+import { useLocalParticipant, useTracks, VideoTrack, AudioTrack, RoomAudioRenderer, useRoomContext } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 
 // مؤقت المكالمة
@@ -49,12 +49,38 @@ const ActiveCallUI = () => {
     { onlySubscribed: true }
   );
 
+  const room = useRoomContext();
+  const [isSpeaker, setIsSpeaker] = useState(true);
+
   const toggleMute = () => {
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   };
 
   const toggleVideo = () => {
     localParticipant.setCameraEnabled(!isCameraEnabled);
+  };
+
+  const toggleSpeaker = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+      
+      if (audioOutputs.length > 1) {
+        const currentDeviceId = room.getActiveDevice('audiooutput') || audioOutputs[0].deviceId;
+        const currentIndex = audioOutputs.findIndex(d => d.deviceId === currentDeviceId);
+        const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % audioOutputs.length;
+        
+        await room.switchActiveDevice('audiooutput', audioOutputs[nextIndex].deviceId);
+        setIsSpeaker(!isSpeaker);
+        toast.success(isSpeaker ? 'سماعة الأذن' : 'مكبر الصوت');
+      } else {
+        // Fallback for devices that don't expose multiple audio outputs
+        toast.error('تبديل مخرج الصوت غير مدعوم في متصفحك');
+      }
+    } catch (e) {
+      console.error('Error switching audio output:', e);
+      toast.error('حدث خطأ أثناء تبديل مخرج الصوت');
+    }
   };
 
   return (
@@ -112,6 +138,17 @@ const ActiveCallUI = () => {
 
       {/* أزرار التحكم السفلية */}
       <div className="relative z-10 w-full max-w-lg flex items-center justify-around pb-10 mt-auto bg-gradient-to-t from-black/80 to-transparent pt-12">
+        {!isVideoCall && (
+            <button
+              onClick={toggleSpeaker}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-xl ${
+                !isSpeaker ? 'bg-slate-700 text-white' : 'bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20'
+              }`}
+            >
+              {isSpeaker ? <Volume2 className="w-7 h-7" /> : <Volume1 className="w-7 h-7" />}
+            </button>
+        )}
+
         {isVideoCall && (
             <button
               onClick={toggleVideo}
