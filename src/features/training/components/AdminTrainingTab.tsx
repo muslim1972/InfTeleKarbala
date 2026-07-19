@@ -235,15 +235,19 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     }, [openSection, loadResults]);
 
     // ── Delete Result ──
-    const handleDeleteResult = async (id: string) => {
-        if (!confirm('هل تريد حذف هذه النتيجة؟')) return;
+    const handleDeleteResult = async (studentId: string) => {
+        if (!confirm('هل تريد حذف جميع نتائج ومحاولات هذا الطالب لإعادة الاختبار؟')) return;
         try {
-            const { error } = await supabase.from('summer_training_results').delete().eq('id', id);
+            const { error } = await supabase.from('summer_training_results').delete().eq('student_id', studentId);
             if (error) throw error;
-            setResults(prev => prev.filter(r => r.id !== id));
-            toast.success('تم حذف النتيجة');
+            setResults(prev => prev.filter(r => r.student_id !== studentId));
+            
+            // Also reset their exam grade in students table just in case
+            await supabase.from('summer_training_students').update({ exam_grade: null }).eq('id', studentId);
+            
+            toast.success('تم حذف نتائج الطالب بنجاح');
         } catch {
-            toast.error('فشل حذف النتيجة');
+            toast.error('فشل حذف نتائج الطالب');
         }
     };
 
@@ -751,7 +755,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             ) : (
                                 <div className="space-y-4">
                                     <p className={cn("text-sm font-bold text-center", isDark ? "text-emerald-300" : "text-emerald-700")}>
-                                        ( عدد الطلبة الذين انهوا الاختبار {results.length} من العدد الاجمالي {students.length} )
+                                        ( عدد الطلبة الذين انهوا الاختبار {new Set(results.map(r => r.student_id)).size} من العدد الاجمالي {students.length} )
                                     </p>
                                     <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                                         {(() => {
@@ -775,7 +779,9 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                             });
 
                                             return sortedStudents.map(student => {
-                                                const result = results.find(r => r.student_id === student.id);
+                                                const studentResults = results.filter(r => r.student_id === student.id);
+                                                const result = studentResults.length > 0 ? studentResults[0] : undefined;
+                                                
                                                 if (result) {
                                                     const finalScore = result.score;
                                                     const isPassed = finalScore >= 70;
@@ -788,9 +794,9 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                             {/* Score, Grade and Delete Button (Top Left) */}
                                                             <div className="absolute top-4 left-4 flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                                                 <button
-                                                                    onClick={() => handleDeleteResult(result.id)}
+                                                                    onClick={() => handleDeleteResult(student.id)}
                                                                     className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                                                                    title="حذف النتيجة لإعادة الاختبار"
+                                                                    title="حذف جميع نتائج الطالب لإعادة الاختبار"
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
@@ -801,6 +807,12 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                         : isDark ? "bg-red-500/15 text-red-300" : "bg-red-100 text-red-700"
                                                                 )}>
                                                                     {isPassed ? 'ناجح' : 'راسب'}
+                                                                </span>
+                                                                <span className={cn(
+                                                                    "px-2 py-1 rounded-lg text-[10px] font-bold text-center",
+                                                                    isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"
+                                                                )} dir="rtl">
+                                                                    {studentResults.length} محاولات
                                                                 </span>
                                                                 <span className={cn(
                                                                     "px-3 py-1.5 rounded-lg text-sm font-bold",
