@@ -114,7 +114,8 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             setHighlightedEmpId(selectedUser.id);
 
-            smoothScrollToId(`emp-badge-${selectedUser.id}`, 150);
+            // 350 offset puts it around the upper-middle of most screens
+            smoothScrollToId(`emp-badge-${selectedUser.id}`, 350);
 
             setTimeout(() => {
                 setHighlightedEmpId(null);
