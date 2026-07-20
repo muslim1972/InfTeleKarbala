@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, BookOpen, Code, Rocket, Cpu, Briefcase, GraduationCap, ShieldCheck, Youtube } from 'lucide-react';
+import { X, Mail, BookOpen, Code, Rocket, Cpu, Briefcase, GraduationCap, ShieldCheck, Youtube, ShoppingCart } from 'lucide-react';
 
 interface DeveloperCVProps {
     isOpen: boolean;
@@ -235,6 +235,17 @@ const DeveloperCV: React.FC<DeveloperCVProps> = ({ isOpen, onClose }) => {
                                             <p className="text-[10px] text-blue-300/80 font-bold bg-blue-500/5 p-2 rounded-lg border border-blue-500/10">
                                                 - اطلع على التطبيقات وثبت ما يعجبك
                                                 <a href="https://shamelapp.com" target="_blank" rel="noopener noreferrer" className="mr-1 text-blue-400 hover:text-white underline decoration-dotted transition-colors">من هنا</a>
+                                            </p>
+                                        </div>
+                                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 hover:border-green-500/40 transition-all group">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-xs font-bold text-green-400">2026</span>
+                                                <ShoppingCart size={16} className="opacity-40 group-hover:text-green-400" />
+                                            </div>
+                                            <h4 className="font-bold mb-1">جملتي (Jumla)</h4>
+                                            <p className="text-xs opacity-70 leading-relaxed mb-2">منصة تجارة إلكترونية متطورة تربط بين الماركتات وتجار الجملة، لتسهيل عمليات التسوق وتسريع سلاسل الإمداد.</p>
+                                            <p className="text-[10px] text-green-300/80 font-bold bg-green-500/5 p-2 rounded-lg border border-green-500/10">
+                                                - تطبيق حديث مبني بأحدث تقنيات الويب
                                             </p>
                                         </div>
                                         <motion.div
