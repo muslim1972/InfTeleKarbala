@@ -1,6 +1,5 @@
 import { User, ShieldCheck, GraduationCap, Fingerprint } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { AppFooter } from "../layout/AppFooter";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 import toast from 'react-hot-toast';
@@ -185,11 +184,6 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                         <span className="font-bold text-sm font-tajawal">تسجيل الخروج</span>
                     </button>
                 </div>
-            </div>
-
-            {/* Footer */}
-            <div className="absolute bottom-0 left-0 right-0 z-20">
-                <AppFooter />
             </div>
         </div>
     );

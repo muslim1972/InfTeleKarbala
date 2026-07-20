@@ -7,7 +7,6 @@ import { useEmployeeManager } from "../hooks/useEmployeeManager";
 import { smoothScrollToId } from "../hooks/useSmoothScroll";
 import { cn } from "../lib/utils";
 import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
-import { AppNotifications } from "../components/features/AppNotifications";
 import { useAuth } from "../context/AuthContext";
 import { lazy, Suspense } from "react";
 import { useTheme } from "../context/ThemeContext";
@@ -204,7 +203,6 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
     return (
         <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative min-h-screen bg-transparent" onBack={onBack}>
-            <AppNotifications />
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
                 <DepartmentsManager theme={theme} />

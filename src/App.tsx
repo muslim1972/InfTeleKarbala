@@ -32,6 +32,7 @@ const NotFound = lazy(() => import("./pages/NotFound").then(m => ({ default: m.N
 const AttendanceDashboard = lazy(() => import("./features/attendance").then(m => ({ default: m.AttendanceDashboard })));
 const IncentivesTabContent = lazy(() => import("./components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
 const FloatingAudioPlayer = lazy(() => import("./components/features/FloatingAudioPlayer").then(m => ({ default: m.FloatingAudioPlayer })));
+const GlobalElements = lazy(() => import("./components/layout/GlobalElements").then(m => ({ default: m.GlobalElements })));
 
 // Loading Component
 const LoadingScreen = () => (
@@ -294,6 +295,7 @@ function App() {
                     <Route path="/*" element={<NotFound />} />
                   </Routes>
                   <FloatingAudioPlayer />
+                  <GlobalElements />
                 </Suspense>
               </KnowledgeProvider>
             </CallProvider>

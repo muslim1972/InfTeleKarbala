@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { TabSystem } from "../components/features/TabSystem";
 import { YearSlider } from "../components/features/YearSlider";
-import { AppNotifications } from "../components/features/AppNotifications";
 import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
 import { AudioHub } from "../components/features/AudioHub";
@@ -75,7 +74,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
 
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true} onBack={onBack}>
-            <AppNotifications />
             <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-2 bg-transparent">
                 {activeTab === 'polls' ? (
                     <UserPolls />
@@ -116,4 +114,3 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         </Layout>
     );
 };
-

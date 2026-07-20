@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
-import { AppFooter } from "../components/layout/AppFooter";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 import { TraineeLoginPage } from "../features/training/components/TraineeLoginPage";
@@ -617,10 +616,6 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
           </div>
         </div>
       )}
-
-      <div className="absolute bottom-0 left-0 right-0 z-20">
-        <AppFooter />
-      </div>
     </div>
   );
 };

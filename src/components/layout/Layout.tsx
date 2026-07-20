@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "./AppHeader";
-import { AppFooter } from "./AppFooter";
 import { cn } from "../../lib/utils";
-import DeveloperCV from "../ui/DeveloperCV";
-import { useChat } from "../../context/ChatContext";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -16,9 +13,6 @@ interface LayoutProps {
 }
 
 export const Layout = ({ children, className, headerContent, headerTitle, showUserName = false, onBack }: LayoutProps) => {
-    const navigate = useNavigate();
-    const [isCVOpen, setIsCVOpen] = useState(false);
-    const { totalUnreadCount } = useChat();
 
     return (
         <div className="relative w-full min-h-screen bg-background text-foreground font-tajawal transition-colors duration-300">
@@ -46,44 +40,6 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-96", className)}>
                     {children}
                 </main>
-                <AppFooter onDeveloperClick={() => setIsCVOpen(true)} />
-
-                {/* Global Chat FAB */}
-                <button
-                    onClick={() => navigate('/chat')}
-                    className="fixed bottom-3 left-3 md:bottom-4 md:left-4 z-[100] w-12 h-12 md:w-14 md:h-14 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
-                >
-                    {/* Main Icon - Increased Z-index */}
-                    <div className="relative w-full h-full">
-                        <img
-                            src="/images/conv-icon.png"
-                            alt="المحادثات"
-                            className="w-full h-full object-cover relative z-10"
-                            onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                            }}
-                        />
-                        {/* Unread Count Badge */}
-                        {totalUnreadCount > 0 && (
-                            <div className="absolute -top-1 -right-1 z-20 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-lg animate-in zoom-in-50 duration-200">
-                                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                            </div>
-                        )}
-                    </div>
-                    {/* Fallback Icon */}
-                    <div className="absolute inset-0 flex items-center justify-center -z-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle w-8 h-8 text-white"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
-                    </div>
-
-                    <span className="sr-only">المحادثات</span>
-
-                    {/* Ripple Effect Grid - Z-index 0 to sit ON TOP of button background but BELOW image (z-10) */}
-                    <div
-                        className="absolute inset-0 rounded-full border-[6px] animate-pulse-custom pointer-events-none"
-                        style={{ borderColor: '#8b5cf6' }}
-                    />
-                </button>
-                <DeveloperCV isOpen={isCVOpen} onClose={() => setIsCVOpen(false)} />
             </div>
         </div>
     );
