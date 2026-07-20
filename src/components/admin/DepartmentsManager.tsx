@@ -114,7 +114,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             setHighlightedEmpId(selectedUser.id);
 
-            smoothScrollToId(`emp-badge-${selectedUser.id}`, 0);
+            smoothScrollToId(`emp-badge-${selectedUser.id}`, 150);
 
             setTimeout(() => {
                 setHighlightedEmpId(null);
@@ -573,7 +573,17 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                         />
                         {globalSearchTerm && (
                             <div className={`absolute z-30 w-full mt-1 max-h-60 overflow-y-auto rounded-lg shadow-xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-800 border-white/10'}`}>
-                                {users.filter(u => u.full_name.includes(globalSearchTerm)).slice(0, 10).map(u => (
+                                {users
+                                    .filter(u => u.full_name.includes(globalSearchTerm))
+                                    .sort((a, b) => {
+                                        const aStarts = a.full_name.startsWith(globalSearchTerm);
+                                        const bStarts = b.full_name.startsWith(globalSearchTerm);
+                                        if (aStarts && !bStarts) return -1;
+                                        if (!aStarts && bStarts) return 1;
+                                        return 0;
+                                    })
+                                    .slice(0, 30)
+                                    .map(u => (
                                     <div
                                         key={u.id}
                                         onClick={() => handleSearchSelect(u)}
