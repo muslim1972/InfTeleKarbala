@@ -164,19 +164,19 @@ export default function NotificationsBell({ userId }: NotificationsBellProps) {
               setShowModal(true);
             }
           }}
-          className="fixed bottom-6 left-6 z-[100] bg-slate-800 p-3 rounded-full shadow-2xl border-2 border-blue-500 hover:bg-slate-700 transition-colors group"
+          className="fixed bottom-[316px] left-3 md:bottom-[356px] md:left-4 z-[100] bg-slate-800 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center p-0 rounded-full shadow-2xl border-2 border-blue-500 hover:bg-slate-700 transition-colors group focus:outline-none"
           title="إشعارات الاجتماعات"
         >
-          <div className="relative">
-            <Bell className="text-white" size={22} />
+          <div className="relative w-full h-full flex items-center justify-center">
+            <Bell className="text-white" size={24} />
             {unreadCount > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-blue-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-lg">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </div>
           {/* حلقة نبضية */}
-          <div className="absolute inset-0 rounded-full border-2 border-blue-500/50 animate-ping pointer-events-none" />
+          <div className="absolute inset-0 rounded-full border-[3px] border-blue-500/50 animate-pulse pointer-events-none" />
         </motion.button>
       </AnimatePresence>
 

@@ -297,16 +297,16 @@ export const AppNotifications = () => {
         <>
             <button
                 onClick={() => setShowModal(true)}
-                className="fixed bottom-[calc(11.1rem+env(safe-area-inset-bottom))] left-28 z-[100] bg-white dark:bg-slate-800 w-14 h-14 rounded-full shadow-2xl border-2 border-indigo-500 animate-pulse group transition-transform hover:scale-110 flex items-center justify-center"
+                className="fixed bottom-[256px] left-3 md:bottom-[288px] md:left-4 z-[100] bg-white dark:bg-slate-800 w-12 h-12 md:w-14 md:h-14 rounded-full shadow-2xl border-2 border-indigo-500 transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
                 title="الإشعارات الشاملة"
             >
-                <div className="relative">
-                    <Bell className="text-gray-700 dark:text-gray-200" size={20} />
-                    <span className="absolute -top-2 -right-2 w-[18px] h-[18px] bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce shadow">
-                        {totalNotifications}
+                <div className="relative w-full h-full flex items-center justify-center">
+                    <Bell className="text-gray-700 dark:text-gray-200" size={24} />
+                    <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-lg animate-bounce">
+                        {totalNotifications > 99 ? '99+' : totalNotifications}
                     </span>
                 </div>
-                <div className="absolute inset-0 rounded-full border-2 border-indigo-500/50 animate-ping pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-full border-[3px] border-indigo-500/50 animate-pulse pointer-events-none"></div>
             </button>
 
             {showModal && (
