@@ -21,13 +21,17 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
 
         const fetchTips = async () => {
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from('admin_tips')
                     .select('content')
                     .eq('app_name', appName)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
+
+                if (error) {
+                    throw error;
+                }
 
                 if (data?.content) {
                     const tipsArray = data.content
@@ -38,8 +42,9 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                 } else {
                     setFetchedTips([]);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Error fetching tips:', err);
+                setFetchedTips(['ERROR: ' + (err?.message || 'Unknown error')]);
             } finally {
                 setLoading(false);
             }
@@ -72,13 +77,8 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
     // Filter out completely empty chunks just in case, but keep the array
     const validTips = activeTips.filter(t => t.trim().length > 0);
 
-    // If no valid tips and not in manual mode (preview), don't render anything
-    if (!manualTips && validTips.length === 0) return null;
-
-    // For preview, if empty, show placeholder
-    const tipsToDisplay = validTips.length > 0 ? validTips : (manualTips ? ['... معاينة الشريط ...'] : []);
-
-    if (tipsToDisplay.length === 0) return null;
+    // If no valid tips and not in manual mode (preview), don't return null, show default message
+    const tipsToDisplay = validTips.length > 0 ? validTips : (manualTips ? ['... معاينة الشريط ...'] : ['... لا توجد أخبار حالياً ...']);
 
     const marqueeText = tipsToDisplay.join('  ★★★★★  ');
     // For a seamless infinite loop, we need at least two copies and enough content to fill screen
