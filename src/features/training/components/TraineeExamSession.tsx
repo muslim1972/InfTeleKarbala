@@ -238,7 +238,7 @@ export const TraineeExamSession = ({
     }
 
     return (
-        <div className="space-y-4 animate-in fade-in duration-300 relative">
+        <div className="space-y-4 animate-in fade-in duration-300 relative pb-32">
             <div ref={topRef} className="w-full h-px" />
             {/* Timer Bar */}
             <div className={cn(

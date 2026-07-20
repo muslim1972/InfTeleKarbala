@@ -59,7 +59,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                         </div>
 
                         {/* Right: Version */}
-                        <div className="tracking-widest opacity-70 text-left flex justify-end overflow-hidden">
+                        <div className="tracking-widest opacity-70 text-left flex justify-end overflow-hidden pl-14 md:pl-16">
                             <span className="truncate">V-v{__APP_VERSION__}</span>
                         </div>
                     </div>

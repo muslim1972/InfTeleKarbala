@@ -145,7 +145,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
       <div className={`h-screen w-full relative overflow-y-auto overflow-x-hidden ${theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'}`}>
         <button 
           onClick={() => setShowTraineeLogin(false)}
-          className="absolute top-4 left-4 z-[60] px-4 py-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all text-sm backdrop-blur-md"
+          className="fixed top-4 left-4 z-[60] px-4 py-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all text-sm backdrop-blur-md shadow-sm"
         >
           العودة
         </button>
