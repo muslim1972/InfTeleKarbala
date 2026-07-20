@@ -297,7 +297,7 @@ export const AppNotifications = () => {
         <>
             <button
                 onClick={() => setShowModal(true)}
-                className="fixed bottom-[256px] left-3 md:bottom-[288px] md:left-4 z-[100] bg-white dark:bg-slate-800 w-12 h-12 md:w-14 md:h-14 rounded-full shadow-2xl border-2 border-indigo-500 transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
+                className="fixed bottom-[68px] left-3 md:bottom-[76px] md:left-4 z-[100] bg-white dark:bg-slate-800 w-12 h-12 md:w-14 md:h-14 rounded-full shadow-2xl border-2 border-indigo-500 transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
                 title="الإشعارات الشاملة"
             >
                 <div className="relative w-full h-full flex items-center justify-center">
