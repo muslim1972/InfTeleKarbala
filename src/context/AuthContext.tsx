@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { sendPushNotification } from "../services/notifications";
+import { sendPushNotification, initOneSignal, logoutOneSignal } from "../services/notifications";
 import { geolocationManager } from "../utils/GeolocationManager";
 
 export interface AppUser {
@@ -71,6 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: userData.role,
         user_agent: navigator.userAgent
       });
+      setUser(userData);
+      initOneSignal(userData.id);
       sessionStorage.setItem('session_logged', 'true');
     } catch (e) {
       console.error("Failed to log visit", e);
@@ -170,6 +172,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               face_descriptor: profile.face_descriptor
             };
             setUser(appUser);
+            initOneSignal(appUser.id);
             logVisit(appUser);
           }
         }
@@ -300,6 +303,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (isBypassedLogin) {
         localStorage.setItem(`2fa_verified_${appUser.id}`, Date.now().toString());
         setUser(appUser);
+        initOneSignal(appUser.id);
         logVisit(appUser);
         return { success: true, requires_2fa: false, tempUser: appUser } as any;
       }
@@ -341,6 +345,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // ----------------------------------
 
       setUser(tempUser);
+      initOneSignal(tempUser.id);
       sessionStorage.removeItem('session_logged');
       logVisit(tempUser);
       
@@ -409,6 +414,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (user?.id) localStorage.removeItem(`2fa_verified_${user.id}`);
     await supabase.auth.signOut();
     geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
+    logoutOneSignal();
     setUser(null);
     sessionStorage.removeItem("visitor_user");
     sessionStorage.removeItem("session_logged");

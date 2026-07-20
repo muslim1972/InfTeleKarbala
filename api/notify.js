@@ -57,6 +57,7 @@ export default async function handler(req, res) {
             // Urgent vibration pattern: Long-Short-Long
             android_vibration_pattern: [200, 100, 200, 100, 1000],
             ttl: 3600, // Increase to ensure retries if phone is sleeping
+            web_push_topic: "urgent_call" // groups these and often can trigger higher interaction in some OS
           } : {
             // Normal message settings
             ttl: 3600,
