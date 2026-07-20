@@ -811,7 +811,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                         ? isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
                                                                         : isDark ? "bg-red-500/15 text-red-300" : "bg-red-100 text-red-700"
                                                                 )}>
-                                                                    {isPassed ? 'ناجح' : 'راسب'}
+                                                                    {isPassed ? 'ناجح' : 'محاولة غير موفقة'}
                                                                 </span>
                                                                 <span className={cn(
                                                                     "px-2 py-1 rounded-lg text-[10px] font-bold text-center",
@@ -835,7 +835,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                                     {student.institution_name} — {student.department}
                                                                 </p>
                                                 <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
-                                                                    الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — الدرجة = <span className="font-mono" dir="ltr">{finalScore} / 100</span> — النتيجة: {isPassed ? 'ناجح' : 'راسب'}
+                                                                    الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — الدرجة = <span className="font-mono" dir="ltr">{finalScore} / 100</span> — النتيجة: {isPassed ? 'ناجح' : 'محاولة غير موفقة'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -896,7 +896,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                 </div>
                                 <p className={cn("text-xs mt-1", isDark ? "text-white/60" : "text-slate-500")} dir="rtl">
                                     النتيجة: {selectedStudentResults[activeAttemptIndex].score} / 100
-                                    {' — '}النتيجة النهائية: {selectedStudentResults[activeAttemptIndex].score >= 70 ? 'ناجح' : 'راسب'}
+                                    {' — '}النتيجة النهائية: {selectedStudentResults[activeAttemptIndex].score >= 70 ? 'ناجح' : 'محاولة غير موفقة'}
                                 </p>
                             </div>
                             <button onClick={() => setSelectedStudentResults(null)} className="absolute top-4 left-4 p-2 rounded-full hover:bg-red-500/10 text-red-400 transition-colors">
