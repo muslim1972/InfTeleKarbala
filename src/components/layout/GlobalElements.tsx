@@ -11,12 +11,8 @@ export const GlobalElements = () => {
     const [isCVOpen, setIsCVOpen] = useState(false);
     const { totalUnreadCount } = useChat();
 
-    // Do not show global elements if running inside an iframe (e.g. CapacitiesIframe)
-    // to prevent duplicate footers.
-    const isIframe = window !== window.top;
-
     // Do not show global elements on the chat page to avoid blocking the input
-    if (location.pathname.startsWith('/chat') || isIframe) {
+    if (location.pathname.startsWith('/chat')) {
         return null;
     }
 
