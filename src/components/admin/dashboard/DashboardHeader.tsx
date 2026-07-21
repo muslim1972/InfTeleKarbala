@@ -60,7 +60,7 @@ export const DashboardHeader = ({
 }: DashboardHeaderProps) => {
 
     const tabs = (() => {
-        const canAccessNews = isRoleEditable || currentUser?.admin_role === 'media';
+        const canAccessNews = !isFieldReadOnly('tab_news');
 
         const allTabs = [
             ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),

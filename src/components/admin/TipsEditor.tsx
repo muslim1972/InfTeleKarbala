@@ -82,8 +82,9 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
             setOriginalContent(content);
             setSaveStatus('success');
             setTimeout(() => setSaveStatus('idle'), 3000);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error saving tip:', err);
+            alert(`فشل الحفظ: ${err.message}`);
             setSaveStatus('error');
             setTimeout(() => setSaveStatus('idle'), 3000);
         } finally {

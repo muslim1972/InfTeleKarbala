@@ -10,7 +10,7 @@ interface FieldPermissionsModalProps {
 
 interface FieldPermission {
     column_name: string;
-    permission_level: number;
+    permission_levels: number[];
 }
 
 export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalProps) => {
@@ -36,6 +36,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         { key: 'tab_supervisors', label: 'تبويبة المشرفون' },
         { key: 'tab_training', label: 'تبويبة التدريب الصيفي' },
         { key: 'tab_requests', label: 'تبويبة الطلبات' },
+        { key: 'tab_news', label: 'تبويبة الاعلام' },
         // --- البيانات المالية والوظيفية ---
         { key: 'job_title', label: 'العنوان الوظيفي' },
         { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
@@ -79,18 +80,26 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 // Set default permissions (everyone level 4)
                 const defaultPerms = allFields.map(f => ({
                     column_name: f.key,
-                    permission_level: 4
+                    permission_levels: [4]
                 }));
                 setPermissions(defaultPerms);
                 return;
             }
 
-            // Merge fetched permissions with all fields list, defaulting missing to level 4
+            // Merge fetched permissions with all fields list, defaulting missing to [4]
             const mergedPerms = allFields.map(field => {
                 const found = data?.find(p => p.column_name === field.key);
+                let levels = [4];
+                if (found) {
+                    if (Array.isArray(found.permission_levels)) {
+                        levels = found.permission_levels;
+                    } else if (found.permission_level) {
+                        levels = [found.permission_level]; // Fallback for old schema
+                    }
+                }
                 return {
                     column_name: field.key,
-                    permission_level: found ? found.permission_level : 4
+                    permission_levels: levels
                 };
             });
 
@@ -106,10 +115,17 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         fetchPermissions();
     }, []);
 
-    const handleLevelChange = (columnName: string, level: number) => {
-        setPermissions(prev => prev.map(p =>
-            p.column_name === columnName ? { ...p, permission_level: level } : p
-        ));
+    const handleLevelToggle = (columnName: string, level: number) => {
+        setPermissions(prev => prev.map(p => {
+            if (p.column_name === columnName) {
+                const currentLevels = p.permission_levels || [];
+                const newLevels = currentLevels.includes(level) 
+                    ? currentLevels.filter(l => l !== level)
+                    : [...currentLevels, level];
+                return { ...p, permission_levels: newLevels };
+            }
+            return p;
+        }));
     };
 
     const handleSave = async () => {
@@ -121,7 +137,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 .upsert(
                     permissions.map(p => ({
                         column_name: p.column_name,
-                        permission_level: p.permission_level,
+                        permission_levels: p.permission_levels,
                         updated_at: new Date().toISOString()
                     }))
                 );
@@ -182,7 +198,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {allFields.map(field => {
-                                const perm = permissions.find(p => p.column_name === field.key) || { permission_level: 4 };
+                                const perm = permissions.find(p => p.column_name === field.key) || { permission_levels: [4] };
                                 return (
                                     <div key={field.key} className={`flex items-center justify-between p-3 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10'
                                         }`}>
@@ -199,12 +215,12 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                                             {[1, 2, 3, 4].map(level => {
                                                 const labels = ["مالية", "موارد بشرية", "إعلام", "عام"];
                                                 const label = labels[level - 1];
-                                                const isActive = perm.permission_level === level;
+                                                const isActive = perm.permission_levels?.includes(level);
 
                                                 return (
                                                     <button
                                                         key={level}
-                                                        onClick={() => handleLevelChange(field.key, level)}
+                                                        onClick={() => handleLevelToggle(field.key, level)}
                                                         title={`مستوى ${level} - ${label}`}
                                                         className={`px-3 h-8 rounded text-xs font-bold transition-all flex items-center justify-center whitespace-nowrap ${isActive
                                                             ? 'bg-brand-green text-white shadow-md'

@@ -80,21 +80,22 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
 
     if (tipsToDisplay.length === 0) return null;
 
-    const marqueeText = tipsToDisplay.join('  ★★★★★  ');
+    const marqueeText = tipsToDisplay.join('  ⭐⭐⭐⭐⭐  ');
     // For a seamless infinite loop, we need at least two copies and enough content to fill screen
-    const duplicatedText = `${marqueeText}  ★★★★★  ${marqueeText}  ★★★★★  `;
+    const duplicatedText = `${marqueeText}  ⭐⭐⭐⭐⭐  ${marqueeText}  ⭐⭐⭐⭐⭐  `;
 
     return (
         <div
             className={cn(
-                "relative overflow-hidden bg-slate-900 border-b border-blue-500/20 h-10 w-full flex items-center",
+                "relative overflow-hidden border-b border-blue-500/20 h-10 w-full flex items-center",
+                "bg-slate-900 dark:bg-slate-900", // Keep it dark as it's a news ticker, but let's make the fade match
                 className
             )}
             dir="ltr" 
         >
             {/* Fade Effect */}
-            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-slate-900 to-transparent z-20 pointer-events-none" />
-            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-slate-900 to-transparent z-20 pointer-events-none" />
+            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-gray-100 dark:from-slate-900 via-gray-100/80 dark:via-slate-900/80 to-transparent z-20 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-100 dark:from-slate-900 via-gray-100/80 dark:via-slate-900/80 to-transparent z-20 pointer-events-none" />
 
             <div className="flex whitespace-nowrap min-w-full">
                 <div

@@ -745,23 +745,23 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     const isFieldReadOnly = (columnName: string) => {
+        if (currentUser?.admin_role === 'developer') return false;
+
         if (columnName === 'tab_requests') {
             const hasExplicitPermission = Boolean(currentUser?.can_view_requests);
-            const isAllowedRole = currentUser?.admin_role === 'developer' ||
+            const isAllowedRole =
                 currentUser?.admin_role === 'hr' ||
                 currentUser?.full_name?.includes('مسلم عقيل') ||
                 currentUser?.full_name?.includes('مسلم قيل');
             return !(isAllowedRole || hasExplicitPermission);
         }
 
-        if (currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) {
+        if (currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) {
             return false;
         }
 
         const perm = fieldPermissions.find(p => p.column_name === columnName);
-        const requiredLevel = perm ? perm.permission_level : 4;
-        if (requiredLevel === 4) return false;
-
+        
         let currentUserLevel = 4;
         switch (currentUser?.admin_role) {
             case 'finance': currentUserLevel = 1; break;
@@ -770,7 +770,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             case 'general': default: currentUserLevel = 4; break;
         }
 
-        return currentUserLevel !== requiredLevel;
+        if (perm && Array.isArray(perm.permission_levels)) {
+            return !perm.permission_levels.includes(currentUserLevel);
+        } else if (perm && perm.permission_level) {
+            return currentUserLevel !== perm.permission_level;
+        }
+
+        return true; // Default to read-only if not defined
     };
 
     return {
