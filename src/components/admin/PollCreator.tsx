@@ -543,7 +543,7 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-brand-green font-bold text-sm">
                                     <Link className="w-4 h-4" />
-                                    <span>أضف رابطاً (يظهر للمستخدمين كـ "رابط مهم")</span>
+                                    <span>أضف رابطاً (يظهر للمستخدمين والمتدربين كـ "استطلاع مهم , يرجى اكماله")</span>
                                 </div>
                                 {pollLinkExists && (
                                     <button
