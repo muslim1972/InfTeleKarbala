@@ -55,15 +55,21 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
 
         try {
             if (tipId) {
-                const { error } = await supabase
+                // .select() forces Supabase to return the updated row(s).
+                // If RLS silently blocks the UPDATE, data will be empty.
+                const { data: updatedRows, error } = await supabase
                     .from('admin_tips')
                     .update({
                         content,
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', tipId);
+                    .eq('id', tipId)
+                    .select();
 
                 if (error) throw error;
+                if (!updatedRows || updatedRows.length === 0) {
+                    throw new Error('لم يتم تحديث أي سجل. تحقق من صلاحيات RLS على جدول admin_tips (يجب السماح بـ UPDATE).');
+                }
             } else {
                 const { data, error } = await supabase
                     .from('admin_tips')
@@ -84,7 +90,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
             setTimeout(() => setSaveStatus('idle'), 3000);
         } catch (err: any) {
             console.error('Error saving tip:', err);
-            alert(`فشل الحفظ: ${err.message}`);
+            alert(`فشل الحفظ: ${err.message || JSON.stringify(err)}`);
             setSaveStatus('error');
             setTimeout(() => setSaveStatus('idle'), 3000);
         } finally {

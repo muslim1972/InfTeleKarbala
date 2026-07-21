@@ -242,7 +242,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 </div>
 
                 {/* Footer */}
-                <div className={`p-4 border-t flex justify-end gap-3 shrink-0 ${theme === 'light' ? 'bg-gray-50/80 border-gray-200' : 'bg-white/5 border-white/10'
+                <div className={`sticky bottom-0 p-4 border-t flex justify-end gap-3 shrink-0 z-10 ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'
                     }`}>
                     <button
                         onClick={onClose}
