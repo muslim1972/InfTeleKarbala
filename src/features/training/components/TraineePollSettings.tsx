@@ -6,7 +6,12 @@ import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '../../../context/AuthContext';
+import { cacheManager } from '../../../cache/CacheManager';
+import { CACHE_CONFIG } from '../../../cache/CacheConfig';
+
 export const TraineePollSettings = () => {
+    const { user } = useAuth();
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const queryClient = useQueryClient();
@@ -50,6 +55,7 @@ export const TraineePollSettings = () => {
     };
 
     const handleSavePoll = async () => {
+        if (!user) return;
         if (!pollLink.trim() && !pollLinkTitle.trim()) {
             toast.error('يرجى ملء الحقول أولاً');
             return;
@@ -65,23 +71,40 @@ export const TraineePollSettings = () => {
                 updated_at: new Date().toISOString()
             };
 
-            if (pollLinkExists) {
-                const { error } = await supabase
+            if (contentId) {
+                const { data, error } = await supabase
                     .from('media_content')
                     .update(payload)
-                    .eq('type', 'poll_link_training');
+                    .eq('id', contentId)
+                    .select('id');
+                
                 if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    // Update failed, try insert
+                    const { error: insertError, data: insertData } = await supabase
+                        .from('media_content')
+                        .insert(payload)
+                        .select('id');
+                    if (insertError) throw insertError;
+                    if (insertData && insertData[0]) setContentId(insertData[0].id);
+                }
             } else {
-                const { error } = await supabase
+                const { error, data } = await supabase
                     .from('media_content')
-                    .insert(payload);
+                    .insert(payload)
+                    .select('id');
                 if (error) throw error;
+                if (data && data[0]) setContentId(data[0].id);
                 setPollLinkExists(true);
             }
             
             setPollLinkActive(true);
             
-            // Invalidate React Query cache
+            // Invalidate React Query cache & CacheManager
+            if (user?.id) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            }
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
 
@@ -95,16 +118,30 @@ export const TraineePollSettings = () => {
     };
 
     const handleToggleActive = async () => {
+        if (!user) return;
         const newValue = !pollLinkActive;
         setPollLinkActive(newValue);
         
         try {
-            const { error } = await supabase
-                .from('media_content')
-                .update({ is_active: newValue })
-                .eq('type', 'poll_link_training');
+            let error;
+            if (contentId) {
+                const res = await supabase
+                    .from('media_content')
+                    .update({ is_active: newValue })
+                    .eq('id', contentId);
+                error = res.error;
+            } else {
+                const res = await supabase
+                    .from('media_content')
+                    .update({ is_active: newValue })
+                    .eq('type', 'poll_link_training');
+                error = res.error;
+            }
             if (error) throw error;
 
+            if (user?.id) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            }
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
                 
