@@ -69,7 +69,7 @@ export const TraineePollSettings = () => {
                 title: pollLinkTitle.trim() || null,
                 is_active: true,
                 updated_at: new Date().toISOString(),
-                created_by: user.id
+                updated_by: user.id
             };
 
             if (contentId) {
