@@ -4,14 +4,16 @@ import { toast } from 'react-hot-toast';
 import { Link as LinkIcon, Save, Loader2, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const TraineePollSettings = () => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const queryClient = useQueryClient();
     
     const [pollLink, setPollLink] = useState('');
     const [pollLinkTitle, setPollLinkTitle] = useState('');
-    const [pollLinkActive, setPollLinkActive] = useState(false);
+    const [pollLinkActive, setPollLinkActive] = useState(true);
     const [pollLinkExists, setPollLinkExists] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -34,7 +36,7 @@ export const TraineePollSettings = () => {
             if (data) {
                 setPollLink(data.content || '');
                 setPollLinkTitle(data.title || '');
-                setPollLinkActive(data.is_active || false);
+                setPollLinkActive(data.is_active ?? true);
                 setPollLinkExists(true);
             }
         } catch (error) {
@@ -52,32 +54,35 @@ export const TraineePollSettings = () => {
 
         setSaving(true);
         try {
+            const payload = {
+                type: 'poll_link_training',
+                content: pollLink.trim(),
+                title: pollLinkTitle.trim() || null,
+                is_active: true, // دائماً فعّال عند الحفظ
+                updated_at: new Date().toISOString()
+            };
+
             if (pollLinkExists) {
                 const { error } = await supabase
                     .from('media_content')
-                    .update({
-                        content: pollLink,
-                        title: pollLinkTitle,
-                        is_active: pollLinkActive
-                    })
+                    .update(payload)
                     .eq('type', 'poll_link_training');
 
                 if (error) throw error;
             } else {
                 const { error } = await supabase
                     .from('media_content')
-                    .insert({
-                        type: 'poll_link_training',
-                        content: pollLink,
-                        title: pollLinkTitle,
-                        is_active: pollLinkActive
-                    });
+                    .insert(payload);
 
                 if (error) throw error;
                 setPollLinkExists(true);
             }
 
-            toast.success('تم حفظ الرابط بنجاح');
+            setPollLinkActive(true);
+            queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
+            queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
+
+            toast.success('تم حفظ وتفعيل الرابط بنجاح');
         } catch (error: any) {
             console.error('Error saving trainee poll:', error);
             toast.error('حدث خطأ أثناء حفظ الرابط');
@@ -93,10 +98,15 @@ export const TraineePollSettings = () => {
         setPollLinkActive(newValue);
         
         try {
-            await supabase
+            const { error } = await supabase
                 .from('media_content')
                 .update({ is_active: newValue })
                 .eq('type', 'poll_link_training');
+
+            if (error) throw error;
+
+            queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
+            queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
                 
             toast.success(newValue ? 'تم إظهار الرابط للمتدربين' : 'تم إخفاء الرابط عن المتدربين');
         } catch (error) {

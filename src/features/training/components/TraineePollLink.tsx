@@ -15,10 +15,11 @@ export const TraineePollLink = () => {
                 .maybeSingle();
             return data;
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes cache
+        staleTime: 5000,
+        refetchOnMount: 'always',
     });
 
-    if (!pollLink || !pollLink.is_active) return null;
+    if (!pollLink || !pollLink.is_active || !pollLink.content) return null;
 
     return (
         <div className="animate-in fade-in slide-in-from-top-4 duration-500 mt-6">
