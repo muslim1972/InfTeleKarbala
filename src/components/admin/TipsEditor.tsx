@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 import TipsMarquee from '../ui/TipsMarquee';
 import { useAuth } from '../../context/AuthContext';
 
@@ -87,6 +88,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
 
             setOriginalContent(content);
             setSaveStatus('success');
+            toast.success('تم حفظ الأخبار بنجاح ✅');
             setTimeout(() => setSaveStatus('idle'), 3000);
         } catch (err: any) {
             console.error('Error saving tip:', err);
