@@ -15,6 +15,7 @@ export const TraineePollSettings = () => {
     const [pollLinkTitle, setPollLinkTitle] = useState('');
     const [pollLinkActive, setPollLinkActive] = useState(true);
     const [pollLinkExists, setPollLinkExists] = useState(false);
+    const [contentId, setContentId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -28,12 +29,14 @@ export const TraineePollSettings = () => {
                 .from('media_content')
                 .select('*')
                 .eq('type', 'poll_link_training')
+                .order('updated_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
             if (error) throw error;
 
             if (data) {
+                setContentId(data.id);
                 setPollLink(data.content || '');
                 setPollLinkTitle(data.title || '');
                 setPollLinkActive(data.is_active ?? true);
@@ -58,7 +61,7 @@ export const TraineePollSettings = () => {
                 type: 'poll_link_training',
                 content: pollLink.trim(),
                 title: pollLinkTitle.trim() || null,
-                is_active: true, // دائماً فعّال عند الحفظ
+                is_active: true,
                 updated_at: new Date().toISOString()
             };
 
@@ -67,33 +70,31 @@ export const TraineePollSettings = () => {
                     .from('media_content')
                     .update(payload)
                     .eq('type', 'poll_link_training');
-
                 if (error) throw error;
             } else {
                 const { error } = await supabase
                     .from('media_content')
                     .insert(payload);
-
                 if (error) throw error;
                 setPollLinkExists(true);
             }
-
+            
             setPollLinkActive(true);
+            
+            // Invalidate React Query cache
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
 
             toast.success('تم حفظ وتفعيل الرابط بنجاح');
         } catch (error: any) {
             console.error('Error saving trainee poll:', error);
-            toast.error('حدث خطأ أثناء حفظ الرابط');
+            toast.error('حدث خطأ أثناء حفظ الرابط: ' + (error.message || ''));
         } finally {
             setSaving(false);
         }
     };
 
     const handleToggleActive = async () => {
-        if (!pollLinkExists) return;
-        
         const newValue = !pollLinkActive;
         setPollLinkActive(newValue);
         
@@ -102,7 +103,6 @@ export const TraineePollSettings = () => {
                 .from('media_content')
                 .update({ is_active: newValue })
                 .eq('type', 'poll_link_training');
-
             if (error) throw error;
 
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
