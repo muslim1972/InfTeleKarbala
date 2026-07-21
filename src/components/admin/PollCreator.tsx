@@ -131,7 +131,8 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                 title: pollLinkTitle.trim() || null,
                 content: pollLink,
                 is_active: pollLinkActive,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                created_by: user.id
             };
 
             if (pollLinkExists) {
