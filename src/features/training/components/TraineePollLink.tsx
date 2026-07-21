@@ -7,29 +7,12 @@ export const TraineePollLink = () => {
     const { data: pollLink } = useQuery({
         queryKey: ['trainee_poll_link'],
         queryFn: async () => {
-            // المحاولة الأولى: رابط التدريب الصيفي الخاص
-            const { data: trainingData } = await supabase
-                .from('media_content')
-                .select('id, content, title, is_active')
-                .eq('type', 'poll_link_training')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (trainingData && trainingData.content) {
-                return trainingData;
+            const { data, error } = await supabase.rpc('get_active_training_poll');
+            if (error) {
+                console.error("Error fetching poll link via RPC:", error);
+                return null;
             }
-
-            // المحاولة الثانية: رابط الاستطلاع العام كخيار بديل
-            const { data: generalData } = await supabase
-                .from('media_content')
-                .select('id, content, title, is_active')
-                .eq('type', 'poll_link')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            return generalData;
+            return data;
         },
         staleTime: 2000,
         refetchOnMount: 'always',
