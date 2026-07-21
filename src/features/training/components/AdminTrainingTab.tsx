@@ -348,7 +348,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
         </button>
     );
     return (
-        <div className="max-w-4xl mx-auto px-4 pb-20 mt-2 space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
+        <div className="max-w-4xl mx-auto px-4 pb-40 mt-2 space-y-4 animate-in fade-in slide-in-from-right-5 duration-300">
             {isAdminView && (
                 <div className={cn(
                     "rounded-2xl p-4 border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300",
