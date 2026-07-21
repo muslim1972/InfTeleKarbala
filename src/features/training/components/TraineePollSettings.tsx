@@ -151,28 +151,38 @@ export const TraineePollSettings = () => {
                 </div>
             )}
             
-            <input
-                type="text"
-                value={pollLinkTitle}
-                onChange={e => setPollLinkTitle(e.target.value)}
-                placeholder="عنوان الرابط (مثلاً: استطلاع تقييم التدريب الصيفي)"
-                className={cn(
-                    "w-full border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500/50",
-                    isDark ? "bg-black/40 border-white/10 text-white" : "bg-white border-gray-200 text-gray-900"
-                )}
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className={cn("text-sm font-bold shrink-0 sm:w-24", isDark ? "text-white/80" : "text-gray-700")}>
+                    عنوان الرابط
+                </label>
+                <input
+                    type="text"
+                    value={pollLinkTitle}
+                    onChange={e => setPollLinkTitle(e.target.value)}
+                    placeholder="مثلاً: استطلاع تقييم التدريب الصيفي"
+                    className={cn(
+                        "flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500/50",
+                        isDark ? "bg-black/40 border-white/10 text-white" : "bg-white border-gray-200 text-gray-900"
+                    )}
+                />
+            </div>
             
-            <input
-                type="text"
-                value={pollLink}
-                onChange={e => setPollLink(e.target.value)}
-                placeholder="أدخل الرابط هنا (مثلاً: https://forms.gle/...)"
-                className={cn(
-                    "w-full border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500/50",
-                    isDark ? "bg-black/40 border-white/10 text-white" : "bg-white border-gray-200 text-gray-900"
-                )}
-                dir="ltr"
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className={cn("text-sm font-bold shrink-0 sm:w-24", isDark ? "text-white/80" : "text-gray-700")}>
+                    رابط الاستطلاع
+                </label>
+                <input
+                    type="text"
+                    value={pollLink}
+                    onChange={e => setPollLink(e.target.value)}
+                    placeholder="مثلاً: https://forms.gle/..."
+                    className={cn(
+                        "flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500/50",
+                        isDark ? "bg-black/40 border-white/10 text-white" : "bg-white border-gray-200 text-gray-900"
+                    )}
+                    dir="ltr"
+                />
+            </div>
             
             <button
                 onClick={handleSavePoll}

@@ -34,7 +34,7 @@ export const TraineePollLink = () => {
                     </div>
                     <div>
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white/90">
-                            {pollLink.title || 'استطلاع مهم ، يرجى اكماله'}
+                            {pollLink.title || 'رابط استطلاع مهم . يرجى اكماله'}
                         </h4>
                         <p className="text-xs text-brand-green font-medium mt-0.5 truncate max-w-[200px] sm:max-w-xs">{pollLink.content}</p>
                     </div>

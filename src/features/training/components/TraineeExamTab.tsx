@@ -122,8 +122,6 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
                 </div>
             </div>
 
-            <TraineePollLink />
-
             {/* Content Area */}
             <div className={cn(
                 "rounded-3xl p-8 border text-center space-y-6",
@@ -202,6 +200,8 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
                     </div>
                 )}
             </div>
+
+            <TraineePollLink />
         </div>
     );
 };
