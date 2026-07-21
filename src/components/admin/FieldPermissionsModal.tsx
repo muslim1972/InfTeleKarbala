@@ -161,7 +161,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl flex flex-col shadow-2xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'
+            <div className={`relative w-full max-w-4xl max-h-[90vh] min-h-0 overflow-hidden rounded-2xl flex flex-col shadow-2xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'
                 }`}>
 
                 {/* Header */}
@@ -189,7 +189,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto min-h-0 p-6">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center h-48 space-y-4">
                             <Loader2 className={`w-8 h-8 animate-spin ${theme === 'light' ? 'text-brand-green' : 'text-brand-green'}`} />

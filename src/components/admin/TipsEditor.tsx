@@ -157,7 +157,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                 <div className="relative h-12 rounded-lg overflow-hidden border border-gray-200 dark:border-white/10">
                     <TipsMarquee
                         appName={appName}
-                        className="!bg-gray-100 dark:!bg-slate-900 border-none h-full"
+                        className="border-none h-full"
                         manualTips={content.split('\n').filter(Boolean)}
                     />
                 </div>
