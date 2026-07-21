@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, Loader2, BookOpen, ChevronDown, ChevronUp, Link, ExternalLink, PieChart } from 'lucide-react';
+import { LogOut, Loader2, BookOpen } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useTrainingData } from '../hooks/useTrainingData';
 import type { TrainingStudent, MCQQuestion } from '../types';
 import { TraineeExamSession } from './TraineeExamSession';
 import { MAX_EXAM_ATTEMPTS } from '../types';
-import { supabase } from '../../../lib/supabase';
+import { TraineePollLink } from './TraineePollLink';
 
 interface TraineeExamTabProps {
     student: TrainingStudent;
@@ -29,13 +29,6 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
     const [isExamStarted, setIsExamStarted] = useState(false);
     const [attemptCount, setAttemptCount] = useState<number>(0);
     const [loadingAttempt, setLoadingAttempt] = useState(true);
-    
-    // Poll state
-    const [pollLink, setPollLink] = useState<{ id: string; content: string; title: string | null; is_active: boolean } | null>(null);
-    const [isPollExpanded, setIsPollExpanded] = useState(false);
-
-    const TRAINING_SUBJECT = 'summer_training';
-
     const loadAttemptData = useCallback(async () => {
         setLoadingAttempt(true);
         const count = await getStudentAttemptCount(student.id);
@@ -43,27 +36,8 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
         setLoadingAttempt(false);
     }, [getStudentAttemptCount, student.id]);
 
-    const loadPollData = async () => {
-        try {
-            const { data } = await supabase
-                .from('media_content')
-                .select('id, content, title, is_active')
-                .eq('type', 'poll_link')
-                .eq('is_active', true)
-                .limit(1)
-                .maybeSingle();
-            
-            if (data) {
-                setPollLink(data);
-            }
-        } catch (error) {
-            console.error('Error fetching poll link:', error);
-        }
-    };
-
     useEffect(() => {
         loadAttemptData();
-        loadPollData();
     }, [loadAttemptData]);
 
     const handleStartExam = async () => {
@@ -148,6 +122,8 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
                 </div>
             </div>
 
+            <TraineePollLink />
+
             {/* Content Area */}
             <div className={cn(
                 "rounded-3xl p-8 border text-center space-y-6",
@@ -226,84 +202,6 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
                     </div>
                 )}
             </div>
-
-            {/* Poll Link Section */}
-            {pollLink && (
-                <div className={cn(
-                    "mt-6 rounded-xl overflow-hidden border transition-all duration-300 shadow-sm",
-                    isDark ? "bg-purple-900/10 border-purple-500/20" : "bg-purple-50 border-purple-200",
-                    isPollExpanded ? "shadow-md" : ""
-                )}>
-                    <button
-                        onClick={() => setIsPollExpanded(!isPollExpanded)}
-                        className={cn(
-                            "w-full px-5 py-4 flex items-center justify-between text-right transition-colors",
-                            isDark ? "hover:bg-white/5" : "hover:bg-purple-100/50"
-                        )}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={cn(
-                                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-inner",
-                                isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-500 text-white shadow-purple-500/30"
-                            )}>
-                                <PieChart className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className={cn(
-                                    "font-bold text-sm",
-                                    isDark ? "text-purple-300" : "text-purple-900"
-                                )}>
-                                    استطلاع مهم , يرجى اكماله
-                                </h3>
-                            </div>
-                        </div>
-                        {isPollExpanded ? (
-                            <ChevronUp className={cn("w-5 h-5", isDark ? "text-purple-400" : "text-purple-600")} />
-                        ) : (
-                            <ChevronDown className={cn("w-5 h-5", isDark ? "text-purple-400" : "text-purple-600")} />
-                        )}
-                    </button>
-                    
-                    {isPollExpanded && (
-                        <div className={cn(
-                            "p-5 border-t",
-                            isDark ? "border-purple-500/10" : "border-purple-200"
-                        )}>
-                            <div className={cn(
-                                "p-4 rounded-xl border flex items-center justify-between gap-4",
-                                isDark ? "bg-black/20 border-white/5" : "bg-white border-purple-100 shadow-sm"
-                            )}>
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className={cn(
-                                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                                        isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-600"
-                                    )}>
-                                        <Link className="w-4 h-4" />
-                                    </div>
-                                    <div className="truncate">
-                                        <p className={cn(
-                                            "font-bold text-sm truncate",
-                                            isDark ? "text-emerald-400" : "text-emerald-700"
-                                        )}>
-                                            {pollLink.title || 'رابط استطلاع جديد'}
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                <a
-                                    href={pollLink.content}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-all shrink-0"
-                                >
-                                    فتح الرابط
-                                    <ExternalLink className="w-4 h-4" />
-                                </a>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 };

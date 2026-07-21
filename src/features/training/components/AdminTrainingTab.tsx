@@ -15,6 +15,7 @@ import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
 import { EditStudentModal } from './EditStudentModal';
+import { TraineePollSettings } from './TraineePollSettings';
 interface AdminTrainingTabProps {
     isAdminView?: boolean;
 }
@@ -371,6 +372,11 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                         تحديد المشرفين على التدريب الصيفي
                     </button>
                 </div>
+            )}
+
+            {/* إعدادات استطلاع المتدربين */}
+            {isAdminView && (
+                <TraineePollSettings />
             )}
 
             {/* زر تحديد أسماء الطلبة */}
