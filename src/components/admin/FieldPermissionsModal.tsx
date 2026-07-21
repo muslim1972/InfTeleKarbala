@@ -196,7 +196,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                             <p className={theme === 'light' ? 'text-gray-500' : 'text-white/60'}>جاري تحميل الصلاحيات...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-24">
                             {allFields.map(field => {
                                 const perm = permissions.find(p => p.column_name === field.key) || { permission_levels: [4] };
                                 return (
