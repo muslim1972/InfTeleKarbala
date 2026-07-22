@@ -683,11 +683,11 @@ export default function AttendanceAdminSettings() {
               </button>
             </div>
 
-            {/* Add/Edit Location Form */}
-            {showAddForm && (
+            {/* Add Location Form (Shown at top only when adding a new location) */}
+            {showAddForm && !editingLocationId && (
               <form onSubmit={handleSaveLocation} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
                 <h3 className="text-lg font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
-                  {editingLocationId ? 'تعديل موقع العمل' : 'إضافة موقع عمل جديد'}
+                  إضافة موقع عمل جديد
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -767,7 +767,7 @@ export default function AttendanceAdminSettings() {
                       type="submit"
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition-all"
                     >
-                      {editingLocationId ? 'تعديل وحفظ' : 'حفظ وإضافة'}
+                      حفظ وإضافة
                     </button>
                   </div>
                 </div>
@@ -784,77 +784,190 @@ export default function AttendanceAdminSettings() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {locations.map((loc) => (
-                  <div key={loc.id} className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-xl ${
-                    loc.is_active ? 'border-slate-100 dark:border-slate-700/50' : 'border-rose-200/50 dark:border-rose-900/30 opacity-75'
-                  }`}>
-                    <div>
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="font-bold text-lg">{loc.name}</h3>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          loc.is_active ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'
-                        }`}>
-                          {loc.is_active ? 'نشط' : 'معطل'}
-                        </span>
+                  <React.Fragment key={loc.id}>
+                    <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-xl ${
+                      loc.is_active ? 'border-slate-100 dark:border-slate-700/50' : 'border-rose-200/50 dark:border-rose-900/30 opacity-75'
+                    }`}>
+                      <div>
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="font-bold text-lg">{loc.name}</h3>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            loc.is_active ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'
+                          }`}>
+                            {loc.is_active ? 'نشط' : 'معطل'}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mb-6">
+                          <div className="flex justify-between">
+                            <span>خط العرض:</span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.latitude.toFixed(6)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>خط الطول:</span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.longitude.toFixed(6)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-blue-600 dark:text-blue-400">
+                            <span>نصف القطر:</span>
+                            <span>{loc.radius_meters} متر</span>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mb-6">
-                        <div className="flex justify-between">
-                          <span>خط العرض:</span>
-                          <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.latitude.toFixed(6)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>خط الطول:</span>
-                          <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.longitude.toFixed(6)}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-blue-600 dark:text-blue-400">
-                          <span>نصف القطر:</span>
-                          <span>{loc.radius_meters} متر</span>
-                        </div>
+
+                      <div className="flex gap-2 border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-auto">
+                        <button
+                          onClick={() => handleToggleLocationActive(loc.id, loc.is_active)}
+                          className={`p-2 rounded-xl flex-1 text-center font-bold text-xs flex justify-center items-center gap-1 transition-all ${
+                            loc.is_active 
+                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30' 
+                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
+                          }`}
+                          title={loc.is_active ? 'تعطيل الموقع' : 'تفعيل الموقع'}
+                        >
+                          {loc.is_active ? (
+                            <>
+                              <EyeOff className="w-4 h-4" />
+                              تعطيل
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4" />
+                              تفعيل
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleEditLocation(loc)}
+                          className={`p-2 rounded-xl transition-all font-bold text-xs flex justify-center items-center gap-1 ${
+                            editingLocationId === loc.id
+                              ? 'bg-blue-600 text-white dark:bg-blue-600'
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                          title="تعديل الإعدادات"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          تعديل
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteLocation(loc.id)}
+                          className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 p-2 rounded-xl transition-all font-bold text-xs flex justify-center items-center gap-1"
+                          title="حذف الموقع"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          حذف
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex gap-2 border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-auto">
-                      <button
-                        onClick={() => handleToggleLocationActive(loc.id, loc.is_active)}
-                        className={`p-2 rounded-xl flex-1 text-center font-bold text-xs flex justify-center items-center gap-1 transition-all ${
-                          loc.is_active 
-                            ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30' 
-                            : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
-                        }`}
-                        title={loc.is_active ? 'تعطيل الموقع' : 'تفعيل الموقع'}
-                      >
-                        {loc.is_active ? (
-                          <>
-                            <EyeOff className="w-4 h-4" />
-                            تعطيل
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="w-4 h-4" />
-                            تفعيل
-                          </>
-                        )}
-                      </button>
+                    {/* Inline Edit Form for this specific location */}
+                    {editingLocationId === loc.id && (
+                      <div className="col-span-1 md:col-span-2 lg:col-span-3 animate-in fade-in slide-in-from-top-4 duration-300 my-2">
+                        <form onSubmit={handleSaveLocation} className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-blue-500/50 dark:border-blue-500/40 p-6 space-y-6">
+                          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                            <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                              <Edit2 className="w-5 h-5" />
+                              تعديل موقع العمل: {loc.name}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddForm(false);
+                                setEditingLocationId(null);
+                                setLocName('');
+                              }}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold">اسم الموقع (مثال: المبنى الرئيسي)</label>
+                              <input
+                                type="text"
+                                required
+                                value={locName}
+                                onChange={(e) => setLocName(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                              />
+                            </div>
 
-                      <button
-                        onClick={() => handleEditLocation(loc)}
-                        className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 p-2 rounded-xl text-slate-700 dark:text-slate-300 transition-all font-bold text-xs flex justify-center items-center gap-1"
-                        title="تعديل الإعدادات"
-                      >
-                        <Trash2 className="w-4 h-4 hidden" /> {/* dummy to balance */}
-                        تعديل
-                      </button>
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold">نصف قطر السياج (متر)</label>
+                              <input
+                                type="number"
+                                required
+                                min={10}
+                                max={1000}
+                                value={locRadius}
+                                onChange={(e) => setLocRadius(Number(e.target.value))}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                              />
+                            </div>
 
-                      <button
-                        onClick={() => handleDeleteLocation(loc.id)}
-                        className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 p-2 rounded-xl transition-all font-bold text-xs flex justify-center items-center gap-1"
-                        title="حذف الموقع"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        حذف
-                      </button>
-                    </div>
-                  </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold">خط العرض (Latitude)</label>
+                              <input
+                                type="number"
+                                step="any"
+                                required
+                                value={locLat}
+                                onChange={(e) => setLocLat(Number(e.target.value))}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold">خط الطول (Longitude)</label>
+                              <input
+                                type="number"
+                                step="any"
+                                required
+                                value={locLng}
+                                onChange={(e) => setLocLng(Number(e.target.value))}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
+                            <button
+                              type="button"
+                              onClick={handleGetCurrentLocation}
+                              disabled={isGettingLocation}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <Navigation className="w-5 h-5 animate-pulse" />
+                              {isGettingLocation ? 'جاري جلب إحداثياتك...' : 'جلب إحداثيات موقعي الحالي'}
+                            </button>
+
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddForm(false);
+                                  setEditingLocationId(null);
+                                  setLocName('');
+                                }}
+                                className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold py-2.5 px-6 rounded-xl transition-all"
+                              >
+                                إلغاء
+                              </button>
+                              <button
+                                type="submit"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition-all"
+                              >
+                                تعديل وحفظ
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
             )}
