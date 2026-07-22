@@ -403,14 +403,72 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                 </button>
             </div>
 
-            {/* ── إعدادات الدورة الصيفية ── */}
-            <SectionHeader title="إعدادات الدورة الصيفية" icon={Calendar} isOpen={openSection === 'course_settings'} onClick={() => toggleSection('course_settings')} color="emerald" />
+            {/* ── إعدادات الدورة الصيفية والاختبار ── */}
+            <SectionHeader title="إعدادات الدورة الصيفية والاختبار" icon={Calendar} isOpen={openSection === 'course_settings'} onClick={() => toggleSection('course_settings')} color="emerald" />
             {openSection === 'course_settings' && (
                 <div className={cn(
                     "rounded-xl border p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300",
                     isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"
                 )}>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* ── تحكم الاختبار ── */}
+                    <div className={cn(
+                        "rounded-2xl p-4 border space-y-4",
+                        isDark ? "bg-gradient-to-br from-emerald-950/20 to-teal-950/10 border-emerald-500/15" : "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60"
+                    )}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={cn("p-2 rounded-xl", isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-600")}>
+                                    {settings?.exam_active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                                </div>
+                                <div>
+                                    <h3 className={cn("text-sm font-bold", isDark ? "text-emerald-300" : "text-emerald-900")}>حالة الاختبار</h3>
+                                    <p className={cn("text-xs", isDark ? "text-white/50" : "text-emerald-700/70")}>
+                                        {settings?.exam_active ? 'الاختبار مفعّل ومتاح للمتدربين' : 'الاختبار متوقف حالياً'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleToggleExam}
+                                disabled={toggling || settingsLoading}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-50",
+                                    settings?.exam_active
+                                        ? "bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20"
+                                        : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600"
+                                )}
+                            >
+                                {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : settings?.exam_active ? 'إيقاف' : 'تفعيل'}
+                            </button>
+                        </div>
+
+                        {/* مدة الاختبار */}
+                        <div className="flex items-center gap-3">
+                            <Clock className={cn("w-4 h-4", isDark ? "text-white/40" : "text-slate-400")} />
+                            <input
+                                type="number"
+                                min={1}
+                                max={120}
+                                value={durationInput}
+                                onChange={e => setDurationInput(e.target.value)}
+                                className={cn(
+                                    "w-20 p-2 rounded-lg border text-sm text-center font-mono",
+                                    isDark ? "bg-white/5 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800"
+                                )}
+                            />
+                            <span className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>دقيقة</span>
+                            <button
+                                onClick={handleSaveDuration}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                    isDark ? "bg-white/10 text-white/70 hover:bg-white/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                )}
+                            >
+                                تحديث
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-white/10">
                         <div className="space-y-1.5">
                             <label className="text-sm font-bold block">سنة التدريب</label>
                             <input
@@ -678,65 +736,6 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                     theme={theme}
                 />
             )}
-
-
-                    {/* ── تحكم الاختبار ── */}
-                    <div className={cn(
-                        "rounded-2xl p-4 border space-y-4",
-                        isDark ? "bg-gradient-to-br from-emerald-950/20 to-teal-950/10 border-emerald-500/15" : "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60"
-                    )}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className={cn("p-2 rounded-xl", isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-600")}>
-                                    {settings?.exam_active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-                                </div>
-                                <div>
-                                    <h3 className={cn("text-sm font-bold", isDark ? "text-emerald-300" : "text-emerald-900")}>حالة الاختبار</h3>
-                                    <p className={cn("text-xs", isDark ? "text-white/50" : "text-emerald-700/70")}>
-                                        {settings?.exam_active ? 'الاختبار مفعّل ومتاح للمتدربين' : 'الاختبار متوقف حالياً'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleToggleExam}
-                                disabled={toggling || settingsLoading}
-                                className={cn(
-                                    "px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-50",
-                                    settings?.exam_active
-                                        ? "bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20"
-                                        : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600"
-                                )}
-                            >
-                                {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : settings?.exam_active ? 'إيقاف' : 'تفعيل'}
-                            </button>
-                        </div>
-
-                        {/* مدة الاختبار */}
-                        <div className="flex items-center gap-3">
-                            <Clock className={cn("w-4 h-4", isDark ? "text-white/40" : "text-slate-400")} />
-                            <input
-                                type="number"
-                                min={1}
-                                max={120}
-                                value={durationInput}
-                                onChange={e => setDurationInput(e.target.value)}
-                                className={cn(
-                                    "w-20 p-2 rounded-lg border text-sm text-center font-mono",
-                                    isDark ? "bg-white/5 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800"
-                                )}
-                            />
-                            <span className={cn("text-xs", isDark ? "text-white/50" : "text-slate-500")}>دقيقة</span>
-                            <button
-                                onClick={handleSaveDuration}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                                    isDark ? "bg-white/10 text-white/70 hover:bg-white/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                )}
-                            >
-                                تحديث
-                            </button>
-                        </div>
-                    </div>
 
 
 
