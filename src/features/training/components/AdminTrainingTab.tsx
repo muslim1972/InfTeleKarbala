@@ -3,7 +3,7 @@ import {
     FileSpreadsheet, Upload, Save, X, Loader2,
     ToggleLeft, ToggleRight, Clock, Trophy, Trash2,
     ChevronDown, CheckCircle2, GraduationCap, Shield, Edit2,
-    CheckCircle, XCircle, Search, UserPlus, UserMinus, Calendar
+    CheckCircle, XCircle, Search, UserPlus, UserMinus, Calendar, Printer
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
@@ -84,6 +84,169 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [resultsLoading, setResultsLoading] = useState(false);
     const [selectedStudentResults, setSelectedStudentResults] = useState<TrainingResult[] | null>(null);
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
+
+    // ── Print Report State ──
+    type PrintFilter = 'tested' | 'passed' | 'failed' | 'never_tested';
+    const [showPrintMenu, setShowPrintMenu] = useState(false);
+    const printMenuRef = useRef<HTMLDivElement>(null);
+
+    const PRINT_FILTER_LABELS: Record<PrintFilter, string> = {
+        tested: 'الذين اجتازوا الاختبار',
+        passed: 'الناجحين فقط',
+        failed: 'من لم يوفق للنجاح',
+        never_tested: 'لم يختبر أبداً',
+    };
+
+    // Close print menu on outside click
+    useEffect(() => {
+        if (!showPrintMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (printMenuRef.current && !printMenuRef.current.contains(e.target as Node)) {
+                setShowPrintMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showPrintMenu]);
+
+    const handlePrintResults = useCallback((filter: PrintFilter) => {
+        setShowPrintMenu(false);
+
+        if (students.length === 0) {
+            toast.error('لا يوجد طلبة لطباعة تقريرهم');
+            return;
+        }
+
+        const filteredStudents = students.filter(student => {
+            const studentResults = results.filter(r => r.student_id === student.id);
+            const result = studentResults.length > 0 ? studentResults[0] : undefined;
+
+            switch (filter) {
+                case 'tested':
+                    return !!result;
+                case 'passed':
+                    return result && result.score >= 70;
+                case 'failed':
+                    return result && result.score < 70;
+                case 'never_tested':
+                    return !result;
+            }
+        });
+
+        if (filteredStudents.length === 0) {
+            toast.error(`لا يوجد طلبة ضمن فئة "${PRINT_FILTER_LABELS[filter]}"`);
+            return;
+        }
+
+        // Sort: tested students by score desc, untested by name
+        const sorted = [...filteredStudents].sort((a, b) => {
+            const ra = results.find(r => r.student_id === a.id);
+            const rb = results.find(r => r.student_id === b.id);
+            if (ra && rb) return rb.score - ra.score;
+            if (ra && !rb) return -1;
+            if (!ra && rb) return 1;
+            return a.full_name.localeCompare(b.full_name);
+        });
+
+        const now = new Date().toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const rows = sorted.map((student, idx) => {
+            const studentResults = results.filter(r => r.student_id === student.id);
+            const result = studentResults.length > 0 ? studentResults[0] : undefined;
+
+            const score = result ? `%${result.score}` : '—';
+            const statusHtml = result
+                ? (result.score >= 70
+                    ? '<span style="color:#059669;font-weight:700;">ناجح</span>'
+                    : '<span style="color:#dc2626;font-size:18px;font-weight:900;">✕</span>')
+                : '<span style="font-size:16px;" title="لم يختبر">⏳</span>';
+            const attempts = result ? studentResults.length : '—';
+            const duration = result?.duration_seconds
+                ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(0).padStart(2, '0')}`
+                : '—';
+
+            return `
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                    <td style="padding:8px 10px;text-align:center;font-weight:700;color:#64748b;">${idx + 1}</td>
+                    <td style="padding:8px 10px;text-align:right;font-weight:700;white-space:nowrap;">${student.full_name}</td>
+                    <td style="padding:8px 10px;text-align:right;font-size:11px;color:#64748b;">${student.institution_name || '—'}</td>
+                    <td style="padding:8px 10px;text-align:right;font-size:11px;color:#64748b;">${(student as any).department || '—'}</td>
+                    <td style="padding:8px 10px;text-align:center;font-weight:700;white-space:nowrap;direction:ltr;">${score}</td>
+                    <td style="padding:8px 10px;text-align:center;">${attempts}</td>
+                    <td style="padding:8px 10px;text-align:center;font-size:11px;white-space:nowrap;direction:ltr;">${duration}</td>
+                    <td style="padding:8px 10px;text-align:center;">${statusHtml}</td>
+                </tr>`;
+        }).join('');
+
+        const html = `
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="utf-8" />
+            <title>تقرير نتائج الاختبارات</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                @page { size: A4; margin: 15mm 10mm; }
+                body { font-family: 'Cairo', sans-serif; background: #fff; color: #1e293b; padding: 0; }
+                .header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 3px solid #059669; }
+                .header h1 { font-size: 20px; font-weight: 900; color: #059669; margin-bottom: 2px; }
+                .header p { font-size: 12px; color: #64748b; }
+                .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11px; color: #64748b; }
+                table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                thead { display: table-header-group; }
+                thead th { background: #059669; color: #fff; padding: 8px 10px; font-weight: 700; text-align: center; white-space: nowrap; }
+                thead th:first-child { border-radius: 0 6px 0 0; }
+                thead th:last-child { border-radius: 6px 0 0 0; }
+                tbody tr:nth-child(even) { background: #f0fdf4; }
+                .footer { margin-top: 16px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                @media print {
+                    body { padding: 0; }
+                    thead { display: table-header-group; }
+                    tfoot { display: table-footer-group; }
+                    tr { page-break-inside: avoid; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>📋 تقرير نتائج اختبارات التدريب الصيفي</h1>
+                <p>${PRINT_FILTER_LABELS[filter]} — العدد: ${sorted.length}</p>
+            </div>
+            <div class="meta">
+                <span>تاريخ الطباعة: ${now}</span>
+                <span>سنة التدريب: ${settings?.training_year || '—'}</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:35px;">#</th>
+                        <th>اسم الطالب</th>
+                        <th>المؤسسة التعليمية</th>
+                        <th>القسم</th>
+                        <th>الدرجة</th>
+                        <th>المحاولات</th>
+                        <th>الوقت</th>
+                        <th>النتيجة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+            <div class="footer">نظام الادارة الموحد — اتصالات ومعلوماتية كربلاء المقدسة</div>
+        </body>
+        </html>`;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.onload = () => {
+                printWindow.focus();
+                printWindow.print();
+            };
+        }
+    }, [students, results, settings]);
 
     const prevOpenSectionRef = useRef<string | null>(null);
     const isFirstRender = useRef(true);
@@ -804,7 +967,50 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
 
                     {/* ── نتائج الاختبارات ── */}
-                    <SectionHeader id="section-results" title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
+                    <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                            <SectionHeader id="section-results" title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
+                        </div>
+                        {openSection === 'results' && students.length > 0 && (
+                            <div className="relative shrink-0" ref={printMenuRef}>
+                                <button
+                                    onClick={() => setShowPrintMenu(prev => !prev)}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95",
+                                        isDark
+                                            ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
+                                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                                    )}
+                                    title="طباعة تقرير"
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    طباعة تقرير
+                                    <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", showPrintMenu && "rotate-180")} />
+                                </button>
+                                {showPrintMenu && (
+                                    <div className={cn(
+                                        "absolute top-full left-0 mt-1 w-48 rounded-xl border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200",
+                                        isDark ? "bg-zinc-900 border-white/10" : "bg-white border-slate-200"
+                                    )}>
+                                        {(Object.entries(PRINT_FILTER_LABELS) as [PrintFilter, string][]).map(([key, label]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => handlePrintResults(key)}
+                                                className={cn(
+                                                    "w-full text-right px-4 py-2.5 text-[12px] font-bold transition-colors",
+                                                    isDark
+                                                        ? "text-white/80 hover:bg-white/10 hover:text-emerald-400"
+                                                        : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                                                )}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     {openSection === 'results' && (
                         <div className={cn(
                             "rounded-xl border p-4 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300",
