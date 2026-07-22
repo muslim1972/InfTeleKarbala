@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import type { TrainingResult, TrainingStudent } from '../types';
 import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
+import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
 import { EditStudentModal } from './EditStudentModal';
 import { TraineePollSettings } from './TraineePollSettings';
@@ -84,6 +85,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [selectedStudentResults, setSelectedStudentResults] = useState<TrainingResult[] | null>(null);
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
 
+    const prevOpenSectionRef = useRef<string | null>(null);
+
     useEffect(() => {
         if (settings) {
             setDurationInput(String(settings.exam_duration_minutes));
@@ -92,6 +95,14 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             setTrainingEndDate(settings.training_end_date || '2026-08-05');
         }
     }, [settings]);
+
+    useEffect(() => {
+        const targetSection = openSection || prevOpenSectionRef.current;
+        if (targetSection) {
+            smoothScrollToId(`section-${targetSection}`, 80);
+        }
+        prevOpenSectionRef.current = openSection;
+    }, [openSection]);
 
     const toggleSection = (section: 'exams' | 'results' | 'course_settings' | 'student_management') => {
         setOpenSection(prev => prev === section ? null : section);
@@ -322,7 +333,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     }, [supervisorSearch, showSupervisorModal, handleSearchSupervisors]);
 
     // Section header button
-    const SectionHeader = ({ title, icon: Icon, isOpen, onClick, color }: {
+    const SectionHeader = ({ id, title, icon: Icon, isOpen, onClick, color }: {
+        id?: string;
         title: string;
         icon: any;
         isOpen: boolean;
@@ -330,9 +342,10 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
         color: string;
     }) => (
         <button
+            id={id}
             onClick={onClick}
             className={cn(
-                "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
+                "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300 scroll-mt-20",
                 isOpen
                     ? cn("shadow-md", isDark ? `bg-${color}-500/10 border-${color}-500/30` : `bg-${color}-50 border-${color}-200`)
                     : isDark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-white border-slate-200 hover:bg-slate-50"
@@ -404,7 +417,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             </div>
 
             {/* ── إعدادات الدورة الصيفية والاختبار ── */}
-            <SectionHeader title="إعدادات الدورة الصيفية والاختبار" icon={Calendar} isOpen={openSection === 'course_settings'} onClick={() => toggleSection('course_settings')} color="emerald" />
+            <SectionHeader id="section-course_settings" title="إعدادات الدورة الصيفية والاختبار" icon={Calendar} isOpen={openSection === 'course_settings'} onClick={() => toggleSection('course_settings')} color="emerald" />
             {openSection === 'course_settings' && (
                 <div className={cn(
                     "rounded-xl border p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300",
@@ -513,7 +526,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             )}
 
             {/* ── إدارة الطلبة والبحث ── */}
-            <SectionHeader title="إدارة الطلبة والبحث" icon={Search} isOpen={openSection === 'student_management'} onClick={() => {
+            <SectionHeader id="section-student_management" title="إدارة الطلبة والبحث" icon={Search} isOpen={openSection === 'student_management'} onClick={() => {
                 toggleSection('student_management');
                 if (openSection !== 'student_management' && students.length === 0) {
                     loadResults(); // Load students if not loaded
@@ -741,7 +754,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
 
                     {/* ── نتائج الاختبارات ── */}
-                    <SectionHeader title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
+                    <SectionHeader id="section-results" title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
                     {openSection === 'results' && (
                         <div className={cn(
                             "rounded-xl border p-4 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300",
