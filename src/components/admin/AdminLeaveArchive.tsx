@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Search, Loader2, ChevronDown, ChevronUp, Printer, User } from 'lucide-react';
 import { DateInput } from '../ui/DateInput';
 import { EmployeeSearch } from '../shared/EmployeeSearch';
+import { smoothScrollToId } from '../../hooks/useSmoothScroll';
 import type { LeaveRecord } from './AdminLeaveRequests';
 
 interface AdminLeaveArchiveProps {
@@ -13,6 +14,16 @@ interface AdminLeaveArchiveProps {
 
 export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLeaveArchiveProps) {
     const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
+
+    useEffect(() => {
+        if (isArchiveExpanded) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId('admin-leave-archive-header', 15);
+                });
+            });
+        }
+    }, [isArchiveExpanded]);
     
     // Archive search state
     const [startDate, setStartDate] = useState('');
@@ -118,6 +129,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
     return (
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 transition-all">
             <button
+                id="admin-leave-archive-header"
                 onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
                 className="w-full flex items-center justify-between focus:outline-none"
             >

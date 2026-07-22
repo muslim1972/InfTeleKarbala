@@ -86,6 +86,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
 
     const prevOpenSectionRef = useRef<string | null>(null);
+    const isFirstRender = useRef(true);
 
     useEffect(() => {
         if (settings) {
@@ -97,12 +98,37 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     }, [settings]);
 
     useEffect(() => {
-        const targetSection = openSection || prevOpenSectionRef.current;
-        if (targetSection) {
-            smoothScrollToId(`section-${targetSection}`, 80);
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
         }
-        prevOpenSectionRef.current = openSection;
+
+        if (openSection) {
+            const id = `section-${openSection}`;
+            // الانتظار إطارين حتى يقدم React عناصر التوسيع في الـ DOM ويتحدث ارتفاع الصفحة
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId(id, 15);
+                });
+            });
+        } else {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToTop();
+                });
+            });
+        }
     }, [openSection]);
+
+    useEffect(() => {
+        if (!resultsLoading && openSection === 'results') {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId('section-results', 15);
+                });
+            });
+        }
+    }, [resultsLoading, openSection]);
 
     const toggleSection = (section: 'exams' | 'results' | 'course_settings' | 'student_management') => {
         setOpenSection(prev => prev === section ? null : section);
@@ -545,60 +571,84 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             onChange={e => setStudentSearchTerm(e.target.value)}
                             placeholder="ابحث عن طالب بالاسم، الجامعة، أو المدرب..."
                             className={cn(
-                                "w-full pr-10 pl-4 py-2.5 rounded-xl border text-sm font-bold transition-all outline-none",
+                                "w-full pr-10 pl-10 py-2.5 rounded-xl border text-sm font-bold transition-all outline-none",
                                 isDark
                                     ? "bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-emerald-500/50"
                                     : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500"
                             )}
                             dir="rtl"
                         />
+                        {studentSearchTerm && (
+                            <button
+                                onClick={() => setStudentSearchTerm('')}
+                                className={cn(
+                                    "absolute left-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-500/20 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-95"
+                                )}
+                                title="تفريغ البحث"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
-                        {students.filter(s => 
-                            s.full_name.includes(studentSearchTerm) || 
-                            (s.institution_name && s.institution_name.includes(studentSearchTerm)) ||
-                            (s.trainer_name && s.trainer_name.includes(studentSearchTerm))
-                        ).map(student => (
-                            <div key={student.id} className={cn(
-                                "flex flex-wrap sm:flex-nowrap items-center justify-between p-3 rounded-lg border gap-3",
-                                isDark ? "bg-zinc-800/50 border-white/10" : "bg-white border-gray-200"
-                            )}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="min-w-0 text-right">
-                                        <p className="font-bold text-sm truncate">{student.full_name}</p>
-                                        <p className="text-xs mt-1 opacity-70">
-                                            {student.institution_name} | المدرب: {student.trainer_name} | الموقع: {student.training_location}
-                                        </p>
+
+                    {studentSearchTerm.trim() !== '' && (
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {students.filter(s => 
+                                s.full_name.includes(studentSearchTerm) || 
+                                (s.institution_name && s.institution_name.includes(studentSearchTerm)) ||
+                                (s.trainer_name && s.trainer_name.includes(studentSearchTerm))
+                            ).length === 0 ? (
+                                <div className="text-center py-6 opacity-60 text-xs font-bold">
+                                    لا يوجد طلبة مطابقين لبحثك
+                                </div>
+                            ) : (
+                                students.filter(s => 
+                                    s.full_name.includes(studentSearchTerm) || 
+                                    (s.institution_name && s.institution_name.includes(studentSearchTerm)) ||
+                                    (s.trainer_name && s.trainer_name.includes(studentSearchTerm))
+                                ).map(student => (
+                                    <div key={student.id} className={cn(
+                                        "flex flex-wrap sm:flex-nowrap items-center justify-between p-3 rounded-lg border gap-3",
+                                        isDark ? "bg-zinc-800/50 border-white/10" : "bg-white border-gray-200"
+                                    )}>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="min-w-0 text-right">
+                                                <p className="font-bold text-sm truncate">{student.full_name}</p>
+                                                <p className="text-xs mt-1 opacity-70">
+                                                    {student.institution_name} | المدرب: {student.trainer_name} | الموقع: {student.training_location}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                                onClick={() => setEditingStudent(student)}
+                                                className="p-2 rounded-lg text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200"
+                                                title="تعديل الطالب"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm(`هل أنت متأكد من حذف الطالب ${student.full_name}؟`)) return;
+                                                    const { error } = await supabase.from('summer_training_students').delete().eq('id', student.id);
+                                                    if (!error) {
+                                                        toast.success('تم حذف الطالب');
+                                                        setStudents(prev => prev.filter(s => s.id !== student.id));
+                                                    } else {
+                                                        toast.error('فشل حذف الطالب');
+                                                    }
+                                                }}
+                                                className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors border border-red-200"
+                                                title="حذف الطالب"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                        onClick={() => setEditingStudent(student)}
-                                        className="p-2 rounded-lg text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border border-emerald-200"
-                                        title="تعديل الطالب"
-                                    >
-                                        <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            if (!confirm(`هل أنت متأكد من حذف الطالب ${student.full_name}؟`)) return;
-                                            const { error } = await supabase.from('summer_training_students').delete().eq('id', student.id);
-                                            if (!error) {
-                                                toast.success('تم حذف الطالب');
-                                                setStudents(prev => prev.filter(s => s.id !== student.id));
-                                            } else {
-                                                toast.error('فشل حذف الطالب');
-                                            }
-                                        }}
-                                        className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors border border-red-200"
-                                        title="حذف الطالب"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

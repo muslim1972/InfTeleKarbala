@@ -3,6 +3,7 @@ import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, 
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
+import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
 
 import { sendPushNotification } from '../../../services/notifications';
 import EditLeaveRequestForm from './EditLeaveRequestForm';
@@ -48,6 +49,26 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const [archiveRecords, setArchiveRecords] = useState<any[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isFormExpanded, setIsFormExpanded] = useState(false);
+
+  useEffect(() => {
+    if (isFormExpanded) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          smoothScrollToId('leave-request-form-header', 15);
+        });
+      });
+    }
+  }, [isFormExpanded]);
+
+  useEffect(() => {
+    if (isArchiveExpanded) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          smoothScrollToId('leave-request-archive-header', 15);
+        });
+      });
+    }
+  }, [isArchiveExpanded]);
 
   const handleArchiveSearch = async () => {
     if (!user) return;
@@ -515,6 +536,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       {/* Form Section - Collapsible */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
         <button
+          id="leave-request-form-header"
           type="button"
           onClick={() => setIsFormExpanded(!isFormExpanded)}
           className="w-full flex items-center justify-between p-5 focus:outline-none hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors"
@@ -742,6 +764,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       {/* Personal Archive Section (Collapsible) */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
           <button
+              id="leave-request-archive-header"
               onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
               className="w-full flex items-center justify-between p-5 focus:outline-none hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors print:hidden"
           >

@@ -7,6 +7,7 @@ import { arSA } from 'date-fns/locale';
 import html2pdf from 'html2pdf.js';
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
+import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -18,6 +19,16 @@ export default function Timesheets() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (expandedEmp) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          smoothScrollToId(`timesheet-emp-${expandedEmp}`, 15);
+        });
+      });
+    }
+  }, [expandedEmp]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
@@ -374,7 +385,7 @@ export default function Timesheets() {
       ) : (
         <div className="space-y-4">
           {groupedData.map(group => (
-            <div key={group.employee.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm transition-all">
+            <div id={`timesheet-emp-${group.employee.id}`} key={group.employee.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm transition-all">
               {/* Summary Row */}
               <div 
                 onClick={() => setExpandedEmp(expandedEmp === group.employee.id ? null : group.employee.id)}

@@ -75,14 +75,28 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
         }
     }, [settings]);
 
-    const prevOpenSectionRef = useRef<string | null>(null);
+    const isFirstRender = useRef(true);
 
     useEffect(() => {
-        const targetSection = openSection || prevOpenSectionRef.current;
-        if (targetSection) {
-            smoothScrollToId(`promo-section-${targetSection}`, 80);
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
         }
-        prevOpenSectionRef.current = openSection;
+
+        if (openSection) {
+            const id = `promo-section-${openSection}`;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId(id, 15);
+                });
+            });
+        } else {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToTop();
+                });
+            });
+        }
     }, [openSection]);
 
     const toggleSection = (section: 'curricula' | 'exams' | 'results') => {

@@ -1,6 +1,7 @@
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
-import type { ReactNode } from "react";
+import { smoothScrollToId, smoothScrollToTop } from "../../hooks/useSmoothScroll";
 
 interface AccordionSectionProps {
     title: string;
@@ -14,6 +15,30 @@ interface AccordionSectionProps {
 }
 
 export function AccordionSection({ title, icon: Icon, isOpen, onToggle, children, color, className, id }: AccordionSectionProps) {
+    const defaultId = useId();
+    const sectionId = id || `accordion-${defaultId.replace(/:/g, '')}`;
+    const isFirstRender = useRef(true);
+
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        if (isOpen && sectionId) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId(sectionId, 15);
+                });
+            });
+        } else if (!isOpen) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToTop();
+                });
+            });
+        }
+    }, [isOpen, sectionId]);
     // Determine background style based on color prop
     // Styles are APPLIED BY DEFAULT (not just on hover) to ensure mobile visibility as requested.
 
@@ -97,7 +122,7 @@ export function AccordionSection({ title, icon: Icon, isOpen, onToggle, children
     const styles = getColorClasses();
 
     return (
-        <div id={id} className={cn("group rounded-xl overflow-hidden border mx-auto w-full transition-all duration-300",
+        <div id={sectionId} className={cn("group rounded-xl overflow-hidden border mx-auto w-full transition-all duration-300",
             isOpen ? "ring-1" : (color ? "border-transparent" : "border-transparent bg-transparent"),
             // If color is present, we apply the colored border ALWAYS
             color ? styles.wrapperBorder : styles.border,

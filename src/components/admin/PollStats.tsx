@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { GlassCard } from '../ui/GlassCard';
 import { formatDate } from '../../utils/formatDate';
+import { smoothScrollToId } from '../../hooks/useSmoothScroll';
 
 interface PollStatsProps {
     pollId: string;
@@ -24,6 +25,16 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
 
     // UI States
     const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+
+    useEffect(() => {
+        if (isCommentsExpanded) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToId('poll-comments-header', 15);
+                });
+            });
+        }
+    }, [isCommentsExpanded]);
     const [printMode, setPrintMode] = useState<'full' | 'summary'>('full');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
 
@@ -312,6 +323,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
                 <div className="border-t border-white/10 pt-4">
                     {/* Comments Toggle */}
                     <button
+                        id="poll-comments-header"
                         onClick={() => setIsCommentsExpanded(!isCommentsExpanded)}
                         className={cn(
                             "w-full flex items-center justify-between p-4 rounded-xl border transition-colors",
