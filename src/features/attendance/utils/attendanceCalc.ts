@@ -36,11 +36,27 @@ export function computeWorkedMinutes(record: AttendanceRecord, toTime?: Date, ex
       totalMins = Math.max(0, totalMins - leaveMins);
     }
   } else if (record.time_leave_out && !record.time_leave_return && !record.check_out) {
-    // Currently on break, subtract time from leaveOut to now
+    // Currently on break 1, subtract time from leaveOut to now
     const leaveOut = parseISO(record.time_leave_out);
     if (isValid(leaveOut)) {
       const leaveMins = Math.max(0, differenceInMinutes(toTime || new Date(), leaveOut));
       totalMins = Math.max(0, totalMins - leaveMins);
+    }
+  }
+
+  if (record.time_leave_out_2 && record.time_leave_return_2) {
+    const leaveOut2 = parseISO(record.time_leave_out_2);
+    const leaveReturn2 = parseISO(record.time_leave_return_2);
+    if (isValid(leaveOut2) && isValid(leaveReturn2)) {
+      const leaveMins2 = Math.max(0, differenceInMinutes(leaveReturn2, leaveOut2));
+      totalMins = Math.max(0, totalMins - leaveMins2);
+    }
+  } else if (record.time_leave_out_2 && !record.time_leave_return_2 && !record.check_out) {
+    // Currently on break 2, subtract time from leaveOut2 to now
+    const leaveOut2 = parseISO(record.time_leave_out_2);
+    if (isValid(leaveOut2)) {
+      const leaveMins2 = Math.max(0, differenceInMinutes(toTime || new Date(), leaveOut2));
+      totalMins = Math.max(0, totalMins - leaveMins2);
     }
   }
 
@@ -60,15 +76,14 @@ export function deriveLiveStatus(record: AttendanceRecord | null): LiveStatus {
 }
 
 export function formatDurationArabic(minutes: number): string {
-  if (!minutes || minutes <= 0) return '0 دقيقة';
+  if (!minutes || minutes <= 0) return '0.00';
   const h = Math.floor(minutes / 60);
   const m = Math.floor(minutes % 60);
-  
-  const parts = [];
-  if (h > 0) parts.push(`${h}س`);
-  if (m > 0) parts.push(`${m}د`);
-  
-  return parts.join(' و ') || '0 دقيقة';
+  return `${h}.${m.toString().padStart(2, '0')}`;
+}
+
+export function formatDurationDot(minutes: number): string {
+  return formatDurationArabic(minutes);
 }
 
 // Compute if late based on schedule (simple check for timesheets)
@@ -89,4 +104,74 @@ export function computeLateMinutes(checkIn: string | undefined, scheduleStart: s
     return diff;
   }
   return 0;
+}
+
+export function computeDeficitMinutes(
+  record: AttendanceRecord,
+  scheduleStart: string | undefined,
+  scheduleEnd: string | undefined,
+  gracePeriod: number = 0
+): number {
+  if (!scheduleStart || !scheduleEnd || !record.check_in) return 0;
+  
+  let deficit = 0;
+  
+  const checkInDate = parseISO(record.check_in);
+  if (isValid(checkInDate)) {
+    const expectedStartStr = `${format(checkInDate, 'yyyy-MM-dd')}T${scheduleStart}`;
+    const expectedStartDate = parseISO(expectedStartStr);
+    if (isValid(expectedStartDate)) {
+      const lateMins = differenceInMinutes(checkInDate, expectedStartDate);
+      if (lateMins > gracePeriod) deficit += lateMins;
+    }
+  }
+
+  if (record.check_out) {
+    const checkOutDate = parseISO(record.check_out);
+    if (isValid(checkOutDate)) {
+      const expectedEndStr = `${format(checkOutDate, 'yyyy-MM-dd')}T${scheduleEnd}`;
+      const expectedEndDate = parseISO(expectedEndStr);
+      if (isValid(expectedEndDate)) {
+        const earlyMins = differenceInMinutes(expectedEndDate, checkOutDate);
+        if (earlyMins > 0) deficit += earlyMins;
+      }
+    }
+  }
+  
+  return deficit;
+}
+
+export function computeOvertimeMinutes(
+  record: AttendanceRecord,
+  scheduleStart: string | undefined,
+  scheduleEnd: string | undefined
+): number {
+  if (record.overtime_minutes) return record.overtime_minutes; // Explicit admin override
+  if (!scheduleStart || !scheduleEnd || !record.check_in) return 0;
+  
+  let overtime = 0;
+  
+  const checkInDate = parseISO(record.check_in);
+  if (isValid(checkInDate)) {
+    const expectedStartStr = `${format(checkInDate, 'yyyy-MM-dd')}T${scheduleStart}`;
+    const expectedStartDate = parseISO(expectedStartStr);
+    if (isValid(expectedStartDate)) {
+      const earlyMins = differenceInMinutes(expectedStartDate, checkInDate);
+      if (earlyMins > 0) overtime += earlyMins;
+    }
+  }
+
+  if (record.check_out) {
+    const checkOutDate = parseISO(record.check_out);
+    if (isValid(checkOutDate)) {
+      const expectedEndStr = `${format(checkOutDate, 'yyyy-MM-dd')}T${scheduleEnd}`;
+      const expectedEndDate = parseISO(expectedEndStr);
+      if (isValid(expectedEndDate)) {
+        const lateMins = differenceInMinutes(checkOutDate, expectedEndDate);
+        if (lateMins > 0) overtime += lateMins;
+      }
+    }
+  }
+  
+  return overtime;
 }

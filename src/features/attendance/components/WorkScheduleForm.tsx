@@ -107,12 +107,27 @@ export default function WorkScheduleForm({ schedule, onClose, onSave }: WorkSche
             <Calendar className="w-5 h-5 text-blue-500" />
             {schedule ? 'تعديل جدول العمل' : 'إضافة جدول عمل جديد'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              form="schedule-form"
+              disabled={loading}
+              className="px-4 py-2 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-70 text-sm"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              حفظ التعديلات
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 bg-slate-50 dark:bg-slate-800/50">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 pb-12 custom-scrollbar">
           <form id="schedule-form" onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -205,29 +220,6 @@ export default function WorkScheduleForm({ schedule, onClose, onSave }: WorkSche
               </div>
             </div>
           </form>
-        </div>
-
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-b-2xl flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl font-medium text-slate-600 bg-slate-200 hover:bg-slate-300 dark:text-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-          >
-            إلغاء
-          </button>
-          <button
-            type="submit"
-            form="schedule-form"
-            disabled={loading}
-            className="px-6 py-2.5 rounded-xl font-medium text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-70"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Save className="w-5 h-5" />
-            )}
-            حفظ الجدول
-          </button>
         </div>
       </div>
     </div>

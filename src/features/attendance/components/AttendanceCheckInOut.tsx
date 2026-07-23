@@ -68,7 +68,7 @@ export default function AttendanceCheckInOut({
   loading,
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
-  const { checkIn, checkOut, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
+  const { registerPunch } = useAttendance(employeeId);
   const { user } = useAuth();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
@@ -107,9 +107,9 @@ export default function AttendanceCheckInOut({
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
 
   // Camera & Face Detection
-  const [capturingAction, setCapturingAction] = useState<'checkIn' | 'checkOut' | null>(null);
+  const [capturingAction, setCapturingAction] = useState<'punch' | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [alertInfo, setAlertInfo] = useState<{ show: boolean; action: 'checkIn' | 'checkOut' | null }>({
+  const [alertInfo, setAlertInfo] = useState<{ show: boolean; action: 'punch' | null }>({
     show: false,
     action: null
   });
@@ -199,17 +199,13 @@ export default function AttendanceCheckInOut({
     }
   }, [captureFrame, handleStopCamera]);
 
-  const completeAction = useCallback(async (currentAction: 'checkIn' | 'checkOut', snapshotResult: { url?: string; notes?: string }) => {
+  const completeAction = useCallback(async (currentAction: 'punch', snapshotResult: { url?: string; notes?: string }) => {
     try {
       const deviceId = await getDeviceFingerprint();
       
-      if (currentAction === 'checkIn') {
-        await checkIn(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
-        toast.success('تم تسجيل الحضور بنجاح');
-      } else {
-        await checkOut(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
-        toast.success('تم تسجيل الانصراف بنجاح');
-      }
+      await registerPunch(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
+      toast.success('تم تثبيت البصمة بنجاح');
+      
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
     } catch (err: any) {
@@ -218,7 +214,7 @@ export default function AttendanceCheckInOut({
       setProcessing(false);
       setCapturingAction(null);
     }
-  }, [locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence]);
+  }, [locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence]);
 
   // ---- Manual Capture Action ----
   const handleManualCapture = useCallback(() => {
@@ -247,7 +243,7 @@ export default function AttendanceCheckInOut({
   }, [capturingAction, captureAndUpload, completeAction]);
 
   // ---- Open Camera & Start Process ----
-  const startFaceDetection = useCallback(async (action: 'checkIn' | 'checkOut') => {
+  const startFaceDetection = useCallback(async (action: 'punch') => {
     if (!videoRef.current || !isEnrolled || !user?.face_descriptor) return;
     
     try {
@@ -313,7 +309,7 @@ export default function AttendanceCheckInOut({
     detectLoop();
   }, [user, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
 
-  const openCamera = useCallback(async (action: 'checkIn' | 'checkOut') => {
+  const openCamera = useCallback(async (action: 'punch') => {
     if (!isAllowed) {
       toast.error('لا يمكن التنفيذ: يجب أن تكون متواجداً في نطاق الدائرة');
       return;
@@ -381,11 +377,8 @@ export default function AttendanceCheckInOut({
       setProcessing(true);
       try {
         const deviceId = await getDeviceFingerprint();
-        if (action === 'checkIn') {
-          await checkIn(locationText, deviceId, false, undefined, notes);
-        } else {
-          await checkOut(locationText, deviceId, false, undefined, notes);
-        }
+        await registerPunch(locationText, deviceId, false, undefined, notes);
+        
         onAttendanceUpdate();
         verifyLocationAndGeofence(false);
         setAlertInfo({ show: true, action });
@@ -396,7 +389,7 @@ export default function AttendanceCheckInOut({
         setCapturingAction(null);
       }
     }
-  }, [isAllowed, locationText, checkIn, checkOut, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
+  }, [isAllowed, locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
 
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
@@ -447,11 +440,7 @@ export default function AttendanceCheckInOut({
     });
   };
 
-  const canCheckIn = !todayAttendance || (todayAttendance.check_in && todayAttendance.check_out);
-  const canCheckOut = todayAttendance?.check_in && !todayAttendance?.check_out && 
-                      (!todayAttendance?.time_leave_out || todayAttendance?.time_leave_return);
-  const canTimeLeaveOut = todayAttendance?.check_in && !todayAttendance?.check_out && !todayAttendance?.time_leave_out;
-  const canTimeLeaveReturn = todayAttendance?.time_leave_out && !todayAttendance?.time_leave_return && !todayAttendance?.check_out;
+  const canPunch = true; // Always true, logic handles it in backend
 
   return (
     <div className="space-y-6">
@@ -519,7 +508,7 @@ export default function AttendanceCheckInOut({
                 {cameraState.message}
               </p>
               <p className="text-sm text-white/60 mt-2">
-                {capturingAction === 'checkIn' ? 'تسجيل الحضور' : 'تسجيل الانصراف'} — {cameraState.countdown > 0 && !cameraState.capturing ? `متبقي ${cameraState.countdown} ثانية` : 'جاري المعالجة...'}
+                تثبيت البصمة — {cameraState.countdown > 0 && !cameraState.capturing ? `متبقي ${cameraState.countdown} ثانية` : 'جاري المعالجة...'}
               </p>
             </div>
 
@@ -708,7 +697,7 @@ export default function AttendanceCheckInOut({
           <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
             <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
             <p className="font-bold text-slate-700 dark:text-slate-300">
-              {capturingAction === 'checkIn' ? 'جاري تسجيل الحضور...' : 'جاري تسجيل الانصراف...'}
+              جاري تثبيت البصمة...
             </p>
           </div>
         ) : !isEnrolled ? (
@@ -727,37 +716,22 @@ export default function AttendanceCheckInOut({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => openCamera('checkIn')}
-            disabled={!canCheckIn || loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
-            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-              canCheckIn && isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
-                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg shadow-emerald-600/20'
-                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              <span>تسجيل الحضور (صورة مباشرة)</span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => openCamera('checkOut')}
-            disabled={!canCheckOut || loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
-            className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-              canCheckOut && isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
-                ? 'bg-teal-600 hover:bg-teal-700 shadow-md hover:shadow-lg shadow-teal-600/20'
-                : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              <span>تسجيل الانصراف (صورة مباشرة)</span>
-            </div>
-          </button>
-        </div>
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              onClick={() => openCamera('punch')}
+              disabled={loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
+              className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+                isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg shadow-blue-600/20'
+                  : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                <span>تثبيت البصمة (صورة مباشرة)</span>
+              </div>
+            </button>
+          </div>
         )}
         
         {/* Debug Camera Button */}
@@ -776,41 +750,6 @@ export default function AttendanceCheckInOut({
         >
           فحص الكاميرا (للمطور)
         </button>
-
-        {/* Time Leave Actions */}
-        {(canTimeLeaveOut || canTimeLeaveReturn) ? (
-          <div className="grid grid-cols-1 mt-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            {canTimeLeaveOut ? (
-              <button
-                onClick={handleTimeLeaveOut}
-                disabled={loading || processing || loadingLocation || !geofenceChecked || !isAllowed}
-                className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-                  isAllowed
-                    ? 'bg-amber-500 hover:bg-amber-600 shadow-md hover:shadow-lg shadow-amber-500/20'
-                    : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                <LogOut className="w-5 h-5" />
-                <span>خروج زمني (إجازة زمنية)</span>
-              </button>
-            ) : null}
-
-            {canTimeLeaveReturn ? (
-              <button
-                onClick={handleTimeLeaveReturn}
-                disabled={loading || processing || loadingLocation || !geofenceChecked || !isAllowed}
-                className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-                  isAllowed
-                    ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg shadow-blue-600/20'
-                    : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                <LogIn className="w-5 h-5" />
-                <span>عودة من الإجازة الزمنية</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </motion.div>
 
       {/* ========== Custom Alert Modal (Unverified Registration) ========== */}

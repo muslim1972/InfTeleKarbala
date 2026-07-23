@@ -181,6 +181,85 @@ export const attendanceRecordService = {
     return data[0] as AttendanceRecord | undefined;
   },
 
+  async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
+    const { categorizePunches } = await import('../utils/punchCategorizer');
+    
+    // 1. Get today's record
+    const today = new Date().toISOString().split('T')[0];
+    let record = await this.getTodayByEmployeeId(employeeId);
+    
+    const newPunch = {
+      time: new Date().toISOString(),
+      location,
+      device_id: deviceId,
+      snapshot_url: snapshotUrl,
+      notes,
+      verified_by_biometric: verifiedByBiometric
+    };
+
+    // 2. Load yesterday's record for night-shift logic
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const { data: yesterdayData } = await supabase
+      .from('attendance_records')
+      .select('check_in, check_out')
+      .eq('employee_id', employeeId)
+      .gte('created_at', `${yesterday}T00:00:00`)
+      .lte('created_at', `${yesterday}T23:59:59`)
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    const yesterdayRecord = yesterdayData?.[0] as AttendanceRecord | undefined;
+
+    // 3. Update raw_punches
+    let rawPunches = [];
+    if (record && record.raw_punches) {
+      rawPunches = Array.isArray(record.raw_punches) ? record.raw_punches : [];
+    }
+    rawPunches.push(newPunch);
+
+    // 4. Run categorizer
+    const updates = categorizePunches(rawPunches, yesterdayRecord, today);
+    updates.raw_punches = rawPunches;
+
+    // Device logic
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('department_id, primary_device_id, work_schedule_id')
+      .eq('id', employeeId)
+      .single();
+
+    let isDevicePending = record?.is_device_pending || false;
+
+    if (!profile?.primary_device_id && deviceId) {
+      await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
+    } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+      isDevicePending = true;
+      const { data: existingReq } = await supabase.from('device_change_requests').select('id').eq('employee_id', employeeId).eq('new_device_id', deviceId).eq('status', 'pending').single();
+      if (!existingReq) {
+        await supabase.from('device_change_requests').insert({ employee_id: employeeId, old_device_id: profile.primary_device_id, new_device_id: deviceId, status: 'pending' });
+        // Assume notifyAdminsForDeviceChange is accessible, or just ignore for now if imported
+      }
+    }
+    updates.is_device_pending = isDevicePending;
+
+    if (record) {
+      // Update existing record
+      const { data, error } = await supabase.from('attendance_records').update(updates).eq('id', record.id).select().single();
+      if (error) throw error;
+      return data as AttendanceRecord;
+    } else {
+      // Create new record
+      updates.employee_id = employeeId;
+      updates.department_id = profile?.department_id;
+      updates.work_schedule_id = profile?.work_schedule_id;
+      updates.status = 'present'; // Default
+      
+      const { data, error } = await supabase.from('attendance_records').insert(updates).select().single();
+      if (error) throw error;
+      return data as AttendanceRecord;
+    }
+  },
+
   async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
     const now = new Date().toISOString();
     

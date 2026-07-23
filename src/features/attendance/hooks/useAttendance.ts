@@ -116,6 +116,28 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
+  const registerPunch = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      let verifiedByBiometric = false;
+      if (useBiometric) {
+        const verification = await webauthnService.verify(employeeId);
+        if (!verification.success) throw new Error(verification.message || 'فشل التحقق البيومتري');
+        verifiedByBiometric = true;
+      }
+
+      const record = await attendanceRecordService.registerPunch(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes);
+      setTodayAttendance(record);
+      return record;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [employeeId]);
+
   const timeLeaveOut = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false) => {
     setLoading(true);
     setError(null);
@@ -189,6 +211,7 @@ export function useAttendance(employeeId: string) {
     loadStats,
     checkIn,
     checkOut,
+    registerPunch,
     timeLeaveOut,
     timeLeaveReturn,
     requestException

@@ -14,8 +14,9 @@ import { useAuth } from '../../../context/AuthContext';
 import WorkSchedulesTab from './WorkSchedulesTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
+import HolidaysTab from './HolidaysTab';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
@@ -639,6 +640,18 @@ export default function AttendanceAdminSettings() {
           >
             <Calendar className="w-5 h-5" />
             جداول العمل
+          </button>
+
+          <button
+            onClick={() => setActiveTab('holidays')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'holidays'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            إعدادات العطل
           </button>
           </div>
 
@@ -1551,8 +1564,12 @@ export default function AttendanceAdminSettings() {
         <LiveAttendanceBoard />
       )}
 
-      {activeTab === 'timesheets' && isHighAdmin && (
+      {activeTab === 'timesheets' && (
         <Timesheets />
+      )}
+
+      {activeTab === 'holidays' && (
+        <HolidaysTab />
       )}
     </div>
 

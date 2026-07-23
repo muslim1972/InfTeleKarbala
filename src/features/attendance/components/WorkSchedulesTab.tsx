@@ -145,12 +145,12 @@ export default function WorkSchedulesTab() {
                         عطلة (Rest Day)
                       </div>
                     ) : (
-                      <div className="space-y-1">
-                        <div className="text-xs font-mono font-medium text-blue-700 dark:text-blue-400">
+                      <div className="flex items-center justify-center gap-1.5 mt-2 bg-white dark:bg-slate-800 py-1.5 rounded-lg border border-blue-50 dark:border-slate-700">
+                        <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
                           {day.start_time?.substring(0, 5)}
                         </div>
-                        <div className="text-slate-300 dark:text-slate-600 text-[10px]">إلى</div>
-                        <div className="text-xs font-mono font-medium text-blue-700 dark:text-blue-400">
+                        <div className="text-slate-400 dark:text-slate-500 text-[10px] font-medium px-1">إلى</div>
+                        <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
                           {day.end_time?.substring(0, 5)}
                         </div>
                       </div>

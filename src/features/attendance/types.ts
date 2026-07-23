@@ -26,6 +26,9 @@ export interface AttendanceRecord {
   is_device_pending?: boolean;
   time_leave_out?: string;
   time_leave_return?: string;
+  time_leave_out_2?: string;
+  time_leave_return_2?: string;
+  raw_punches?: any; // JSONB array of punches
   overtime_minutes?: number;
   is_auto_check_in?: boolean;
   is_auto_check_out?: boolean;
