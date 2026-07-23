@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 // @ts-ignore
-import html2pdf from 'html2pdf.js';
+
 import { createPortal } from 'react-dom';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -122,7 +122,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
         }
     };
 
-    const handlePrint = (mode: 'full' | 'summary') => {
+    const handlePrint = async (mode: 'full' | 'summary') => {
         setPrintMode(mode);
         setShowPrintMenu(false);
 
@@ -149,6 +149,7 @@ export function PollStats({ pollId, onBack }: PollStatsProps) {
         element.style.display = 'block';
 
         // Advanced Pipeline: HTML -> PDF Object -> Edit Pages -> Save
+        const html2pdf = (await import('html2pdf.js')).default;
         const worker = html2pdf().from(element).set(opt).toPdf();
 
         worker.get('pdf').then((pdf: any) => {

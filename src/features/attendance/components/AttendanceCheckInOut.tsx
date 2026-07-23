@@ -68,7 +68,7 @@ export default function AttendanceCheckInOut({
   loading,
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
-  const { registerPunch } = useAttendance(employeeId);
+  const { registerPunch, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
   const { user } = useAuth();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;

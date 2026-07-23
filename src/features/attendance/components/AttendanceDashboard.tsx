@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
-import AttendanceCheckInOut from './AttendanceCheckInOut';
-import AttendanceHistory from './AttendanceHistory';
-import AttendanceStatistics from './AttendanceStatistics';
-import AttendanceExceptionRequest from './AttendanceExceptionRequest';
-import { BiometricEnrollment } from './BiometricEnrollment';
 import { Fingerprint, Calendar, BarChart3, FileText, ShieldCheck } from 'lucide-react';
+
+const AttendanceCheckInOut = lazy(() => import('./AttendanceCheckInOut'));
+const AttendanceHistory = lazy(() => import('./AttendanceHistory'));
+const AttendanceStatistics = lazy(() => import('./AttendanceStatistics'));
+const AttendanceExceptionRequest = lazy(() => import('./AttendanceExceptionRequest'));
+const BiometricEnrollment = lazy(() => import('./BiometricEnrollment').then(m => ({ default: m.BiometricEnrollment })));
 
 interface AttendanceDashboardProps {
   employeeId: string;
@@ -107,38 +108,43 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'check' && (
-            <AttendanceCheckInOut
-              employeeId={employeeId}
-              todayAttendance={todayAttendance}
-              loading={loading}
-              onAttendanceUpdate={loadTodayAttendance}
-            />
-          )}
-          {activeTab === 'history' && (
-            <AttendanceHistory
-              attendanceHistory={attendanceHistory}
-              loading={loading}
-            />
-          )}
-          {activeTab === 'stats' && (
-            <AttendanceStatistics
-              stats={stats}
-              loading={loading}
-            />
-          )}
-          {activeTab === 'exceptions' && (
-            <AttendanceExceptionRequest
-              employeeId={employeeId}
-              exceptions={exceptions}
-              loading={loading}
-            />
-          )}
-          {activeTab === 'settings' && (
-            <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden min-h-[400px]">
+            <Suspense fallback={
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            }>
+              {activeTab === 'check' && (
+                <AttendanceCheckInOut
+                  employeeId={employeeId}
+                  todayAttendance={todayAttendance}
+                  loading={loading}
+                  onAttendanceUpdate={loadTodayAttendance}
+                />
+              )}
+
+              {activeTab === 'history' && (
+              <AttendanceHistory attendanceHistory={attendanceHistory} loading={loading} />
+            )}
+
+            {activeTab === 'stats' && stats && (
+              <AttendanceStatistics stats={stats} loading={loading} />
+            )}
+
+            {activeTab === 'exceptions' && (
+              <AttendanceExceptionRequest
+                employeeId={employeeId}
+                exceptions={exceptions}
+                loading={loading}
+                onExceptionAdded={loadExceptions}
+              />
+            )}
+
+            {activeTab === 'settings' && (
               <BiometricEnrollment />
-            </div>
-          )}
+            )}
+          </Suspense>
+        </div>
         </motion.div>
       </div>
     </div>

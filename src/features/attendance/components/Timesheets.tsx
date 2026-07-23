@@ -4,11 +4,11 @@ import { computeWorkedMinutes, formatDurationArabic, formatDurationDot, computeD
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import html2pdf from 'html2pdf.js';
+
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
-import ExcelJS from 'exceljs';
+
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -21,18 +21,7 @@ export default function Timesheets() {
   const [loading, setLoading] = useState(false);
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
   
-  const [showPdfMenu, setShowPdfMenu] = useState(false);
-  const pdfMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (pdfMenuRef.current && !pdfMenuRef.current.contains(event.target as Node)) {
-        setShowPdfMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (expandedEmp) {
@@ -217,27 +206,11 @@ export default function Timesheets() {
     return result;
   }, [records, getExpectedCheckoutTime, getExpectedCheckinTime, year, month]);
 
-  const exportToPDF = async (includeImages: boolean = true) => {
+  const exportToPDF = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
     
-    const toastId = toast.loading('جاري تجهيز الملف وتصدير الصور كـ PDF... يرجى الانتظار');
+    const toastId = toast.loading('جاري تجهيز الملف وتصديره كـ PDF... يرجى الانتظار');
     try {
-      const urlToBase64Png = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'Anonymous';
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = () => reject(new Error('Failed to load image'));
-          img.src = url;
-        });
-      };
 
       const lastDay = new Date(year, month, 0).getDate();
       const printDate = new Date().toLocaleDateString('en-GB');
@@ -275,10 +248,7 @@ export default function Timesheets() {
                   <th style="padding: 2px; border: 1px solid #d1d5db;">نوع اليوم</th>
                   <th style="padding: 2px; border: 1px solid #d1d5db;">التحقق</th>
                   <th style="padding: 2px; border: 1px solid #d1d5db;">الدوام</th>
-                  ${includeImages ? `
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ص. دخول</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ص. خروج</th>
-                  ` : ''}
+
                   <th style="padding: 2px; border: 1px solid #d1d5db;">دخول</th>
                   <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 1</th>
                   <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 1</th>
@@ -295,12 +265,12 @@ export default function Timesheets() {
               <tbody>
         `;
 
-        const tdStyle = "padding: 1px 2px; border: 1px solid #d1d5db; height: 16px;";
+        const tdStyle = "padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;";
 
         for (const rec of group.records) {
           if (rec._isPadding) {
              html += `<tr>`;
-             for(let c=0; c<(includeImages ? 17 : 15); c++) {
+             for(let c=0; c<15; c++) {
                  html += `<td style="${tdStyle}">&nbsp;</td>`;
              }
              html += `</tr>`;
@@ -316,10 +286,6 @@ export default function Timesheets() {
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
-             if (includeImages) {
-                 html += `<td style="${tdStyle}">--</td>`;
-                 html += `<td style="${tdStyle}">--</td>`;
-             }
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
@@ -369,29 +335,7 @@ export default function Timesheets() {
           else if (rec.check_in_location) verifyMethod = 'موقع';
           else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
           
-          let checkInImgHtml = '-';
-          if (includeImages && rec.check_in_snapshot_url) {
-            try {
-               const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
-               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
-               checkInImgHtml = `<a href="${viewerUrl}" target="_blank"><img src="${b64}" style="width: 25px; height: 25px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
-            } catch (e) {
-               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
-               checkInImgHtml = `<a href="${viewerUrl}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
-            }
-          }
 
-          let checkOutImgHtml = '-';
-          if (includeImages && rec.check_out_snapshot_url) {
-             try {
-               const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
-               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
-               checkOutImgHtml = `<a href="${viewerUrl}" target="_blank"><img src="${b64}" style="width: 25px; height: 25px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc;" /></a>`;
-            } catch (e) {
-               const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
-               checkOutImgHtml = `<a href="${viewerUrl}" target="_blank" style="color: blue; text-decoration: underline;">رابط</a>`;
-            }
-          }
 
           const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
           const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
@@ -404,10 +348,7 @@ export default function Timesheets() {
               <td style="${tdStyle}">${dayType}</td>
               <td style="${tdStyle}">${verifyMethod}</td>
               <td style="${tdStyle}">${scheduleName}</td>
-              ${includeImages ? `
-              <td style="${tdStyle}">${checkInImgHtml}</td>
-              <td style="${tdStyle}">${checkOutImgHtml}</td>
-              ` : ''}
+
               <td style="${tdStyle} ${inTimeColor}">${inTime}</td>
               <td style="${tdStyle}">${leaveOutStr}</td>
               <td style="${tdStyle}">${leaveReturnStr}</td>
@@ -425,7 +366,7 @@ export default function Timesheets() {
 
         html += `
                 <tr style="background-color: #f8fafc; font-weight: bold;">
-                  <td colspan="${includeImages ? 17 : 15}" style="padding: 4px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
+                  <td colspan="15" style="padding: 4px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
                     إجمالي الصافي: ${formatDurationDot(group.totalWorkMins)} | 
                     إجمالي النقص: ${formatDurationDot(group.totalDeficit)} | 
                     إجمالي الإضافي: ${formatDurationDot(group.totalOvertime)} | 
@@ -455,6 +396,7 @@ export default function Timesheets() {
           pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
       };
 
+      const html2pdf = (await import('html2pdf.js')).default;
       await html2pdf()
         .set(opt)
         .from(html)
@@ -483,10 +425,10 @@ export default function Timesheets() {
     }
   };
 
-  const exportToExcel = async () => {
-    if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
+  const exportSingleEmployeeWithImages = async (e: React.MouseEvent, targetGroup: any) => {
+    e.stopPropagation();
+    const toastId = toast.loading('جاري تجهيز التقرير مع الصور كـ PDF... يرجى الانتظار');
     
-    const toastId = toast.loading('جاري تصدير الملف... يرجى الانتظار');
     try {
       const urlToBase64Png = (url: string): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -505,231 +447,243 @@ export default function Timesheets() {
         });
       };
 
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('تقارير البصمة');
-      worksheet.views = [{ rightToLeft: true }];
+      const printDate = new Date().toLocaleDateString('en-GB');
+
+      let html = `
+        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
+      `;
+
+      const group = targetGroup;
+      html += `
+        <div style="page-break-inside: avoid; margin-bottom: 20px;">
+          <div style="text-align: center; margin-bottom: 15px; border-bottom: 2px solid #1e293b; padding-bottom: 10px;">
+            <h2 style="margin: 0; font-size: 20px; color: #0f172a;">تقرير البصمة لـ ${group.employee.full_name} لشهر ${month} / ${year}</h2>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #64748b;">تاريخ الطباعة: ${printDate}</p>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: center;">
+            <thead style="background-color: #f1f5f9; font-weight: bold; color: #334155;">
+              <tr>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">التاريخ</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">نوع اليوم</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">التحقق</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">الدوام</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ص. دخول</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ص. خروج</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">دخول</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 1</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 1</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 2</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 2</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">خروج</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">الصافي</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">النقص</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">الإضافي</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">الحالة</th>
+                <th style="padding: 2px; border: 1px solid #d1d5db;">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      for (let j = 0; j < group.records.length; j++) {
+        const rec = group.records[j];
+        if (rec._isPadding) continue;
+
+        const tdStyle = `padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;`;
         
-      worksheet.columns = [
-        { key: 'date', width: 22 },
-        { key: 'dayType', width: 12 },
-        { key: 'verify', width: 10 },
-        { key: 'schedule', width: 15 },
-        { key: 'photo_in', width: 10 },
-        { key: 'photo_out', width: 10 },
-        { key: 'check_in', width: 10 },
-        { key: 'leave_out', width: 10 },
-        { key: 'leave_return', width: 10 },
-        { key: 'leave_out_2', width: 10 },
-        { key: 'leave_return_2', width: 10 },
-        { key: 'check_out', width: 10 },
-        { key: 'net', width: 10 },
-        { key: 'deficit', width: 10 },
-        { key: 'overtime', width: 10 },
-        { key: 'status', width: 10 },
-        { key: 'notes', width: 25 },
-      ];
+        const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, j + 1).toISOString();
+        const dateObj = parseISO(dateStrRaw);
+        const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
 
-      for (let i = 0; i < groupedData.length; i++) {
-        const group = groupedData[i];
+        if (rec._isEmpty) {
+           const dayNameEng = format(dateObj, 'EEEE');
+           const isWeekend = globalSettings?.weekend_days?.includes(dayNameEng);
+           if (!isWeekend) {
+               html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: #fef2f2;">`;
+               html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
+               html += `<td style="${tdStyle}">يوم عمل</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">الجدول الافتراضي</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle} color: #e11d48;">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle} color: #e11d48;">--:--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">غائب</td>`;
+               html += `<td style="${tdStyle} font-size: 8px;">لا توجد بصمات</td>`;
+               html += `</tr>`;
+               continue;
+           } else {
+               html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: #f8fafc;">`;
+               html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
+               html += `<td style="${tdStyle}">عطلة</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">الجدول الافتراضي</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--:--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">--</td>`;
+               html += `<td style="${tdStyle}">عطلة</td>`;
+               html += `<td style="${tdStyle} font-size: 8px;">لا توجد بصمات</td>`;
+               html += `</tr>`;
+               continue;
+           }
+        }
+        
+        const inTime = rec.check_in ? format(parseISO(rec.check_in), 'HH:mm') : '--:--';
+        const isPastDay = dateObj.toDateString() !== new Date().toDateString();
+        const isForgotCheckout = !rec.check_out && isPastDay && rec.check_in;
+        
+        const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
+        const expectedCheckout = getExpectedCheckoutTime(scheduleId, dateStrRaw);
+        const expectedCheckin = getExpectedCheckinTime(scheduleId, dateStrRaw);
+        
+        const outTime = rec.check_out 
+          ? format(parseISO(rec.check_out), 'HH:mm') 
+          : (isForgotCheckout ? expectedCheckout : '--:--');
 
-        // Add spacing between employees
-        if (i > 0) {
-            worksheet.addRow([]);
-            worksheet.addRow([]);
+        let scheduleName = 'الجدول الافتراضي';
+        const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
+        let dayType = getDayTypeStr(dateObj, schedule);
+        
+        if (schedule) scheduleName = schedule.name;
+
+        const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
+        const leaveReturnStr = rec.time_leave_return ? format(parseISO(rec.time_leave_return), 'HH:mm') : '--:--';
+        const leaveOut2Str = rec.time_leave_out_2 ? format(parseISO(rec.time_leave_out_2), 'HH:mm') : '--:--';
+        const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
+        
+        const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
+        const deficitMins = computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+        const overtimeMins = computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+        
+        let verifyMethod = 'يدوي';
+        if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
+        else if (rec.check_in_location) verifyMethod = 'موقع';
+        else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
+
+        let checkInImgHtml = '-';
+        if (rec.check_in_snapshot_url) {
+          try {
+             const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
+             checkInImgHtml = `<img src="${b64}" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc; vertical-align: middle;" />`;
+          } catch (e) {
+             checkInImgHtml = `(صورة)`;
+          }
         }
 
-        // Add Employee Name Row
-        const titleRow = worksheet.addRow([`${group.employee.full_name} (${group.employee.job_number || 'بدون رقم وظيفي'})`]);
-        worksheet.mergeCells(`A${titleRow.number}:J${titleRow.number}`);
-        titleRow.getCell(1).font = { name: 'Cairo', bold: true, size: 14, color: { argb: 'FF0369A1' } };
-        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
-        titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'right' };
-        titleRow.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-
-        // Add Table Headers
-        const headerRow = worksheet.addRow([
-            'التاريخ واليوم', 'نوع اليوم', 'التحقق', 'الدوام', 'ص. دخول', 'ص. خروج', 'دخول', 'ب. راحة 1', 'ع. راحة 1', 'ب. راحة 2', 'ع. راحة 2', 'خروج', 'الصافي', 'النقص', 'الإضافي', 'الحالة', 'ملاحظات'
-        ]);
-        
-        headerRow.eachCell((cell) => {
-            cell.font = { name: 'Cairo', bold: true, size: 12, color: { argb: 'FF111827' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
-            cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin' } };
-        });
-
-        for (const rec of group.records) {
-            if (rec._isPadding) {
-                worksheet.addRow([]);
-                continue;
-            }
-            const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, 1).toISOString();
-            const dateObj = parseISO(dateStrRaw);
-            const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
-            
-            if (rec._isEmpty) {
-                worksheet.addRow({
-                   date: dateStr,
-                   notes: 'لا توجد بصمات'
-                });
-                continue;
-            }
-
-            const isPastDay = dateObj.toDateString() !== new Date().toDateString();
-            const isForgotCheckout = !rec.check_out && isPastDay && rec.check_in;
-            const scheduleId = rec.work_schedule_id || rec.employee?.work_schedule_id;
-            const expectedCheckout = getExpectedCheckoutTime(scheduleId, dateStrRaw);
-            const expectedCheckin = getExpectedCheckinTime(scheduleId, dateStrRaw);
-            
-            let scheduleName = 'الجدول الافتراضي';
-            const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
-            let dayType = getDayTypeStr(dateObj, schedule);
-            
-            if (schedule) {
-               scheduleName = schedule.name;
-               const dayOfWeek = dateObj.getDay();
-               const daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-               if (daySchedule && daySchedule.is_rest_day) dayType = 'عطلة';
-            }
-
-            const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
-            const leaveReturnStr = rec.time_leave_return ? format(parseISO(rec.time_leave_return), 'HH:mm') : '--:--';
-            const leaveOut2Str = rec.time_leave_out_2 ? format(parseISO(rec.time_leave_out_2), 'HH:mm') : '--:--';
-            const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
-
-            const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-            const deficitMins = computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-            const overtimeMins = computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
-            
-            let verifyMethod = 'يدوي';
-            if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
-            else if (rec.check_in_location) verifyMethod = 'موقع';
-            else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
-
-            const statusLabel = 
-                rec.status === 'present' ? 'حاضر' :
-                rec.status === 'late' ? 'متأخر' :
-                rec.status === 'absent' ? 'غائب' : 'غير مكتمل';
-            
-            const checkInStr = rec.check_in ? format(parseISO(rec.check_in), 'HH:mm') : '--:--';
-            const checkOutStr = rec.check_out 
-              ? format(parseISO(rec.check_out), 'HH:mm') 
-              : (isForgotCheckout ? expectedCheckout : '--:--');
-            
-            const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'FFDC2626' : undefined;
-            const inTimeColor = rec.status === 'late' ? 'FFDC2626' : undefined;
-            const deficitColor = deficitMins > 0 ? 'FFDC2626' : undefined;
-            const overtimeColor = overtimeMins > 0 ? 'FF059669' : undefined;
-
-            let checkInImgId: number | undefined;
-            if (rec.check_in_snapshot_url) {
-                try {
-                    const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
-                    checkInImgId = workbook.addImage({ base64: b64.split(',')[1], extension: 'png' });
-                } catch(e) {}
-            }
-
-            let checkOutImgId: number | undefined;
-            if (rec.check_out_snapshot_url) {
-                try {
-                    const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
-                    checkOutImgId = workbook.addImage({ base64: b64.split(',')[1], extension: 'png' });
-                } catch(e) {}
-            }
-
-            const row = worksheet.addRow({
-                date: dateStr,
-                dayType: dayType,
-                verify: verifyMethod,
-                schedule: scheduleName,
-                photo_in: '', // Will add image overlay
-                photo_out: '', // Will add image overlay
-                check_in: checkInStr,
-                leave_out: leaveOutStr,
-                leave_return: leaveReturnStr,
-                leave_out_2: leaveOut2Str,
-                leave_return_2: leaveReturn2Str,
-                check_out: checkOutStr,
-                net: formatDurationDot(netMins),
-                deficit: deficitMins > 0 ? formatDurationDot(deficitMins) : '--',
-                overtime: overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--',
-                status: statusLabel,
-                notes: rec.notes || ''
-            });
-
-            // Set row height for images
-            row.height = 42;
-
-            if (checkInImgId !== undefined && rec.check_in_snapshot_url) {
-                const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
-                row.getCell('photo_in').value = { text: ' ', hyperlink: viewerUrl };
-                
-                worksheet.addImage(checkInImgId, {
-                    tl: { col: 4.15, row: row.number - 0.9 },
-                    ext: { width: 45, height: 45 },
-                    editAs: 'oneCell',
-                    hyperlinks: {
-                        hyperlink: viewerUrl,
-                        tooltip: 'انقر لعرض الصورة'
-                    }
-                } as any);
-            }
-
-            if (checkOutImgId !== undefined && rec.check_out_snapshot_url) {
-                const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
-                row.getCell('photo_out').value = { text: ' ', hyperlink: viewerUrl };
-                
-                worksheet.addImage(checkOutImgId, {
-                    tl: { col: 5.15, row: row.number - 0.9 },
-                    ext: { width: 45, height: 45 },
-                    editAs: 'oneCell',
-                    hyperlinks: {
-                        hyperlink: viewerUrl,
-                        tooltip: 'انقر لعرض الصورة'
-                    }
-                } as any);
-            }
-
-            row.eachCell((cell, colNumber) => {
-                cell.font = { name: 'Cairo', size: 11 };
-                cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                cell.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-                
-                if (colNumber === 7 && inTimeColor) {
-                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: inTimeColor } };
-                }
-                if (colNumber === 10 && outTimeColor) {
-                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: outTimeColor } };
-                }
-                if (colNumber === 12 && deficitColor) {
-                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: deficitColor } };
-                }
-                if (colNumber === 13 && overtimeColor) {
-                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: overtimeColor } };
-                }
-                if (colNumber === 14) {
-                    if (statusLabel === 'حاضر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FF059669' } };
-                    else if (statusLabel === 'متأخر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFD97706' } };
-                    else if (statusLabel === 'غائب') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFDC2626' } };
-                }
-            });
+        let checkOutImgHtml = '-';
+        if (rec.check_out_snapshot_url) {
+           try {
+             const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
+             checkOutImgHtml = `<img src="${b64}" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc; vertical-align: middle;" />`;
+          } catch (e) {
+             checkOutImgHtml = `(صورة)`;
+          }
         }
+
+        const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
+        const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
+        const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
+        const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
+        
+        html += `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="${tdStyle} white-space: nowrap;">${dateStr}</td>
+            <td style="${tdStyle}">${dayType}</td>
+            <td style="${tdStyle}">${verifyMethod}</td>
+            <td style="${tdStyle}">${scheduleName}</td>
+            <td style="${tdStyle}">${checkInImgHtml}</td>
+            <td style="${tdStyle}">${checkOutImgHtml}</td>
+            <td style="${tdStyle} ${inTimeColor}">${inTime}</td>
+            <td style="${tdStyle}">${leaveOutStr}</td>
+            <td style="${tdStyle}">${leaveReturnStr}</td>
+            <td style="${tdStyle}">${leaveOut2Str}</td>
+            <td style="${tdStyle}">${leaveReturn2Str}</td>
+            <td style="${tdStyle} ${outTimeColor}">${outTime}</td>
+            <td style="${tdStyle}">${formatDurationDot(netMins)}</td>
+            <td style="${tdStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
+            <td style="${tdStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
+            <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
+            <td style="${tdStyle} font-size: 8px;">${rec.notes || ''}</td>
+          </tr>
+        `;
       }
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `تقارير_البصمة_${year}_${month}.xlsx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      html += `
+              <tr style="background-color: #f8fafc; font-weight: bold;">
+                <td colspan="17" style="padding: 4px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
+                  إجمالي الصافي: ${formatDurationDot(group.totalWorkMins)} | 
+                  إجمالي النقص: ${formatDurationDot(group.totalDeficit)} | 
+                  إجمالي الإضافي: ${formatDurationDot(group.totalOvertime)} | 
+                  تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      html += `</div>`;
+
+      const opt = {
+          margin: [5, 5, 5, 5],
+          filename: `جدول_حضور_${group.employee.full_name}_${month}_${year}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+              scale: 2, 
+              useCORS: true,
+              logging: false,
+              windowWidth: 1050
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
+      };
+
+      const html2pdf = (await import('html2pdf.js')).default;
+      await html2pdf()
+        .set(opt)
+        .from(html)
+        .toPdf()
+        .get('pdf')
+        .then((pdf: any) => {
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(10);
+            pdf.setTextColor(100);
+            pdf.text(
+              `${i} / ${totalPages}`, 
+              pdf.internal.pageSize.getWidth() / 2, 
+              pdf.internal.pageSize.getHeight() - 5, 
+              { align: 'center' }
+            );
+          }
+        })
+        .save();
+
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
       console.error('Export Error:', err);
       toast.error('فشل تصدير الملف: ' + err.message, { id: toastId });
     }
   };
+
+
 
   return (
     <div className="space-y-6">
@@ -779,36 +733,16 @@ export default function Timesheets() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="relative" ref={pdfMenuRef}>
+          <div>
             <button 
-              onClick={() => setShowPdfMenu(!showPdfMenu)} 
+              onClick={() => exportToPDF()} 
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium"
             >
               <FileSpreadsheet className="w-4 h-4" />
               تصدير PDF
-              <ChevronDown className="w-4 h-4 mr-1" />
             </button>
-            {showPdfMenu && (
-              <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl w-48 overflow-hidden z-20">
-                <button 
-                  onClick={() => { setShowPdfMenu(false); exportToPDF(true); }}
-                  className="w-full text-right px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                >
-                  تصدير PDF (مع الصور)
-                </button>
-                <button 
-                  onClick={() => { setShowPdfMenu(false); exportToPDF(false); }}
-                  className="w-full text-right px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300"
-                >
-                  تصدير PDF (بدون صور)
-                </button>
-              </div>
-            )}
           </div>
-          <button onClick={exportToExcel} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
-            <FileSpreadsheet className="w-4 h-4" />
-            تصدير Excel
-          </button>
+
         </div>
       </div>
 
@@ -859,8 +793,19 @@ export default function Timesheets() {
                     <div className="text-xs text-slate-500 mb-1">متأخر/غياب</div>
                     <div className="font-bold text-slate-600 dark:text-slate-400">{group.lateCount} / {group.absenceCount}</div>
                   </div>
-                  <div className="text-slate-400">
-                    {expandedEmp === group.employee.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  <div className="flex items-center gap-2">
+                    {expandedEmp === group.employee.id && (
+                       <button
+                         onClick={(e) => exportSingleEmployeeWithImages(e, group)}
+                         className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                       >
+                         <FileSpreadsheet className="w-3 h-3" />
+                         تصدير مع الصور
+                       </button>
+                    )}
+                    <div className="text-slate-400">
+                      {expandedEmp === group.employee.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </div>
                   </div>
                 </div>
               </div>
