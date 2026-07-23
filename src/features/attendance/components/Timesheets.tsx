@@ -324,15 +324,32 @@ export default function Timesheets() {
     
     const toastId = toast.loading('جاري تصدير الملف... يرجى الانتظار');
     try {
+      const urlToBase64Png = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = url;
+        });
+      };
+
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('تقارير البصمة');
       worksheet.views = [{ rightToLeft: true }];
         
       worksheet.columns = [
         { key: 'date', width: 20 },
-        { key: 'schedule', width: 25 },
-        { key: 'photo_in', width: 15 },
-        { key: 'photo_out', width: 15 },
+        { key: 'schedule', width: 15 },
+        { key: 'photo_in', width: 10 },
+        { key: 'photo_out', width: 10 },
         { key: 'check_in', width: 15 },
         { key: 'check_out', width: 15 },
         { key: 'break', width: 15 },
@@ -373,35 +390,103 @@ export default function Timesheets() {
         for (const rec of group.records) {
             const dateObj = parseISO(rec.check_in);
             const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+            const isPastDay = dateObj.toDateString() !== new Date().toDateString();
+            const isForgotCheckout = !rec.check_out && isPastDay;
             const scheduleId = rec.work_schedule_id || rec.employee?.work_schedule_id;
             const expectedCheckout = getExpectedCheckoutTime(scheduleId, rec.check_in);
+            
+            const scheduleName = scheduleId 
+              ? workSchedules.find(s => s.id === scheduleId)?.name || 'مخصص' 
+              : (workSchedules.find(s => s.is_default)?.name || 'الجدول الافتراضي');
+
             const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
             const durationFormatted = formatDurationArabic(netMins);
             const statusLabel = 
                 rec.status === 'present' ? 'حاضر' :
                 rec.status === 'late' ? 'متأخر' :
                 rec.status === 'absent' ? 'غائب' : 'غير مكتمل';
-            const checkInStr = rec.check_in ? format(dateObj, 'hh:mm a') : '—';
-            const checkOutStr = rec.check_out ? format(parseISO(rec.check_out), 'hh:mm a') : '—';
             
+            const checkInStr = rec.check_in ? format(dateObj, 'HH:mm') : '-';
+            const checkOutStr = rec.check_out 
+              ? format(parseISO(rec.check_out), 'HH:mm') 
+              : (isForgotCheckout ? expectedCheckout : '-');
+            
+            const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'FFDC2626' : undefined;
+            const inTimeColor = rec.status === 'late' ? 'FFDC2626' : undefined;
+
+            let checkInImgId: number | undefined;
+            if (rec.check_in_snapshot_url) {
+                try {
+                    const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
+                    checkInImgId = workbook.addImage({ base64: b64.split(',')[1], extension: 'png' });
+                } catch(e) {}
+            }
+
+            let checkOutImgId: number | undefined;
+            if (rec.check_out_snapshot_url) {
+                try {
+                    const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
+                    checkOutImgId = workbook.addImage({ base64: b64.split(',')[1], extension: 'png' });
+                } catch(e) {}
+            }
+
             const row = worksheet.addRow({
                 date: dateStr,
-                schedule: rec.work_schedule?.name || 'غير محدد',
-                photo_in: rec.photo_in ? 'موجودة' : 'لا توجد',
-                photo_out: rec.photo_out ? 'موجودة' : 'لا توجد',
+                schedule: scheduleName,
+                photo_in: '', // Will add image overlay
+                photo_out: '', // Will add image overlay
                 check_in: checkInStr,
                 check_out: checkOutStr,
-                break: rec.break_duration_minutes ? `${rec.break_duration_minutes} د` : '—',
+                break: rec.break_duration_minutes ? `${rec.break_duration_minutes} د` : '--',
                 net: durationFormatted,
-                notes: rec.notes || '—',
+                notes: rec.notes || '',
                 status: statusLabel
             });
+
+            // Set row height for images
+            row.height = 42;
+
+            if (checkInImgId !== undefined && rec.check_in_snapshot_url) {
+                const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_in_snapshot_url)}`;
+                row.getCell('photo_in').value = { text: ' ', hyperlink: viewerUrl };
+                
+                worksheet.addImage(checkInImgId, {
+                    tl: { col: 2.15, row: row.number - 0.9 },
+                    ext: { width: 45, height: 45 },
+                    editAs: 'oneCell',
+                    hyperlinks: {
+                        hyperlink: viewerUrl,
+                        tooltip: 'انقر لعرض الصورة'
+                    }
+                } as any);
+            }
+
+            if (checkOutImgId !== undefined && rec.check_out_snapshot_url) {
+                const viewerUrl = `${window.location.origin}/image-viewer.html?url=${encodeURIComponent(rec.check_out_snapshot_url)}`;
+                row.getCell('photo_out').value = { text: ' ', hyperlink: viewerUrl };
+                
+                worksheet.addImage(checkOutImgId, {
+                    tl: { col: 3.15, row: row.number - 0.9 },
+                    ext: { width: 45, height: 45 },
+                    editAs: 'oneCell',
+                    hyperlinks: {
+                        hyperlink: viewerUrl,
+                        tooltip: 'انقر لعرض الصورة'
+                    }
+                } as any);
+            }
 
             row.eachCell((cell, colNumber) => {
                 cell.font = { name: 'Cairo', size: 11 };
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
                 cell.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
                 
+                if (colNumber === 5 && inTimeColor) {
+                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: inTimeColor } };
+                }
+                if (colNumber === 6 && outTimeColor) {
+                    cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: outTimeColor } };
+                }
                 if (colNumber === 10) {
                     if (statusLabel === 'حاضر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FF059669' } };
                     else if (statusLabel === 'متأخر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFD97706' } };
