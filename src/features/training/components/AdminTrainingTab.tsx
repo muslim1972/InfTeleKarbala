@@ -14,6 +14,7 @@ import type { TrainingResult, TrainingStudent } from '../types';
 import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
+import ExcelJS from 'exceljs';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
 import { EditStudentModal } from './EditStudentModal';
 import { TraineePollSettings } from './TraineePollSettings';
@@ -86,11 +87,12 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const [activeAttemptIndex, setActiveAttemptIndex] = useState(0);
 
     // ── Print Report State ──
-    type PrintFilter = 'tested' | 'passed' | 'failed' | 'never_tested';
+    type PrintFilter = 'all' | 'tested' | 'passed' | 'failed' | 'never_tested';
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const printMenuRef = useRef<HTMLDivElement>(null);
 
     const PRINT_FILTER_LABELS: Record<PrintFilter, string> = {
+        all: 'الكل',
         tested: 'الذين اجتازوا الاختبار',
         passed: 'الناجحين فقط',
         failed: 'من لم يوفق للنجاح',
@@ -122,6 +124,8 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             const result = studentResults.length > 0 ? studentResults[0] : undefined;
 
             switch (filter) {
+                case 'all':
+                    return true;
                 case 'tested':
                     return !!result;
                 case 'passed':
@@ -247,6 +251,100 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             };
         }
     }, [students, results, settings]);
+
+    const handleExportExcel = useCallback(async () => {
+        if (students.length === 0) {
+            toast.error('لا يوجد طلبة للتصدير');
+            return;
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('نتائج المتدربين');
+
+        // Set RTL
+        worksheet.views = [
+            { rightToLeft: true }
+        ];
+
+        // Columns
+        worksheet.columns = [
+            { header: 'ت', key: 'index', width: 5 },
+            { header: 'اسم الطالب', key: 'name', width: 30 },
+            { header: 'المؤسسة التعليمية', key: 'institution', width: 35 },
+            { header: 'القسم', key: 'department', width: 25 },
+            { header: 'الدرجة', key: 'score', width: 15 },
+            { header: 'المحاولات', key: 'attempts', width: 15 },
+            { header: 'الوقت', key: 'duration', width: 15 },
+            { header: 'النتيجة', key: 'status', width: 15 },
+        ];
+
+        // Header style
+        worksheet.getRow(1).eachCell((cell) => {
+            cell.font = { name: 'Cairo', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+        });
+
+        // Sort all students by name
+        const sorted = [...students].sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+        sorted.forEach((student, idx) => {
+            const studentResults = results.filter(r => r.student_id === student.id);
+            const result = studentResults.length > 0 ? studentResults[0] : undefined;
+
+            const score = result ? `${result.score}%` : '—';
+            const status = result ? (result.score >= 70 ? 'ناجح' : 'غير موفق') : 'لم يختبر';
+            const attempts = result ? studentResults.length : '—';
+            const duration = result?.duration_seconds
+                ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(0).padStart(2, '0')}`
+                : '—';
+
+            const row = worksheet.addRow({
+                index: idx + 1,
+                name: student.full_name,
+                institution: student.institution_name || '—',
+                department: (student as any).department || '—',
+                score: score,
+                attempts: attempts,
+                duration: duration,
+                status: status
+            });
+
+            row.eachCell((cell, colNumber) => {
+                cell.font = { name: 'Cairo', size: 11 };
+                cell.alignment = { vertical: 'middle', horizontal: colNumber === 2 ? 'right' : 'center' };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+
+                // Add colors for status
+                if (colNumber === 8) {
+                    if (status === 'ناجح') {
+                        cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FF059669' } };
+                    } else if (status === 'غير موفق') {
+                        cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFDC2626' } };
+                    } else {
+                        cell.font = { name: 'Cairo', size: 11, color: { argb: 'FF94A3B8' } };
+                    }
+                }
+            });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `نتائج_اختبارات_التدريب_الصيفي_${new Date().toISOString().split('T')[0]}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }, [students, results]);
 
     const prevOpenSectionRef = useRef<string | null>(null);
     const isFirstRender = useRef(true);
@@ -972,42 +1070,57 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                             <SectionHeader id="section-results" title="نتائج الاختبارات" icon={Trophy} isOpen={openSection === 'results'} onClick={() => toggleSection('results')} color="emerald" />
                         </div>
                         {openSection === 'results' && students.length > 0 && (
-                            <div className="relative shrink-0" ref={printMenuRef}>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="relative shrink-0" ref={printMenuRef}>
+                                    <button
+                                        onClick={() => setShowPrintMenu(prev => !prev)}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95",
+                                            isDark
+                                                ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
+                                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                                        )}
+                                        title="طباعة تقرير"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        طباعة تقرير
+                                        <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", showPrintMenu && "rotate-180")} />
+                                    </button>
+                                    {showPrintMenu && (
+                                        <div className={cn(
+                                            "absolute top-full left-0 mt-1 w-48 rounded-xl border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200",
+                                            isDark ? "bg-zinc-900 border-white/10" : "bg-white border-slate-200"
+                                        )}>
+                                            {(Object.entries(PRINT_FILTER_LABELS) as [PrintFilter, string][]).map(([key, label]) => (
+                                                <button
+                                                    key={key}
+                                                    onClick={() => handlePrintResults(key)}
+                                                    className={cn(
+                                                        "w-full text-right px-4 py-2.5 text-[12px] font-bold transition-colors border-b last:border-b-0",
+                                                        isDark
+                                                            ? "text-white/80 hover:bg-white/10 hover:text-emerald-400 border-white/5"
+                                                            : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border-slate-100"
+                                                    )}
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <button
-                                    onClick={() => setShowPrintMenu(prev => !prev)}
+                                    onClick={handleExportExcel}
                                     className={cn(
                                         "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95",
                                         isDark
-                                            ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
-                                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                                            ? "bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30"
+                                            : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                                     )}
-                                    title="طباعة تقرير"
+                                    title="تصدير Excel لجميع الطلبة"
                                 >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    طباعة تقرير
-                                    <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", showPrintMenu && "rotate-180")} />
+                                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                                    تصدير Excel
                                 </button>
-                                {showPrintMenu && (
-                                    <div className={cn(
-                                        "absolute top-full left-0 mt-1 w-48 rounded-xl border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200",
-                                        isDark ? "bg-zinc-900 border-white/10" : "bg-white border-slate-200"
-                                    )}>
-                                        {(Object.entries(PRINT_FILTER_LABELS) as [PrintFilter, string][]).map(([key, label]) => (
-                                            <button
-                                                key={key}
-                                                onClick={() => handlePrintResults(key)}
-                                                className={cn(
-                                                    "w-full text-right px-4 py-2.5 text-[12px] font-bold transition-colors",
-                                                    isDark
-                                                        ? "text-white/80 hover:bg-white/10 hover:text-emerald-400"
-                                                        : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                                                )}
-                                            >
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>

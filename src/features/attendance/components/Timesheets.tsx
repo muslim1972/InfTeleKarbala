@@ -8,6 +8,7 @@ import html2pdf from 'html2pdf.js';
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
+import ExcelJS from 'exceljs';
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -318,6 +319,113 @@ export default function Timesheets() {
     }
   };
 
+  const exportToExcel = async () => {
+    if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
+    
+    const toastId = toast.loading('جاري تصدير الملف... يرجى الانتظار');
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('تقارير البصمة');
+      worksheet.views = [{ rightToLeft: true }];
+        
+      worksheet.columns = [
+        { key: 'date', width: 20 },
+        { key: 'schedule', width: 25 },
+        { key: 'photo_in', width: 15 },
+        { key: 'photo_out', width: 15 },
+        { key: 'check_in', width: 15 },
+        { key: 'check_out', width: 15 },
+        { key: 'break', width: 15 },
+        { key: 'net', width: 20 },
+        { key: 'notes', width: 30 },
+        { key: 'status', width: 15 },
+      ];
+
+      for (let i = 0; i < groupedData.length; i++) {
+        const group = groupedData[i];
+
+        // Add spacing between employees
+        if (i > 0) {
+            worksheet.addRow([]);
+            worksheet.addRow([]);
+        }
+
+        // Add Employee Name Row
+        const titleRow = worksheet.addRow([`${group.employee.full_name} (${group.employee.job_number || 'بدون رقم وظيفي'})`]);
+        worksheet.mergeCells(`A${titleRow.number}:J${titleRow.number}`);
+        titleRow.getCell(1).font = { name: 'Cairo', bold: true, size: 14, color: { argb: 'FF0369A1' } };
+        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
+        titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'right' };
+        titleRow.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        // Add Table Headers
+        const headerRow = worksheet.addRow([
+            'التاريخ', 'الدوام', 'ص. دخول', 'ص. خروج', 'دخول', 'خروج', 'استراحة ز.', 'الصافي', 'ملاحظات', 'الحالة'
+        ]);
+        
+        headerRow.eachCell((cell) => {
+            cell.font = { name: 'Cairo', bold: true, size: 12, color: { argb: 'FF111827' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin' } };
+        });
+
+        for (const rec of group.records) {
+            const dateObj = parseISO(rec.check_in);
+            const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+            const scheduleId = rec.work_schedule_id || rec.employee?.work_schedule_id;
+            const expectedCheckout = getExpectedCheckoutTime(scheduleId, rec.check_in);
+            const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
+            const durationFormatted = formatDurationArabic(netMins);
+            const statusLabel = 
+                rec.status === 'present' ? 'حاضر' :
+                rec.status === 'late' ? 'متأخر' :
+                rec.status === 'absent' ? 'غائب' : 'غير مكتمل';
+            const checkInStr = rec.check_in ? format(dateObj, 'hh:mm a') : '—';
+            const checkOutStr = rec.check_out ? format(parseISO(rec.check_out), 'hh:mm a') : '—';
+            
+            const row = worksheet.addRow({
+                date: dateStr,
+                schedule: rec.work_schedule?.name || 'غير محدد',
+                photo_in: rec.photo_in ? 'موجودة' : 'لا توجد',
+                photo_out: rec.photo_out ? 'موجودة' : 'لا توجد',
+                check_in: checkInStr,
+                check_out: checkOutStr,
+                break: rec.break_duration_minutes ? `${rec.break_duration_minutes} د` : '—',
+                net: durationFormatted,
+                notes: rec.notes || '—',
+                status: statusLabel
+            });
+
+            row.eachCell((cell, colNumber) => {
+                cell.font = { name: 'Cairo', size: 11 };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+                
+                if (colNumber === 10) {
+                    if (statusLabel === 'حاضر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FF059669' } };
+                    else if (statusLabel === 'متأخر') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFD97706' } };
+                    else if (statusLabel === 'غائب') cell.font = { name: 'Cairo', size: 11, bold: true, color: { argb: 'FFDC2626' } };
+                }
+            });
+        }
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `تقارير_البصمة_${year}_${month}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('تم تصدير الملف بنجاح', { id: toastId });
+    } catch (err: any) {
+      console.error('Export Error:', err);
+      toast.error('فشل تصدير الملف: ' + err.message, { id: toastId });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Filters */}
@@ -365,10 +473,16 @@ export default function Timesheets() {
           </div>
         </div>
 
-        <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
-          <FileSpreadsheet className="w-4 h-4" />
-          تصدير PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
+            <FileSpreadsheet className="w-4 h-4" />
+            تصدير PDF
+          </button>
+          <button onClick={exportToExcel} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium">
+            <FileSpreadsheet className="w-4 h-4" />
+            تصدير Excel
+          </button>
+        </div>
       </div>
 
       {/* Loading state */}
