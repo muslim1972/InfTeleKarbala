@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Check, X, Calendar, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Check, X, Calendar, FileText, AlertCircle, CheckCircle, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
 import { sendPushNotification } from '../../../services/notifications';
@@ -35,10 +35,13 @@ interface ApprovalModalProps {
 export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalProps) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isOrphanedError, setIsOrphanedError] = useState(false);
+    const [isDeletingOrphan, setIsDeletingOrphan] = useState(false);
 
     const handleAction = async (status: 'approved' | 'rejected') => {
         setIsProcessing(true);
         setError(null);
+        setIsOrphanedError(false);
 
         let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
         let rpcResult: any = null;
@@ -154,10 +157,35 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             if (err.message === 'Failed to fetch' || err.message?.includes('Failed to fetch') || err.message?.includes('Network Error')) {
                 setError('حدث خطأ في الاتصال بالخادم. يرجى التحقق من جودة الاتصال بالإنترنت والمحاولة مرة أخرى.');
             } else {
-                setError(err.message || 'حدث خطأ أثناء معالجة الطلب');
+                const errorMsg = err.message || 'حدث خطأ أثناء معالجة الطلب';
+                setError(errorMsg);
+                if (errorMsg.includes('سجل مالي') || errorMsg.includes('صلاحياتك') || errorMsg.includes('RLS')) {
+                    setIsOrphanedError(true);
+                }
             }
         } finally {
             setIsProcessing(false);
+        }
+    };
+
+    const handleForceRemove = async () => {
+        setIsDeletingOrphan(true);
+        setError(null);
+        try {
+            const { data, error: rpcErr } = await supabase.rpc('cleanup_orphaned_leave_request', {
+                p_request_id: request.id
+            });
+
+            if (rpcErr) throw rpcErr;
+            if (data && !data.success) throw new Error(data.message);
+
+            onProcessed();
+            onClose();
+        } catch (err: any) {
+            setError(err.message || 'حدث خطأ أثناء حذف الطلب المعلق');
+            setIsOrphanedError(false); // Fallback to normal error display
+        } finally {
+            setIsDeletingOrphan(false);
         }
     };
 
@@ -292,10 +320,31 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         </div>
                     )}
 
-                    {error && (
-                        <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm flex items-center gap-2">
+                    {error && !isOrphanedError && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
                             <AlertCircle size={16} />
                             {error}
+                        </div>
+                    )}
+
+                    {isOrphanedError && (
+                        <div className="mt-4 p-4 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 rounded-xl animate-in slide-in-from-bottom-4 fade-in duration-300">
+                            <h4 className="text-red-800 dark:text-red-400 font-bold flex items-center gap-2 mb-2">
+                                <AlertTriangle size={18} />
+                                معالجة الطلبات المعلقة (حالة استثنائية)
+                            </h4>
+                            <p className="text-sm text-red-700 dark:text-red-300 mb-4 leading-relaxed">
+                                النظام اكتشف أن هذا الموظف لم يعد ضمن الهيكلية الإدارية التابعة لك (أو تم نقله لقسم آخر). 
+                                يمكنك إزالة هذا الطلب نهائياً لتنظيف صندوق الإشعارات الخاص بك.
+                            </p>
+                            <button 
+                                onClick={handleForceRemove} 
+                                disabled={isDeletingOrphan}
+                                className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-bold flex items-center justify-center gap-2 w-full shadow-lg shadow-red-500/20 disabled:opacity-70"
+                            >
+                                {isDeletingOrphan ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                                {isDeletingOrphan ? 'جاري الحذف...' : 'حذف الطلب نهائياً من صندوقي'}
+                            </button>
                         </div>
                     )}
                 </div>

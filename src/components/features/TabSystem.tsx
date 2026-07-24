@@ -105,7 +105,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                         <button
                             key={tab.id}
                             onClick={() => {
-                                if (tab.id === 'requests' && !isAdmin && !isDeveloper) {
+                                if (tab.id === 'requests' && !isAdmin && !isDeveloper && !user?.can_view_requests) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }
