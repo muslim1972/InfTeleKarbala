@@ -20,10 +20,11 @@ BEGIN
         END IF;
     END IF;
 
-    -- تجاوز المعالجة إذا كان التعديل فقط لإشعار الموظف بالقراءة
-    IF NEW.is_read_by_employee IS DISTINCT FROM OLD.is_read_by_employee 
-       AND NEW.status = OLD.status AND NEW.leave_status = OLD.leave_status
-       AND NEW.cancellation_status = OLD.cancellation_status AND NEW.cut_status = OLD.cut_status
+    -- تجاوز المعالجة إذا لم يكن هناك تغيير في الحالات الرئيسية التي تتطلب تعديل الرصيد
+    IF NEW.status = OLD.status 
+       AND NEW.leave_status = OLD.leave_status
+       AND NEW.cancellation_status = OLD.cancellation_status 
+       AND NEW.cut_status = OLD.cut_status
     THEN
         RETURN NEW;
     END IF;
