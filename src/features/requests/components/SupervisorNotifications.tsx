@@ -35,12 +35,15 @@ export const SupervisorNotifications = () => {
         } else if (data && data.length > 0) {
             // THE REAL FIX: Multi-column Pending Check
             // A request is "pending" if ANY of its process statuses are pending.
-            let activeRequests = data.filter(req =>
-                req.status === 'pending' ||
-                req.leave_status === 'pending' ||
-                req.cancellation_status === 'pending' ||
-                req.cut_status === 'pending'
-            );
+            let activeRequests = data.filter(req => {
+                if (req.modification_type === 'canceled') {
+                    return req.cancellation_status === 'pending';
+                }
+                if (req.modification_type === 'cut') {
+                    return req.cut_status === 'pending';
+                }
+                return req.status === 'pending';
+            });
 
             // DE-DUPLICATION FIX:
             // Since a request might match multiple OR conditions (e.g. status is pending AND leave_status is pending),
@@ -69,10 +72,12 @@ export const SupervisorNotifications = () => {
             let profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};
 
             if (userIds.length > 0) {
-                const { data: profilesData } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, avatar_url')
-                    .in('id', userIds);
+                const { data: profilesData, error: profilesError } = await supabase
+                    .rpc('get_basic_profiles', { p_user_ids: userIds });
+
+                if (profilesError) {
+                    console.error('RPC Error get_basic_profiles:', profilesError);
+                }
 
                 if (profilesData) {
                     profilesData.forEach(p => {

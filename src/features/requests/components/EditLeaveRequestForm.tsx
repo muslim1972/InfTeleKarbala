@@ -31,6 +31,33 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
             const start = new Date(formData.startDate);
             const end = new Date(start);
             end.setDate(start.getDate() + formData.daysCount);
+            
+            // Auto-adjust: skip Fridays and holidays (Saturday remains as-is for rejection)
+            const holidays = [
+              { m: 1, d: 1 }, { m: 1, d: 6 },
+              { m: 3, d: 16 }, { m: 3, d: 21 },
+              { m: 5, d: 1 }
+            ];
+
+            let adjusted = true;
+            while (adjusted) {
+              adjusted = false;
+              const day = end.getDay(); // 0=Sun .. 5=Fri 6=Sat
+              const month = end.getMonth() + 1;
+              const dayOfMonth = end.getDate();
+
+              // If it's Friday (5) or Saturday (6), advance one day and check again
+              if (day === 5 || day === 6) {
+                end.setDate(end.getDate() + 1);
+                adjusted = true;
+              } 
+              // If it's a holiday, advance one day and check again
+              else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
+                end.setDate(end.getDate() + 1);
+                adjusted = true;
+              }
+            }
+
             setEndDate(end.toISOString().split('T')[0]);
         } else {
             setEndDate('');

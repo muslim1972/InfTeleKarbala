@@ -30,9 +30,7 @@ export const EmployeeNotifications = () => {
 
             if (supervisorIds.length > 0) {
                 const { data: supervisorsData } = await supabase
-                    .from('profiles')
-                    .select('id, full_name')
-                    .in('id', supervisorIds);
+                    .rpc('get_basic_profiles', { p_user_ids: supervisorIds });
 
                 if (supervisorsData) {
                     supervisorsData.forEach(sup => {

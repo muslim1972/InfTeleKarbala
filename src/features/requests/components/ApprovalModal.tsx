@@ -43,7 +43,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
         setError(null);
         setIsOrphanedError(false);
 
-        let updatePayload: any = { status: status }; // Keep old status for backward compatibility of UI
+        let updatePayload: any = {}; 
         let rpcResult: any = null;
 
         try {
@@ -61,9 +61,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         // Fully approved by all managers, goes to HR
                         updatePayload.cancellation_status = 'approved';
                         updatePayload.is_read_by_employee = false;
+                        updatePayload.status = 'canceled';
                     }
                 } else {
                     updatePayload.cancellation_status = 'rejected';
+                    updatePayload.modification_type = null;
                     updatePayload.is_read_by_employee = false;
                 }
             } else if (request.modification_type === 'cut') {
@@ -74,6 +76,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     // to only go to the employee AFTER HR processes the cut.
                 } else {
                     // If the supervisor rejects the cut, we SHOULD notify the employee now!
+                    updatePayload.modification_type = null;
                     updatePayload.is_read_by_employee = false;
                 }
             } else {
@@ -91,7 +94,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 updatePayload = null; 
             }
 
-            if (updatePayload) {
+            if (updatePayload && Object.keys(updatePayload).length > 0) {
                 const { data, error: updateError } = await supabase
                     .from('leave_requests')
                     .update(updatePayload)

@@ -44,9 +44,7 @@ export const AppNotifications = () => {
 
             if (supervisorIds.length > 0) {
                 const { data: supervisorsData } = await supabase
-                    .from('profiles')
-                    .select('id, full_name')
-                    .in('id', supervisorIds);
+                    .rpc('get_basic_profiles', { p_user_ids: supervisorIds });
                 if (supervisorsData) supervisorsData.forEach(sup => { supervisorMap[sup.id] = sup.full_name; });
             }
 
@@ -75,12 +73,15 @@ export const AppNotifications = () => {
         if (error) {
             console.error('AppNotifications: Error fetching supervisor requests:', error);
         } else if (data && data.length > 0) {
-            let activeRequests = data.filter(req =>
-                req.status === 'pending' ||
-                req.leave_status === 'pending' ||
-                req.cancellation_status === 'pending' ||
-                req.cut_status === 'pending'
-            );
+            let activeRequests = data.filter(req => {
+                if (req.modification_type === 'canceled') {
+                    return req.cancellation_status === 'pending';
+                }
+                if (req.modification_type === 'cut') {
+                    return req.cut_status === 'pending';
+                }
+                return req.status === 'pending';
+            });
             const uniqueMap = new Map();
             activeRequests.forEach(req => { if (!uniqueMap.has(req.id)) uniqueMap.set(req.id, req); });
             activeRequests = Array.from(uniqueMap.values());
@@ -103,7 +104,7 @@ export const AppNotifications = () => {
             let profileMap: Record<string, any> = {};
 
             if (userIds.length > 0) {
-                const { data: profilesData } = await supabase.from('available_profiles').select('id, full_name, job_number, avatar_url').in('id', userIds);
+                const { data: profilesData } = await supabase.rpc('get_basic_profiles', { p_user_ids: userIds });
                 if (profilesData) { profilesData.forEach(p => { profileMap[p.id] = p; }); }
             }
 
@@ -152,9 +153,7 @@ export const AppNotifications = () => {
 
             if (userIds.length > 0) {
                 const { data: profilesData } = await supabase
-                    .from('profiles')
-                    .select('id, full_name')
-                    .in('id', userIds);
+                    .rpc('get_basic_profiles', { p_user_ids: userIds });
                 if (profilesData) profilesData.forEach(p => { profileMap[p.id] = p.full_name; });
             }
 
