@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Loader2, CheckCircle, User, X, AlertCircle } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
+import { LeaveTypeBadge } from './LeaveTypeBadge';
 
 interface PendingCutApprovalsCardProps {
     records: LeaveRecord[];
@@ -106,11 +107,27 @@ export function PendingCutApprovalsCard({
                                             )}
                                         </div>
                                     </div>
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-amber-500/30">بانتظار اعتماد الموارد البشرية</span>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-amber-500/30">بانتظار اعتماد الموارد البشرية</span>
+                                        <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
+                                    </div>
                                 </div>
                                 <div className="space-y-1 text-sm">
-                                    <p>الإجازة الأصلية: من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span> (المدة: {record.days_count} يوم)</p>
-                                    <p className="text-rose-600 dark:text-rose-400 font-bold">تاريخ المباشرة (القطع): <span className="font-mono">{record.cut_date || 'غير محدد'}</span></p>
+                                    <p>الإجازة الأصلية: من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span></p>
+                                    
+                                    {record.leave_type === 'time_off' ? (
+                                        <p className="text-gray-500">المدة الكلية: <span className="font-bold text-teal-600">{record.time_duration_minutes} دقيقة</span></p>
+                                    ) : (
+                                        <p className="text-gray-500">المدة الكلية: <span className="font-bold">{record.days_count} يوم</span></p>
+                                    )}
+
+                                    {record.destination && (
+                                        <p className="text-gray-500 text-xs mt-1">الوجهة: <span className="font-bold text-purple-700 dark:text-purple-400">{record.destination}</span></p>
+                                    )}
+
+                                    <p className="text-rose-600 dark:text-rose-400 font-bold mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+                                        تاريخ المباشرة (القطع): <span className="font-mono">{record.cut_date || 'غير محدد'}</span>
+                                    </p>
                                 </div>
                             </div>
                             <div className="mt-4 flex flex-col gap-2">

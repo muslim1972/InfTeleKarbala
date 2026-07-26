@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { Loader2, CheckCircle, User, Printer, Archive } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
+import { LeaveTypeBadge } from './LeaveTypeBadge';
 
 interface ApprovedRequestsCardProps {
     records: LeaveRecord[];
@@ -61,16 +62,22 @@ export function ApprovedRequestsCard({
                                             )}
                                         </div>
                                     </div>
-                                    {record.cancellation_status === 'approved' ? (
-                                        <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-rose-500/30">إجازة ملغاة</span>
-                                    ) : (
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-green-500/30">معتمد</span>
-                                    )}
+                                    <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
                                 </div>
                                 <div className="space-y-1 text-sm">
                                     <p>من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span></p>
-                                    <p className="text-gray-500">المدة: <span className="font-bold">{record.days_count} يوم</span> — المسؤول: <span className="font-bold">{record.supervisor?.full_name || '-'}</span></p>
-                                    {(record.unpaid_days ?? 0) > 0 && (
+                                    
+                                    {record.leave_type === 'time_off' ? (
+                                        <p className="text-gray-500">المدة: <span className="font-bold text-teal-600">{record.time_duration_minutes} دقيقة</span> — المسؤول: <span className="font-bold">{record.supervisor?.full_name || '-'}</span></p>
+                                    ) : (
+                                        <p className="text-gray-500">المدة: <span className="font-bold">{record.days_count} يوم</span> — المسؤول: <span className="font-bold">{record.supervisor?.full_name || '-'}</span></p>
+                                    )}
+
+                                    {record.destination && (
+                                        <p className="text-gray-500 text-xs mt-1">الوجهة: <span className="font-bold text-purple-700 dark:text-purple-400">{record.destination}</span></p>
+                                    )}
+
+                                    {(record.unpaid_days ?? 0) > 0 && record.leave_type !== 'unpaid' && (
                                         <p className="text-amber-600 dark:text-amber-400 font-bold text-xs mt-1">⚠️ ملاحظة: منها ({record.unpaid_days}) أيام كإجازة بدون راتب</p>
                                     )}
                                 </div>

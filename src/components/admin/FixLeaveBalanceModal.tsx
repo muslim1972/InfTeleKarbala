@@ -10,9 +10,10 @@ import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 
 interface FixLeaveBalanceModalProps {
     onClose: () => void;
+    type?: 'regular' | 'sick';
 }
 
-export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
+export function FixLeaveBalanceModal({ onClose, type = 'regular' }: FixLeaveBalanceModalProps) {
     const { theme } = useTheme();
     const { user: currentUser } = useAuth();
     // البحث العالمي للموظفين
@@ -27,6 +28,9 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [_loadingRecord, setLoadingRecord] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+
+    const balanceField = type === 'sick' ? 'sick_leaves_balance' : 'remaining_leaves_balance';
+    const balanceTitle = type === 'sick' ? 'الرصيد المرضي' : 'رصيد الإجازات الاعتيادية';
 
     // Show suggestions when results change
     useEffect(() => {
@@ -61,7 +65,7 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
             if (error && error.code !== 'PGRST116') throw error; // Ignore not found
 
             setFinancialRecord(data || null);
-            setNewBalance(data?.remaining_leaves_balance ?? 0);
+            setNewBalance(data ? data[balanceField] : 0);
         } catch (err) {
             console.error("Fetch financial record error:", err);
             toast.error("حدث خطأ أثناء جلب الرصيد المالي للموظف.");
@@ -78,7 +82,7 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
         }
 
         // Double Confirmation
-        const confirmed = window.confirm(`⚠️ تحذير: أنت على وشك تغيير رصيد الإجازات للموظف ${selectedEmployee.full_name} إلى ${newBalance} يوم. هل أنت متأكد من هذا الإجراء التعسفي؟`);
+        const confirmed = window.confirm(`⚠️ تحذير: أنت على وشك تغيير ${balanceTitle} للموظف ${selectedEmployee.full_name} إلى ${newBalance} يوم. هل أنت متأكد من هذا الإجراء التعسفي؟`);
         if (!confirmed) return;
 
         setIsSaving(true);
@@ -87,206 +91,181 @@ export function FixLeaveBalanceModal({ onClose }: FixLeaveBalanceModalProps) {
                 // Update existing record
                 const { error } = await supabase
                     .from('financial_records')
-                    .update({ remaining_leaves_balance: Number(newBalance) })
+                    .update({ [balanceField]: Number(newBalance) })
                     .eq('id', financialRecord.id);
                 if (error) throw error;
 
                 // Track history
-                if (financialRecord?.remaining_leaves_balance != newBalance) {
+                if (financialRecord?.[balanceField] != newBalance) {
                     await supabase.from('field_change_logs').insert([{
                         table_name: 'financial_records',
                         record_id: financialRecord.id,
-                        field_name: 'remaining_leaves_balance',
-                        old_value: String(financialRecord?.remaining_leaves_balance ?? 0),
+                        field_name: balanceField,
+                        old_value: String(financialRecord?.[balanceField] ?? 0),
                         new_value: String(newBalance),
                         changed_by: currentUser?.id,
-                        changed_by_name: currentUser?.full_name || 'مسؤول النظام'
+                        change_reason: `تعديل استثنائي من لوحة المشرفين (${balanceTitle})`
                     }]);
                 }
             } else {
-                // Create new basic record if one somehow doesn't exist
-                const { error, data } = await supabase
+                // Insert new record if doesn't exist
+                const { error } = await supabase
                     .from('financial_records')
-                    .insert([{
-                        user_id: selectedEmployee.id,
-                        nominal_salary: 0,
-                        remaining_leaves_balance: Number(newBalance)
-                    }])
-                    .select();
-
+                    .insert([{ 
+                        user_id: selectedEmployee.id, 
+                        [balanceField]: Number(newBalance),
+                        nominal_salary: 0 
+                    }]);
                 if (error) throw error;
 
-                // Track history for new record
-                if (data && data.length > 0) {
+                // Track history
+                const { data: newRecord } = await supabase.from('financial_records').select('id').eq('user_id', selectedEmployee.id).single();
+                if (newRecord) {
                     await supabase.from('field_change_logs').insert([{
                         table_name: 'financial_records',
-                        record_id: data[0].id,
-                        field_name: 'remaining_leaves_balance',
+                        record_id: newRecord.id,
+                        field_name: balanceField,
                         old_value: '0',
                         new_value: String(newBalance),
                         changed_by: currentUser?.id,
-                        changed_by_name: currentUser?.full_name || 'مسؤول النظام'
+                        change_reason: `إنشاء وتعديل استثنائي من لوحة المشرفين (${balanceTitle})`
                     }]);
                 }
             }
 
-            toast.success("تم تحديث الرصيد وحفظه في قاعدة البيانات بنجاح!");
-            onClose(); // Optional: close modal or just reset state to edit someone else
-        } catch (err: any) {
-            console.error("Save error:", err);
-            toast.error("فشل حفظ الرصيد: " + err.message);
+            toast.success(`تم تحديث ${balanceTitle} بنجاح.`);
+            setFinancialRecord((prev: any) => ({ ...prev, [balanceField]: Number(newBalance) }));
+            setSelectedEmployee(null); // Reset after save
+            setSearchQuery("");
+        } catch (err) {
+            console.error("Save balance error:", err);
+            toast.error("حدث خطأ أثناء حفظ الرصيد الجديد.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className={`w-full max-w-md rounded-2xl shadow-2xl border flex flex-col ${theme === 'light' ? 'bg-white border-zinc-200' : 'bg-zinc-900 border-zinc-800'
-                }`}>
-                {/* Header */}
-                <div className={`flex items-center justify-between p-4 border-b rounded-t-2xl ${theme === 'light' ? 'border-zinc-100 bg-zinc-50' : 'border-zinc-800 bg-zinc-950/50'
-                    }`}>
-                    <div className="flex items-center gap-2 text-rose-600">
-                        <ShieldAlert className="w-5 h-5" />
-                        <h3 className="font-bold text-lg">أداة إصلاح الرصيد</h3>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-zinc-500/10 text-zinc-500 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
+    const modalContent = (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className={`p-4 text-white flex justify-between items-center ${type === 'sick' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <ShieldAlert size={20} />
+                        أداة إصلاح {balanceTitle}
+                    </h3>
+                    <button onClick={onClose} className="hover:bg-white/20 p-1.5 rounded-lg transition">
+                        <X size={20} />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-5 space-y-6">
-                    {/* Search Field */}
-                    <div className="relative z-50">
-                        <label className={`block text-xs font-bold mb-2 ${theme === 'light' ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                            البحث عن الموظف
-                        </label>
-                        <div className="relative" ref={searchRef}>
-                            <input
-                                autoFocus
-                                type="text"
-                                placeholder="الرقم الوظيفي أو اسم الموظف..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full text-sm pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 transition-all ${theme === 'light'
-                                    ? 'bg-zinc-50 border-zinc-200 focus:border-rose-400 focus:ring-rose-400/20 text-zinc-900'
-                                    : 'bg-zinc-950 border-zinc-800 focus:border-rose-500/50 focus:ring-rose-500/20 text-white placeholder-zinc-600'
-                                    }`}
-                            />
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                {isSearching ? (
-                                    <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
-                                ) : (
-                                    <Search className="w-5 h-5 text-zinc-400" />
-                                )}
-                            </div>
-
-                            {/* Dropdown */}
-                            {showSuggestions && suggestions.length > 0 && (
-                                <div className={`absolute top-full mt-2 left-0 right-0 rounded-xl border shadow-xl overflow-hidden max-h-[220px] overflow-y-auto ${theme === 'light' ? 'bg-white border-zinc-200' : 'bg-zinc-900 border-zinc-800'
-                                    }`}>
-                                    {suggestions.map((user, idx) => (
-                                        <button
-                                            key={user.id || idx}
-                                            onClick={() => handleSelectSuggestion(user)}
-                                            className={`w-full text-right px-4 py-3 border-b flex items-center justify-between group transition-colors cursor-pointer ${theme === 'light'
-                                                ? 'hover:bg-zinc-50/80 border-zinc-100 last:border-0'
-                                                : 'hover:bg-zinc-800/80 border-zinc-800/50 last:border-0'
-                                                }`}
-                                        >
-                                            <div>
-                                                <div className={`font-bold group-hover:text-rose-500 transition-colors ${theme === 'light' ? 'text-zinc-900' : 'text-white'
-                                                    }`}>
-                                                    {user.full_name}
-                                                </div>
-                                                <div className={`text-xs mt-1 ${theme === 'light' ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                                                    الرقم الوظيفي: {user.job_number}
-                                                </div>
-                                            </div>
-                                            <div className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 rounded text-xs font-bold">
-                                                تحديد
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                    <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 flex gap-3 text-sm">
+                        <AlertCircle className="shrink-0 mt-0.5" size={18} />
+                        <p>
+                            هذه الأداة مخصصة <strong>للحالات الطارئة فقط</strong>. أي تعديل يتم هنا هو تعديل "قسري" لقاعدة البيانات وسجل التغييرات سيتم الاحتفاظ به وتدقيقه.
+                        </p>
                     </div>
 
-                    {/* Editor Form */}
-                    {selectedEmployee && (
-                        <div className={`p-4 rounded-xl border animate-in fade-in slide-in-from-top-4 duration-300 ${theme === 'light' ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950 border-zinc-800'
-                            }`}>
-                            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-                                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center font-bold text-lg">
-                                    {selectedEmployee.full_name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h4 className={`font-bold ${theme === 'light' ? 'text-zinc-900' : 'text-zinc-100'}`}>
-                                        {selectedEmployee.full_name}
-                                    </h4>
-                                    <p className={`text-xs ${theme === 'light' ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                                        {selectedEmployee.job_number}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className={`block text-xs font-bold ${theme === 'light' ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                                            رصيد الإجازات الاعتيادية الفعلي
-                                        </label>
-                                        {financialRecord?.id && (
-                                            <HistoryViewer
-                                                tableName="financial_records"
-                                                recordId={financialRecord.id}
-                                                fieldName="remaining_leaves_balance"
-                                                label="رصيد الإجازات"
-                                            />
-                                        )}
+                    {!selectedEmployee ? (
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">ابحث عن الموظف لتعديل رصيده</label>
+                            <div className="relative" ref={searchRef}>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        {isSearching ? <Loader2 className="w-5 h-5 text-gray-400 animate-spin" /> : <Search className="w-5 h-5 text-gray-400" />}
                                     </div>
                                     <input
+                                        type="text"
+                                        placeholder="ابحث بالاسم الرباعي..."
+                                        className="w-full bg-gray-50 dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-700 rounded-xl py-3 pr-10 pl-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                                    />
+                                </div>
+                                {showSuggestions && (
+                                    <div className="mt-2 w-full bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 rounded-xl shadow-sm max-h-60 overflow-y-auto">
+                                        {suggestions.map((emp) => (
+                                            <div
+                                                key={emp.id}
+                                                onClick={() => handleSelectSuggestion(emp)}
+                                                className="px-4 py-3 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer border-b last:border-b-0 border-gray-50 dark:border-slate-700/50 transition-colors flex justify-between items-center"
+                                            >
+                                                <div>
+                                                    <p className="font-bold text-gray-900 dark:text-white text-sm">{emp.full_name}</p>
+                                                    <p className="text-xs text-gray-500">{emp.department?.name || 'بدون قسم'}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center border border-gray-200 dark:border-slate-700">
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-white">{selectedEmployee.full_name}</p>
+                                    <p className="text-sm text-gray-500">{selectedEmployee.job_number || 'بدون رقم وظيفي'}</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedEmployee(null)}
+                                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                                >
+                                    تغيير الموظف
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 bg-white dark:bg-slate-900 border border-rose-100 dark:border-rose-900 p-5 rounded-2xl shadow-inner">
+                                <div className="flex justify-between items-center text-sm mb-2">
+                                    <span className="text-gray-500">الرصيد الحالي في النظام:</span>
+                                    <span className="font-mono font-bold text-lg text-rose-600 dark:text-rose-400">
+                                        {financialRecord ? financialRecord[balanceField] : '0'} يوم
+                                    </span>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                        <ShieldAlert size={16} className="text-rose-500" />
+                                        إدخال الرصيد الجديد قسرياً
+                                    </label>
+                                    <input
                                         type="number"
-                                        dir="ltr"
+                                        placeholder="مثال: 57"
                                         value={newBalance}
                                         onChange={(e) => setNewBalance(e.target.value ? Number(e.target.value) : '')}
-                                        className={`w-full text-center text-xl font-bold font-mono px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 transition-all ${theme === 'light'
-                                            ? 'bg-white border-zinc-200 focus:border-rose-400 focus:ring-rose-400/20 text-zinc-900'
-                                            : 'bg-zinc-900 border-zinc-800 focus:border-rose-500/50 focus:ring-rose-500/20 text-white'
-                                            }`}
+                                        className="w-full bg-white dark:bg-slate-800 border-2 border-rose-200 dark:border-rose-800 rounded-xl py-3 px-4 text-gray-900 dark:text-white font-mono text-center text-xl font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                                        dir="ltr"
                                     />
-                                    <p className="text-[10px] text-rose-500 mt-2 flex items-center gap-1 font-bold">
-                                        <AlertCircle className="w-3 h-3" />
-                                        هذا الرقم سيستبدل الرصيد الحالي بشكل مباشر. استعمله بحذر!
-                                    </p>
                                 </div>
 
                                 <button
                                     onClick={handleSave}
-                                    disabled={isSaving || newBalance === ''}
-                                    className="w-full flex items-center justify-center gap-2 py-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl font-bold shadow-lg shadow-rose-600/20 disabled:opacity-50 transition-all"
+                                    disabled={isSaving || newBalance === '' || Number(newBalance) === financialRecord?.[balanceField]}
+                                    className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-rose-500/30"
                                 >
-                                    {isSaving ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <CheckCircle2 className="w-5 h-5" />
-                                    )}
-                                    اعتماد وتغيير الرصيد
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                                    تأكيد وتحديث الرصيد نهائياً
                                 </button>
                             </div>
+
+                            {/* Show Logs */}
+                            {financialRecord && (
+                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                                    <h4 className="font-bold text-sm mb-3">سجل تغييرات هذا الحقل:</h4>
+                                    <HistoryViewer
+                                        recordId={financialRecord.id}
+                                        tableName="financial_records"
+                                        fieldName={balanceField}
+                                        theme={theme}
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             </div>
-        </div>,
-        document.body
+        </div>
     );
-}
 
-// Ensure AlertCircle is imported, actually we can use ShieldAlert instead so we don't have unused or undeclared imports. Quick fix: add AlertCircle to lucide imports.
+    return createPortal(modalContent, document.body);
+}

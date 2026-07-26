@@ -39,6 +39,9 @@ export interface LeaveRecord {
     } | null;
     unpaid_days?: number;
     cancellation_status?: string;
+    leave_type?: string;
+    destination?: string;
+    time_duration_minutes?: number;
 }
 
 export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestId }: AdminLeaveRequestsProps) => {
@@ -108,7 +111,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes')
                 .eq('status', 'approved')
                 .eq('is_archived', false) // Only fetch unarchived for the pending queue
                 .order('created_at', { ascending: false });
@@ -180,7 +183,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, cut_status, hr_cut_status, cut_date')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, cut_status, hr_cut_status, cut_date, leave_type, destination, time_duration_minutes, unpaid_days')
                 .eq('cut_status', 'approved')
                 .eq('hr_cut_status', 'pending')
                 .order('created_at', { ascending: false });
@@ -303,10 +306,16 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 // 2. Fallback to current live balance for very old records
                 const { data: finData } = await supabase
                     .from('financial_records')
-                    .select('remaining_leaves_balance')
+                    .select('remaining_leaves_balance, sick_leaves_balance')
                     .eq('user_id', record.user_id)
                     .single();
-                if (finData) balance = finData.remaining_leaves_balance || 0;
+                if (finData) {
+                    if (record.leave_type === 'sick' || record.leave_type === 'long_sick') {
+                        balance = finData.sick_leaves_balance || 0;
+                    } else if (record.leave_type !== 'dispatch' && record.leave_type !== 'duty' && record.leave_type !== 'time_off') {
+                        balance = finData.remaining_leaves_balance || 0;
+                    }
+                }
             }
 
             const formData = {

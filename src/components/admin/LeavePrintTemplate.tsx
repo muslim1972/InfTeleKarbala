@@ -102,15 +102,29 @@ export function LeavePrintTemplate({ printingRecord, directorateManager }: Leave
 
                     {/* Title */}
                     <div style={{ textAlign: 'center', marginBottom: '7mm' }}>
-                        <h1 style={{ fontSize: '15pt', fontWeight: '900', margin: 0, letterSpacing: '1px' }}>استمارة الاجازة الاعتيادية</h1>
+                        <h1 style={{ fontSize: '15pt', fontWeight: '900', margin: 0, letterSpacing: '1px' }}>
+                            {printingRecord.leave_type === 'sick' || printingRecord.leave_type === 'long_sick' ? 'استمارة إجازة مرضية' :
+                             printingRecord.leave_type === 'dispatch' ? 'أمر إيفاد' :
+                             printingRecord.leave_type === 'duty' ? 'أمر مهمة رسمية' :
+                             printingRecord.leave_type === 'time_off' ? 'استمارة إجازة زمنية' :
+                             printingRecord.leave_type === 'unpaid' ? 'استمارة إجازة بدون راتب' :
+                             'استمارة إجازة اعتيادية'}
+                        </h1>
                     </div>
 
                     {/* Body */}
                     <div style={{ fontSize: '15pt', fontWeight: 'bold', lineHeight: '2.5', paddingRight: '5mm', paddingLeft: '5mm' }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <span>تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة اعتيادية لمدة</span>
+                            <span>
+                                {printingRecord.leave_type === 'sick' || printingRecord.leave_type === 'long_sick' ? 'تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة مرضية لمدة' :
+                                 printingRecord.leave_type === 'dispatch' ? 'تمت الموافقة الالكترونية من المسؤول المخول بإيفاد الموظف لمدة' :
+                                 printingRecord.leave_type === 'duty' ? 'تمت الموافقة الالكترونية من المسؤول المخول بتكليف الموظف بمهمة رسمية لمدة' :
+                                 printingRecord.leave_type === 'time_off' ? 'تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة زمنية لمدة' :
+                                 printingRecord.leave_type === 'unpaid' ? 'تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة بدون راتب لمدة' :
+                                 'تمت الموافقة الالكترونية من المسؤول المخول بمنح إجازة اعتيادية لمدة'}
+                            </span>
                             <span style={{ marginRight: '8px', marginLeft: '8px', textAlign: 'center' }}>
-                                ( {printingRecord.days_count} يوم )
+                                ( {printingRecord.leave_type === 'time_off' ? `${printingRecord.time_duration_minutes} دقيقة` : `${printingRecord.days_count} يوم`} )
                             </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '12px' }}>
@@ -119,18 +133,35 @@ export function LeavePrintTemplate({ printingRecord, directorateManager }: Leave
                                 ( {printingRecord.start_date} )
                             </span>
                         </div>
+                        
+                        {(printingRecord.leave_type === 'dispatch' || printingRecord.leave_type === 'duty') && printingRecord.destination && (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '12px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>الوجهة :</span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
+                                    {printingRecord.destination}
+                                </span>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
                             <span style={{ marginLeft: '8px', width: '130px' }}>لغرض</span>
                             <span style={{ marginRight: '8px', textAlign: 'center' }}>
                                 {printingRecord.reason || '-'}
                             </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
-                            <span style={{ marginLeft: '8px', width: '130px' }}>الرصيد المتبقي</span>
-                            <span style={{ marginRight: '8px', textAlign: 'center' }}>
-                                {printingRecord.employee_balance !== undefined ? printingRecord.employee_balance : 'غير مقروء'}
-                            </span>
-                        </div>
+                        
+                        {/* Only show balance for regular and sick leaves */}
+                        {(!printingRecord.leave_type || printingRecord.leave_type === 'regular' || printingRecord.leave_type === 'long_regular' || printingRecord.leave_type === 'sick' || printingRecord.leave_type === 'long_sick') && (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
+                                <span style={{ marginLeft: '8px', width: '130px' }}>
+                                    {printingRecord.leave_type === 'sick' || printingRecord.leave_type === 'long_sick' ? 'الرصيد المرضي' : 'الرصيد المتبقي'}
+                                </span>
+                                <span style={{ marginRight: '8px', textAlign: 'center' }}>
+                                    {printingRecord.employee_balance !== undefined ? printingRecord.employee_balance : 'غير مقروء'}
+                                </span>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '20px' }}>
                             <span style={{ marginLeft: '8px', width: '130px' }}>كود الطلب</span>
                             <span style={{ marginRight: '8px', textAlign: 'center', fontSize: '11pt', fontFamily: 'monospace' }}>

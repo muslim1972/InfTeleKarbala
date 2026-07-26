@@ -5,6 +5,7 @@ import { DateInput } from '../ui/DateInput';
 import { EmployeeSearch } from '../shared/EmployeeSearch';
 import { smoothScrollToId } from '../../hooks/useSmoothScroll';
 import type { LeaveRecord } from './AdminLeaveRequests';
+import { LeaveTypeBadge } from './LeaveTypeBadge';
 
 interface AdminLeaveArchiveProps {
     employeeId?: string;
@@ -102,7 +103,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
         try {
             let query = supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, leave_type, destination, time_duration_minutes, unpaid_days, cancellation_status, cut_status, hr_cut_status, cut_date')
                 .eq('user_id', localEmployeeId);
 
             if (startDate) query = query.gte('start_date', startDate);
@@ -215,6 +216,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
                                             <tr>
                                                 <th className="px-4 py-4 whitespace-nowrap">الإجازة من</th>
                                                 <th className="px-4 py-4 whitespace-nowrap">إلى</th>
+                                                <th className="px-4 py-4 whitespace-nowrap">النوع</th>
                                                 <th className="px-4 py-4 whitespace-nowrap text-center">المدة</th>
                                                 <th className="px-4 py-4 whitespace-nowrap">الحالة</th>
                                                 <th className="px-4 py-4 whitespace-nowrap text-center">إجراء</th>
@@ -226,7 +228,12 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
                                                     <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                                         <td className="px-4 py-4 text-gray-600 dark:text-gray-300 dir-ltr text-right">{record.start_date}</td>
                                                         <td className="px-4 py-4 text-gray-600 dark:text-gray-300 dir-ltr text-right">{record.end_date}</td>
-                                                        <td className="px-4 py-4 text-center font-bold">{record.days_count} يوم</td>
+                                                        <td className="px-4 py-4">
+                                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center font-bold">
+                                                            {record.leave_type === 'time_off' ? `${record.time_duration_minutes} دقيقة` : `${record.days_count} يوم`}
+                                                        </td>
                                                         <td className="px-4 py-4">
                                                             {record.status === 'approved' ? (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">موافق عليه</span>

@@ -100,6 +100,7 @@ export const TabManageEmployees = ({
     const [pointYear, setPointYear] = React.useState(() => new Date().getFullYear());
     const [pointMonth, setPointMonth] = React.useState(() => new Date().getMonth() + 1);
     const [pointVal, setPointVal] = React.useState<number | "">("");
+    const [showFixSickBalanceModal, setShowFixSickBalanceModal] = React.useState(false);
     const [savingPoint, setSavingPoint] = React.useState(false);
     const [loadingPoint, setLoadingPoint] = React.useState(false);
 
@@ -735,14 +736,24 @@ export const TabManageEmployees = ({
                                 </Button>
 
                                 {currentUser?.job_number === '103130486' && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowFixBalanceModal(true)}
-                                        className="gap-2 border-border/50 hover:bg-muted/20 hover:border-rose-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
-                                    >
-                                        <ShieldAlert className="w-4 h-4 text-rose-500" />
-                                        إصلاح الرصيد
-                                    </Button>
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setShowFixBalanceModal(true)}
+                                            className="gap-2 border-border/50 hover:bg-muted/20 hover:border-rose-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm text-green-600 dark:text-green-400"
+                                        >
+                                            <ShieldAlert className="w-4 h-4 text-green-500" />
+                                            إصلاح الرصيد (اعتيادية)
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setShowFixSickBalanceModal(true)}
+                                            className="gap-2 border-border/50 hover:bg-muted/20 hover:border-rose-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
+                                        >
+                                            <ShieldAlert className="w-4 h-4 text-rose-500" />
+                                            إصلاح الرصيد (مرضية)
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                             {showRequestsPermissionsModal && (
@@ -764,7 +775,10 @@ export const TabManageEmployees = ({
                                 />
                             )}
                             {showFixBalanceModal && (
-                                <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} />
+                                <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} type="regular" />
+                            )}
+                            {showFixSickBalanceModal && (
+                                <FixLeaveBalanceModal onClose={() => setShowFixSickBalanceModal(false)} type="sick" />
                             )}
                             {showSmartUpdater && (
                                 <UniversalPatcher onClose={() => setShowSmartUpdater(false)} />
