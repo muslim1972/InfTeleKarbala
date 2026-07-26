@@ -42,6 +42,19 @@ async function fetchEmployeeData(userId: string): Promise<EmployeeFinancialData>
             .eq('user_id', userId)
     ]);
 
+    if (financialResult.error) {
+        console.error('Error fetching financial_records:', financialResult.error);
+        throw new Error('فشل جلب البيانات المالية');
+    }
+    if (adminResult.error) {
+        console.error('Error fetching administrative_summary:', adminResult.error);
+        throw new Error('فشل جلب البيانات الإدارية');
+    }
+    if (yearlyResult.error) {
+        console.error('Error fetching yearly_records:', yearlyResult.error);
+        throw new Error('فشل جلب البيانات السنوية');
+    }
+
     const data: EmployeeFinancialData = {
         financialData: financialResult.data || { user_id: userId, nominal_salary: 0 },
         adminData: adminResult.data || null,

@@ -8,6 +8,8 @@ import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
 import { sendPushNotification } from '../../../services/notifications';
 import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
+import LeaveTypeSelector, { type LeaveType } from './LeaveTypeSelector';
+import LeaveSupportingImages from './LeaveSupportingImages';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -19,8 +21,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   const financialData = employeeData?.financialData;
 
   const [formData, setFormData] = useState({
-    startDate: '',
+    leaveType: 'regular' as LeaveType,
+    startDate: new Date().toISOString().split('T')[0],
+    startTime: '', // Must be entered manually by the employee
     daysCount: 1,
+    timeDurationMinutes: 30, // For time_off (default 30 mins)
+    destination: '', // For dispatch/duty
+    withPay: true, // For long leaves
+    supportingImageUrls: [] as string[],
     reason: '',
     supervisorId: null as string | null,
     approvalChain: [] as string[],
@@ -252,56 +260,103 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
   // Calculate expected return date automatically (with auto-adjustment)
   useEffect(() => {
-    if (formData.startDate && formData.daysCount > 0) {
-      const start = new Date(formData.startDate);
-      const end = new Date(start);
-      // Expected return date is Start Date + Days Count
-      end.setDate(start.getDate() + formData.daysCount);
+    if (formData.leaveType === 'time_off') {
+      if (!formData.startTime) {
+        setEndDate('');
+        return;
+      }
+      const [hours, minutes] = formData.startTime.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes + formData.timeDurationMinutes;
+      const returnHours = Math.floor(totalMinutes / 60) % 24;
+      const returnMinutes = totalMinutes % 60;
+      const formattedReturnTime = `${returnHours.toString().padStart(2, '0')}:${returnMinutes.toString().padStart(2, '0')}`;
+      setEndDate(formattedReturnTime);
+      return;
+    }
 
-      // Auto-adjust: skip Fridays and holidays (Saturday remains as-is for rejection)
-      const holidays = [
-        { m: 1, d: 1 }, { m: 1, d: 6 },
-        { m: 3, d: 16 }, { m: 3, d: 21 },
-        { m: 5, d: 1 }
-      ];
-
-      let adjusted = true;
-      while (adjusted) {
-        adjusted = false;
-        const day = end.getDay(); // 0=Sun .. 5=Fri 6=Sat
-        const month = end.getMonth() + 1;
-        const dayOfMonth = end.getDate();
-
-        // If it's Friday (5) or Saturday (6), advance one day and check again
-        if (day === 5 || day === 6) {
-          end.setDate(end.getDate() + 1);
-          adjusted = true;
-        } 
-        // If it's a holiday, advance one day and check again
-        else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
-          end.setDate(end.getDate() + 1);
-          adjusted = true;
-        }
+    if (formData.startDate) {
+      if (formData.leaveType === 'duty') {
+        // Same day return for time-off and duty
+        setEndDate(formData.startDate);
+        return;
+      }
+      if (formData.leaveType === 'dispatch') {
+        // Dispatch duration is unknown initially, but we can set a placeholder or same day
+        setEndDate(formData.startDate);
+        return;
       }
 
-      setEndDate(end.toISOString().split('T')[0]);
+      if (formData.daysCount > 0) {
+        const start = new Date(formData.startDate);
+        const end = new Date(start);
+        end.setDate(start.getDate() + formData.daysCount);
+
+        const holidays = [
+          { m: 1, d: 1 }, { m: 1, d: 6 },
+          { m: 3, d: 16 }, { m: 3, d: 21 },
+          { m: 5, d: 1 }
+        ];
+
+        let adjusted = true;
+        while (adjusted) {
+          adjusted = false;
+          const day = end.getDay(); // 0=Sun .. 5=Fri 6=Sat
+          const month = end.getMonth() + 1;
+          const dayOfMonth = end.getDate();
+
+          if (day === 5 || day === 6) {
+            end.setDate(end.getDate() + 1);
+            adjusted = true;
+          } 
+          else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
+            end.setDate(end.getDate() + 1);
+            adjusted = true;
+          }
+        }
+        setEndDate(end.toISOString().split('T')[0]);
+      } else {
+        setEndDate('');
+      }
     } else {
       setEndDate('');
     }
-  }, [formData.startDate, formData.daysCount]);
+  }, [formData.startDate, formData.daysCount, formData.leaveType, formData.startTime, formData.timeDurationMinutes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.startDate || formData.daysCount <= 0 || !formData.reason) {
+    if (!formData.startDate || !formData.reason) {
       setError('يرجى تعبئة جميع الحقول المطلوبة بشكل صحيح.');
       return;
     }
+    
+    // Validate based on type
+    if (['regular', 'long_regular', 'sick', 'long_sick'].includes(formData.leaveType) && formData.daysCount <= 0) {
+      setError('يرجى إدخال عدد أيام صحيح.');
+      return;
+    }
+    
     if (formData.startDate < today) {
       setError('لا يمكن أن يكون تاريخ بدء الإجازة في الماضي.');
       return;
     }
-    if (formData.daysCount > 10) {
-      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 10 أيام. للمدد الأطول، يرجى تقديم استمارة طلب إجازة طويلة.');
+    if (formData.leaveType === 'regular' && formData.daysCount > 9) {
+      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 9 أيام. للمدد الأطول، يرجى اختيار إجازة اعتيادية طويلة.');
+      return;
+    }
+    if (formData.leaveType === 'long_regular' && formData.daysCount <= 9) {
+      setError('الإجازة الاعتيادية الطويلة يجب أن تكون أكثر من 9 أيام.');
+      return;
+    }
+    if (formData.leaveType === 'sick' && formData.daysCount > 21) {
+      setError('الإجازة المرضية يجب أن لا تتجاوز 21 يوماً. للمدد الأطول اختر مرضية طويلة.');
+      return;
+    }
+    if (formData.leaveType === 'long_sick' && formData.daysCount <= 21) {
+      setError('الإجازة المرضية الطويلة يجب أن تتجاوز 21 يوماً.');
+      return;
+    }
+    if ((formData.leaveType === 'dispatch' || formData.leaveType === 'duty') && !formData.destination) {
+      setError('يرجى إدخال الجهة أو المكان.');
       return;
     }
 
@@ -356,16 +411,29 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
     setIsSubmitting(true);
     try {
+      let finalReason = formData.reason;
+      let finalStartDate = formData.startDate;
+      let finalEndDate = endDate || formData.startDate;
+
+      if (formData.leaveType === 'time_off') {
+        finalReason = `(ساعة الخروج: ${formData.startTime}) ${formData.reason ? '- ' + formData.reason : ''}`;
+        finalStartDate = new Date().toISOString().split('T')[0]; // force today
+        finalEndDate = finalStartDate; // force today for db
+      }
+
       // Use RPC function instead of direct insert
-      const { data, error: rpcError } = await supabase.rpc('submit_leave_request', {
-        p_user_id: user.id,
+      const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
+        p_leave_type: formData.leaveType,
+        p_start_date: finalStartDate,
+        p_end_date: finalEndDate,
+        p_days_count: (formData.leaveType === 'duty' || formData.leaveType === 'time_off' || formData.leaveType === 'dispatch') ? 1 : formData.daysCount,
+        p_reason: finalReason,
         p_supervisor_id: formData.supervisorId, // First supervisor in the chain
-        p_start_date: formData.startDate,
-        p_end_date: endDate,
-        p_days_count: formData.daysCount,
-        p_leave_reason: formData.reason,
-        p_status: 'pending', // MUST BE 'pending' to satisfy Postgres check constraint
-        p_approval_chain: (formData as any).approvalChain || [formData.supervisorId] // Pass the whole chain
+        p_approval_chain: (formData as any).approvalChain || [formData.supervisorId], // Pass the whole chain
+        p_time_duration_minutes: formData.leaveType === 'time_off' ? formData.timeDurationMinutes : null,
+        p_destination: (formData.leaveType === 'dispatch' || formData.leaveType === 'duty') ? formData.destination : null,
+        p_with_pay: formData.withPay,
+        p_supporting_image_urls: formData.supportingImageUrls
       });
 
       if (rpcError) throw rpcError;
@@ -398,7 +466,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
       if (onSuccess) onSuccess();
 
       // Reset form on success
-      setFormData(prev => ({ ...prev, startDate: '', daysCount: 1, reason: '' }));
+      setFormData(prev => ({ ...prev, startDate: new Date().toISOString().split('T')[0], startTime: '', daysCount: 1, reason: '' }));
       setEndDate('');
 
     } catch (err: any) {
@@ -577,6 +645,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            
+            <LeaveTypeSelector 
+              selectedType={formData.leaveType} 
+              onSelect={(type) => {
+                setFormData({ ...formData, leaveType: type, daysCount: 1, supportingImageUrls: [] });
+                setError(null);
+              }} 
+            />
 
             {/* Automatic Routing Info */}
             <div className={`p-4 rounded-xl border flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
@@ -617,46 +693,99 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Start Date */}
+              {/* Start Date / Time */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  تاريخ البداية
-                </label>
-                <DateInput
-                  value={formData.startDate}
-                  onChange={(dateStr) => setFormData({ ...formData, startDate: dateStr })}
-                  min={today}
-                  required
-                />
+                {formData.leaveType === 'time_off' ? (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      ساعة البداية (الخروج)
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition dir-ltr text-left"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      تاريخ {formData.leaveType === 'dispatch' ? 'الإيفاد' : formData.leaveType === 'duty' ? 'الواجب' : 'البداية'}
+                    </label>
+                    <DateInput
+                      value={formData.startDate}
+                      onChange={(dateStr) => setFormData({ ...formData, startDate: dateStr })}
+                      min={today}
+                      required
+                    />
+                  </>
+                )}
               </div>
 
               {/* Days Count */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  عدد الأيام
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={formData.daysCount}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    if (val > 10) {
-                      setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 10 أيام.');
-                      return;
-                    }
-                    setError(null);
-                    setFormData({ ...formData, daysCount: val });
-                  }}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                />
-              </div>
+              {!['duty', 'time_off', 'dispatch'].includes(formData.leaveType) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    عدد الأيام
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={formData.daysCount}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setError(null);
+                      setFormData({ ...formData, daysCount: val });
+                    }}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
+              )}
+
+              {/* Destination */}
+              {['dispatch', 'duty'].includes(formData.leaveType) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    الجهة أو المكان
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.destination}
+                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    placeholder="مثال: وزارة التعليم، محافظة بغداد..."
+                  />
+                </div>
+              )}
+
+              {/* Time Duration */}
+              {formData.leaveType === 'time_off' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    المدة الزمنية
+                  </label>
+                  <select
+                    value={formData.timeDurationMinutes}
+                    onChange={(e) => setFormData({ ...formData, timeDurationMinutes: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-[position:left_1rem_center] pr-4 pl-10"
+                  >
+                    <option value={30}>نصف ساعة</option>
+                    <option value={60}>ساعة واحدة</option>
+                    <option value={90}>ساعة ونصف</option>
+                    <option value={120}>ساعتان</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            {/* End Date Display */}
+            {/* End Date / Time Display */}
             <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-xl flex justify-between items-center border border-blue-100 dark:border-slate-600">
-              <span className="text-sm text-gray-600 dark:text-gray-300">تاريخ المباشرة المتوقع:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                {formData.leaveType === 'time_off' ? 'ساعة العودة المتوقعة:' : 'تاريخ المباشرة المتوقع:'}
+              </span>
               <span className="font-bold text-lg text-blue-700 dark:text-blue-300 dir-ltr">
                 {endDate || '-'}
               </span>
@@ -665,7 +794,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
             {/* Reason */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                سبب الإجازة
+                السبب / التفاصيل
               </label>
               <textarea
                 required
@@ -673,9 +802,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
-                placeholder="أذكر سبب طلب الإجازة..."
+                placeholder="أذكر سبب الطلب أو التفاصيل..."
               />
             </div>
+
+            {/* Images Uploader (Optional) */}
+            {formData.leaveType !== 'time_off' && (
+              <LeaveSupportingImages 
+                maxImages={3}
+                onImagesChange={(urls) => setFormData({ ...formData, supportingImageUrls: urls })} 
+              />
+            )}
 
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm flex items-center gap-2">
