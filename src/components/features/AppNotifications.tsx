@@ -142,6 +142,7 @@ export const AppNotifications = () => {
         const { data, error } = await supabase
             .from('leave_requests')
             .select('*')
+            .eq('is_read_by_hr', false)
             .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending,and(cancellation_status.eq.approved,is_archived.eq.false)');
 
         if (error) {
@@ -283,6 +284,8 @@ export const AppNotifications = () => {
                 next.add(requestId);
                 return next;
             });
+            // Update database silently to dismiss for HR permanently
+            supabase.from('leave_requests').update({ is_read_by_hr: true }).eq('id', requestId).then();
         }
         setShowModal(false);
         // Dispatching custom event with employeeId and requestId for automatic search and highlight
