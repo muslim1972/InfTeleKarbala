@@ -131,7 +131,7 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = user.admin_role === 'hr';
+        const isAllowedRole = user.role === 'admin' || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
 
         if (!isAllowedRole) return;
 
@@ -143,7 +143,7 @@ export const AppNotifications = () => {
             .from('leave_requests')
             .select('*')
             .eq('is_read_by_hr', false)
-            .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending,and(cancellation_status.eq.approved,is_archived.eq.false)');
+            .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending,cancellation_status.eq.approved');
 
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
@@ -430,9 +430,14 @@ export const AppNotifications = () => {
                                         <div
                                             key={req.id}
                                             onClick={() => handleGoToAdminRequests(req.id, req.user_id)}
-                                            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:shadow-md transition-all group flex justify-between items-center"
+                                            className={`relative overflow-hidden rounded-xl p-3 border cursor-pointer hover:shadow-md transition-all group flex justify-between items-center ${req.cancellation_status === 'approved' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50' : 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800/50'}`}
                                         >
-                                            <div className="flex-1">
+                                            {req.cancellation_status === 'approved' && (
+                                                <div className="absolute top-0 right-0 left-0 bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 text-[10px] font-bold text-center py-0.5">
+                                                    تم إلغاء الإجازة
+                                                </div>
+                                            )}
+                                            <div className={`flex-1 ${req.cancellation_status === 'approved' ? 'mt-2' : ''}`}>
                                                 <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 group-hover:underline">
                                                     {req.employee_name}
                                                 </h5>

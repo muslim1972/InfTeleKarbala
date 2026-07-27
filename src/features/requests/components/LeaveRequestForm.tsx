@@ -94,7 +94,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           leave_history(new_balance, action_type)
         `)
         .eq('user_id', user.id)
-        .eq('status', 'approved'); // Only show approved ones for printing
+        .in('status', ['approved', 'canceled']);
 
       if (archiveStartDate) query = query.gte('start_date', archiveStartDate);
       if (archiveEndDate) query = query.lte('end_date', archiveEndDate);

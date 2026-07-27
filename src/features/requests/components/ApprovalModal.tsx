@@ -63,6 +63,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         // Fully approved by all managers, goes to HR
                         updatePayload.cancellation_status = 'approved';
                         updatePayload.is_read_by_employee = false;
+                        updatePayload.is_read_by_hr = false;
                         updatePayload.status = 'canceled';
                     }
                 } else {
@@ -138,7 +139,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     const { data: admins } = await supabase
                         .from('profiles')
                         .select('id, full_name')
-                        .or('admin_role.eq.hr,full_name.ilike.%مسلم عقيل%,full_name.ilike.%مسلم قيل%');
+                        .or('role.eq.admin,admin_role.eq.hr_supervisor');
 
                     if (admins && admins.length > 0) {
                         const hrTitle = request.modification_type === 'canceled' ? "إلغاء إجازة" : "اعتماد قطع إجازة";
