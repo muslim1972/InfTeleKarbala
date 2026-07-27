@@ -144,9 +144,24 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
         // Sort: tested students by score desc, untested by name
         const sorted = [...filteredStudents].sort((a, b) => {
-            const ra = results.find(r => r.student_id === a.id);
-            const rb = results.find(r => r.student_id === b.id);
-            if (ra && rb) return rb.score - ra.score;
+            const studentAResults = results.filter(r => r.student_id === a.id);
+            const studentBResults = results.filter(r => r.student_id === b.id);
+            const ra = studentAResults[0];
+            const rb = studentBResults[0];
+
+            if (ra && rb) {
+                if (ra.score !== rb.score) {
+                    return rb.score - ra.score;
+                }
+                const attemptsA = studentAResults.length;
+                const attemptsB = studentBResults.length;
+                if (attemptsA !== attemptsB) {
+                    return attemptsA - attemptsB;
+                }
+                const durA = ra.duration_seconds || Infinity;
+                const durB = rb.duration_seconds || Infinity;
+                return durA - durB;
+            }
             if (ra && !rb) return -1;
             if (!ra && rb) return 1;
             return a.full_name.localeCompare(b.full_name);
@@ -1148,12 +1163,19 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                     <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                                         {(() => {
                                             const sortedStudents = [...students].sort((a, b) => {
-                                                const resultA = results.find(r => r.student_id === a.id);
-                                                const resultB = results.find(r => r.student_id === b.id);
+                                                const studentAResults = results.filter(r => r.student_id === a.id);
+                                                const studentBResults = results.filter(r => r.student_id === b.id);
+                                                const resultA = studentAResults[0];
+                                                const resultB = studentBResults[0];
 
                                                 if (resultA && resultB) {
                                                     if (resultA.score !== resultB.score) {
                                                         return resultB.score - resultA.score;
+                                                    }
+                                                    const attemptsA = studentAResults.length;
+                                                    const attemptsB = studentBResults.length;
+                                                    if (attemptsA !== attemptsB) {
+                                                        return attemptsA - attemptsB;
                                                     }
                                                     const durA = resultA.duration_seconds || Infinity;
                                                     const durB = resultB.duration_seconds || Infinity;
