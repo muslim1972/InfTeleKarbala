@@ -20,6 +20,9 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [isCanceling, setIsCanceling] = useState(false);
+    const [cancellationReason, setCancellationReason] = useState('');
+
     const today = new Date().toISOString().split('T')[0];
     const isBeforeStart = today < request.start_date;
     const isAfterStartButBeforeEnd = today >= request.start_date && today <= request.end_date;
@@ -82,6 +85,11 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                     throw new Error('يرجى تحديد تاريخ المباشرة');
                 }
                 params.p_cut_date = cutDate;
+            } else if (type === 'canceled') {
+                if (!cancellationReason.trim()) {
+                    throw new Error('يرجى كتابة سبب الإلغاء');
+                }
+                params.p_cancellation_reason = cancellationReason;
             }
 
             const { data, error: rpcError } = await supabase.rpc('modify_leave_request', params);
@@ -155,22 +163,53 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                         </div>
                     </div>
 
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => handleModify('edited')}
-                            disabled={isSubmitting}
-                            className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-70"
-                        >
-                            حفظ التعديلات وإرسال
-                        </button>
-                        <button
-                            onClick={() => handleModify('canceled')}
-                            disabled={isSubmitting}
-                            className="flex-1 bg-red-50 text-red-600 font-bold py-3 rounded-xl border border-red-200 hover:bg-red-100 transition disabled:opacity-70"
-                        >
-                            إلغاء الطلب نهائياً
-                        </button>
-                    </div>
+                    {isCanceling ? (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div>
+                                <label className="block text-sm font-bold text-red-700 dark:text-red-400 mb-2">سبب الإلغاء (مطلوب)</label>
+                                <textarea
+                                    required
+                                    value={cancellationReason}
+                                    onChange={(e) => setCancellationReason(e.target.value)}
+                                    className="w-full px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl outline-none min-h-[100px] text-red-900 dark:text-red-100"
+                                    placeholder="اكتب سبب رغبتك بإلغاء الإجازة..."
+                                />
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => handleModify('canceled')}
+                                    disabled={isSubmitting || !cancellationReason.trim()}
+                                    className="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition disabled:opacity-50"
+                                >
+                                    تأكيد الإلغاء
+                                </button>
+                                <button
+                                    onClick={() => setIsCanceling(false)}
+                                    disabled={isSubmitting}
+                                    className="px-6 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition"
+                                >
+                                    تراجع
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => handleModify('edited')}
+                                disabled={isSubmitting}
+                                className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-70"
+                            >
+                                حفظ التعديلات وإرسال
+                            </button>
+                            <button
+                                onClick={() => setIsCanceling(true)}
+                                disabled={isSubmitting}
+                                className="flex-1 bg-red-50 text-red-600 font-bold py-3 rounded-xl border border-red-200 hover:bg-red-100 transition disabled:opacity-70"
+                            >
+                                إلغاء الطلب نهائياً
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : isAfterStartButBeforeEnd ? (() => {
                 let actualDays = 0;

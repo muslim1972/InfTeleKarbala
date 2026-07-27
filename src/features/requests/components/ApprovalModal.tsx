@@ -14,6 +14,8 @@ interface LeaveRequest {
     status: string;
     created_at: string;
     modification_type?: string;
+    leave_type?: string;
+    cancellation_reason?: string;
     unpaid_days?: number;
     cut_date?: string;
     prev_manager_name?: string;
@@ -232,9 +234,9 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{request.profiles?.full_name || 'مستخدم'}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {request.modification_type === 'canceled' ? 'طلب إلغاء إجازة' :
+                            {request.modification_type === 'canceled' ? `طلب إلغاء (${request.leave_type === 'regular' ? 'اعتيادية' : request.leave_type === 'sick' ? 'مرضية' : request.leave_type === 'time_off' ? 'زمنية' : request.leave_type === 'dispatch' ? 'إيفاد' : request.leave_type === 'duty' ? 'واجب' : request.leave_type === 'long_regular' ? 'اعتيادية طويلة' : request.leave_type === 'long_sick' ? 'مرضية طويلة' : 'إجازة'})` :
                                 request.modification_type === 'cut' ? 'طلب قطع إجازة' :
-                                    'طلب إجازة جديد'}
+                                    `طلب ${request.leave_type === 'regular' ? 'إجازة اعتيادية' : request.leave_type === 'sick' ? 'إجازة مرضية' : request.leave_type === 'time_off' ? 'إجازة زمنية' : request.leave_type === 'dispatch' ? 'إيفاد' : request.leave_type === 'duty' ? 'واجب' : request.leave_type === 'long_regular' ? 'إجازة اعتيادية طويلة' : request.leave_type === 'long_sick' ? 'إجازة مرضية طويلة' : 'إجازة'} جديد`}
                         </p>
                     </div>
                     <button onClick={onClose} className="mr-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -262,12 +264,12 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     </div>
 
                     <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                        <p className={`text-xs mb-2 flex items-center gap-1 ${request.modification_type === 'canceled' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
                             <FileText size={12} />
-                            سبب الإجازة
+                            {request.modification_type === 'canceled' ? 'سبب الإلغاء' : 'سبب الإجازة'}
                         </p>
-                        <p className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed">
-                            {request.reason}
+                        <p className={`text-sm leading-relaxed ${request.modification_type === 'canceled' ? 'text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-200'}`}>
+                            {request.modification_type === 'canceled' ? (request.cancellation_reason || 'غير محدد') : request.reason}
                         </p>
                     </div>
 

@@ -544,7 +544,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
           <div>
             <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
               <Clock size={14} className="text-indigo-500" />
-              أحدث طلب إجازة
+              أحدث طلب إجازة ({latestRequest.leave_type === 'regular' ? 'اعتيادية' : latestRequest.leave_type === 'sick' ? 'مرضية' : latestRequest.leave_type === 'time_off' ? 'زمنية' : latestRequest.leave_type === 'dispatch' ? 'إيفاد' : latestRequest.leave_type === 'duty' ? 'واجب' : latestRequest.leave_type === 'long_regular' ? 'اعتيادية طويلة' : latestRequest.leave_type === 'long_sick' ? 'مرضية طويلة' : 'إجازة'})
               {latestRequest.modification_type === 'canceled' && (
                 <span className={`font-bold text-xs px-2 py-0.5 rounded-full ${latestRequest.status === 'canceled' ? 'text-red-500 bg-red-50 dark:bg-red-900/30' : 'text-amber-500 bg-amber-50 dark:bg-amber-900/30'}`}>
                   {latestRequest.status === 'canceled' ? 'ملغاة نهائياً' : 'بانتظار الموافقة على الإلغاء'}
