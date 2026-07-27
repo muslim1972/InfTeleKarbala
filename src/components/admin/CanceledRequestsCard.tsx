@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, XCircle, User, Archive, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Loader2, XCircle, User, Archive, ChevronDown, ChevronUp, CheckCircle2, Printer } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
 import { LeaveTypeBadge } from './LeaveTypeBadge';
 
@@ -11,6 +11,7 @@ interface CanceledRequestsCardProps {
     activeHighlightId: string | null;
     isExpanded: boolean;
     onToggle: () => void;
+    onPrint: (record: LeaveRecord) => void;
 }
 
 export function CanceledRequestsCard({
@@ -19,7 +20,8 @@ export function CanceledRequestsCard({
     onRefresh,
     activeHighlightId,
     isExpanded,
-    onToggle
+    onToggle,
+    onPrint
 }: CanceledRequestsCardProps) {
     const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
 
@@ -135,7 +137,13 @@ export function CanceledRequestsCard({
                                                     )}
                                                 </div>
                                                 
-                                                <div className="pt-2">
+                                                <div className="pt-2 flex flex-col md:flex-row gap-2">
+                                                    <button
+                                                        onClick={() => onPrint(record)}
+                                                        className="flex-1 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-3 rounded-xl text-sm font-bold transition flex justify-center items-center gap-2 shadow-sm"
+                                                    >
+                                                        <Printer size={18} /> طباعة
+                                                    </button>
                                                     <button
                                                         onClick={async () => {
                                                             if (window.confirm('هل أنت متأكد من حفظ (أرشفة) هذه الإجازة لتختفي من القائمة؟')) {
@@ -148,7 +156,7 @@ export function CanceledRequestsCard({
                                                                 }
                                                             }
                                                         }}
-                                                        className="w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-3 rounded-xl text-sm font-bold transition flex justify-center items-center gap-2 shadow-sm"
+                                                        className="flex-1 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-3 rounded-xl text-sm font-bold transition flex justify-center items-center gap-2 shadow-sm"
                                                     >
                                                         <Archive size={18} /> حفظ وأرشفة الإجازة الملغاة
                                                     </button>

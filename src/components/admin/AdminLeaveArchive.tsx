@@ -33,6 +33,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
     const [isLoadingArchive, setIsLoadingArchive] = useState(false);
     const [archiveRecords, setArchiveRecords] = useState<LeaveRecord[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [isEditingSearch, setIsEditingSearch] = useState(true);
 
     // Internal employee search state
     const [localEmployeeId, setLocalEmployeeId] = useState<string | undefined>(employeeId);
@@ -118,6 +119,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
             } else if (data && data.length > 0) {
                 const formatted = await populateSupervisors(data);
                 setArchiveRecords(formatted);
+                setIsEditingSearch(false);
             } else {
                 setArchiveRecords([]);
             }
@@ -151,64 +153,91 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
 
             {isExpanded && (
                 <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-700 animate-in slide-in-from-top-4 duration-300">
-                    <div className="mb-6">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">بحث عن موظف</label>
-                        <EmployeeSearch
-                            onSelect={handleSelectArchiveEmployee}
-                            placeholder="الرقم الوظيفي أو الاسم..."
-                            className=""
-                            inputClassName="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all"
-                        />
-                    </div>
+                    {(!hasSearched || isEditingSearch) && (
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">بحث عن موظف</label>
+                            <EmployeeSearch
+                                onSelect={handleSelectArchiveEmployee}
+                                placeholder="الرقم الوظيفي أو الاسم..."
+                                className=""
+                                inputClassName="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all"
+                            />
+                        </div>
+                    )}
 
                     {localEmployeeId ? (
                         <>
-                            <div className="mb-6 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-xl text-sm border border-blue-200 dark:border-blue-800/50">
-                                <div className="flex items-center gap-2">
-                                    <User size={16} className="text-blue-600" />
-                                    <span className="font-bold text-blue-800 dark:text-blue-300">{localEmployeeName}</span>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setLocalEmployeeId(undefined);
-                                        setLocalEmployeeName(undefined);
-                                        setArchiveRecords([]);
-                                        setHasSearched(false);
-                                    }}
-                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold transition-colors"
-                                >
-                                    تغيير
-                                </button>
-                            </div>
+                            {(!hasSearched || isEditingSearch) && (
+                                <>
+                                    <div className="mb-6 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-xl text-sm border border-blue-200 dark:border-blue-800/50">
+                                        <div className="flex items-center gap-2">
+                                            <User size={16} className="text-blue-600" />
+                                            <span className="font-bold text-blue-800 dark:text-blue-300">{localEmployeeName}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setLocalEmployeeId(undefined);
+                                                setLocalEmployeeName(undefined);
+                                                setArchiveRecords([]);
+                                                setHasSearched(false);
+                                                setIsEditingSearch(true);
+                                            }}
+                                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold transition-colors"
+                                        >
+                                            تغيير
+                                        </button>
+                                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">من تاريخ</label>
-                                    <DateInput
-                                        value={startDate}
-                                        onChange={setStartDate}
-                                        className="w-full bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 rounded-xl"
-                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">من تاريخ</label>
+                                            <DateInput
+                                                value={startDate}
+                                                onChange={setStartDate}
+                                                className="w-full bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 rounded-xl"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">إلى تاريخ</label>
+                                            <DateInput
+                                                value={endDate}
+                                                onChange={setEndDate}
+                                                className="w-full bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 rounded-xl"
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button
+                                                onClick={handleArchiveSearch}
+                                                disabled={isLoadingArchive}
+                                                className="w-full h-[42px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                                            >
+                                                {isLoadingArchive ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
+                                                بحث في الأرشيف
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                    {hasSearched && !isEditingSearch && (
+                        <div className="mb-4 flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                    <User size={20} className="text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">إلى تاريخ</label>
-                                    <DateInput
-                                        value={endDate}
-                                        onChange={setEndDate}
-                                        className="w-full bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 rounded-xl"
-                                    />
-                                </div>
-                                <div className="flex items-end">
-                                    <button
-                                        onClick={handleArchiveSearch}
-                                        disabled={isLoadingArchive}
-                                        className="w-full h-[42px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
-                                    >
-                                        {isLoadingArchive ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
-                                        بحث في الأرشيف
-                                    </button>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{localEmployeeName}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">سجل الإجازات في الأرشيف</p>
                                 </div>
                             </div>
+                            <button
+                                onClick={() => setIsEditingSearch(true)}
+                                className="text-sm px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-lg font-bold transition-colors"
+                            >
+                                تعديل البحث
+                            </button>
+                        </div>
+                    )}
 
                             {hasSearched && (
                                 <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-slate-700 shadow-inner">
@@ -240,6 +269,8 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">موافق عليه</span>
                                                             ) : record.status === 'rejected' ? (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">مرفوض</span>
+                                                            ) : record.status === 'canceled' || record.cancellation_status === 'approved' ? (
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">ملغاة</span>
                                                             ) : (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
                                                                     {record.status === 'pending' ? 'قيد الانتظار' : record.status}
@@ -247,7 +278,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-4 text-center">
-                                                            {record.status === 'approved' && (
+                                                            {(record.status === 'approved' || record.status === 'canceled' || record.cancellation_status === 'approved') && (
                                                                 <button
                                                                     onClick={() => onPrint(record)}
                                                                     className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-2 rounded-lg transition"

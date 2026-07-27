@@ -347,10 +347,12 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             }
 
             if (latestRecord && latestRecord.cancellation_status === 'approved') {
-                alert('لقد تم الغاء الاجازة من قبل الموظف واعتمدها المسؤول');
-                setIsPrintingPdf(false);
-                fetchAllApprovedRequests(); // Refresh the list
-                return; // Stop printing
+                if (record.cancellation_status !== 'approved') {
+                    alert('لقد تم الغاء الاجازة من قبل الموظف واعتمدها المسؤول');
+                    setIsPrintingPdf(false);
+                    fetchAllApprovedRequests(); // Refresh the list
+                    return; // Stop printing
+                }
             }
 
             const defaultManagerName = await resolveDirectorateManager(record.user_id) || 'علي عباس جاسم الصباغ';
@@ -398,7 +400,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
 
             const url = await generateLeavePDF({
                 ...formData,
-                unpaid_days: record.unpaid_days || 0
+                unpaid_days: record.unpaid_days || 0,
+                is_canceled: record.cancellation_status === 'approved',
+                cancellation_date: record.cancellation_status === 'approved' ? new Date(latestRecord?.created_at || Date.now()).toLocaleDateString('en-GB') : undefined
             } as any);
 
             window.open(url, '_blank');
@@ -445,6 +449,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 isLoading={isLoadingCanceled}
                 onRefresh={fetchCanceledRequests}
                 activeHighlightId={activeHighlightId}
+                onPrint={handlePrint}
                 isExpanded={expandedSection === 'canceled'}
                 onToggle={() => setExpandedSection(prev => prev === 'canceled' ? null : 'canceled')}
             />

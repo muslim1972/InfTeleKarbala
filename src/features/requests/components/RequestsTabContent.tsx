@@ -1,76 +1,226 @@
-import { useState } from 'react';
+/**
+ * RequestsTabContent.tsx
+ * Main shell for the "الطلبات" tab in the employee dashboard.
+ *
+ * Layout:
+ *  ┌────────────────────────────────────────────────────────┐
+ *  │  [نوع الطلب يظهر هنا]    [▾ حدد نوع الطلب]           │
+ *  ├────────────────────────────────────────────────────────┤
+ *  │  (selected form renders here, below the selector)      │
+ *  └────────────────────────────────────────────────────────┘
+ *
+ * Rules applied (vercel-react-best-practices):
+ *  - bundle-dynamic-imports   : heavy forms loaded lazily
+ *  - bundle-conditional       : form only loaded after user selects a type
+ *  - rendering-hoist-jsx      : static dropdown items extracted
+ *  - rerender-derived-state   : `selectedOption` derived from `selectedId`
+ */
+
+import { useState, useRef, useEffect, lazy, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarCheck, ArrowRight } from 'lucide-react';
-import LeaveRequestForm from './LeaveRequestForm';
+import { ChevronDown, CheckCircle2, Loader2 } from 'lucide-react';
+import { REQUEST_TYPE_OPTIONS } from './requestTypes';
 
+// ── Lazy-loaded forms (bundle-dynamic-imports) ────────────────────────────────
+const TimeOffRequestForm  = lazy(() => import('./TimeOffRequestForm'));
+const LeaveRequestForm    = lazy(() => import('./LeaveRequestForm'));
+
+// ── Placeholder for not-yet-built administrative forms ────────────────────────
+const ComingSoonForm = ({ label }: { label: string }) => (
+  <div className="text-center py-12 text-gray-400 dark:text-gray-600 animate-in fade-in duration-300">
+    <div className="text-5xl mb-4">🚧</div>
+    <p className="font-bold text-base text-gray-600 dark:text-gray-300 mb-1">{label}</p>
+    <p className="text-sm">هذا النموذج قيد التطوير — سيكون متاحاً قريباً</p>
+  </div>
+);
+
+// ── Fallback loader shown while lazy chunk is loading ────────────────────────
+const FormLoader = () => (
+  <div className="flex justify-center items-center py-16">
+    <Loader2 size={28} className="animate-spin text-blue-500" />
+  </div>
+);
+
+// ── Render the appropriate form based on selected type ────────────────────────
+function SelectedForm({ typeId, leaveType, label, onSuccess }: {
+  typeId: string;
+  leaveType?: string;
+  label: string;
+  onSuccess: () => void;
+}) {
+  if (typeId === 'time_off') {
+    return <TimeOffRequestForm onSuccess={onSuccess} />;
+  }
+
+  if (leaveType) {
+    // All other leave-based types use the existing LeaveRequestForm
+    return <LeaveRequestForm initialLeaveType={leaveType as any} onSuccess={onSuccess} />;
+  }
+
+  // Administrative requests (not yet implemented)
+  return <ComingSoonForm label={label} />;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export const RequestsTabContent = () => {
-    const [view, setView] = useState<'list' | 'leave_form'>('list');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const requestTypes = [
-        {
-            id: 'leave',
-            title: 'الإجازات',
-            description: 'تقديم طلب إجازة جديد ومتابعة حالته',
-            icon: <CalendarCheck size={40} className="text-white drop-shadow-md" />,
-            color: 'bg-gradient-to-br from-blue-500 to-indigo-600',
-            onClick: () => setView('leave_form')
-        },
-        // Future types can be added here
-    ];
+  // Derived state — no extra useState (rerender-derived-state)
+  const selectedOption = REQUEST_TYPE_OPTIONS.find(o => o.id === selectedId) ?? null;
 
-    return (
-        <div className="w-full">
-            <AnimatePresence mode="wait">
-                {view === 'list' ? (
-                    <motion.div
-                        key="list"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                    >
-                        {requestTypes.map((type) => (
-                            <div
-                                key={type.id}
-                                onClick={type.onClick}
-                                className={`relative overflow-hidden rounded-3xl cursor-pointer group flex items-center gap-6 p-6 ${type.color} shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-1`}
-                            >
-                                {/* Background pattern */}
-                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvc3ZnPg==')] opacity-50"></div>
-                                
-                                <div className={`w-20 h-20 shrink-0 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 z-10 border border-white/20 shadow-inner`}>
-                                    {type.icon}
-                                </div>
-                                
-                                <div className="z-10">
-                                    <h3 className="text-2xl font-bold text-white mb-1 tracking-wide">
-                                        {type.title}
-                                    </h3>
-                                    <p className="text-blue-100/90 text-sm leading-relaxed">
-                                        {type.description}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        key="form"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                    >
-                        <button
-                            onClick={() => setView('list')}
-                            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors font-medium"
-                        >
-                            <ArrowRight size={18} />
-                            العودة لقائمة الطلبات
-                        </button>
-                        <LeaveRequestForm onSuccess={() => setView('list')} />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedId(id);
+    setIsDropdownOpen(false);
+  }, []);
+
+  const handleSuccess = useCallback(() => {
+    setSelectedId(null);
+  }, []);
+
+  return (
+    <div className="w-full space-y-4" dir="rtl">
+
+      {/* ── Selector row ──────────────────────────────────────────────────────── */}
+      <div className="flex items-stretch gap-3">
+
+        {/* Left half — selected type display */}
+        <div className="flex-1 min-h-[52px] flex items-center px-4 py-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
+          {selectedOption ? (
+            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
+              <span className="text-xl">{selectedOption.emoji}</span>
+              <span className="font-bold text-gray-800 dark:text-white text-sm leading-tight">
+                {selectedOption.label}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400 dark:text-gray-500">نوع الطلب يظهر هنا</span>
+          )}
         </div>
-    );
+
+        {/* Right half — dropdown trigger */}
+        <div className="relative flex-1" ref={dropdownRef}>
+          <button
+            onClick={() => setIsDropdownOpen(prev => !prev)}
+            className="w-full h-full flex items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition-all duration-200 active:scale-95"
+          >
+            <span className="text-sm">حدد نوع الطلب</span>
+            <motion.div
+              animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown size={18} />
+            </motion.div>
+          </button>
+
+          {/* Dropdown */}
+          <AnimatePresence>
+            {isDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className="absolute top-[calc(100%+6px)] right-0 z-50 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden"
+                style={{ minWidth: '240px', width: 'max(100%, 240px)' }}
+              >
+                {/* Leave group header */}
+                <div className="px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
+                  طلبات الإجازات
+                </div>
+
+                {REQUEST_TYPE_OPTIONS.filter(o => o.category === 'leave').map((opt, idx, arr) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handleSelect(opt.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-right transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/60 ${idx < arr.length - 1 ? 'border-b border-gray-50 dark:border-slate-700/40' : ''}`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${opt.bgColor}`}>
+                      {opt.emoji}
+                    </div>
+                    <div className="flex-1 text-right min-w-0">
+                      <div className="font-bold text-gray-800 dark:text-white text-sm">{opt.label}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{opt.description}</div>
+                    </div>
+                    {selectedId === opt.id && (
+                      <CheckCircle2 size={16} className="text-blue-500 shrink-0" />
+                    )}
+                  </button>
+                ))}
+
+                {/* Administrative group header */}
+                <div className="px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-t border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
+                  الطلبات الإدارية
+                </div>
+
+                {REQUEST_TYPE_OPTIONS.filter(o => o.category === 'administrative').map((opt, idx, arr) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handleSelect(opt.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-right transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/60 ${idx < arr.length - 1 ? 'border-b border-gray-50 dark:border-slate-700/40' : ''}`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${opt.bgColor}`}>
+                      {opt.emoji}
+                    </div>
+                    <div className="flex-1 text-right min-w-0">
+                      <div className="font-bold text-gray-800 dark:text-white text-sm">{opt.label}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{opt.description}</div>
+                    </div>
+                    {selectedId === opt.id && (
+                      <CheckCircle2 size={16} className="text-blue-500 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* ── Form area (renders below selector, no page change) ──────────────── */}
+      <AnimatePresence mode="wait">
+        {selectedOption ? (
+          <motion.div
+            key={selectedId}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
+            <Suspense fallback={<FormLoader />}>
+              <SelectedForm
+                typeId={selectedOption.id}
+                leaveType={selectedOption.leaveType}
+                label={selectedOption.label}
+                onSuccess={handleSuccess}
+              />
+            </Suspense>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-center py-16 text-gray-400 dark:text-gray-600"
+          >
+            <div className="text-5xl mb-3">📋</div>
+            <p className="font-medium text-sm">اختر نوع الطلب من القائمة أعلاه لبدء التقديم</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };

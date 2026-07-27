@@ -1,4 +1,4 @@
-import { PDFDocument, TextAlignment } from 'pdf-lib';
+import { PDFDocument, TextAlignment, rgb, degrees } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { shapeArabicText } from './arabicShaper';
 
@@ -13,6 +13,8 @@ export interface LeaveFormData {
     manager_name: string;
     supervisor_name?: string;
     unpaid_days?: number;
+    is_canceled?: boolean;
+    cancellation_date?: string;
 }
 
 export const generateLeavePDF = async (formData: LeaveFormData) => {
@@ -89,6 +91,24 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
         }
 
         // 4. Update appearances to apply the Arabic font (now handled in safeSetText natively)
+
+        // Stamp "Canceled" if applicable
+        if (formData.is_canceled) {
+            const page = pdfDoc.getPages()[0];
+            const { width, height } = page.getSize();
+            const dateStr = formData.cancellation_date ? `بتأريخ ${formData.cancellation_date}` : '';
+            const stampText = fixArabic(`إجازة ملغاة ${dateStr}`);
+            
+            page.drawText(stampText, {
+                x: width / 2 - 200,
+                y: height / 2 - 100,
+                size: 50,
+                font: arabicFont,
+                color: rgb(0.85, 0.1, 0.1),
+                opacity: 0.3,
+                rotate: degrees(45)
+            });
+        }
 
         // 5. Generate PDF
         const pdfBytes = await pdfDoc.save();

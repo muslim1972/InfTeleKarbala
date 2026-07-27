@@ -16,15 +16,16 @@ import { LeaveTypeInfoAlert } from './LeaveTypeInfoAlert';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
+  initialLeaveType?: LeaveType;
 }
 
-const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
+const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialLeaveType }) => {
   const { user } = useAuth();
   const { data: employeeData, isLoading, invalidateCache } = useEmployeeData(user?.id);
   const financialData = employeeData?.financialData;
 
   const [formData, setFormData] = useState({
-    leaveType: 'regular' as LeaveType,
+    leaveType: (initialLeaveType || 'regular') as LeaveType,
     startDate: new Date().toISOString().split('T')[0],
     startTime: '', // Must be entered manually by the employee
     daysCount: 1,
