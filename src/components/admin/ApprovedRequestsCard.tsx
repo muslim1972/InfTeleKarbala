@@ -2,6 +2,9 @@ import { supabase } from '../../lib/supabase';
 import { Loader2, CheckCircle, User, Printer, Archive } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
 import { LeaveTypeBadge } from './LeaveTypeBadge';
+import { HRDocumentProcessingPanel } from './HRDocumentProcessingPanel';
+import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 
 interface ApprovedRequestsCardProps {
     records: LeaveRecord[];
@@ -18,6 +21,9 @@ export function ApprovedRequestsCard({
     activeHighlightId,
     onPrint
 }: ApprovedRequestsCardProps) {
+    const { user } = useAuth();
+    const [selectedRecordForHR, setSelectedRecordForHR] = useState<LeaveRecord | null>(null);
+
     return (
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative">
             <div className="absolute top-0 right-0 w-2 h-full bg-green-500 rounded-r-3xl"></div>
@@ -80,9 +86,32 @@ export function ApprovedRequestsCard({
                                     {(record.unpaid_days ?? 0) > 0 && record.leave_type !== 'unpaid' && (
                                         <p className="text-amber-600 dark:text-amber-400 font-bold text-xs mt-1">⚠️ ملاحظة: منها ({record.unpaid_days}) أيام كإجازة بدون راتب</p>
                                     )}
+
+                                    {/* HR Status Indicator */}
+                                    {['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type) && (
+                                        <div className="mt-2">
+                                            {record.hr_status === 'completed' ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 px-2 py-1 rounded-md font-bold">
+                                                    <CheckCircle size={10} /> مستندات HR مكتملة
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-1 rounded-md font-bold">
+                                                    <Loader2 size={10} className="animate-spin" /> بانتظار إكمال المستندات
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="mt-4 flex flex-col gap-2">
+                                {['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type) && record.hr_status !== 'completed' && (
+                                    <button
+                                        onClick={() => setSelectedRecordForHR(record)}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"
+                                    >
+                                        📋 إكمال المستندات
+                                    </button>
+                                )}
                                 {record.cancellation_status !== 'approved' && (
                                     <button
                                         onClick={() => onPrint(record)}
@@ -114,6 +143,18 @@ export function ApprovedRequestsCard({
                 <div className="text-center py-10 text-gray-500 bg-gray-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
                     لا توجد طلبات معتمدة بانتظار المعالجة
                 </div>
+            )}
+
+            {selectedRecordForHR && (
+                <HRDocumentProcessingPanel
+                    record={selectedRecordForHR}
+                    onClose={() => setSelectedRecordForHR(null)}
+                    onSuccess={() => {
+                        setSelectedRecordForHR(null);
+                        onRefresh();
+                    }}
+                    currentUser={user ? { id: user.id, full_name: user.full_name || 'موظف HR' } : null}
+                />
             )}
         </div>
     );

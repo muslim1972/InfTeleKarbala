@@ -10,6 +10,9 @@ import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
 import LeaveTypeSelector, { type LeaveType } from './LeaveTypeSelector';
 import LeaveSupportingImages from './LeaveSupportingImages';
+import { LeaveBalanceCard } from './LeaveBalanceCard';
+import { LeavePayToggle } from './LeavePayToggle';
+import { LeaveTypeInfoAlert } from './LeaveTypeInfoAlert';
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -479,6 +482,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
   };
 
   const leavesBalance = financialData?.remaining_leaves_balance;
+  const sickLeavesBalance = financialData?.sick_leaves_balance;
   const expiryDate = financialData?.leaves_balance_expiry_date;
 
   const today = new Date().toISOString().split('T')[0];
@@ -574,32 +578,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
-      {/* Compact Balance Card */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 text-white rounded-2xl shadow-lg shadow-indigo-500/20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvc3ZnPg==')] opacity-50"></div>
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <CalendarCheck size={22} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold opacity-90">رصيد الإجازات</h3>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold">
-                  {isLoading ? '...' : (leavesBalance !== undefined ? leavesBalance : '-')}
-                </span>
-                <span className="text-xs font-normal opacity-75">يوم</span>
-              </div>
-            </div>
-          </div>
-          {expiryDate && (
-            <div className="text-xs opacity-70 flex items-center gap-1 bg-white/10 px-3 py-1.5 rounded-lg">
-              <Clock size={11} />
-              لغاية: {expiryDate}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Smart Balance Card */}
+      <LeaveBalanceCard
+        leaveType={formData.leaveType}
+        regularBalance={leavesBalance}
+        sickBalance={sickLeavesBalance}
+        expiryDate={expiryDate}
+        isLoading={isLoading}
+      />
 
       {/* Form Section - Collapsible */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
@@ -653,6 +639,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
                 setError(null);
               }} 
             />
+
+            <LeaveTypeInfoAlert leaveType={formData.leaveType} />
 
             {/* Automatic Routing Info */}
             <div className={`p-4 rounded-xl border flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
@@ -725,21 +713,31 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
 
               {/* Days Count */}
               {!['duty', 'time_off', 'dispatch'].includes(formData.leaveType) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    عدد الأيام
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={formData.daysCount}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setError(null);
-                      setFormData({ ...formData, daysCount: val });
-                    }}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      عدد الأيام
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={formData.daysCount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setError(null);
+                        setFormData({ ...formData, daysCount: val });
+                      }}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    />
+                  </div>
+
+                  <LeavePayToggle
+                    leaveType={formData.leaveType}
+                    withPay={formData.withPay}
+                    onToggle={(withPay) => setFormData({ ...formData, withPay })}
+                    balance={['sick', 'long_sick'].includes(formData.leaveType) ? sickLeavesBalance : leavesBalance}
+                    daysCount={formData.daysCount}
                   />
                 </div>
               )}
