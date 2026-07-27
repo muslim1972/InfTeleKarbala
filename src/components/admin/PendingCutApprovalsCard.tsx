@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, CheckCircle, User, X, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, User, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
 import { LeaveTypeBadge } from './LeaveTypeBadge';
 
@@ -9,13 +9,17 @@ interface PendingCutApprovalsCardProps {
     isLoading: boolean;
     onRefresh: () => void;
     activeHighlightId: string | null;
+    isExpanded: boolean;
+    onToggle: () => void;
 }
 
 export function PendingCutApprovalsCard({
     records,
     isLoading,
     onRefresh,
-    activeHighlightId
+    activeHighlightId,
+    isExpanded,
+    onToggle
 }: PendingCutApprovalsCardProps) {
     const [selectedRequest, setSelectedRequest] = useState<LeaveRecord | null>(null);
     const [actualDays, setActualDays] = useState<number>(0);
@@ -66,23 +70,42 @@ export function PendingCutApprovalsCard({
     return (
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative">
             <div className="absolute top-0 right-0 w-2 h-full bg-amber-500 rounded-r-3xl"></div>
-            <div className="flex justify-between items-center mb-6 sticky top-20 z-20 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50">
-                <div>
+            <button
+                onClick={onToggle}
+                className="w-full flex justify-between items-center mb-6 sticky top-20 z-20 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50 focus:outline-none"
+            >
+                <div className="flex-1 text-right">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <CheckCircle className="text-amber-500" />
                         طلبات قطع الإجازة (بانتظار اعتماد الموارد البشرية)
+                        {records.length > 0 && (
+                            <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-bold px-2 py-0.5 rounded-full mr-2">
+                                {records.length}
+                            </span>
+                        )}
                     </h2>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1 text-right">
                         طلبات قطع تمت الموافقة عليها من قبل المسؤول المباشر وتحتاج إلى اعتمادك لإرجاع الرصيد.
                     </p>
                 </div>
-                <button
-                    onClick={onRefresh}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-bold"
-                >
-                    تحديث
-                </button>
-            </div>
+                <div className="flex items-center gap-4">
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRefresh();
+                        }}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                    >
+                        تحديث
+                    </div>
+                    <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                </div>
+            </button>
+
+            {isExpanded && (
+                <div className="animate-in slide-in-from-top-4 duration-300">
 
             {isLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-amber-500" size={28} /></div>
@@ -206,6 +229,8 @@ export function PendingCutApprovalsCard({
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
                 </div>
             )}
         </div>

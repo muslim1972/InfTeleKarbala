@@ -11,20 +11,21 @@ interface AdminLeaveArchiveProps {
     employeeId?: string;
     employeeName?: string;
     onPrint: (record: LeaveRecord) => void;
+    isExpanded: boolean;
+    onToggle: () => void;
 }
 
-export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLeaveArchiveProps) {
-    const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
+export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpanded, onToggle }: AdminLeaveArchiveProps) {
 
     useEffect(() => {
-        if (isArchiveExpanded) {
+        if (isExpanded) {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     smoothScrollToId('admin-leave-archive-header', 15);
                 });
             });
         }
-    }, [isArchiveExpanded]);
+    }, [isExpanded]);
     
     // Archive search state
     const [startDate, setStartDate] = useState('');
@@ -107,7 +108,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
                 .eq('user_id', localEmployeeId);
 
             if (startDate) query = query.gte('start_date', startDate);
-            if (endDate) query = query.lte('end_date', endDate);
+            if (endDate) query = query.lte('start_date', endDate);
             query = query.order('start_date', { ascending: false });
 
             const { data, error } = await query;
@@ -131,7 +132,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 transition-all">
             <button
                 id="admin-leave-archive-header"
-                onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
+                onClick={onToggle}
                 className="w-full flex items-center justify-between focus:outline-none"
             >
                 <div className="flex items-center gap-3">
@@ -144,11 +145,11 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint }: AdminLe
                     </div>
                 </div>
                 <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
-                    {isArchiveExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </div>
             </button>
 
-            {isArchiveExpanded && (
+            {isExpanded && (
                 <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-700 animate-in slide-in-from-top-4 duration-300">
                     <div className="mb-6">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">بحث عن موظف</label>

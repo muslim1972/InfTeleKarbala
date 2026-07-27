@@ -69,26 +69,18 @@ export function EmployeeSearch({
     // Close suggestions on outside click and scroll
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
+            // Ignore if click is inside the search portal
+            if ((e.target as Element)?.closest('.employee-search-portal')) return;
+
             if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-                setShow(prev => {
-                    if (prev) {
-                        setInternalQuery('');
-                        if (onChange) onChange('');
-                    }
-                    return false;
-                });
+                setShow(false);
             }
         };
 
         const handleScroll = (e: Event) => {
             if (searchRef.current && searchRef.current.contains(e.target as Node)) return;
-            setShow(prev => {
-                if (prev) {
-                    setInternalQuery('');
-                    if (onChange) onChange('');
-                }
-                return false;
-            });
+            if ((e.target as Element)?.closest('.employee-search-portal')) return;
+            setShow(false);
         };
 
         document.addEventListener('mousedown', handleClickOutside);
@@ -154,7 +146,7 @@ export function EmployeeSearch({
             {showSuggestions && searchRef.current && createPortal(
                 <div
                     className={cn(
-                        "fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200",
+                        "employee-search-portal fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200",
                         theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10'
                     )}
                     style={{

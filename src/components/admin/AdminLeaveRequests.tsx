@@ -50,6 +50,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
     // Internal employee search state (mirrors top search bar)
     const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
+    // Accordion state
+    const [expandedSection, setExpandedSection] = useState<'cut' | 'approved' | 'archive' | null>(null);
+
     // Approved requests state (all employees)
     const [isLoadingApproved, setIsLoadingApproved] = useState(true);
     const [approvedRecords, setApprovedRecords] = useState<LeaveRecord[]>([]);
@@ -358,6 +361,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                     fetchAllApprovedRequests();
                 }}
                 activeHighlightId={activeHighlightId}
+                isExpanded={expandedSection === 'cut'}
+                onToggle={() => setExpandedSection(prev => prev === 'cut' ? null : 'cut')}
             />
 
             {/* 2. Approved Requests — All Employees */}
@@ -367,6 +372,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 onRefresh={fetchAllApprovedRequests}
                 activeHighlightId={activeHighlightId}
                 onPrint={handlePrint}
+                isExpanded={expandedSection === 'approved'}
+                onToggle={() => setExpandedSection(prev => prev === 'approved' ? null : 'approved')}
             />
 
             {/* 3. Archive / Search Section (Collapsible) */}
@@ -374,6 +381,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 employeeId={employeeId}
                 employeeName={employeeName}
                 onPrint={handlePrint}
+                isExpanded={expandedSection === 'archive'}
+                onToggle={() => setExpandedSection(prev => prev === 'archive' ? null : 'archive')}
             />
 
             {/* Modal for PDF Generation overlay */}

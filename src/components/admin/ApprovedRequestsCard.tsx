@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { Loader2, CheckCircle, User, Printer, Archive } from 'lucide-react';
+import { Loader2, CheckCircle, User, Printer, Archive, ChevronDown, ChevronUp } from 'lucide-react';
 import type { LeaveRecord } from './AdminLeaveRequests';
 import { LeaveTypeBadge } from './LeaveTypeBadge';
 import { HRDocumentProcessingPanel } from './HRDocumentProcessingPanel';
@@ -12,6 +12,8 @@ interface ApprovedRequestsCardProps {
     onRefresh: () => void;
     activeHighlightId: string | null;
     onPrint: (record: LeaveRecord) => void;
+    isExpanded: boolean;
+    onToggle: () => void;
 }
 
 export function ApprovedRequestsCard({
@@ -19,7 +21,9 @@ export function ApprovedRequestsCard({
     isLoading,
     onRefresh,
     activeHighlightId,
-    onPrint
+    onPrint,
+    isExpanded,
+    onToggle
 }: ApprovedRequestsCardProps) {
     const { user } = useAuth();
     const [selectedRecordForHR, setSelectedRecordForHR] = useState<LeaveRecord | null>(null);
@@ -27,23 +31,42 @@ export function ApprovedRequestsCard({
     return (
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in duration-500 relative">
             <div className="absolute top-0 right-0 w-2 h-full bg-green-500 rounded-r-3xl"></div>
-            <div className="flex justify-between items-center mb-6 sticky top-20 z-20 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50">
-                <div>
+            <button
+                onClick={onToggle}
+                className="w-full flex justify-between items-center mb-6 sticky top-20 z-20 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50 focus:outline-none"
+            >
+                <div className="flex-1 text-right">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <CheckCircle className="text-green-500" />
                         طلبات الإجازة المعتمدة
+                        {records.length > 0 && (
+                            <span className="bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 text-xs font-bold px-2 py-0.5 rounded-full mr-2">
+                                {records.length}
+                            </span>
+                        )}
                     </h2>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1 text-right">
                         جميع الطلبات التي تمت الموافقة عليها بانتظار الطباعة والمعالجة
                     </p>
                 </div>
-                <button
-                    onClick={onRefresh}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-bold"
-                >
-                    تحديث
-                </button>
-            </div>
+                <div className="flex items-center gap-4">
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRefresh();
+                        }}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                    >
+                        تحديث
+                    </div>
+                    <div className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300">
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                </div>
+            </button>
+
+            {isExpanded && (
+                <div className="animate-in slide-in-from-top-4 duration-300">
 
             {isLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-green-500" size={28} /></div>
@@ -155,6 +178,8 @@ export function ApprovedRequestsCard({
                     }}
                     currentUser={user ? { id: user.id, full_name: user.full_name || 'موظف HR' } : null}
                 />
+            )}
+                </div>
             )}
         </div>
     );
