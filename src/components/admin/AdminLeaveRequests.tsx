@@ -4,6 +4,7 @@ import { generateLeavePDF } from '../../utils/pdfGenerator';
 import { LeavePrintTemplate } from './LeavePrintTemplate';
 import { PendingCutApprovalsCard } from './PendingCutApprovalsCard';
 import { ApprovedRequestsCard } from './ApprovedRequestsCard';
+import { CanceledRequestsCard } from './CanceledRequestsCard';
 import { AdminLeaveArchive } from './AdminLeaveArchive';
 import { smoothScrollToId } from '../../hooks/useSmoothScroll';
 
@@ -61,6 +62,10 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
     const [isLoadingCutApprovals, setIsLoadingCutApprovals] = useState(true);
     const [cutApprovalRecords, setCutApprovalRecords] = useState<LeaveRecord[]>([]);
 
+    // Canceled requests state
+    const [isLoadingCanceled, setIsLoadingCanceled] = useState(true);
+    const [canceledRecords, setCanceledRecords] = useState<LeaveRecord[]>([]);
+
     // Print state
     // @ts-ignore
     const [printingRecord, setPrintingRecord] = useState<LeaveRecord | null>(null);
@@ -71,6 +76,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
     useEffect(() => {
         fetchAllApprovedRequests();
         fetchPendingCutApprovals();
+        fetchCanceledRequests();
     }, []);
 
 
@@ -80,6 +86,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         if (highlightRequestId) {
             fetchAllApprovedRequests();
             fetchPendingCutApprovals();
+            fetchCanceledRequests();
         }
     }, [highlightRequestId]);
 
@@ -104,7 +111,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             if (timeoutId) clearTimeout(timeoutId);
             if (clearId) clearTimeout(clearId);
         };
-    }, [highlightRequestId, isLoadingApproved, isLoadingCutApprovals, approvedRecords, cutApprovalRecords]);
+    }, [highlightRequestId, isLoadingApproved, isLoadingCutApprovals, isLoadingCanceled, approvedRecords, cutApprovalRecords, canceledRecords]);
 
 
 
@@ -178,6 +185,62 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             console.error("Error fetching approved requests", err);
         } finally {
             setIsLoadingApproved(false);
+        }
+    };
+
+    const fetchCanceledRequests = async () => {
+        setIsLoadingCanceled(true);
+        try {
+            const { data } = await supabase
+                .from('leave_requests')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes')
+                .eq('cancellation_status', 'approved')
+                .eq('is_archived', false) // Only fetch unarchived
+                .order('created_at', { ascending: false });
+
+            if (data && data.length > 0) {
+                const userIds = [...new Set(data.map(r => r.user_id).filter(Boolean))];
+                const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
+                const allIds = [...new Set([...userIds, ...supervisorIds])];
+
+                let profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
+                let deptMap: Record<string, string> = {};
+
+                if (allIds.length > 0) {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, job_number, department_id')
+                        .in('id', allIds);
+
+                    if (profiles) {
+                        profiles.forEach(p => { profileMap[p.id] = p; });
+                        const deptIds = [...new Set(profiles.map(p => p.department_id).filter(Boolean))];
+                        if (deptIds.length > 0) {
+                            const { data: depts } = await supabase.rpc('get_departments_bypass_rls').select('id, name').in('id', deptIds);
+                            if (depts) (depts as any[]).forEach((d: any) => { deptMap[d.id] = d.name; });
+                        }
+                    }
+                }
+
+                const formatted = data.map(item => ({
+                    ...item,
+                    employee_name: profileMap[item.user_id]?.full_name || 'غير معروف',
+                    employee_job_number: profileMap[item.user_id]?.job_number || '',
+                    employee_job_title: profileMap[item.user_id]?.job_title || '',
+                    employee_department: deptMap[profileMap[item.user_id]?.department_id || ''] || 'غير محدد',
+                    supervisor: profileMap[item.supervisor_id] ? {
+                        full_name: profileMap[item.supervisor_id].full_name,
+                        job_title: profileMap[item.supervisor_id].job_title
+                    } : null
+                }));
+                setCanceledRecords(formatted);
+            } else {
+                setCanceledRecords([]);
+            }
+        } catch (e) {
+            console.error('Error fetching canceled requests:', e);
+        } finally {
+            setIsLoadingCanceled(false);
         }
     };
 
@@ -376,7 +439,17 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 onToggle={() => setExpandedSection(prev => prev === 'approved' ? null : 'approved')}
             />
 
-            {/* 3. Archive / Search Section (Collapsible) */}
+            {/* 3. Canceled Requests */}
+            <CanceledRequestsCard
+                records={canceledRecords}
+                isLoading={isLoadingCanceled}
+                onRefresh={fetchCanceledRequests}
+                activeHighlightId={activeHighlightId}
+                isExpanded={expandedSection === 'canceled'}
+                onToggle={() => setExpandedSection(prev => prev === 'canceled' ? null : 'canceled')}
+            />
+
+            {/* 4. Archive / Search Section (Collapsible) */}
             <AdminLeaveArchive
                 employeeId={employeeId}
                 employeeName={employeeName}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, AlertCircle, Scissors } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { DateInput } from '../../../components/ui/DateInput';
+import { sendPushNotification } from '../../../services/notifications';
 
 interface EditLeaveRequestFormProps {
     request: any;
@@ -96,12 +97,34 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
 
             if (rpcError) throw rpcError;
 
-            // إعادة توجيه طلب الإلغاء للمدير الأول في السلسلة
-            if (type === 'canceled' && request.approval_chain && request.approval_chain.length > 0) {
-                await supabase.from('leave_requests').update({
-                    current_approval_step: 1,
-                    supervisor_id: request.approval_chain[0]
-                }).eq('id', request.id);
+            // إعادة توجيه طلب الإلغاء للمدير الأول في السلسلة وإشعار HR
+            if (type === 'canceled') {
+                if (request.approval_chain && request.approval_chain.length > 0) {
+                    await supabase.from('leave_requests').update({
+                        current_approval_step: 1,
+                        supervisor_id: request.approval_chain[0]
+                    }).eq('id', request.id);
+                }
+                
+                // إشعار قسم الـ HR بطلب الإلغاء
+                try {
+                    const { data: admins } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .or('role.eq.admin,admin_role.eq.hr_supervisor');
+
+                    if (admins && admins.length > 0) {
+                        const hrMessage = request.status === 'pending'
+                            ? `قام الموظف بإلغاء طلب إجازته الذي كان قيد الانتظار.`
+                            : `طلب الموظف إلغاء إجازته المعتمدة (بانتظار موافقة المسؤول).`;
+                        
+                        for (const admin of admins) {
+                            await sendPushNotification(admin.id, hrMessage, { title: "إلغاء إجازة", url: `${window.location.origin}/requests` });
+                        }
+                    }
+                } catch (hrError) {
+                    console.error('Failed to notify HR about cancellation:', hrError);
+                }
             }
 
             const response = data as any;

@@ -389,7 +389,7 @@ export const AppNotifications = () => {
                                                     {req.profiles?.full_name || 'موظف'}
                                                 </h5>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                                    {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? 'طالب بإلغاء إجازته' :
+                                                    {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? `طالب بإلغاء إجازته (${req.leave_type === 'long_regular' ? 'اعتيادية طويلة' : req.leave_type === 'long_sick' ? 'مرضية طويلة' : req.leave_type === 'regular' ? 'اعتيادية' : req.leave_type === 'sick' ? 'مرضية' : 'أخرى'})` :
                                                         req.cut_status === 'pending' || req.modification_type === 'cut' ? 
                                                         (() => {
                                                             let actual = 0;

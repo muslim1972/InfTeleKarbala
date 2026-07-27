@@ -97,7 +97,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess }) => {
         .in('status', ['approved', 'canceled']);
 
       if (archiveStartDate) query = query.gte('start_date', archiveStartDate);
-      if (archiveEndDate) query = query.lte('end_date', archiveEndDate);
+      if (archiveEndDate) query = query.lte('start_date', archiveEndDate);
       query = query.order('start_date', { ascending: false });
 
       const { data, error } = await query;
