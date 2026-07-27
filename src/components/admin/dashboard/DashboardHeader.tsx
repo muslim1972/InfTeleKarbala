@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
+import { EmployeeSearch } from "../../shared/EmployeeSearch";
 
 interface DashboardHeaderProps {
     activeTab: string;
@@ -144,68 +145,21 @@ export const DashboardHeader = ({
                     {/* Search Button & Input */}
                     <div className="flex items-center gap-2 relative overflow-visible" ref={searchRef}>
                         {searchExpanded && (
-                            <div className="relative animate-in slide-in-from-right-5 fade-in duration-300 overflow-visible">
-                                <input
-                                    type="text"
-                                    placeholder="الرقم الوظيفي أو الاسم"
-                                    value={searchJobNumber}
-                                    onChange={e => setSearchJobNumber(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                    onFocus={() => {
-                                        if (suggestions.length > 0) setShowSuggestions(true);
+                            <div className="relative animate-in slide-in-from-right-5 fade-in duration-300 overflow-visible w-48 md:w-64">
+                                <EmployeeSearch
+                                    onSelect={(sug) => {
+                                        handleSelectSuggestion(sug);
+                                        setSearchJobNumber(sug.full_name);
+                                        setShowSuggestions(false);
                                     }}
-                                    autoFocus
-                                    className={`w-40 md:w-64 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 transition-all ${theme === 'light'
+                                    placeholder="الرقم الوظيفي أو الاسم..."
+                                    value={searchJobNumber}
+                                    onChange={setSearchJobNumber}
+                                    inputClassName={`w-full border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 transition-all ${theme === 'light'
                                         ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
                                         : 'bg-white/10 border-white/10 text-white placeholder:text-white/40'
-                                        }`}
+                                    }`}
                                 />
-                                {searchJobNumber && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearchJobNumber("")}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                )}
-                                
-                                {/* Suggestions Dropdown */}
-                                {showSuggestions && suggestions.length > 0 && createPortal(
-                                    <div 
-                                        className={`fixed z-[9999] mt-2 w-64 md:w-80 rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 ${
-                                            theme === 'light' 
-                                            ? 'bg-white/95 border-gray-100' 
-                                            : 'bg-slate-900/95 border-white/5'
-                                        }`}
-                                        style={{
-                                            top: searchRef.current?.getBoundingClientRect().bottom ?? 0,
-                                            left: searchRef.current?.getBoundingClientRect().left ?? 0
-                                        }}
-                                    >
-                                        <div className="max-h-[300px] overflow-y-auto scrollbar-hide py-2">
-                                            {suggestions.map((sug) => (
-                                                <button
-                                                    key={sug.id}
-                                                    onMouseDown={() => {
-                                                        handleSelectSuggestion(sug);
-                                                        setSearchJobNumber(sug.full_name);
-                                                        setShowSuggestions(false);
-                                                    }}
-                                                    className={`w-full text-right px-4 py-3 flex items-center justify-between transition-colors ${
-                                                        theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-white/5'
-                                                    }`}
-                                                >
-                                                    <div>
-                                                        <div className={`font-bold text-sm ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>{sug.full_name}</div>
-                                                        <div className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-white/40'}`}>{sug.job_number}</div>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>,
-                                    document.body
-                                )}
                             </div>
                         )}
 
