@@ -1,46 +1,9 @@
-/**
- * TimeOffRequestForm.tsx
- * Dedicated form for "إجازة زمنية" (time-off) requests.
- * Extracted from LeaveRequestForm to follow single-responsibility principle.
- *
- * Rules applied:
- *  - rerender-functional-setstate  : functional setState for stable callbacks
- *  - bundle-conditional            : heavy validators only run on submit
- *  - js-early-exit                 : guard clauses throughout
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, MapPin, FileText } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
-
-// Duration options ── hoisted outside component (rendering-hoist-jsx)
-const DURATION_OPTIONS = [
-  { value: 30,  label: 'نصف ساعة' },
-  { value: 60,  label: 'ساعة واحدة' },
-  { value: 90,  label: 'ساعة ونصف' },
-  { value: 120, label: 'ساعتان' },
-] as const;
-
-// End of work day: 15:00 (3:00 PM) = 900 minutes from midnight
-const WORK_END_MINUTES = 15 * 60; // 900
-
-// ── Helper: compute return time string ─────────────────────────────────────────
-function calcReturnTime(startTime: string, durationMinutes: number): string {
-  if (!startTime) return '';
-  const [h, m] = startTime.split(':').map(Number);
-  const total = h * 60 + m + durationMinutes;
-  const rh = Math.floor(total / 60) % 24;
-  const rm = total % 60;
-  return `${String(rh).padStart(2, '0')}:${String(rm).padStart(2, '0')}`;
-}
-
-// ── Helper: is Friday or Saturday? ────────────────────────────────────────────
-function isWeekend(dateStr: string): boolean {
-  const day = new Date(dateStr).getDay(); // 5=Fri, 6=Sat
-  return day === 5 || day === 6;
-}
+import { DateInput } from '../../../components/ui/DateInput';
 
 interface Props {
   onSuccess?: () => void;
@@ -53,29 +16,21 @@ interface ManagerInfo {
   isTopManagerSelf?: boolean;
 }
 
-const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
+const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
   // ── Form state ──────────────────────────────────────────────────────────────
-  const [startTime, setStartTime] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  // reason field removed per request
-
-  // ── Derived ─────────────────────────────────────────────────────────────────
-  const returnTime = calcReturnTime(startTime, durationMinutes);
-
-  // Determine if employee needs to return or it covers until end of day
-  const returnStatus: { needsReturn: boolean; message: string } = (() => {
-    if (!startTime || !returnTime) return { needsReturn: false, message: '' };
-    const [rh, rm] = returnTime.split(':').map(Number);
-    const returnTotalMinutes = rh * 60 + rm;
-    if (returnTotalMinutes >= WORK_END_MINUTES) {
-      return { needsReturn: false, message: 'إلى نهاية الدوام، لا تحتاج للعودة' };
-    }
-    return { needsReturn: true, message: `تحتاج للعودة عند ${returnTime}` };
-  })();
+  const [dutyExecutionDate, setDutyExecutionDate] = useState<string>(todayStr);
+  const [dutyType, setDutyType] = useState<string>('');
+  const [destination, setDestination] = useState<string>('');
+  const [departureTime, setDepartureTime] = useState<string>('');
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +101,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           setApprovalChain([user.id]);
         }
       } catch (e) {
-        console.error('TimeOffRequestForm: fetchManager error', e);
+        console.error('DutyRequestForm: fetchManager error', e);
       } finally {
         if (!cancelled) setLoadingManager(false);
       }
@@ -158,21 +113,49 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {
-    if (!startTime) {
-      setError('يرجى تحديد ساعة البداية (الخروج).');
+    if (dutyExecutionDate !== todayStr && dutyExecutionDate !== tomorrowStr) {
+      setError('تاريخ التنفيذ يجب أن يكون اليوم أو غداً فقط.');
       return false;
     }
-    if (isWeekend(todayStr)) {
-      setError('لا يمكن تقديم إجازة زمنية في أيام العطلة الرسمية (الجمعة والسبت).');
+    if (!dutyType.trim()) {
+      setError('يرجى إدخال نوع الواجب.');
       return false;
     }
+    if (!destination.trim()) {
+      setError('يرجى إدخال موقع الواجب.');
+      return false;
+    }
+    if (!departureTime) {
+      setError('يرجى تحديد وقت المغادرة.');
+      return false;
+    }
+
+    const [h, m] = departureTime.split(':').map(Number);
+    const timeInMinutes = h * 60 + m;
+    const maxTime = 14 * 60; // 14:00
+
+    if (timeInMinutes > maxTime) {
+      setError('وقت المغادرة يجب أن لا يتجاوز الساعة 14:00 (الثانية ظهراً).');
+      return false;
+    }
+
+    if (dutyExecutionDate === todayStr) {
+      const now = new Date();
+      const currentInMinutes = now.getHours() * 60 + now.getMinutes();
+      if (timeInMinutes < currentInMinutes) {
+        setError('وقت المغادرة لا يمكن أن يكون بالماضي.');
+        return false;
+      }
+    }
+
     if (!supervisorId) {
       setError('لم يتم تحديد مسؤولك المباشر في الهيكلية. راجع الإدارة.');
       return false;
     }
+
     setError(null);
     return true;
-  }, [startTime, supervisorId, todayStr]);
+  }, [dutyExecutionDate, dutyType, destination, departureTime, todayStr, tomorrowStr, supervisorId]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,18 +170,18 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     setShowConfirm(false);
 
     try {
-      const finalReason = `(ساعة الخروج: ${startTime} | المدة: ${durationMinutes} دقيقة | العودة: ${returnTime})`;
+      const finalReason = `(نوع الواجب: ${dutyType.trim()} | وقت المغادرة: ${departureTime} | تاريخ التنفيذ: ${dutyExecutionDate})`;
 
       const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
-        p_leave_type: 'time_off',
-        p_start_date: todayStr,
-        p_end_date: todayStr,
+        p_leave_type: 'duty',
+        p_start_date: dutyExecutionDate,
+        p_end_date: dutyExecutionDate,
         p_days_count: 1,
         p_reason: finalReason,
         p_supervisor_id: supervisorId,
         p_approval_chain: approvalChain,
-        p_time_duration_minutes: durationMinutes,
-        p_destination: null,
+        p_time_duration_minutes: null,
+        p_destination: destination.trim(),
         p_with_pay: true,
         p_supporting_image_urls: [],
       });
@@ -221,8 +204,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         if (supProfile?.push_token) {
           await sendPushNotification(
             supProfile.push_token,
-            'طلب إجازة زمنية جديد',
-            `${user.full_name || 'موظف'} يطلب إجازة زمنية (${durationMinutes} دقيقة) من ${startTime}`
+            'طلب واجب جديد',
+            `${user.full_name || 'موظف'} يطلب الخروج بواجب (${destination})`
           );
         }
       } catch { /* push notification is non-critical */ }
@@ -238,18 +221,24 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Success screen ────────────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-8 text-center">
-        <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
+      <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-2xl p-8 text-center">
+        <div className="w-16 h-16 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle size={32} className="text-purple-600 dark:text-purple-400" />
         </div>
-        <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم إرسال الطلب بنجاح</h3>
-        <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
-          تم إرسال طلب الإجازة الزمنية إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
+        <h3 className="text-lg font-bold text-purple-800 dark:text-purple-300 mb-2">تم إرسال الطلب بنجاح</h3>
+        <p className="text-purple-600 dark:text-purple-400 mb-6 text-sm">
+          تم إرسال طلب الواجب إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
         </p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { setSuccess(false); setStartTime(''); setDurationMinutes(60); }}
-            className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20 text-sm font-bold"
+            onClick={() => {
+              setSuccess(false);
+              setDutyExecutionDate(todayStr);
+              setDutyType('');
+              setDestination('');
+              setDepartureTime('');
+            }}
+            className="bg-purple-600 text-white px-6 py-2 rounded-xl hover:bg-purple-700 transition shadow-lg shadow-purple-500/20 text-sm font-bold"
           >
             تقديم طلب جديد
           </button>
@@ -270,12 +259,12 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       <form onSubmit={handleSubmit} className="space-y-5" dir="rtl">
 
         {/* Info banner */}
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl flex gap-3 items-start">
-          <span className="text-2xl shrink-0">⏱️</span>
+        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 rounded-xl flex gap-3 items-start">
+          <span className="text-2xl shrink-0">🛡️</span>
           <div>
-            <p className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-0.5">إجازة زمنية</p>
-            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-              من 30 دقيقة إلى ساعتين. تُحتسب تراكمياً وكل 7 ساعات تُخصم يوم إجازة من رصيدك.
+            <p className="font-bold text-purple-800 dark:text-purple-300 text-sm mb-0.5">طلب واجب</p>
+            <p className="text-xs text-purple-700 dark:text-purple-400 leading-relaxed">
+              يُستخدم لتسجيل خروجك بمهام رسمية. لا يتم خصمه من رصيد الإجازات.
             </p>
           </div>
         </div>
@@ -315,58 +304,92 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           <Network size={36} className={`shrink-0 ${managerInfo ? 'text-blue-200 dark:text-blue-800' : 'text-red-200 dark:text-red-800/50'}`} />
         </div>
 
-        {/* Start time */}
-        <div>
-          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-            <Clock size={14} className="inline ml-1" />
-            ساعة البداية (الخروج)
-          </label>
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => { setStartTime(e.target.value); setError(null); }}
-            required
-            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
-          />
-        </div>
-
-        {/* Duration */}
-        <div>
-          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-            المدة الزمنية
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {DURATION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setDurationMinutes(opt.value)}
-                className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
-                  durationMinutes === opt.value
-                    ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/25'
-                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-amber-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        {/* Duty paper number & date (Disabled) */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              رقم ورقة الواجب
+            </label>
+            <input
+              type="text"
+              value="يُحدد لاحقاً"
+              disabled
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800/50 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-xl text-gray-500 dark:text-gray-400 cursor-not-allowed text-center text-sm font-medium"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              تاريخ ورقة الواجب
+            </label>
+            <input
+              type="text"
+              value="يُحدد لاحقاً"
+              disabled
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800/50 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-xl text-gray-500 dark:text-gray-400 cursor-not-allowed text-center text-sm font-medium"
+            />
           </div>
         </div>
 
-        {/* Expected return */}
-        <div className={`flex items-center justify-between p-4 rounded-xl border ${
-          returnStatus.needsReturn
-            ? 'bg-amber-50 dark:bg-slate-700/50 border-amber-100 dark:border-slate-600'
-            : startTime ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40' : 'bg-gray-50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600'
-        }`}>
-          <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">ساعة العودة المتوقعة:</span>
-          <span className={`font-bold text-sm ${
-            returnStatus.needsReturn
-              ? 'text-amber-700 dark:text-amber-300'
-              : startTime ? 'text-green-700 dark:text-green-300' : 'text-gray-400'
-          }`}>
-            {returnStatus.message || '—'}
-          </span>
+        {/* Execution Date */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            تاريخ تنفيذ الواجب
+          </label>
+          <DateInput
+            value={dutyExecutionDate}
+            onChange={(val) => { setDutyExecutionDate(val); setError(null); }}
+            min={todayStr}
+            required
+            className="w-full"
+          />
+          <p className="text-xs text-gray-500 mt-1">يجب أن يكون اليوم أو غداً فقط.</p>
+        </div>
+
+        {/* Duty Type */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            <FileText size={14} className="inline ml-1" />
+            نوع الواجب
+          </label>
+          <input
+            type="text"
+            value={dutyType}
+            onChange={(e) => { setDutyType(e.target.value); setError(null); }}
+            required
+            placeholder="مثال: مراجعة دائرة البريد، اجتماع..."
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-base"
+          />
+        </div>
+
+        {/* Destination */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            <MapPin size={14} className="inline ml-1" />
+            موقع الواجب
+          </label>
+          <input
+            type="text"
+            value={destination}
+            onChange={(e) => { setDestination(e.target.value); setError(null); }}
+            required
+            placeholder="اسم الدائرة أو المكان المقصود"
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-base"
+          />
+        </div>
+
+        {/* Departure Time */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            <Clock size={14} className="inline ml-1" />
+            وقت المغادرة
+          </label>
+          <input
+            type="time"
+            value={departureTime}
+            onChange={(e) => { setDepartureTime(e.target.value); setError(null); }}
+            required
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
+          />
         </div>
 
         {/* Error */}
@@ -381,7 +404,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={isSubmitting || loadingManager}
-          className="w-full bg-gradient-to-l from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-base"
+          className="w-full bg-gradient-to-l from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-base"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> جاري الإرسال...</span>
@@ -397,19 +420,19 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>نوع الطلب</span>
-                <span className="font-bold text-amber-600">إجازة زمنية</span>
+                <span className="font-bold text-purple-600">طلب واجب</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>ساعة الخروج</span>
-                <span className="font-bold dir-ltr">{startTime}</span>
+                <span>تاريخ التنفيذ</span>
+                <span className="font-bold">{dutyExecutionDate}</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>المدة</span>
-                <span className="font-bold">{DURATION_OPTIONS.find(o => o.value === durationMinutes)?.label}</span>
+                <span>نوع الواجب</span>
+                <span className="font-bold truncate max-w-[150px]">{dutyType}</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>العودة المتوقعة</span>
-                <span className="font-bold dir-ltr">{returnTime}</span>
+                <span>وقت المغادرة</span>
+                <span className="font-bold dir-ltr">{departureTime}</span>
               </div>
             </div>
             <div className="flex gap-3">
@@ -421,7 +444,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
               </button>
               <button
                 onClick={confirmSubmit}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md shadow-amber-500/25 transition"
+                className="flex-1 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm shadow-md shadow-purple-500/25 transition"
               >
                 تأكيد الإرسال
               </button>
@@ -433,4 +456,4 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   );
 };
 
-export default TimeOffRequestForm;
+export default DutyRequestForm;
