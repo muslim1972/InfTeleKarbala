@@ -612,7 +612,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                             {rootNodes.map(node => renderNode(node, departments))}
                         </div>
                     ) : (
-                        <div className={`p-8 text-center \${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                        <div className={`p-8 text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
                             لا توجد أي أقسام أو شعب مضافة حتى الآن.
                         </div>
                     )}
@@ -622,11 +622,11 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
             {/* Form Section (Sidebar) */}
             <div className={`lg:col-span-1 lg:sticky lg:top-6 p-6 rounded-2xl border shadow-sm backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
                 <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center \${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
                         <Network className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className={`font-bold text-lg \${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                        <h2 className={`font-bold text-lg ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                             {isEditing ? 'تعديل التشكيل الإداري' : 'إضافة تشكيل جديد'}
                         </h2>
                     </div>
@@ -634,22 +634,22 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
                 <div className="grid grid-cols-1 gap-4 mb-4">
                     <div className="space-y-1.5">
-                        <label className={`text-sm font-semibold \${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>اسم التشكيل</label>
+                        <label className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>اسم التشكيل</label>
                         <input
                             type="text"
                             value={currentDept.name}
                             onChange={(e) => setCurrentDept({ ...currentDept, name: e.target.value })}
                             placeholder="مثال: قسم الشبكات"
-                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 \${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
+                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
                         />
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className={`text-sm font-semibold \${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المستوى الإداري</label>
+                        <label className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المستوى الإداري</label>
                         <select
                             value={currentDept.level}
                             onChange={(e) => setCurrentDept({ ...currentDept, level: parseInt(e.target.value) })}
-                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 \${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
+                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
                         >
                             <option value={1}>مستوى 1 (المدير)</option>
                             <option value={2}>مستوى 2 (المعاون)</option>
@@ -660,11 +660,11 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className={`text-sm font-semibold \${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المرجع الأعلى (الارتباط)</label>
+                        <label className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المرجع الأعلى (الارتباط)</label>
                         <select
                             value={currentDept.parent_id || ""}
                             onChange={(e) => setCurrentDept({ ...currentDept, parent_id: e.target.value || null })}
-                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 \${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
+                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
                         >
                             <option value="">-- كجهة رئيسية عليا --</option>
                             {departments.filter(d => d.id !== currentDept.id).map(d => (
@@ -674,11 +674,11 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className={`text-sm font-semibold \${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المسؤول (المدير/مسؤول الشعبة)</label>
+                        <label className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>المسؤول (المدير/مسؤول الشعبة)</label>
                         <select
                             value={currentDept.manager_id || ""}
                             onChange={(e) => setCurrentDept({ ...currentDept, manager_id: e.target.value || null })}
-                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 \${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
+                            className={`w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900 focus:ring-brand-green/50' : 'bg-slate-800 border-white/10 text-white focus:ring-brand-green/50'}`}
                         >
                             <option value="">-- بدون مسؤول حالياً --</option>
                             {users.map(u => (
@@ -700,7 +700,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                     {isEditing && (
                         <button
                             onClick={cancelEdit}
-                            className={`w-full py-2.5 rounded-lg font-bold transition-colors \${theme === 'light' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            className={`w-full py-2.5 rounded-lg font-bold transition-colors ${theme === 'light' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                             إلغاء التعديل
                         </button>
