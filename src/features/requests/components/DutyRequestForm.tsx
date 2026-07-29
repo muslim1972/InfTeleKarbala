@@ -19,12 +19,14 @@ interface ManagerInfo {
 const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
 
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const { todayStr, tomorrowStr } = React.useMemo(() => {
+    const today = new Date();
+    const tStr = today.toISOString().split('T')[0];
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tmrStr = tomorrow.toISOString().split('T')[0];
+    return { todayStr: tStr, tomorrowStr: tmrStr };
+  }, []);
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const [dutyExecutionDate, setDutyExecutionDate] = useState<string>(todayStr);
@@ -109,7 +111,7 @@ const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     fetchManager();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user?.id]);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {

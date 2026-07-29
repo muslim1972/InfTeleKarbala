@@ -65,8 +65,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const returnTime = calcReturnTime(startTime, durationMinutes);
 
   // Determine if employee needs to return or it covers until end of day
-  const returnStatus: { needsReturn: boolean; message: string; adjustedReturnTime?: string } = (() => {
-    if (!startTime || !returnTime) return { needsReturn: false, message: '' };
+  const returnStatus: { needsReturn: boolean; message: string; adjustedReturnTime?: string; effectiveDuration: number } = (() => {
+    if (!startTime || !returnTime) return { needsReturn: false, message: '', effectiveDuration: durationMinutes };
     const [h, m] = startTime.split(':').map(Number);
     let startTotalMinutes = h * 60 + m;
     
@@ -90,10 +90,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       
       return { 
         needsReturn: false, 
-        message: `تم تعديل الوقت إلى (${diffText}) وأنك لا تحتاج للعودة` 
+        message: `تم تعديل الوقت إلى (${diffText}) وأنك لا تحتاج للعودة`,
+        effectiveDuration: diffMinutes
       };
     }
-    return { needsReturn: true, message: `ساعة العودة المتوقعة: ${returnTime}` };
+    return { needsReturn: true, message: `ساعة العودة المتوقعة: ${returnTime}`, effectiveDuration: durationMinutes };
   })();
 
   // ── UI state ─────────────────────────────────────────────────────────────────
@@ -246,7 +247,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     setShowConfirm(false);
 
     try {
-      const finalReason = `(ساعة الخروج: ${startTime} | المدة: ${durationMinutes} دقيقة | العودة: ${returnTime})`;
+      const actualDuration = returnStatus.effectiveDuration;
+      const finalReason = `(ساعة الخروج: ${startTime} | المدة: ${actualDuration} دقيقة | العودة: ${returnStatus.needsReturn ? returnTime : 'نهاية الدوام'})`;
 
       const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
         p_leave_type: 'time_off',
@@ -256,7 +258,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         p_reason: finalReason,
         p_supervisor_id: supervisorId,
         p_approval_chain: approvalChain,
-        p_time_duration_minutes: durationMinutes,
+        p_time_duration_minutes: actualDuration,
         p_destination: null,
         p_with_pay: true,
         p_supporting_image_urls: [],
@@ -401,7 +403,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 type="button"
                 onClick={() => setDurationMinutes(opt.value)}
                 className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
-                  durationMinutes === opt.value
+                  returnStatus.effectiveDuration === opt.value
                     ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/25'
                     : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-amber-300'
                 }`}

@@ -17,6 +17,12 @@ const getLeaveTypeName = (type: string) => {
     }
 };
 
+const HOLIDAYS = [
+  { m: 1, d: 1 }, { m: 1, d: 6 },
+  { m: 3, d: 16 }, { m: 3, d: 21 },
+  { m: 5, d: 1 }
+];
+
 interface EditLeaveRequestFormProps {
     request: any;
     onSuccess: () => void;
@@ -50,12 +56,6 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
             end.setDate(start.getDate() + formData.daysCount);
             
             // Auto-adjust: skip Fridays and holidays (Saturday remains as-is for rejection)
-            const holidays = [
-              { m: 1, d: 1 }, { m: 1, d: 6 },
-              { m: 3, d: 16 }, { m: 3, d: 21 },
-              { m: 5, d: 1 }
-            ];
-
             let adjusted = true;
             while (adjusted) {
               adjusted = false;
@@ -68,8 +68,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                 end.setDate(end.getDate() + 1);
                 adjusted = true;
               } 
-              // If it's a holiday, advance one day and check again
-              else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
+              else if (HOLIDAYS.some(h => h.m === month && h.d === dayOfMonth)) {
                 end.setDate(end.getDate() + 1);
                 adjusted = true;
               }
@@ -184,7 +183,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ البداية الجديد</label>
                             <DateInput
                                 value={formData.startDate}
-                                onChange={(val) => setFormData({ ...formData, startDate: val })}
+                                onChange={(val) => setFormData(prev => ({ ...prev, startDate: val }))}
                                 className="w-full bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-xl py-3"
                             />
                         </div>
@@ -194,7 +193,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                                 type="number"
                                 min="1"
                                 value={formData.daysCount}
-                                onChange={(e) => setFormData({ ...formData, daysCount: parseInt(e.target.value) || 0 })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, daysCount: parseInt(e.target.value) || 0 }))}
                                 className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl outline-none"
                             />
                         </div>

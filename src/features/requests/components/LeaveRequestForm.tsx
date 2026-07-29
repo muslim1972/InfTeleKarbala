@@ -27,6 +27,30 @@ const getLeaveTypeName = (type: string) => {
   }
 };
 
+const HOLIDAYS = [
+  { m: 1, d: 1, name: 'رأس السنة الميلادية' },
+  { m: 1, d: 6, name: 'عيد الجيش العراقي' },
+  { m: 3, d: 16, name: 'ذكرى قصف حلبجة' },
+  { m: 3, d: 21, name: 'عيد نوروز' },
+  { m: 5, d: 1, name: 'عيد العمال العالمي' }
+];
+
+const isProhibitedDay = (dateStr: string) => {
+  if (!dateStr) return { prohibited: false };
+  const date = new Date(dateStr);
+  const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
+  const month = date.getMonth() + 1; // 1-indexed
+  const dayOfMonth = date.getDate();
+
+  // Weekends: Friday (5) and Saturday (6)
+  if (day === 5 || day === 6) return { prohibited: true, reason: 'يصادف يوم جمعة أو سبت' };
+
+  const holiday = HOLIDAYS.find(h => h.m === month && h.d === dayOfMonth);
+  if (holiday) return { prohibited: true, reason: holiday.name };
+
+  return { prohibited: false };
+};
+
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
   initialLeaveType?: LeaveType;
@@ -171,7 +195,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   useEffect(() => {
     fetchLatestRequest();
-  }, [user, success]); // refetch on success
+  }, [user?.id, success]); // refetch on success
 
   // Realtime subscription for latest request and balance
   useEffect(() => {
@@ -197,7 +221,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, invalidateCache]);
+  }, [user?.id, invalidateCache]);
 
   // Auto-calculate Supervisor based on hierarchy
   useEffect(() => {
@@ -273,7 +297,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     };
 
     fetchManager();
-  }, [user]);
+  }, [user?.id]);
 
   // Calculate expected return date automatically (with auto-adjustment)
   useEffect(() => {
@@ -308,12 +332,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         const end = new Date(start);
         end.setDate(start.getDate() + formData.daysCount);
 
-        const holidays = [
-          { m: 1, d: 1 }, { m: 1, d: 6 },
-          { m: 3, d: 16 }, { m: 3, d: 21 },
-          { m: 5, d: 1 }
-        ];
-
         let adjusted = true;
         while (adjusted) {
           adjusted = false;
@@ -325,7 +343,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
             end.setDate(end.getDate() + 1);
             adjusted = true;
           } 
-          else if (holidays.some(h => h.m === month && h.d === dayOfMonth)) {
+          else if (HOLIDAYS.some(h => h.m === month && h.d === dayOfMonth)) {
             end.setDate(end.getDate() + 1);
             adjusted = true;
           }
@@ -376,31 +394,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       setError('يرجى إدخال الجهة أو المكان.');
       return;
     }
-
-    // Prohibited days validation (Weekends and Holidays)
-    const isProhibitedDay = (dateStr: string) => {
-      const date = new Date(dateStr);
-      const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
-      const month = date.getMonth() + 1; // 1-indexed
-      const dayOfMonth = date.getDate();
-
-      // Weekends: Friday (5) and Saturday (6)
-      if (day === 5 || day === 6) return { prohibited: true, reason: 'يصادف يوم جمعة أو سبت' };
-
-      // Iraqi Holidays
-      const holidays = [
-        { m: 1, d: 1, name: 'رأس السنة الميلادية' },
-        { m: 1, d: 6, name: 'عيد الجيش العراقي' },
-        { m: 3, d: 16, name: 'ذكرى قصف حلبجة' },
-        { m: 3, d: 21, name: 'عيد نوروز' },
-        { m: 5, d: 1, name: 'عيد العمال العالمي' }
-      ];
-
-      const holiday = holidays.find(h => h.m === month && h.d === dayOfMonth);
-      if (holiday) return { prohibited: true, reason: holiday.name };
-
-      return { prohibited: false };
-    };
 
     const startCheck = isProhibitedDay(formData.startDate);
     if (startCheck.prohibited) {
