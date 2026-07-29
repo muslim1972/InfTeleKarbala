@@ -13,7 +13,7 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
       .from('profiles')
       .select('id')
       .eq('role', 'admin')
-      .in('admin_role', ['developer', 'general']);
+      .in('admin_role', ['developer', 'general', 'biometric']);
       
     if (admins && admins.length > 0) {
       const notifications = admins.map(admin => ({
@@ -312,12 +312,24 @@ export const attendanceRecordService = {
 
     if (!profile?.primary_device_id && deviceId) {
       await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
+      // Also notify admins when a new device is registered for the first time
+      await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
     } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
       isDevicePending = true;
       const { data: existingReq } = await supabase.from('device_change_requests').select('id').eq('employee_id', employeeId).eq('new_device_id', deviceId).eq('status', 'pending').single();
       if (!existingReq) {
         await supabase.from('device_change_requests').insert({ employee_id: employeeId, old_device_id: profile.primary_device_id, new_device_id: deviceId, status: 'pending' });
-        // Assume notifyAdminsForDeviceChange is accessible, or just ignore for now if imported
+        await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
+      }
+      
+      // Add note about unregistered device
+      const mismatchNote = '(تم التسجيل من جهاز غير معتمد)';
+      if (updates.notes) {
+        updates.notes = updates.notes + ' - ' + mismatchNote;
+      } else if (notes) {
+        updates.notes = notes + ' - ' + mismatchNote;
+      } else {
+        updates.notes = mismatchNote;
       }
     }
     updates.is_device_pending = isDevicePending;
@@ -436,9 +448,8 @@ export const attendanceRecordService = {
         check_in: now,
         check_in_location: location,
         check_in_device_id: deviceId,
-        check_in_verified_by_biometric: verifiedByBiometric,
         check_in_snapshot_url: snapshotUrl,
-        notes: notes,
+        notes: isDevicePending ? (notes ? notes + ' - (تم التسجيل من جهاز غير معتمد)' : '(تم التسجيل من جهاز غير معتمد)') : notes,
         status: initialStatus,
         is_device_pending: isDevicePending
       })
@@ -509,7 +520,9 @@ export const attendanceRecordService = {
         check_out_device_id: deviceId,
         check_out_verified_by_biometric: verifiedByBiometric,
         check_out_snapshot_url: snapshotUrl,
-        notes: additionalNotes ? (todayRecord.notes ? `${todayRecord.notes} | ${additionalNotes}` : additionalNotes) : todayRecord.notes,
+        notes: isDevicePending 
+          ? (additionalNotes ? (todayRecord.notes ? `${todayRecord.notes} | ${additionalNotes} - (تم التسجيل من جهاز غير معتمد)` : `${additionalNotes} - (تم التسجيل من جهاز غير معتمد)`) : (todayRecord.notes ? `${todayRecord.notes} - (تم التسجيل من جهاز غير معتمد)` : '(تم التسجيل من جهاز غير معتمد)'))
+          : (additionalNotes ? (todayRecord.notes ? `${todayRecord.notes} | ${additionalNotes}` : additionalNotes) : todayRecord.notes),
         is_device_pending: updatedStatus
       })
       .eq('id', todayRecord.id)

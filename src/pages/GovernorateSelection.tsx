@@ -7,10 +7,13 @@ interface Governorate {
     name: string;
     isActive: boolean;
     icon?: string;
+    imageName?: string;
 }
 
 const governorates: Governorate[] = [
-    { id: 'baghdad', name: 'بغداد', isActive: false },
+    { id: 'itpc_hq', name: 'مقر الشركة العامة للاتصالات والمعلوماتية', imageName: 'مقر الشركة', isActive: false },
+    { id: 'baghdad_karkh', name: 'بغداد الكرخ', isActive: false },
+    { id: 'baghdad_rusafa', name: 'بغداد الرصافة', isActive: false },
     { id: 'karbala', name: 'كربلاء المقدسة', isActive: true },
     { id: 'najaf', name: 'النجف الأشرف', isActive: false },
     { id: 'basra', name: 'البصرة', isActive: false },
@@ -117,7 +120,7 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
                         >
                             {/* Background Image - Using object-contain so no parts are cropped */}
                             <img 
-                                src={`/govs/${gov.name}.jpeg`} 
+                                src={`/govs/${gov.imageName || gov.name}.jpeg`} 
                                 alt={gov.name} 
                                 onError={(e) => { 
                                     e.currentTarget.style.display = 'none'; 

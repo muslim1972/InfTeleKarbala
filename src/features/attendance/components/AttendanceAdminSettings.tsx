@@ -236,6 +236,13 @@ export default function AttendanceAdminSettings() {
         
       await supabase.from('device_change_requests').update({ status: 'approved' }).eq('id', req.id);
       
+      // Notify the employee
+      await supabase.from('system_notifications').insert({
+        recipient_id: req.employee_id,
+        title: 'تم اعتماد جهازك الجديد',
+        content: 'تمت الموافقة على جهازك الجديد لتسجيل البصمة واعتماده بنجاح.',
+      });
+      
       toast.success('تم اعتماد الجهاز بنجاح');
       loadDeviceRequests();
     } catch (err: any) {
@@ -251,6 +258,13 @@ export default function AttendanceAdminSettings() {
         .eq('is_device_pending', true);
         
       await supabase.from('device_change_requests').update({ status: 'rejected' }).eq('id', req.id);
+      
+      // Notify the employee
+      await supabase.from('system_notifications').insert({
+        recipient_id: req.employee_id,
+        title: 'تم رفض جهازك الجديد',
+        content: 'تم رفض طلبك لاعتماد الجهاز الجديد لتسجيل البصمة. يرجى مراجعة الإدارة.',
+      });
       
       toast.success('تم رفض الجهاز وحذف البصمة المعلقة');
       loadDeviceRequests();
