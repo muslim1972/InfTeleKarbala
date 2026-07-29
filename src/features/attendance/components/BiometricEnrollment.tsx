@@ -14,7 +14,7 @@ export const BiometricEnrollment = () => {
 
     useEffect(() => {
         checkSupportAndLoad();
-    }, [user]);
+    }, [user?.id]);
 
     const checkSupportAndLoad = async () => {
         if (!user) return;
@@ -90,7 +90,7 @@ export const BiometricEnrollment = () => {
             const success = await webauthnService.removeCredential(id);
             if (success) {
                 toast.success("تم إزالة التوثيق بنجاح");
-                setCredentials(credentials.filter(c => c.id !== id));
+                setCredentials(prev => prev.filter(c => c.id !== id));
             } else {
                 toast.error("فشل إزالة التوثيق");
             }

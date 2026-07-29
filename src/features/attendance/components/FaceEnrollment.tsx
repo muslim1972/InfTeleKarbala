@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
 
+const FACE_ENROLL_SECRET = import.meta.env.VITE_FACE_ENROLL_SECRET || 'admin1234';
+
 interface FaceEnrollmentProps {
     employeeId: string;
     onClose: () => void;
@@ -22,8 +24,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     // 1. Check Admin Password
     const handlePasswordSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const secret = import.meta.env.VITE_FACE_ENROLL_SECRET || 'admin1234'; // Default fallback
-        if (password === secret) {
+        if (password === FACE_ENROLL_SECRET) {
             setStep('loading_models');
             handleLoadModelsAndCamera();
         } else {

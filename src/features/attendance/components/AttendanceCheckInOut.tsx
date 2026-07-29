@@ -307,7 +307,7 @@ export default function AttendanceCheckInOut({
     };
     
     detectLoop();
-  }, [user, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
+  }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
 
   const openCamera = useCallback(async (action: 'punch') => {
     if (!isAllowed) {
@@ -371,7 +371,7 @@ export default function AttendanceCheckInOut({
       });
     } catch (err: any) {
       // Determine exact error and register with note
-      let notes = cameraError || '(تعذر فتح الكاميرا لخلل تقني)';
+      let notes = err?.message || '(تعذر فتح الكاميرا لخلل تقني)';
 
       // Register attendance without photo
       setProcessing(true);
