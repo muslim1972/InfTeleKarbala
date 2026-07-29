@@ -8,11 +8,24 @@ import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
 import { sendPushNotification } from '../../../services/notifications';
 import EditLeaveRequestForm from './EditLeaveRequestForm';
 import { DateInput } from '../../../components/ui/DateInput';
-import LeaveTypeSelector, { type LeaveType } from './LeaveTypeSelector';
+import { type LeaveType } from './LeaveTypeSelector';
 import LeaveSupportingImages from './LeaveSupportingImages';
 import { LeaveBalanceCard } from './LeaveBalanceCard';
 import { LeavePayToggle } from './LeavePayToggle';
 import { LeaveTypeInfoAlert } from './LeaveTypeInfoAlert';
+
+const getLeaveTypeName = (type: string) => {
+  switch (type) {
+      case 'regular': return 'إجازة اعتيادية';
+      case 'sick': return 'إجازة مرضية';
+      case 'time_off': return 'إجازة زمنية';
+      case 'duty': return 'واجب';
+      case 'dispatch': return 'إيفاد';
+      case 'long_regular': return 'إجازة اعتيادية طويلة';
+      case 'long_sick': return 'إجازة مرضية طويلة';
+      default: return 'إجازة';
+  }
+};
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -457,10 +470,11 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
       // Notify Supervisor
       if (formData.supervisorId) {
+        const typeName = getLeaveTypeName(formData.leaveType);
         sendPushNotification(
             formData.supervisorId, 
-            `قام الموظف ${user?.full_name} بتقديم طلب إجازة جديد (${formData.startDate})`,
-            { title: "طلب إجازة جديد", url: `${window.location.origin}/requests` }
+            `قام الموظف ${user?.full_name} بتقديم طلب ${typeName} جديد (${formData.startDate})`,
+            { title: `طلب ${typeName} جديد`, url: `${window.location.origin}/requests` }
         );
       }
 
@@ -633,14 +647,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             
-            <LeaveTypeSelector 
-              selectedType={formData.leaveType} 
-              onSelect={(type) => {
-                setFormData({ ...formData, leaveType: type, daysCount: 1, supportingImageUrls: [] });
-                setError(null);
-              }} 
-            />
-
             <LeaveTypeInfoAlert leaveType={formData.leaveType} />
 
             {/* Automatic Routing Info */}

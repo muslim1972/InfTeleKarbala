@@ -24,6 +24,7 @@ import { REQUEST_TYPE_OPTIONS } from './requestTypes';
 // ── Lazy-loaded forms (bundle-dynamic-imports) ────────────────────────────────
 const TimeOffRequestForm  = lazy(() => import('./TimeOffRequestForm'));
 const LeaveRequestForm    = lazy(() => import('./LeaveRequestForm'));
+const DutyRequestForm     = lazy(() => import('./DutyRequestForm'));
 
 // ── Placeholder for not-yet-built administrative forms ────────────────────────
 const ComingSoonForm = ({ label }: { label: string }) => (
@@ -49,12 +50,16 @@ function SelectedForm({ typeId, leaveType, label, onSuccess }: {
   onSuccess: () => void;
 }) {
   if (typeId === 'time_off') {
-    return <TimeOffRequestForm onSuccess={onSuccess} />;
+    return <TimeOffRequestForm key={typeId} onSuccess={onSuccess} />;
+  }
+
+  if (typeId === 'duty') {
+    return <DutyRequestForm key={typeId} onSuccess={onSuccess} />;
   }
 
   if (leaveType) {
     // All other leave-based types use the existing LeaveRequestForm
-    return <LeaveRequestForm initialLeaveType={leaveType as any} onSuccess={onSuccess} />;
+    return <LeaveRequestForm key={typeId} initialLeaveType={leaveType as any} onSuccess={onSuccess} />;
   }
 
   // Administrative requests (not yet implemented)
@@ -94,7 +99,7 @@ export const RequestsTabContent = () => {
     <div className="w-full space-y-4" dir="rtl">
 
       {/* ── Selector row ──────────────────────────────────────────────────────── */}
-      <div className="flex items-stretch gap-3">
+      <div className="relative flex items-stretch gap-3" ref={dropdownRef}>
 
         {/* Left half — selected type display */}
         <div className="flex-1 min-h-[52px] flex items-center px-4 py-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
@@ -111,7 +116,7 @@ export const RequestsTabContent = () => {
         </div>
 
         {/* Right half — dropdown trigger */}
-        <div className="relative flex-1" ref={dropdownRef}>
+        <div className="flex-1">
           <button
             onClick={() => setIsDropdownOpen(prev => !prev)}
             className="w-full h-full flex items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition-all duration-200 active:scale-95"
@@ -133,8 +138,7 @@ export const RequestsTabContent = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ duration: 0.16, ease: 'easeOut' }}
-                className="absolute top-[calc(100%+6px)] right-0 z-50 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden"
-                style={{ minWidth: '240px', width: 'max(100%, 240px)' }}
+                className="absolute top-[calc(100%+6px)] left-0 right-0 z-50 w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden"
               >
                 {/* Leave group header */}
                 <div className="px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">

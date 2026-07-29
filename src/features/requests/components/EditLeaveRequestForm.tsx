@@ -4,6 +4,19 @@ import { supabase } from '../../../lib/supabase';
 import { DateInput } from '../../../components/ui/DateInput';
 import { sendPushNotification } from '../../../services/notifications';
 
+const getLeaveTypeName = (type: string) => {
+    switch (type) {
+        case 'regular': return 'إجازة اعتيادية';
+        case 'sick': return 'إجازة مرضية';
+        case 'time_off': return 'إجازة زمنية';
+        case 'duty': return 'واجب';
+        case 'dispatch': return 'إيفاد';
+        case 'long_regular': return 'إجازة اعتيادية طويلة';
+        case 'long_sick': return 'إجازة مرضية طويلة';
+        default: return 'إجازة';
+    }
+};
+
 interface EditLeaveRequestFormProps {
     request: any;
     onSuccess: () => void;
@@ -114,12 +127,13 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                         .or('role.eq.admin,admin_role.eq.hr_supervisor');
 
                     if (admins && admins.length > 0) {
+                        const typeName = getLeaveTypeName(request.leave_type);
                         const hrMessage = request.status === 'pending'
-                            ? `قام الموظف بإلغاء طلب إجازته الذي كان قيد الانتظار.`
-                            : `طلب الموظف إلغاء إجازته المعتمدة (بانتظار موافقة المسؤول).`;
+                            ? `قام الموظف بإلغاء طلب الـ ${typeName} الذي كان قيد الانتظار.`
+                            : `طلب الموظف إلغاء الـ ${typeName} المعتمدة (بانتظار موافقة المسؤول).`;
                         
                         for (const admin of admins) {
-                            await sendPushNotification(admin.id, hrMessage, { title: "إلغاء إجازة", url: `${window.location.origin}/requests` });
+                            await sendPushNotification(admin.id, hrMessage, { title: `إلغاء ${typeName}`, url: `${window.location.origin}/requests` });
                         }
                     }
                 } catch (hrError) {

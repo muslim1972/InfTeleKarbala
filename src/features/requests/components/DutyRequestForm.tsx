@@ -254,9 +254,27 @@ const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
   }
 
   return (
-    <>
-      {/* ── Form card ────────────────────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit} className="space-y-5" dir="rtl">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden" dir="rtl">
+      {/* ── Form Header ──────────────────────────────────────────────────────── */}
+      <div className="w-full flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+            <FileText size={20} />
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white leading-tight">
+              نموذج واجب
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              تقديم طلب واجب جديد
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Form content ─────────────────────────────────────────────────────── */}
+      <div className="p-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* Info banner */}
         <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 rounded-xl flex gap-3 items-start">
@@ -411,6 +429,7 @@ const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
           ) : 'إرسال الطلب للمسؤول'}
         </button>
       </form>
+      </div>
 
       {/* ── Confirm Modal ─────────────────────────────────────────────────────── */}
       {showConfirm && (
@@ -452,7 +471,7 @@ const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

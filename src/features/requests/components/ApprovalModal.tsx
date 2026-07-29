@@ -4,6 +4,19 @@ import { supabase } from '../../../lib/supabase';
 
 import { sendPushNotification } from '../../../services/notifications';
 
+const getLeaveTypeName = (type?: string) => {
+    switch (type) {
+        case 'regular': return 'إجازة اعتيادية';
+        case 'sick': return 'إجازة مرضية';
+        case 'time_off': return 'إجازة زمنية';
+        case 'duty': return 'واجب';
+        case 'dispatch': return 'إيفاد';
+        case 'long_regular': return 'إجازة اعتيادية طويلة';
+        case 'long_sick': return 'إجازة مرضية طويلة';
+        default: return 'إجازة';
+    }
+};
+
 interface LeaveRequest {
     id: string;
     user_id: string;
@@ -117,19 +130,21 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             if (rpcResult && rpcResult.status === 'escalated') {
                 // 1. Request escalated to next supervisor, notify the next supervisor!
                 if (rpcResult.next_supervisor) {
-                    sendPushNotification(rpcResult.next_supervisor, `لديك طلب إجازة جديد يتطلب موافقتك (${request.start_date})`, { title: "طلب إجازة معلق", url: `${window.location.origin}/requests` });
+                    const typeName = getLeaveTypeName(request.leave_type);
+                    sendPushNotification(rpcResult.next_supervisor, `لديك طلب ${typeName} جديد يتطلب موافقتك (${request.start_date})`, { title: `طلب ${typeName} معلق`, url: `${window.location.origin}/requests` });
                 }
             } else {
                 // 2. Request fully processed (approved or rejected), notify the employee
                 const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
-                let message = `تم ${statusText} لطلب إجازتك (${request.start_date})`;
+                const typeName = getLeaveTypeName(request.leave_type);
+                let message = `تم ${statusText} لطلب الـ ${typeName} الخاص بك (${request.start_date})`;
 
                 if (request.modification_type === 'canceled') {
-                    message = `تم ${statusText} لطلب إلغاء إجازتك (${request.start_date})`;
+                    message = `تم ${statusText} لطلب إلغاء ${typeName} الخاص بك (${request.start_date})`;
                 } else if (request.modification_type === 'cut') {
-                    message = `تم ${statusText} لطلب قطع إجازتك (${request.start_date})`;
+                    message = `تم ${statusText} لطلب قطع ${typeName} الخاص بك (${request.start_date})`;
                 }
-                sendPushNotification(request.user_id, message, { title: "تحديث طلب الإجازة", url: `${window.location.origin}/requests` });
+                sendPushNotification(request.user_id, message, { title: `تحديث طلب ${typeName}`, url: `${window.location.origin}/requests` });
             }
 
             // Notify HR/Admin if it's a cut or cancellation approval
@@ -142,10 +157,11 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         .or('role.eq.admin,admin_role.eq.hr_supervisor');
 
                     if (admins && admins.length > 0) {
-                        const hrTitle = request.modification_type === 'canceled' ? "إلغاء إجازة" : "اعتماد قطع إجازة";
+                        const typeName = getLeaveTypeName(request.leave_type);
+                        const hrTitle = request.modification_type === 'canceled' ? `إلغاء ${typeName}` : `اعتماد قطع ${typeName}`;
                         const hrMessage = request.modification_type === 'canceled'
-                            ? `تم إلغاء إجازة الموظف (${request.profiles?.full_name || 'مجهول'}) واسترجاع رصيده بالكامل.`
-                            : `توجد إجازة مقطوعة للموظف (${request.profiles?.full_name || 'مجهول'}) بانتظار اعتمادك لإرجاع الرصيد.`;
+                            ? `تم إلغاء ${typeName} للموظف (${request.profiles?.full_name || 'مجهول'}) واسترجاع رصيده بالكامل.`
+                            : `توجد ${typeName} مقطوعة للموظف (${request.profiles?.full_name || 'مجهول'}) بانتظار اعتمادك لإرجاع الرصيد.`;
 
                         // Send Push to all admins
                         for (const admin of admins) {
@@ -251,16 +267,18 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
                             <p className="text-xs text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
                                 <Calendar size={12} />
-                                تاريخ البداية
+                                {request.leave_type === 'duty' ? 'تاريخ تنفيذ الواجب' : 'تاريخ البداية'}
                             </p>
                             <p className="font-bold text-gray-900 dark:text-white dir-ltr">{request.start_date}</p>
                         </div>
                         <div className="bg-purple-50 dark:bg-purple-900/10 p-3 rounded-xl border border-purple-100 dark:border-purple-900/30">
                             <p className="text-xs text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-1">
                                 <Calendar size={12} />
-                                المدة
+                                {request.leave_type === 'duty' ? 'موقع الواجب' : 'المدة'}
                             </p>
-                            <p className="font-bold text-gray-900 dark:text-white">{request.days_count} يوم</p>
+                            <p className="font-bold text-gray-900 dark:text-white">
+                                {request.leave_type === 'duty' ? (request.destination || 'غير محدد') : `${request.days_count} يوم`}
+                            </p>
                         </div>
                     </div>
 
