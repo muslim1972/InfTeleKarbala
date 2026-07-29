@@ -142,17 +142,97 @@ export const attendanceRecordService = {
     if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
     if (!todayRecord.time_leave_out) throw new Error('لم يتم تسجيل خروج زمني مسبقاً');
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    const timeLeaveOutTime = new Date(todayRecord.time_leave_out);
+    const actualMinutesSpent = Math.max(0, Math.floor((now.getTime() - timeLeaveOutTime.getTime()) / 60000));
+
+    // Record the return punch
     const { data, error } = await supabase
       .from('attendance_records')
       .update({
-        time_leave_return: now,
+        time_leave_return: now.toISOString(),
       })
       .eq('id', todayRecord.id)
       .select()
       .single();
 
     if (error) throw error;
+
+    // ----- Penalty Logic -----
+    try {
+      const todayStr = now.toISOString().split('T')[0];
+      // Get today's approved time_off request
+      const { data: leaveReqs } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('user_id', employeeId)
+        .eq('leave_type', 'time_off')
+        .eq('start_date', todayStr)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (leaveReqs && leaveReqs.length > 0) {
+        const leaveReq = leaveReqs[0];
+        const requestedMinutes = leaveReq.time_duration_minutes || 0;
+        const delay = actualMinutesSpent - requestedMinutes;
+
+        if (delay > 0) {
+          let penalty = 0;
+          let isForcedLeave = false;
+
+          if (delay <= 5) penalty = 15;
+          else if (delay <= 10) penalty = 30;
+          else if (delay <= 15) penalty = 60;
+          else isForcedLeave = true;
+
+          const newDuration = requestedMinutes + penalty;
+          if (newDuration > 120) isForcedLeave = true;
+
+          if (isForcedLeave) {
+            // Convert to a full day regular leave
+            await supabase.from('leave_requests').update({
+              leave_type: 'regular',
+              time_duration_minutes: null,
+              days_count: 1,
+              reason: `${leaveReq.reason || ''} [تم تحويله لإجازة يوم كامل بسبب تجاوز الحد الزمني]`
+            }).eq('id', leaveReq.id);
+
+            // Notify user
+            await supabase.from('system_notifications').insert({
+              recipient_id: employeeId,
+              title: 'تجاوز الإجازة الزمنية',
+              content: `تم تحويل إجازتك الزمنية إلى إجازة يوم كامل بسبب تأخرك لفترة طويلة.`
+            });
+
+            // Notify supervisor
+            if (leaveReq.supervisor_id) {
+              const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+              await supabase.from('system_notifications').insert({
+                recipient_id: leaveReq.supervisor_id,
+                title: 'تحويل إجازة زمنية إجبارياً',
+                content: `تم تحويل الإجازة الزمنية للموظف ${profile?.full_name || ''} إلى إجازة يوم كامل لتجاوزه الحد الزمني.`
+              });
+            }
+          } else {
+            // Update time_duration_minutes
+            await supabase.from('leave_requests').update({
+              time_duration_minutes: newDuration
+            }).eq('id', leaveReq.id);
+
+            // Notify user
+            await supabase.from('system_notifications').insert({
+              recipient_id: employeeId,
+              title: 'خصم تأخير من الرصيد الزمني',
+              content: `بسبب تأخرك لمدة ${delay} دقيقة عن الإجازة الزمنية، تم خصم ${penalty} دقيقة إضافية من رصيدك (المدة الجديدة: ${newDuration} دقيقة).`
+            });
+          }
+        }
+      }
+    } catch (penaltyError) {
+      console.error('Error applying time leave return penalty:', penaltyError);
+    }
+
     return data as AttendanceRecord;
   },
 

@@ -15,16 +15,13 @@ import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
 
-// Duration options ── hoisted outside component (rendering-hoist-jsx)
+// ── Duration options ── hoisted outside component
 const DURATION_OPTIONS = [
   { value: 30,  label: 'نصف ساعة' },
   { value: 60,  label: 'ساعة واحدة' },
   { value: 90,  label: 'ساعة ونصف' },
   { value: 120, label: 'ساعتان' },
 ] as const;
-
-// End of work day: 15:00 (3:00 PM) = 900 minutes from midnight
-const WORK_END_MINUTES = 15 * 60; // 900
 
 // ── Helper: compute return time string ─────────────────────────────────────────
 function calcReturnTime(startTime: string, durationMinutes: number): string {
@@ -61,20 +58,42 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Form state ──────────────────────────────────────────────────────────────
   const [startTime, setStartTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  // reason field removed per request
+  const [shiftStartMinutes, setShiftStartMinutes] = useState<number>(8 * 60);
+  const [shiftEndMinutes, setShiftEndMinutes] = useState<number>(15 * 60);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const returnTime = calcReturnTime(startTime, durationMinutes);
 
   // Determine if employee needs to return or it covers until end of day
-  const returnStatus: { needsReturn: boolean; message: string } = (() => {
+  const returnStatus: { needsReturn: boolean; message: string; adjustedReturnTime?: string } = (() => {
     if (!startTime || !returnTime) return { needsReturn: false, message: '' };
-    const [rh, rm] = returnTime.split(':').map(Number);
-    const returnTotalMinutes = rh * 60 + rm;
-    if (returnTotalMinutes >= WORK_END_MINUTES) {
-      return { needsReturn: false, message: 'إلى نهاية الدوام، لا تحتاج للعودة' };
+    const [h, m] = startTime.split(':').map(Number);
+    let startTotalMinutes = h * 60 + m;
+    
+    // Adjust for night shift if start time is past midnight (e.g., 01:00 AM when shift started at 20:00)
+    if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftStartMinutes) {
+        startTotalMinutes += 24 * 60;
     }
-    return { needsReturn: true, message: `تحتاج للعودة عند ${returnTime}` };
+
+    let returnTotalMinutes = startTotalMinutes + durationMinutes;
+    
+    let effectiveShiftEnd = shiftEndMinutes;
+    if (shiftStartMinutes > shiftEndMinutes) {
+        effectiveShiftEnd += 24 * 60; // Night shift crosses midnight
+    }
+
+    if (returnTotalMinutes >= effectiveShiftEnd) {
+      const diffMinutes = effectiveShiftEnd - startTotalMinutes;
+      const hours = Math.floor(diffMinutes / 60);
+      const mins = diffMinutes % 60;
+      const diffText = hours > 0 ? `${hours} ساعة${mins > 0 ? ` و ${mins} دقيقة` : ''}` : `${mins} دقيقة`;
+      
+      return { 
+        needsReturn: false, 
+        message: `تم تعديل الوقت إلى (${diffText}) وأنك لا تحتاج للعودة` 
+      };
+    }
+    return { needsReturn: true, message: `ساعة العودة المتوقعة: ${returnTime}` };
   })();
 
   // ── UI state ─────────────────────────────────────────────────────────────────
@@ -99,9 +118,26 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         setLoadingManager(true);
         const { data: profile } = await supabase
           .from('profiles')
-          .select('department_id')
+          .select('department_id, work_schedule_id')
           .eq('id', user.id)
           .single();
+
+        if (profile?.work_schedule_id) {
+          const dayOfWeek = new Date().getDay(); // 0 is Sunday
+          const { data: scheduleDay } = await supabase
+            .from('work_schedule_days')
+            .select('start_time, end_time')
+            .eq('schedule_id', profile.work_schedule_id)
+            .eq('day_of_week', dayOfWeek)
+            .single();
+
+          if (scheduleDay && scheduleDay.start_time && scheduleDay.end_time) {
+            const [sh, sm] = scheduleDay.start_time.split(':').map(Number);
+            const [eh, em] = scheduleDay.end_time.split(':').map(Number);
+            setShiftStartMinutes(sh * 60 + sm);
+            setShiftEndMinutes(eh * 60 + em);
+          }
+        }
 
         if (!profile?.department_id || cancelled) return;
 
@@ -159,8 +195,31 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {
     if (!startTime) {
-      setError('يرجى تحديد ساعة البداية (الخروج).');
+      setError('يرجى تحديد وقت الخروج');
       return false;
+    }
+    
+    // Check if start time is before shift start
+    const [h, m] = startTime.split(':').map(Number);
+    let startTotalMinutes = h * 60 + m;
+    
+    // If night shift (end < start) and the chosen time is small (e.g. 01:00), it's probably the next day
+    if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftEndMinutes) {
+        startTotalMinutes += 24 * 60;
+    }
+    
+    // Only check if it's not a night shift crossing, or if it is, the time is actually before the shift
+    if (shiftStartMinutes <= shiftEndMinutes && startTotalMinutes < shiftStartMinutes) {
+        const sh = Math.floor(shiftStartMinutes / 60);
+        const sm = shiftStartMinutes % 60;
+        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')})`);
+        return false;
+    } else if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftStartMinutes && startTotalMinutes > shiftEndMinutes) {
+        // For night shift (e.g. 20:00 to 08:30). If they ask for 14:00, it's invalid.
+        const sh = Math.floor(shiftStartMinutes / 60);
+        const sm = shiftStartMinutes % 60;
+        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')})`);
+        return false;
     }
     if (isWeekend(todayStr)) {
       setError('لا يمكن تقديم إجازة زمنية في أيام العطلة الرسمية (الجمعة والسبت).');
@@ -172,7 +231,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
     setError(null);
     return true;
-  }, [startTime, supervisorId, todayStr]);
+  }, [startTime, supervisorId, todayStr, shiftStartMinutes, shiftEndMinutes]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
