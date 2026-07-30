@@ -9,20 +9,7 @@ import type {
 
 async function notifyAdminsForDeviceChange(employeeName: string) {
   try {
-    const { data: admins } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('role', 'admin')
-      .in('admin_role', ['developer', 'general', 'biometric']);
-      
-    if (admins && admins.length > 0) {
-      const notifications = admins.map(admin => ({
-        recipient_id: admin.id,
-        title: 'طلب اعتماد جهاز جديد',
-        content: `طلب الموظف (${employeeName}) اعتماد جهاز جديد لتسجيل الحضور. يرجى مراجعة الطلب في لوحة الإدارة.`,
-      }));
-      await supabase.from('system_notifications').insert(notifications);
-    }
+    await supabase.rpc('notify_admins_new_device', { p_employee_name: employeeName });
   } catch (err) {
     console.error('Error notifying admins:', err);
   }
@@ -318,8 +305,12 @@ export const attendanceRecordService = {
       isDevicePending = true;
       const { data: existingReq } = await supabase.from('device_change_requests').select('id').eq('employee_id', employeeId).eq('new_device_id', deviceId).eq('status', 'pending').single();
       if (!existingReq) {
-        await supabase.from('device_change_requests').insert({ employee_id: employeeId, old_device_id: profile.primary_device_id, new_device_id: deviceId, status: 'pending' });
-        await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
+        const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
+          p_employee_id: employeeId,
+          p_old_device_id: profile.primary_device_id,
+          p_new_device_id: deviceId
+        });
+        if (rpcError) console.error('Error submitting device change request:', rpcError);
       }
       
       // Add note about unregistered device
@@ -550,21 +541,13 @@ export const attendanceRecordService = {
         .single();
         
       if (!existingReq) {
-        // Create a device change request
-        await supabase
-          .from('device_change_requests')
-          .insert({
-            employee_id: employeeId,
-            old_device_id: profile.primary_device_id,
-            new_device_id: deviceId,
-            status: 'pending'
-          });
-          
-        // Notify admins
-        const { data: empInfo } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-        if (empInfo) {
-          await notifyAdminsForDeviceChange(empInfo.full_name);
-        }
+        // Create a device change request and notify via RPC
+        const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
+          p_employee_id: employeeId,
+          p_old_device_id: profile.primary_device_id,
+          p_new_device_id: deviceId
+        });
+        if (rpcError) console.error('Error submitting device change request:', rpcError);
       }
     }
 
@@ -657,18 +640,13 @@ export const attendanceRecordService = {
         .single();
         
       if (!existingReq) {
-         await supabase.from('device_change_requests').insert({
-            employee_id: employeeId,
-            old_device_id: profile.primary_device_id,
-            new_device_id: deviceId,
-            status: 'pending'
+         // Create a device change request and notify via RPC
+         const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
+           p_employee_id: employeeId,
+           p_old_device_id: profile.primary_device_id,
+           p_new_device_id: deviceId
          });
-         
-         // Notify admins
-         const { data: empInfo } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-         if (empInfo) {
-           await notifyAdminsForDeviceChange(empInfo.full_name);
-         }
+         if (rpcError) console.error('Error submitting device change request:', rpcError);
       }
     }
 
