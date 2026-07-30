@@ -304,7 +304,7 @@ export const attendanceRecordService = {
     // Device logic
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id')
+      .select('department_id, primary_device_id, work_schedule_id, full_name')
       .eq('id', employeeId)
       .single();
 
@@ -338,7 +338,14 @@ export const attendanceRecordService = {
       // Update existing record
       const { data, error } = await supabase.from('attendance_records').update(updates).eq('id', record.id).select().single();
       if (error) throw error;
-      return data as AttendanceRecord;
+      
+      const savedRecord = data as AttendanceRecord;
+      try {
+        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+      } catch (e) {
+        console.error('Error applying mandatory penalties:', e);
+      }
+      return savedRecord;
     } else {
       // Create new record
       updates.employee_id = employeeId;
@@ -348,7 +355,165 @@ export const attendanceRecordService = {
       
       const { data, error } = await supabase.from('attendance_records').insert(updates).select().single();
       if (error) throw error;
-      return data as AttendanceRecord;
+      
+      const savedRecord = data as AttendanceRecord;
+      try {
+        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+      } catch (e) {
+        console.error('Error applying mandatory penalties:', e);
+      }
+      return savedRecord;
+    }
+  },
+
+  async enforceMandatoryPenalties(employeeId: string, dateStr: string, record: AttendanceRecord) {
+    const { data: profile } = await supabase.from('profiles').select('work_schedule_id').eq('id', employeeId).single();
+    let scheduleQuery = supabase.from('work_schedules').select('*');
+    if (profile?.work_schedule_id) scheduleQuery = scheduleQuery.eq('id', profile.work_schedule_id);
+    else scheduleQuery = scheduleQuery.eq('is_default', true);
+    
+    const { data: schedule } = await scheduleQuery.limit(1).single();
+    if (!schedule || !schedule.start_time || !schedule.end_time) return;
+
+    const today = new Date(record.created_at || new Date().toISOString());
+    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
+    if (schedule.weekend_days?.includes(dayName)) return;
+
+    const gracePeriod = schedule.grace_period_minutes || 0;
+    
+    const { data: existingMandatoryLeaves } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('user_id', employeeId)
+      .eq('start_date', dateStr)
+      .eq('is_mandatory', true);
+
+    const lateLeave = existingMandatoryLeaves?.find(l => l.reason?.includes('تأخير صباحي'));
+    const earlyLeave = existingMandatoryLeaves?.find(l => l.reason?.includes('خروج مبكر'));
+
+    // Late Check-in
+    if (record.check_in) {
+      const checkInDate = new Date(record.check_in);
+      const [sh, sm] = schedule.start_time.split(':').map(Number);
+      const expectedStart = new Date(today);
+      expectedStart.setHours(sh, sm, 0, 0);
+
+      const delayMins = Math.floor((checkInDate.getTime() - expectedStart.getTime()) / 60000) - gracePeriod;
+      
+      if (delayMins > 0) {
+        let penaltyMins = 0;
+        let isFullDay = false;
+        if (delayMins <= 5) penaltyMins = 30;
+        else if (delayMins <= 10) penaltyMins = 60;
+        else if (delayMins <= 15) penaltyMins = 120;
+        else isFullDay = true;
+
+        if (isFullDay) {
+           if (!lateLeave) {
+              await supabase.from('leave_requests').insert({
+                user_id: employeeId,
+                leave_type: 'regular',
+                start_date: dateStr,
+                end_date: dateStr,
+                days_count: 1,
+                reason: `تأخير صباحي (${delayMins} دقيقة) - إجازة إجبارية`,
+                status: 'approved',
+                is_mandatory: true
+              });
+           }
+        } else {
+           if (!lateLeave) {
+              await supabase.from('leave_requests').insert({
+                user_id: employeeId,
+                leave_type: 'time_off',
+                start_date: dateStr,
+                end_date: dateStr,
+                time_duration_minutes: penaltyMins,
+                reason: `تأخير صباحي (${delayMins} دقيقة) - إجازة زمنية إجبارية`,
+                status: 'approved',
+                is_mandatory: true
+              });
+           }
+        }
+      } else {
+         if (lateLeave) await supabase.from('leave_requests').delete().eq('id', lateLeave.id);
+      }
+    }
+
+    // Early Check-out
+    if (record.check_out) {
+      const checkOutDate = new Date(record.check_out);
+      const [eh, em] = schedule.end_time.split(':').map(Number);
+      const expectedEnd = new Date(today);
+      expectedEnd.setHours(eh, em, 0, 0);
+
+      const earlyMins = Math.floor((expectedEnd.getTime() - checkOutDate.getTime()) / 60000) - gracePeriod;
+      
+      if (earlyMins > 0) {
+        let penaltyMins = 0;
+        if (earlyMins <= 5) penaltyMins = 30;
+        else if (earlyMins <= 10) penaltyMins = 60;
+        else if (earlyMins <= 15) penaltyMins = 120;
+        else penaltyMins = 120;
+
+        const { data: allTimeOffs } = await supabase
+          .from('leave_requests')
+          .select('time_duration_minutes')
+          .eq('user_id', employeeId)
+          .eq('leave_type', 'time_off')
+          .eq('start_date', dateStr)
+          .eq('status', 'approved');
+
+        const totalExistingTimeOff = allTimeOffs?.reduce((sum, req) => sum + (req.time_duration_minutes || 0), 0) || 0;
+        const existingEarlyPenalty = earlyLeave?.time_duration_minutes || 0;
+        const netExistingTimeOff = totalExistingTimeOff - existingEarlyPenalty;
+
+        const totalWithPenalty = netExistingTimeOff + penaltyMins;
+
+        if (totalWithPenalty > 120 || earlyMins > 15) {
+            if (!earlyLeave || earlyLeave.leave_type !== 'regular') {
+                if (earlyLeave) await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
+                await supabase.from('leave_requests')
+                    .update({ status: 'rejected', reason: 'ألغيت بسبب تحويل اليوم لإجازة اعتيادية لخروج مبكر وتجاوز الحد' })
+                    .eq('user_id', employeeId)
+                    .eq('start_date', dateStr)
+                    .eq('leave_type', 'time_off');
+
+                await supabase.from('leave_requests').insert({
+                    user_id: employeeId,
+                    leave_type: 'regular',
+                    start_date: dateStr,
+                    end_date: dateStr,
+                    days_count: 1,
+                    reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة إجبارية`,
+                    status: 'approved',
+                    is_mandatory: true
+                });
+            }
+        } else {
+            if (!earlyLeave) {
+                await supabase.from('leave_requests').insert({
+                    user_id: employeeId,
+                    leave_type: 'time_off',
+                    start_date: dateStr,
+                    end_date: dateStr,
+                    time_duration_minutes: penaltyMins,
+                    reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية`,
+                    status: 'approved',
+                    is_mandatory: true
+                });
+            } else if (earlyLeave.time_duration_minutes !== penaltyMins) {
+                await supabase.from('leave_requests').update({
+                    time_duration_minutes: penaltyMins,
+                    reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية`
+                }).eq('id', earlyLeave.id);
+            }
+        }
+      } else {
+         if (earlyLeave) await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
+      }
+    } else {
+        if (earlyLeave) await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
     }
   },
 

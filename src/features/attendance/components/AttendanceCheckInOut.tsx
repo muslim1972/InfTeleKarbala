@@ -630,7 +630,7 @@ export default function AttendanceCheckInOut({
               }`} />
               <span className="font-bold text-gray-800 dark:text-slate-200">وقت الحضور</span>
             </div>
-            <div className="text-3xl font-extrabold text-gray-800 dark:text-white font-mono">
+            <div className={`text-3xl font-extrabold font-mono ${todayAttendance?.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-white'}`}>
               {formatTime(todayAttendance?.check_in)}
             </div>
             {todayAttendance?.check_in_verified_by_biometric ? (
@@ -659,7 +659,7 @@ export default function AttendanceCheckInOut({
               }`} />
               <span className="font-bold text-gray-800 dark:text-slate-200">وقت الانصراف</span>
             </div>
-            <div className="text-3xl font-extrabold text-gray-800 dark:text-white font-mono">
+            <div className={`text-3xl font-extrabold font-mono ${todayAttendance?.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-white'}`}>
               {formatTime(todayAttendance?.check_out)}
             </div>
             {todayAttendance?.check_out_verified_by_biometric ? (

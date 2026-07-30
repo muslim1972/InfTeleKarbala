@@ -360,6 +360,12 @@ export const AppNotifications = () => {
                                                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap">
                                                         {notification.content}
                                                     </p>
+                                                    <span className="text-[10px] text-slate-400 mt-1 block" dir="ltr" style={{ textAlign: 'right' }}>
+                                                        {new Date(notification.created_at).toLocaleString('ar-IQ', {
+                                                            year: 'numeric', month: '2-digit', day: '2-digit',
+                                                            hour: '2-digit', minute: '2-digit'
+                                                        })}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <button

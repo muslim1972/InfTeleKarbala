@@ -273,6 +273,21 @@ export default function AttendanceAdminSettings() {
     }
   };
 
+  const handleReviewDevice = async (req: any) => {
+    try {
+      // Notify the employee
+      await supabase.from('system_notifications').insert({
+        recipient_id: req.employee_id,
+        title: 'مراجعة الإدارة بخصوص توثيق الجهاز',
+        content: 'لطفا ... تنسب مراجعة السيد معاون مدير المديرية . في هذا اليوم لأتمام الاجراء بشكل اصولي',
+      });
+      
+      toast.success('تم إرسال إشعار للموظف للمراجعة، وبقي الطلب معلقاً');
+    } catch (err: any) {
+      toast.error('حدث خطأ أثناء الإرسال: ' + err.message);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'deviceLogs') {
       loadDeviceLogs();
@@ -1547,6 +1562,16 @@ export default function AttendanceAdminSettings() {
                               className="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
                             >
                               موافقة
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm('هل تريد إرسال إشعار للموظف لمراجعة الإدارة (مع إبقاء الطلب معلقاً)؟')) {
+                                  handleReviewDevice(req);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
+                            >
+                              مراجعة الإدارة
                             </button>
                             <button
                               onClick={() => {
