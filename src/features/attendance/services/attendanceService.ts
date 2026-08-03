@@ -597,6 +597,18 @@ export const attendanceRecordService = {
           p_new_device_id: deviceId
         });
         if (rpcError) console.error('Error submitting device change request:', rpcError);
+        
+        // Send in-app notification to HR/General Manager
+        const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+        const { data: hrUsers } = await supabase.from('profiles').select('id').in('role', ['admin', 'hr']);
+        if (hrUsers) {
+            const notifications = hrUsers.map(hr => ({
+                recipient_id: hr.id,
+                title: 'طلب اعتماد جهاز جديد',
+                content: `الموظف ${userProfile?.full_name || 'غير معروف'} قام بتسجيل الحضور من جهاز جديد، يرجى المراجعة.`
+            }));
+            await supabase.from('system_notifications').insert(notifications);
+        }
       }
     }
 
@@ -654,7 +666,16 @@ export const attendanceRecordService = {
       .single();
 
     if (error) throw error;
-    return data as AttendanceRecord;
+    
+    const savedRecord = data as AttendanceRecord;
+    try {
+      const todayStr = now.split('T')[0];
+      await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
+    } catch (e) {
+      console.error('Error applying mandatory penalties in checkIn:', e);
+    }
+    
+    return savedRecord;
   },
 
   async checkOut(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, additionalNotes?: string) {
@@ -696,6 +717,18 @@ export const attendanceRecordService = {
            p_new_device_id: deviceId
          });
          if (rpcError) console.error('Error submitting device change request:', rpcError);
+         
+         // Send in-app notification to HR/General Manager
+         const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+         const { data: hrUsers } = await supabase.from('profiles').select('id').in('role', ['admin', 'hr']);
+         if (hrUsers) {
+             const notifications = hrUsers.map(hr => ({
+                 recipient_id: hr.id,
+                 title: 'طلب اعتماد جهاز جديد',
+                 content: `الموظف ${userProfile?.full_name || 'غير معروف'} قام بتسجيل الانصراف من جهاز جديد، يرجى المراجعة.`
+             }));
+             await supabase.from('system_notifications').insert(notifications);
+         }
       }
     }
 
@@ -722,7 +755,17 @@ export const attendanceRecordService = {
       .single();
 
     if (error) throw error;
-    return data as AttendanceRecord;
+    
+    const savedRecord = data as AttendanceRecord;
+    try {
+      const todayStr = now.split('T')[0];
+      await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
+    } catch (e) {
+      console.error('Error applying mandatory penalties in checkOut:', e);
+    }
+    
+    return savedRecord;
+
   },
 
   async getStats(employeeId: string, startDate: string, endDate: string) {
