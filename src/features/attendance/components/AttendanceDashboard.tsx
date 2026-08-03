@@ -3,19 +3,18 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
-import { Fingerprint, Calendar, BarChart3, FileText, ShieldCheck } from 'lucide-react';
+import { Fingerprint, Calendar, BarChart3, ShieldCheck } from 'lucide-react';
 
 const AttendanceCheckInOut = lazy(() => import('./AttendanceCheckInOut'));
 const AttendanceHistory = lazy(() => import('./AttendanceHistory'));
 const AttendanceStatistics = lazy(() => import('./AttendanceStatistics'));
-const AttendanceExceptionRequest = lazy(() => import('./AttendanceExceptionRequest'));
 const BiometricEnrollment = lazy(() => import('./BiometricEnrollment').then(m => ({ default: m.BiometricEnrollment })));
 
 interface AttendanceDashboardProps {
   employeeId: string;
 }
 
-type ActiveTab = 'check' | 'history' | 'stats' | 'exceptions' | 'settings';
+type ActiveTab = 'check' | 'history' | 'stats' | 'settings';
 
 export default function AttendanceDashboard({ employeeId }: AttendanceDashboardProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('check');
@@ -28,7 +27,6 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
     error,
     loadTodayAttendance,
     loadAttendanceHistory,
-    loadExceptions,
     loadStats
   } = useAttendance(employeeId);
 
@@ -44,16 +42,13 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
       loadStats(firstDay, lastDay);
-    } else if (activeTab === 'exceptions') {
-      loadExceptions();
     }
-  }, [activeTab, loadAttendanceHistory, loadExceptions, loadStats]);
+  }, [activeTab, loadAttendanceHistory, loadStats]);
 
   const tabs = [
     { id: 'check' as ActiveTab, label: 'الحضور والانصراف', icon: Fingerprint },
     { id: 'history' as ActiveTab, label: 'سجل الحضور', icon: Calendar },
     { id: 'stats' as ActiveTab, label: 'الإحصائيات', icon: BarChart3 },
-    { id: 'exceptions' as ActiveTab, label: 'الإجازات', icon: FileText },
     { id: 'settings' as ActiveTab, label: 'إعدادات البصمة', icon: ShieldCheck }
   ];
 
@@ -129,15 +124,6 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
 
             {activeTab === 'stats' && stats && (
               <AttendanceStatistics stats={stats} loading={loading} />
-            )}
-
-            {activeTab === 'exceptions' && (
-              <AttendanceExceptionRequest
-                employeeId={employeeId}
-                exceptions={exceptions}
-                loading={loading}
-                onExceptionAdded={loadExceptions}
-              />
             )}
 
             {activeTab === 'settings' && (

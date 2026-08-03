@@ -1,15 +1,13 @@
 import { useState, useCallback } from 'react';
 import {
-  attendanceRecordService,
-  attendanceExceptionService
+  attendanceRecordService
 } from '../services/attendanceService';
 import { webauthnService } from '../services/webauthnService';
-import type { AttendanceRecord, AttendanceException, AttendanceStats, BiometricVerificationResult } from '../types';
+import type { AttendanceRecord, AttendanceStats, BiometricVerificationResult } from '../types';
 
 export function useAttendance(employeeId: string) {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
-  const [exceptions, setExceptions] = useState<AttendanceException[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,18 +38,7 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const loadExceptions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const records = await attendanceExceptionService.getByEmployeeId(employeeId);
-      setExceptions(records);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'حدث خطأ');
-    } finally {
-      setLoading(false);
-    }
-  }, [employeeId]);
+
 
   const loadStats = useCallback(async (startDate: string, endDate: string) => {
     setLoading(true);
@@ -180,41 +167,22 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const requestException = useCallback(async (exception: Omit<AttendanceException, 'id' | 'created_at' | 'updated_at' | 'status' | 'approved_by' | 'approved_at'>) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const newException = await attendanceExceptionService.create({
-        ...exception,
-        status: 'pending'
-      });
-      setExceptions(prev => [newException, ...prev]);
-      return newException;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'حدث خطأ');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+
 
   return {
     todayAttendance,
     attendanceHistory,
-    exceptions,
     stats,
     loading,
     error,
     loadTodayAttendance,
     loadAttendanceHistory,
-    loadExceptions,
     loadStats,
     checkIn,
     checkOut,
     registerPunch,
     timeLeaveOut,
-    timeLeaveReturn,
-    requestException
+    timeLeaveReturn
   };
 }
 
