@@ -576,8 +576,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       {/* ── نافذة التأكيد ──────────────────────────────────────────────────── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 pb-8 w-full max-w-sm shadow-2xl mb-16 sm:mb-0">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">تأكيد إرسال الطلب</h3>
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
@@ -652,9 +652,9 @@ const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
           </div>
 
           {isOpen && (
-            <>
-               <div className="absolute top-full mt-2 left-0 right-0 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-2xl rounded-2xl p-4 z-[9999] animate-in fade-in slide-in-from-top-2">
-                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-slate-700 pb-3">
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+               <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-2xl rounded-2xl p-5 w-full max-w-xs z-10 animate-in zoom-in-95">
+                  <div className="flex justify-between items-center mb-5 border-b border-gray-100 dark:border-slate-700 pb-3">
                      <span className="font-bold text-gray-800 dark:text-gray-200">
                         {step === 'h' ? 'اختر الساعة (24)' : 'اختر الدقيقة'}
                      </span>
@@ -678,7 +678,7 @@ const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
                      </div>
                   ) : (
                      <div>
-                        <div className="grid grid-cols-6 gap-1.5 dir-ltr max-h-48 overflow-y-auto pr-1 hide-scrollbar">
+                        <div className="grid grid-cols-6 gap-1.5 dir-ltr max-h-[40vh] overflow-y-auto pr-1 hide-scrollbar">
                            {minutes.map(minute => (
                               <button 
                                 type="button"
@@ -696,15 +696,15 @@ const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
                         <button 
                           type="button" 
                           onClick={() => setStep('h')}
-                          className="w-full mt-3 py-2 text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                          className="w-full mt-4 py-3 text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
                         >
                           العودة لتحديد الساعة
                         </button>
                      </div>
                   )}
                </div>
-               <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)}></div>
-            </>
+               <div className="fixed inset-0 -z-10" onClick={() => setIsOpen(false)}></div>
+            </div>
           )}
       </div>
    )

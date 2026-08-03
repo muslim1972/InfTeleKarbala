@@ -15,7 +15,6 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
             else if (subtype === 'mid_shift') label += ' (وسط الدوام)';
             
             if (isMandatory) label += ' - بدون طلب';
-            else label += ' - بطلب';
             
             return label;
         case 'duty': return 'واجب';
@@ -155,7 +154,26 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 } else if (request.modification_type === 'cut') {
                     message = `تم ${statusText} لطلب قطع ${typeName} الخاص بك (${request.start_date})`;
                 }
+                
+                // إرسال إشعار الدفع الفوري (للمتصفح أو الهاتف)
                 sendPushNotification(request.user_id, message, { title: `تحديث طلب ${typeName}`, url: `${window.location.origin}/requests` });
+                
+                // إضافة إشعار داخل التطبيق (جرس الإشعارات)
+                try {
+                    const { data: userData } = await supabase.auth.getUser();
+                    if (userData?.user?.id) {
+                        await supabase.from('system_notifications').insert({
+                            recipient_id: request.user_id,
+                            sender_id: userData.user.id,
+                            type: 'leave_update',
+                            title: `تحديث طلب ${typeName}`,
+                            content: message,
+                            metadata: { request_id: request.id, status }
+                        });
+                    }
+                } catch (notiErr) {
+                    console.error('Failed to insert employee notification:', notiErr);
+                }
             }
 
             // Notify HR/Admin if it's a cut or cancellation approval
@@ -288,7 +306,9 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                                 {request.leave_type === 'duty' ? 'موقع الواجب' : 'المدة'}
                             </p>
                             <p className="font-bold text-gray-900 dark:text-white">
-                                {request.leave_type === 'duty' ? (request.destination || 'غير محدد') : `${request.days_count} يوم`}
+                                {request.leave_type === 'duty' ? (request.destination || 'غير محدد') : 
+                                 request.leave_type === 'time_off' ? `${request.time_duration_minutes || 0} دقيقة` : 
+                                 `${request.days_count} يوم`}
                             </p>
                         </div>
                     </div>
