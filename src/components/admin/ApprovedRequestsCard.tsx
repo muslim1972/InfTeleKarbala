@@ -115,7 +115,7 @@ export function ApprovedRequestsCard({
                                                     )}
                                                 </div>
                                             </div>
-                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
+                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} timeOffSubtype={record.time_off_subtype} isMandatory={record.is_mandatory} />
                                         </div>
                                         <div className="space-y-1 text-sm bg-white dark:bg-slate-800 p-4 rounded-lg border border-gray-100 dark:border-slate-700 mb-4">
                                             <p>من <span className="font-bold dir-ltr inline-block font-mono">{record.start_date}</span> إلى <span className="font-bold dir-ltr inline-block font-mono">{record.end_date}</span></p>

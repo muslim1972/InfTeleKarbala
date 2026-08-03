@@ -4,6 +4,28 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 
+const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean) => {
+    switch (type) {
+        case 'regular': return 'إجازة اعتيادية';
+        case 'sick': return 'إجازة مرضية';
+        case 'time_off': 
+            let label = 'إجازة زمنية';
+            if (subtype === 'shift_start') label += ' (بداية الدوام)';
+            else if (subtype === 'shift_end') label += ' (نهاية الدوام)';
+            else if (subtype === 'mid_shift') label += ' (وسط الدوام)';
+            
+            if (isMandatory) label += ' - بدون طلب';
+            else label += ' - بطلب';
+            
+            return label;
+        case 'duty': return 'واجب';
+        case 'dispatch': return 'إيفاد';
+        case 'long_regular': return 'إجازة اعتيادية طويلة';
+        case 'long_sick': return 'إجازة مرضية طويلة';
+        default: return 'إجازة';
+    }
+};
+
 export const AppNotifications = () => {
     const { user } = useAuth();
     const [showModal, setShowModal] = useState(false);
@@ -395,7 +417,7 @@ export const AppNotifications = () => {
                                                     {req.profiles?.full_name || 'موظف'}
                                                 </h5>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                                    {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? `طالب بإلغاء إجازته (${req.leave_type === 'long_regular' ? 'اعتيادية طويلة' : req.leave_type === 'long_sick' ? 'مرضية طويلة' : req.leave_type === 'regular' ? 'اعتيادية' : req.leave_type === 'sick' ? 'مرضية' : 'أخرى'})` :
+                                                    {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? `طالب بإلغاء إجازته (${getLeaveTypeName(req.leave_type, req.time_off_subtype, req.is_mandatory)})` :
                                                         req.cut_status === 'pending' || req.modification_type === 'cut' ? 
                                                         (() => {
                                                             let actual = 0;
@@ -410,7 +432,7 @@ export const AppNotifications = () => {
                                                             }
                                                             return `طالب بقطع إجازته والمباشرة (الفعلية: ${actual} يوم، يتم إرجاع: ${returned} يوم)`;
                                                         })()
-                                                        : `طالب بإجازة ${req.leave_type || 'اعتادية'} لمدة ${req.days_count} يوم`}
+                                                        : `طالب بـ ${getLeaveTypeName(req.leave_type, req.time_off_subtype, req.is_mandatory)} لمدة ${req.leave_type === 'time_off' ? (req.time_duration_minutes + ' دقيقة') : (req.days_count + ' يوم')}`}
                                                 </p>
                                                 {(req.unpaid_days ?? 0) > 0 && (
                                                     <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1">

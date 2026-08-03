@@ -370,17 +370,32 @@ export const attendanceRecordService = {
     const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
     if (schedule.weekend_days?.includes(dayName)) return;
 
-    const gracePeriod = schedule.grace_period_minutes || 0;
-    
-    const { data: existingMandatoryLeaves } = await supabase
+    // Fetch all approved time_offs for today
+    const { data: allTimeOffs } = await supabase
       .from('leave_requests')
-      .select('*')
+      .select('id, time_off_subtype, time_duration_minutes, with_request, is_mandatory, leave_type')
       .eq('user_id', employeeId)
       .eq('start_date', dateStr)
-      .eq('is_mandatory', true);
+      .eq('status', 'approved');
 
-    const lateLeave = existingMandatoryLeaves?.find(l => l.reason?.includes('تأخير صباحي'));
-    const earlyLeave = existingMandatoryLeaves?.find(l => l.reason?.includes('خروج مبكر'));
+    // Find requested (not mandatory) shift_start and shift_end
+    const requestedShiftStart = allTimeOffs?.find(r => r.time_off_subtype === 'shift_start' && r.with_request && r.leave_type === 'time_off');
+    const requestedShiftEnd = allTimeOffs?.find(r => r.time_off_subtype === 'shift_end' && r.with_request && r.leave_type === 'time_off');
+
+    const gracePeriod = schedule.grace_period_minutes || 0;
+    const morningGracePeriod = requestedShiftStart ? 0 : gracePeriod;
+    const eveningGracePeriod = requestedShiftEnd ? 0 : gracePeriod;
+    
+    // Auto-generated penalty leaves have with_request = false and the respective time_off_subtype
+    // (If converted to a full day, they might be 'regular' type but we still identify them by not having with_request and matching the subtype/reason in case it was converted)
+    const lateLeave = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && (l.time_off_subtype === 'shift_start' || (l.leave_type === 'regular' && l.reason?.includes('تأخير صباحي'))));
+    const earlyLeave = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && (l.time_off_subtype === 'shift_end' || (l.leave_type === 'regular' && l.reason?.includes('خروج مبكر'))));
+
+    // Helper to calculate total time off currently accumulated
+    const calculateTotalTimeOff = (excludeId?: string) => {
+        return allTimeOffs?.filter(r => r.leave_type === 'time_off' && r.id !== excludeId)
+            .reduce((sum, req) => sum + (req.time_duration_minutes || 0), 0) || 0;
+    };
 
     // Late Check-in
     if (record.check_in) {
@@ -389,18 +404,38 @@ export const attendanceRecordService = {
       const expectedStart = new Date(today);
       expectedStart.setHours(sh, sm, 0, 0);
 
-      const delayMins = Math.floor((checkInDate.getTime() - expectedStart.getTime()) / 60000) - gracePeriod;
+      // Offset by requested shift_start time off
+      if (requestedShiftStart && requestedShiftStart.time_duration_minutes) {
+          expectedStart.setMinutes(expectedStart.getMinutes() + requestedShiftStart.time_duration_minutes);
+      }
+
+      const delayMins = Math.floor((checkInDate.getTime() - expectedStart.getTime()) / 60000) - morningGracePeriod;
       
       if (delayMins > 0) {
         let penaltyMins = 0;
         let isFullDay = false;
+        
         if (delayMins <= 5) penaltyMins = 30;
         else if (delayMins <= 10) penaltyMins = 60;
         else if (delayMins <= 15) penaltyMins = 120;
         else isFullDay = true;
 
+        const currentTotal = calculateTotalTimeOff(lateLeave?.id);
+        if (!isFullDay && (currentTotal + penaltyMins > 120)) {
+            isFullDay = true;
+        }
+
         if (isFullDay) {
-           if (!lateLeave) {
+           if (!lateLeave || lateLeave.leave_type !== 'regular') {
+              if (lateLeave) await supabase.from('leave_requests').delete().eq('id', lateLeave.id);
+              
+              // Cancel all other time_offs for today if converting to full day
+              await supabase.from('leave_requests')
+                  .update({ status: 'rejected', reason: 'ألغيت بسبب تحويل اليوم لإجازة اعتيادية لتأخير صباحي' })
+                  .eq('user_id', employeeId)
+                  .eq('start_date', dateStr)
+                  .eq('leave_type', 'time_off');
+
               await supabase.from('leave_requests').insert({
                 user_id: employeeId,
                 leave_type: 'regular',
@@ -409,7 +444,8 @@ export const attendanceRecordService = {
                 days_count: 1,
                 reason: `تأخير صباحي (${delayMins} دقيقة) - إجازة إجبارية`,
                 status: 'approved',
-                is_mandatory: true
+                is_mandatory: true,
+                with_request: false
               });
            }
         } else {
@@ -422,8 +458,17 @@ export const attendanceRecordService = {
                 time_duration_minutes: penaltyMins,
                 reason: `تأخير صباحي (${delayMins} دقيقة) - إجازة زمنية إجبارية`,
                 status: 'approved',
-                is_mandatory: true
+                is_mandatory: true,
+                time_off_subtype: 'shift_start',
+                with_request: false
               });
+           } else if (lateLeave.leave_type === 'time_off' && lateLeave.time_duration_minutes !== penaltyMins) {
+              await supabase.from('leave_requests').update({
+                  time_duration_minutes: penaltyMins,
+                  reason: `تأخير صباحي (${delayMins} دقيقة) - إجازة زمنية إجبارية`,
+                  time_off_subtype: 'shift_start',
+                  with_request: false
+              }).eq('id', lateLeave.id);
            }
         }
       } else {
@@ -438,34 +483,33 @@ export const attendanceRecordService = {
       const expectedEnd = new Date(today);
       expectedEnd.setHours(eh, em, 0, 0);
 
-      const earlyMins = Math.floor((expectedEnd.getTime() - checkOutDate.getTime()) / 60000) - gracePeriod;
+      // Offset by requested shift_end time off
+      if (requestedShiftEnd && requestedShiftEnd.time_duration_minutes) {
+          expectedEnd.setMinutes(expectedEnd.getMinutes() - requestedShiftEnd.time_duration_minutes);
+      }
+
+      const earlyMins = Math.floor((expectedEnd.getTime() - checkOutDate.getTime()) / 60000) - eveningGracePeriod;
       
       if (earlyMins > 0) {
         let penaltyMins = 0;
+        let isFullDay = false;
+        
         if (earlyMins <= 5) penaltyMins = 30;
         else if (earlyMins <= 10) penaltyMins = 60;
         else if (earlyMins <= 15) penaltyMins = 120;
-        else penaltyMins = 120;
+        else isFullDay = true;
 
-        const { data: allTimeOffs } = await supabase
-          .from('leave_requests')
-          .select('time_duration_minutes')
-          .eq('user_id', employeeId)
-          .eq('leave_type', 'time_off')
-          .eq('start_date', dateStr)
-          .eq('status', 'approved');
+        const currentTotal = calculateTotalTimeOff(earlyLeave?.id);
+        if (!isFullDay && (currentTotal + penaltyMins > 120)) {
+            isFullDay = true;
+        }
 
-        const totalExistingTimeOff = allTimeOffs?.reduce((sum, req) => sum + (req.time_duration_minutes || 0), 0) || 0;
-        const existingEarlyPenalty = earlyLeave?.time_duration_minutes || 0;
-        const netExistingTimeOff = totalExistingTimeOff - existingEarlyPenalty;
-
-        const totalWithPenalty = netExistingTimeOff + penaltyMins;
-
-        if (totalWithPenalty > 120 || earlyMins > 15) {
+        if (isFullDay) {
             if (!earlyLeave || earlyLeave.leave_type !== 'regular') {
                 if (earlyLeave) await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
+                
                 await supabase.from('leave_requests')
-                    .update({ status: 'rejected', reason: 'ألغيت بسبب تحويل اليوم لإجازة اعتيادية لخروج مبكر وتجاوز الحد' })
+                    .update({ status: 'rejected', reason: 'ألغيت بسبب تحويل اليوم لإجازة اعتيادية لخروج مبكر' })
                     .eq('user_id', employeeId)
                     .eq('start_date', dateStr)
                     .eq('leave_type', 'time_off');
@@ -478,7 +522,8 @@ export const attendanceRecordService = {
                     days_count: 1,
                     reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة إجبارية`,
                     status: 'approved',
-                    is_mandatory: true
+                    is_mandatory: true,
+                    with_request: false
                 });
             }
         } else {
@@ -491,12 +536,16 @@ export const attendanceRecordService = {
                     time_duration_minutes: penaltyMins,
                     reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية`,
                     status: 'approved',
-                    is_mandatory: true
+                    is_mandatory: true,
+                    time_off_subtype: 'shift_end',
+                    with_request: false
                 });
-            } else if (earlyLeave.time_duration_minutes !== penaltyMins) {
+            } else if (earlyLeave.leave_type === 'time_off' && earlyLeave.time_duration_minutes !== penaltyMins) {
                 await supabase.from('leave_requests').update({
                     time_duration_minutes: penaltyMins,
-                    reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية`
+                    reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية`,
+                    time_off_subtype: 'shift_end',
+                    with_request: false
                 }).eq('id', earlyLeave.id);
             }
         }

@@ -1,44 +1,89 @@
 /**
  * TimeOffRequestForm.tsx
- * Dedicated form for "إجازة زمنية" (time-off) requests.
- * Extracted from LeaveRequestForm to follow single-responsibility principle.
+ * نموذج طلب الإجازة الزمنية المتقدم — يدعم 3 أنواع فرعية:
+ *   A) وسط الدوام (mid_shift)   — بصمتين: مغادرة + عودة
+ *   B) بداية الدوام (shift_start) — بصمة عودة فقط (الخروج = بداية الدوام)
+ *   C) نهاية الدوام (shift_end)   — بصمة مغادرة فقط (العودة = نهاية الدوام)
  *
- * Rules applied:
+ * القواعد المطبقة من ممارسات Vercel:
  *  - rerender-functional-setstate  : functional setState for stable callbacks
  *  - bundle-conditional            : heavy validators only run on submit
  *  - js-early-exit                 : guard clauses throughout
+ *  - rerender-derived-state-no-effect : derive state during render
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
 
-// ── Duration options ── hoisted outside component
-const DURATION_OPTIONS = [
-  { value: 30,  label: 'نصف ساعة' },
-  { value: 60,  label: 'ساعة واحدة' },
-  { value: 90,  label: 'ساعة ونصف' },
-  { value: 120, label: 'ساعتان' },
-] as const;
+// ── Types ───────────────────────────────────────────────────────────────────
+type TimeOffSubtype = 'mid_shift' | 'shift_start' | 'shift_end';
 
-// ── Helper: compute return time string ─────────────────────────────────────────
-function calcReturnTime(startTime: string, durationMinutes: number): string {
-  if (!startTime) return '';
-  const [h, m] = startTime.split(':').map(Number);
-  const total = h * 60 + m + durationMinutes;
-  const rh = Math.floor(total / 60) % 24;
-  const rm = total % 60;
-  return `${String(rh).padStart(2, '0')}:${String(rm).padStart(2, '0')}`;
+interface SubtypeConfig {
+  label: string;
+  icon: string;
+  hint: string;
+  showLeaveTime: boolean;  // حقل ساعة الخروج/المغادرة
+  showReturnTime: boolean; // حقل ساعة العودة
 }
 
-// ── Helper: is Friday or Saturday? ────────────────────────────────────────────
+// ── Subtype configurations ── hoisted outside component ─────────────────────
+const SUBTYPE_CONFIGS: Record<TimeOffSubtype, SubtypeConfig> = {
+  mid_shift: {
+    label: 'وسط الدوام',
+    icon: '🔄',
+    hint: 'يحتاج بصمتين: مغادرة + عودة. الحد الأقصى ساعتان، وإلا تتحول لإجازة اعتيادية ليوم واحد.',
+    showLeaveTime: true,
+    showReturnTime: true,
+  },
+  shift_start: {
+    label: 'بداية الدوام',
+    icon: '🌅',
+    hint: 'الخروج هو وقت بداية الدوام الرسمي. حدد ساعة العودة فقط. الحد الأقصى ساعتان، وإلا تتحول لإجازة اعتيادية ليوم واحد.',
+    showLeaveTime: false,
+    showReturnTime: true,
+  },
+  shift_end: {
+    label: 'نهاية الدوام',
+    icon: '🌇',
+    hint: 'حدد ساعة المغادرة فقط. العودة هي نهاية الدوام الرسمي. الحد الأقصى ساعتان، وإلا تتحول لإجازة اعتيادية ليوم واحد.',
+    showLeaveTime: true,
+    showReturnTime: false,
+  },
+};
+
+const MAX_DURATION_MINUTES = 120;
+
+// ── Helpers ── hoisted outside component ────────────────────────────────────
+function timeToMinutes(time: string): number {
+  if (!time) return 0;
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(mins: number): string {
+  const h = Math.floor((mins % (24 * 60)) / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function formatDurationText(mins: number): string {
+  if (mins <= 0) return '—';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0 && m > 0) return `${h} ساعة و ${m} دقيقة`;
+  if (h > 0) return h === 1 ? 'ساعة واحدة' : h === 2 ? 'ساعتان' : `${h} ساعات`;
+  return `${m} دقيقة`;
+}
+
 function isWeekend(dateStr: string): boolean {
-  const day = new Date(dateStr).getDay(); // 5=Fri, 6=Sat
+  const day = new Date(dateStr).getDay();
   return day === 5 || day === 6;
 }
 
+// ── Props ───────────────────────────────────────────────────────────────────
 interface Props {
   onSuccess?: () => void;
 }
@@ -52,52 +97,18 @@ interface ManagerInfo {
 
 const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
-
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // ── Form state ──────────────────────────────────────────────────────────────
-  const [startTime, setStartTime] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [shiftStartMinutes, setShiftStartMinutes] = useState<number>(8 * 60);
-  const [shiftEndMinutes, setShiftEndMinutes] = useState<number>(15 * 60);
+  // ── Form state ────────────────────────────────────────────────────────────
+  const [subtype, setSubtype] = useState<TimeOffSubtype>('mid_shift');
+  const [leaveTime, setLeaveTime] = useState('');   // ساعة الخروج/المغادرة
+  const [returnTime, setReturnTime] = useState('');  // ساعة العودة
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-  const returnTime = calcReturnTime(startTime, durationMinutes);
+  // ── Schedule state ────────────────────────────────────────────────────────
+  const [shiftStart, setShiftStart] = useState('08:00');
+  const [shiftEnd, setShiftEnd] = useState('15:00');
 
-  // Determine if employee needs to return or it covers until end of day
-  const returnStatus: { needsReturn: boolean; message: string; adjustedReturnTime?: string; effectiveDuration: number } = (() => {
-    if (!startTime || !returnTime) return { needsReturn: false, message: '', effectiveDuration: durationMinutes };
-    const [h, m] = startTime.split(':').map(Number);
-    let startTotalMinutes = h * 60 + m;
-    
-    // Adjust for night shift if start time is past midnight (e.g., 01:00 AM when shift started at 20:00)
-    if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftStartMinutes) {
-        startTotalMinutes += 24 * 60;
-    }
-
-    let returnTotalMinutes = startTotalMinutes + durationMinutes;
-    
-    let effectiveShiftEnd = shiftEndMinutes;
-    if (shiftStartMinutes > shiftEndMinutes) {
-        effectiveShiftEnd += 24 * 60; // Night shift crosses midnight
-    }
-
-    if (returnTotalMinutes >= effectiveShiftEnd) {
-      const diffMinutes = effectiveShiftEnd - startTotalMinutes;
-      const hours = Math.floor(diffMinutes / 60);
-      const mins = diffMinutes % 60;
-      const diffText = hours > 0 ? `${hours} ساعة${mins > 0 ? ` و ${mins} دقيقة` : ''}` : `${mins} دقيقة`;
-      
-      return { 
-        needsReturn: false, 
-        message: `تم تعديل الوقت إلى (${diffText}) وأنك لا تحتاج للعودة`,
-        effectiveDuration: diffMinutes
-      };
-    }
-    return { needsReturn: true, message: `ساعة العودة المتوقعة: ${returnTime}`, effectiveDuration: durationMinutes };
-  })();
-
-  // ── UI state ─────────────────────────────────────────────────────────────────
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -109,12 +120,35 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [approvalChain, setApprovalChain] = useState<string[]>([]);
   const [loadingManager, setLoadingManager] = useState(true);
 
-  // ── Fetch manager from hierarchy ──────────────────────────────────────────
+  // ── Derived: effective times based on subtype ─────────────────────────────
+  const effectiveLeaveTime = useMemo(() => {
+    if (subtype === 'shift_start') return shiftStart;
+    return leaveTime;
+  }, [subtype, shiftStart, leaveTime]);
+
+  const effectiveReturnTime = useMemo(() => {
+    if (subtype === 'shift_end') return shiftEnd;
+    return returnTime;
+  }, [subtype, shiftEnd, returnTime]);
+
+  // ── Derived: duration in minutes ──────────────────────────────────────────
+  const durationMinutes = useMemo(() => {
+    if (!effectiveLeaveTime || !effectiveReturnTime) return 0;
+    const leaveMins = timeToMinutes(effectiveLeaveTime);
+    const returnMins = timeToMinutes(effectiveReturnTime);
+    const diff = returnMins - leaveMins;
+    return diff > 0 ? diff : 0;
+  }, [effectiveLeaveTime, effectiveReturnTime]);
+
+  const exceedsLimit = durationMinutes > MAX_DURATION_MINUTES;
+  const subtypeConfig = SUBTYPE_CONFIGS[subtype];
+
+  // ── Fetch manager + schedule ──────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
 
     let cancelled = false;
-    const fetchManager = async () => {
+    const fetchManagerAndSchedule = async () => {
       try {
         setLoadingManager(true);
         const { data: profile } = await supabase
@@ -123,8 +157,9 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           .eq('id', user.id)
           .single();
 
+        // Load work schedule
         if (profile?.work_schedule_id) {
-          const dayOfWeek = new Date().getDay(); // 0 is Sunday
+          const dayOfWeek = new Date().getDay();
           const { data: scheduleDay } = await supabase
             .from('work_schedule_days')
             .select('start_time, end_time')
@@ -132,16 +167,17 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             .eq('day_of_week', dayOfWeek)
             .single();
 
-          if (scheduleDay && scheduleDay.start_time && scheduleDay.end_time) {
-            const [sh, sm] = scheduleDay.start_time.split(':').map(Number);
-            const [eh, em] = scheduleDay.end_time.split(':').map(Number);
-            setShiftStartMinutes(sh * 60 + sm);
-            setShiftEndMinutes(eh * 60 + em);
+          if (scheduleDay?.start_time && scheduleDay?.end_time) {
+            if (!cancelled) {
+              setShiftStart(scheduleDay.start_time.substring(0, 5));
+              setShiftEnd(scheduleDay.end_time.substring(0, 5));
+            }
           }
         }
 
         if (!profile?.department_id || cancelled) return;
 
+        // Load manager hierarchy
         let currentDeptId: string | null = profile.department_id;
         const chain: string[] = [];
         const names: string[] = [];
@@ -183,45 +219,73 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           setApprovalChain([user.id]);
         }
       } catch (e) {
-        console.error('TimeOffRequestForm: fetchManager error', e);
+        console.error('TimeOffRequestForm: fetchManagerAndSchedule error', e);
       } finally {
         if (!cancelled) setLoadingManager(false);
       }
     };
 
-    fetchManager();
+    fetchManagerAndSchedule();
     return () => { cancelled = true; };
   }, [user]);
 
+  // ── Reset fields when subtype changes ─────────────────────────────────────
+  const handleSubtypeChange = useCallback((newSubtype: TimeOffSubtype) => {
+    setSubtype(newSubtype);
+    setLeaveTime('');
+    setReturnTime('');
+    setError(null);
+  }, []);
+
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {
-    if (!startTime) {
-      setError('يرجى تحديد وقت الخروج');
+    const config = SUBTYPE_CONFIGS[subtype];
+
+    if (config.showLeaveTime && !leaveTime) {
+      setError('يرجى تحديد ساعة المغادرة');
       return false;
     }
-    
-    // Check if start time is before shift start
-    const [h, m] = startTime.split(':').map(Number);
-    let startTotalMinutes = h * 60 + m;
-    
-    // If night shift (end < start) and the chosen time is small (e.g. 01:00), it's probably the next day
-    if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftEndMinutes) {
-        startTotalMinutes += 24 * 60;
+    if (config.showReturnTime && !returnTime) {
+      setError('يرجى تحديد ساعة العودة');
+      return false;
     }
-    
-    // Only check if it's not a night shift crossing, or if it is, the time is actually before the shift
-    if (shiftStartMinutes <= shiftEndMinutes && startTotalMinutes < shiftStartMinutes) {
-        const sh = Math.floor(shiftStartMinutes / 60);
-        const sm = shiftStartMinutes % 60;
-        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')})`);
+
+    // Validate leave time is within shift
+    if (config.showLeaveTime) {
+      const leaveMins = timeToMinutes(leaveTime);
+      const startMins = timeToMinutes(shiftStart);
+      const endMins = timeToMinutes(shiftEnd);
+      if (leaveMins < startMins) {
+        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${shiftStart})`);
         return false;
-    } else if (shiftStartMinutes > shiftEndMinutes && startTotalMinutes < shiftStartMinutes && startTotalMinutes > shiftEndMinutes) {
-        // For night shift (e.g. 20:00 to 08:30). If they ask for 14:00, it's invalid.
-        const sh = Math.floor(shiftStartMinutes / 60);
-        const sm = shiftStartMinutes % 60;
-        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')})`);
+      }
+      if (leaveMins >= endMins) {
+        setError(`لا يمكنك طلب إجازة بعد نهاية دوامك (${shiftEnd})`);
         return false;
+      }
     }
+
+    // Validate return time is within shift
+    if (config.showReturnTime) {
+      const retMins = timeToMinutes(returnTime);
+      const startMins = timeToMinutes(shiftStart);
+      const endMins = timeToMinutes(shiftEnd);
+      if (retMins <= startMins) {
+        setError(`ساعة العودة يجب أن تكون بعد بداية الدوام (${shiftStart})`);
+        return false;
+      }
+      if (retMins > endMins) {
+        setError(`ساعة العودة يجب أن لا تتجاوز نهاية الدوام (${shiftEnd})`);
+        return false;
+      }
+    }
+
+    // Validate return is after leave
+    if (durationMinutes <= 0) {
+      setError('ساعة العودة يجب أن تكون بعد ساعة المغادرة');
+      return false;
+    }
+
     if (isWeekend(todayStr)) {
       setError('لا يمكن تقديم إجازة زمنية في أيام العطلة الرسمية (الجمعة والسبت).');
       return false;
@@ -232,7 +296,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
     setError(null);
     return true;
-  }, [startTime, supervisorId, todayStr, shiftStartMinutes, shiftEndMinutes]);
+  }, [subtype, leaveTime, returnTime, shiftStart, shiftEnd, durationMinutes, supervisorId, todayStr]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -247,21 +311,26 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     setShowConfirm(false);
 
     try {
-      const actualDuration = returnStatus.effectiveDuration;
-      const finalReason = `(ساعة الخروج: ${startTime} | المدة: ${actualDuration} دقيقة | العودة: ${returnStatus.needsReturn ? returnTime : 'نهاية الدوام'})`;
+      const subtypeLabel = SUBTYPE_CONFIGS[subtype].label;
+      const actualDuration = Math.min(durationMinutes, MAX_DURATION_MINUTES);
+      const willConvert = exceedsLimit;
+
+      const finalReason = `(نوع الزمنية: ${subtypeLabel} | ساعة الخروج: ${effectiveLeaveTime} | ساعة العودة: ${effectiveReturnTime} | المدة: ${durationMinutes} دقيقة${willConvert ? ' — تم تحويلها لإجازة اعتيادية لتجاوز الحد' : ''})`;
 
       const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
-        p_leave_type: 'time_off',
+        p_leave_type: willConvert ? 'regular' : 'time_off',
         p_start_date: todayStr,
         p_end_date: todayStr,
-        p_days_count: 1,
+        p_days_count: willConvert ? 1 : 1,
         p_reason: finalReason,
         p_supervisor_id: supervisorId,
         p_approval_chain: approvalChain,
-        p_time_duration_minutes: actualDuration,
+        p_time_duration_minutes: willConvert ? null : actualDuration,
         p_destination: null,
         p_with_pay: true,
         p_supporting_image_urls: [],
+        p_time_off_subtype: willConvert ? null : subtype,
+        p_with_request: true,
       });
 
       if (rpcError) throw rpcError;
@@ -272,7 +341,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         return;
       }
 
-      // Send push notification to supervisor
+      // Push notification
       try {
         const { data: supProfile } = await supabase
           .from('available_profiles')
@@ -282,11 +351,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         if (supProfile?.push_token) {
           await sendPushNotification(
             supProfile.push_token,
-            'طلب إجازة زمنية جديد',
-            `${user.full_name || 'موظف'} يطلب إجازة زمنية (${durationMinutes} دقيقة) من ${startTime}`
+            `طلب إجازة زمنية — ${subtypeLabel}`,
+            `${user.full_name || 'موظف'} يطلب إجازة زمنية (${subtypeLabel}) بمدة ${actualDuration} دقيقة`
           );
         }
-      } catch { /* push notification is non-critical */ }
+      } catch { /* push is non-critical */ }
 
       setSuccess(true);
     } catch (err: any) {
@@ -305,11 +374,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         </div>
         <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم إرسال الطلب بنجاح</h3>
         <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
-          تم إرسال طلب الإجازة الزمنية إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
+          تم إرسال طلب الإجازة الزمنية ({SUBTYPE_CONFIGS[subtype].label}) إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
         </p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { setSuccess(false); setStartTime(''); setDurationMinutes(60); }}
+            onClick={() => { setSuccess(false); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); }}
             className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20 text-sm font-bold"
           >
             تقديم طلب جديد
@@ -327,21 +396,44 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
   return (
     <>
-      {/* ── Form card ────────────────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit} className="space-y-5" dir="rtl">
 
-        {/* Info banner */}
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl flex gap-3 items-start">
-          <span className="text-2xl shrink-0">⏱️</span>
+        {/* ── نوع الزمنية (القائمة المنسدلة) ─────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            حدد نوع الزمنية
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.entries(SUBTYPE_CONFIGS) as [TimeOffSubtype, SubtypeConfig][]).map(([key, config]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleSubtypeChange(key)}
+                className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all duration-200 ${
+                  subtype === key
+                    ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/25 scale-[1.02]'
+                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-amber-300 hover:shadow-sm'
+                }`}
+              >
+                <span className="text-lg">{config.icon}</span>
+                <span className="text-xs leading-tight">{config.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── تلميح النوع المختار ──────────────────────────────────────────── */}
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl flex gap-3 items-start">
+          <span className="text-xl shrink-0">{subtypeConfig.icon}</span>
           <div>
-            <p className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-0.5">إجازة زمنية</p>
+            <p className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-0.5">{subtypeConfig.label}</p>
             <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-              من 30 دقيقة إلى ساعتين. تُحتسب تراكمياً وكل 7 ساعات تُخصم يوم إجازة من رصيدك.
+              {subtypeConfig.hint}
             </p>
           </div>
         </div>
 
-        {/* Routing info */}
+        {/* ── التوجيه للمسؤول ──────────────────────────────────────────────── */}
         <div className={`p-4 rounded-xl border flex items-start justify-between gap-3 ${
           managerInfo
             ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50'
@@ -376,61 +468,82 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           <Network size={36} className={`shrink-0 ${managerInfo ? 'text-blue-200 dark:text-blue-800' : 'text-red-200 dark:text-red-800/50'}`} />
         </div>
 
-        {/* Start time */}
+        {/* ── ساعة الخروج / المغادرة ──────────────────────────────────────── */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
             <Clock size={14} className="inline ml-1" />
-            ساعة البداية (الخروج)
+            {subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
           </label>
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => { setStartTime(e.target.value); setError(null); }}
-            required
-            className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
-          />
+          {subtypeConfig.showLeaveTime ? (
+            <input
+              type="time"
+              value={leaveTime}
+              onChange={(e) => { setLeaveTime(e.target.value); setError(null); }}
+              required
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
+            />
+          ) : (
+            <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
+              <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftStart}</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">بداية الدوام الرسمي</span>
+            </div>
+          )}
         </div>
 
-        {/* Duration */}
+        {/* ── ساعة العودة ─────────────────────────────────────────────────── */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-            المدة الزمنية
+            <Clock size={14} className="inline ml-1" />
+            ساعة العودة
           </label>
-          <div className="grid grid-cols-4 gap-2">
-            {DURATION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setDurationMinutes(opt.value)}
-                className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
-                  returnStatus.effectiveDuration === opt.value
-                    ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/25'
-                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-amber-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {subtypeConfig.showReturnTime ? (
+            <input
+              type="time"
+              value={returnTime}
+              onChange={(e) => { setReturnTime(e.target.value); setError(null); }}
+              required
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
+            />
+          ) : (
+            <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
+              <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftEnd}</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">نهاية الدوام الرسمي</span>
+            </div>
+          )}
         </div>
 
-        {/* Expected return */}
+        {/* ── المدة المحسوبة تلقائياً ─────────────────────────────────────── */}
         <div className={`flex items-center justify-between p-4 rounded-xl border ${
-          returnStatus.needsReturn
-            ? 'bg-amber-50 dark:bg-slate-700/50 border-amber-100 dark:border-slate-600'
-            : startTime ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40' : 'bg-gray-50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600'
+          exceedsLimit
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40'
+            : durationMinutes > 0
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/40'
+              : 'bg-gray-50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600'
         }`}>
-          <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">ساعة العودة المتوقعة:</span>
+          <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">المدة المحسوبة:</span>
           <span className={`font-bold text-sm ${
-            returnStatus.needsReturn
-              ? 'text-amber-700 dark:text-amber-300'
-              : startTime ? 'text-green-700 dark:text-green-300' : 'text-gray-400'
+            exceedsLimit
+              ? 'text-red-700 dark:text-red-300'
+              : durationMinutes > 0
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-gray-400'
           }`}>
-            {returnStatus.message || '—'}
+            {durationMinutes > 0 ? formatDurationText(durationMinutes) : '—'}
           </span>
         </div>
 
-        {/* Error */}
+        {/* ── تحذير تجاوز الحد ────────────────────────────────────────────── */}
+        {exceedsLimit && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-300 rounded-xl text-sm flex items-start gap-2">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold mb-1">تجاوز الحد الزمني (ساعتان)</p>
+              <p className="text-xs">سيتم تحويل هذا الطلب تلقائياً إلى إجازة اعتيادية ليوم واحد تُخصم من رصيدك.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── خطأ ─────────────────────────────────────────────────────────── */}
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm flex items-center gap-2">
             <AlertCircle size={16} className="shrink-0" />
@@ -438,7 +551,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
         )}
 
-        {/* Submit */}
+        {/* ── زر الإرسال ──────────────────────────────────────────────────── */}
         <button
           type="submit"
           disabled={isSubmitting || loadingManager}
@@ -450,7 +563,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         </button>
       </form>
 
-      {/* ── Confirm Modal ─────────────────────────────────────────────────────── */}
+      {/* ── نافذة التأكيد ──────────────────────────────────────────────────── */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 pb-8 w-full max-w-sm shadow-2xl mb-16 sm:mb-0">
@@ -458,19 +571,21 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>نوع الطلب</span>
-                <span className="font-bold text-amber-600">إجازة زمنية</span>
+                <span className="font-bold text-amber-600">
+                  {exceedsLimit ? 'إجازة اعتيادية (تحويل تلقائي)' : `زمنية — ${subtypeConfig.label}`}
+                </span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>ساعة الخروج</span>
-                <span className="font-bold dir-ltr">{startTime}</span>
+                <span className="font-bold dir-ltr">{effectiveLeaveTime}</span>
+              </div>
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>ساعة العودة</span>
+                <span className="font-bold dir-ltr">{effectiveReturnTime}</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>المدة</span>
-                <span className="font-bold">{DURATION_OPTIONS.find(o => o.value === durationMinutes)?.label}</span>
-              </div>
-              <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                <span>العودة المتوقعة</span>
-                <span className="font-bold dir-ltr">{returnTime}</span>
+                <span className={`font-bold ${exceedsLimit ? 'text-red-600' : ''}`}>{formatDurationText(durationMinutes)}</span>
               </div>
             </div>
             <div className="flex gap-3">
@@ -495,3 +610,5 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 };
 
 export default TimeOffRequestForm;
+
+

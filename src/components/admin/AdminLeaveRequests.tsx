@@ -43,6 +43,8 @@ export interface LeaveRecord {
     leave_type?: string;
     destination?: string;
     time_duration_minutes?: number;
+    time_off_subtype?: string;
+    is_mandatory?: boolean;
 }
 
 export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestId }: AdminLeaveRequestsProps) => {
@@ -121,7 +123,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes, time_off_subtype, is_mandatory')
                 .eq('status', 'approved')
                 .eq('is_archived', false) // Only fetch unarchived for the pending queue
                 .order('created_at', { ascending: false });
@@ -193,7 +195,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, is_archived, unpaid_days, cancellation_status, leave_type, destination, time_duration_minutes, time_off_subtype, is_mandatory')
                 .eq('cancellation_status', 'approved')
                 .eq('is_archived', false) // Only fetch unarchived
                 .order('created_at', { ascending: false });
@@ -249,7 +251,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
         try {
             const { data } = await supabase
                 .from('leave_requests')
-                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, cut_status, hr_cut_status, cut_date, leave_type, destination, time_duration_minutes, unpaid_days')
+                .select('id, user_id, start_date, end_date, status, days_count, reason, supervisor_id, created_at, cut_status, hr_cut_status, cut_date, leave_type, destination, time_duration_minutes, unpaid_days, time_off_subtype, is_mandatory')
                 .eq('cut_status', 'approved')
                 .eq('hr_cut_status', 'pending')
                 .order('created_at', { ascending: false });

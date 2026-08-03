@@ -4,11 +4,20 @@ import { supabase } from '../../../lib/supabase';
 
 import { sendPushNotification } from '../../../services/notifications';
 
-const getLeaveTypeName = (type?: string) => {
+const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean) => {
     switch (type) {
         case 'regular': return 'إجازة اعتيادية';
         case 'sick': return 'إجازة مرضية';
-        case 'time_off': return 'إجازة زمنية';
+        case 'time_off': 
+            let label = 'إجازة زمنية';
+            if (subtype === 'shift_start') label += ' (بداية الدوام)';
+            else if (subtype === 'shift_end') label += ' (نهاية الدوام)';
+            else if (subtype === 'mid_shift') label += ' (وسط الدوام)';
+            
+            if (isMandatory) label += ' - بدون طلب';
+            else label += ' - بطلب';
+            
+            return label;
         case 'duty': return 'واجب';
         case 'dispatch': return 'إيفاد';
         case 'long_regular': return 'إجازة اعتيادية طويلة';
@@ -28,6 +37,8 @@ interface LeaveRequest {
     created_at: string;
     modification_type?: string;
     leave_type?: string;
+    time_off_subtype?: string;
+    is_mandatory?: boolean;
     cancellation_reason?: string;
     unpaid_days?: number;
     cut_date?: string;
@@ -130,13 +141,13 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
             if (rpcResult && rpcResult.status === 'escalated') {
                 // 1. Request escalated to next supervisor, notify the next supervisor!
                 if (rpcResult.next_supervisor) {
-                    const typeName = getLeaveTypeName(request.leave_type);
+                    const typeName = getLeaveTypeName(request.leave_type, request.time_off_subtype, request.is_mandatory);
                     sendPushNotification(rpcResult.next_supervisor, `لديك طلب ${typeName} جديد يتطلب موافقتك (${request.start_date})`, { title: `طلب ${typeName} معلق`, url: `${window.location.origin}/requests` });
                 }
             } else {
                 // 2. Request fully processed (approved or rejected), notify the employee
                 const statusText = status === 'approved' ? 'موافق عليه' : 'مرفوض';
-                const typeName = getLeaveTypeName(request.leave_type);
+                const typeName = getLeaveTypeName(request.leave_type, request.time_off_subtype, request.is_mandatory);
                 let message = `تم ${statusText} لطلب الـ ${typeName} الخاص بك (${request.start_date})`;
 
                 if (request.modification_type === 'canceled') {
@@ -157,7 +168,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                         .or('role.eq.admin,admin_role.eq.hr_supervisor');
 
                     if (admins && admins.length > 0) {
-                        const typeName = getLeaveTypeName(request.leave_type);
+                        const typeName = getLeaveTypeName(request.leave_type, request.time_off_subtype, request.is_mandatory);
                         const hrTitle = request.modification_type === 'canceled' ? `إلغاء ${typeName}` : `اعتماد قطع ${typeName}`;
                         const hrMessage = request.modification_type === 'canceled'
                             ? `تم إلغاء ${typeName} للموظف (${request.profiles?.full_name || 'مجهول'}) واسترجاع رصيده بالكامل.`
@@ -251,9 +262,9 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{request.profiles?.full_name || 'مستخدم'}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {request.modification_type === 'canceled' ? `طلب إلغاء (${request.leave_type === 'regular' ? 'اعتيادية' : request.leave_type === 'sick' ? 'مرضية' : request.leave_type === 'time_off' ? 'زمنية' : request.leave_type === 'dispatch' ? 'إيفاد' : request.leave_type === 'duty' ? 'واجب' : request.leave_type === 'long_regular' ? 'اعتيادية طويلة' : request.leave_type === 'long_sick' ? 'مرضية طويلة' : 'إجازة'})` :
+                            {request.modification_type === 'canceled' ? `طلب إلغاء (${getLeaveTypeName(request.leave_type, request.time_off_subtype, request.is_mandatory)})` :
                                 request.modification_type === 'cut' ? 'طلب قطع إجازة' :
-                                    `طلب ${request.leave_type === 'regular' ? 'إجازة اعتيادية' : request.leave_type === 'sick' ? 'إجازة مرضية' : request.leave_type === 'time_off' ? 'إجازة زمنية' : request.leave_type === 'dispatch' ? 'إيفاد' : request.leave_type === 'duty' ? 'واجب' : request.leave_type === 'long_regular' ? 'إجازة اعتيادية طويلة' : request.leave_type === 'long_sick' ? 'إجازة مرضية طويلة' : 'إجازة'} جديد`}
+                                    `طلب ${getLeaveTypeName(request.leave_type, request.time_off_subtype, request.is_mandatory)} جديد`}
                         </p>
                     </div>
                     <button onClick={onClose} className="mr-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">

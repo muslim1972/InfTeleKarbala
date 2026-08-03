@@ -3,9 +3,11 @@ import { Calendar, Stethoscope, Plane, Briefcase, Clock, FileMinus } from 'lucid
 interface LeaveTypeBadgeProps {
     type?: string;
     cancellationStatus?: string;
+    timeOffSubtype?: string;
+    isMandatory?: boolean;
 }
 
-export function LeaveTypeBadge({ type, cancellationStatus }: LeaveTypeBadgeProps) {
+export function LeaveTypeBadge({ type, cancellationStatus, timeOffSubtype, isMandatory }: LeaveTypeBadgeProps) {
     if (cancellationStatus === 'approved') {
         return <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded text-xs font-bold ring-1 ring-rose-500/30">إجازة ملغاة</span>;
     }
@@ -39,12 +41,20 @@ export function LeaveTypeBadge({ type, cancellationStatus }: LeaveTypeBadgeProps
                     <Briefcase size={12} /> مهمة رسمية
                 </span>
             );
-        case 'time_off':
+        case 'time_off': {
+            let label = 'إجازة زمنية';
+            if (timeOffSubtype === 'shift_start') label += ' (بداية)';
+            else if (timeOffSubtype === 'shift_end') label += ' (نهاية)';
+            else if (timeOffSubtype === 'mid_shift') label += ' (وسط)';
+            
+            if (isMandatory) label += ' إجبارية';
+            
             return (
                 <span className="flex items-center gap-1 bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 px-2 py-1 rounded text-xs font-bold ring-1 ring-teal-500/30">
-                    <Clock size={12} /> إجازة زمنية
+                    <Clock size={12} /> {label}
                 </span>
             );
+        }
         case 'unpaid':
             return (
                 <span className="flex items-center gap-1 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2 py-1 rounded text-xs font-bold ring-1 ring-gray-500/30">

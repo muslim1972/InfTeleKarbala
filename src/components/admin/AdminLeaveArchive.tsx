@@ -259,7 +259,7 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
                                                         <td className="px-4 py-4 text-gray-600 dark:text-gray-300 dir-ltr text-right">{record.start_date}</td>
                                                         <td className="px-4 py-4 text-gray-600 dark:text-gray-300 dir-ltr text-right">{record.end_date}</td>
                                                         <td className="px-4 py-4">
-                                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
+                                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} timeOffSubtype={record.time_off_subtype} isMandatory={record.is_mandatory} />
                                                         </td>
                                                         <td className="px-4 py-4 text-center font-bold">
                                                             {record.leave_type === 'time_off' ? `${record.time_duration_minutes} دقيقة` : `${record.days_count} يوم`}

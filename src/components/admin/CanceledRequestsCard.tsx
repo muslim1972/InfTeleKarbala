@@ -132,7 +132,7 @@ export function CanceledRequestsCard({
                                                     </div>
                                                     {record.cancellation_status === 'approved' && (
                                                         <div className="mt-2">
-                                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} />
+                                                            <LeaveTypeBadge type={record.leave_type} cancellationStatus={record.cancellation_status} timeOffSubtype={record.time_off_subtype} isMandatory={record.is_mandatory} />
                                                         </div>
                                                     )}
                                                 </div>
