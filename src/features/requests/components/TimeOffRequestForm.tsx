@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
@@ -576,7 +576,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       {/* ── نافذة التأكيد ──────────────────────────────────────────────────── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 pb-8 w-full max-w-sm shadow-2xl mb-16 sm:mb-0">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">تأكيد إرسال الطلب</h3>
             <div className="space-y-2 text-sm mb-5">
@@ -622,43 +622,90 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
 // ── Custom Modern 24h Time Picker ────────────────────────────────────────────
 const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
-   const [h, m] = value ? value.split(':') : ['', ''];
+   const [isOpen, setIsOpen] = useState(false);
+   const [step, setStep] = useState<'h' | 'm'>('h');
+   const [tempH, setTempH] = useState('');
    
-   // Create options
+   const h = value ? value.split(':')[0] : '00';
+   const m = value ? value.split(':')[1] : '00';
+
    const hours = Array.from({length: 24}).map((_, i) => String(i).padStart(2, '0'));
-   // You can use 60 mins, or step by 5 for cleaner UX. We'll use 60 for full flexibility.
    const minutes = Array.from({length: 60}).map((_, i) => String(i).padStart(2, '0'));
 
    return (
-      <div className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-2.5 flex items-center justify-between shadow-sm focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-transparent transition-all">
-          <div className="flex gap-1.5 items-center text-lg dir-ltr bg-white dark:bg-slate-800 rounded-lg p-1.5 border border-gray-100 dark:border-slate-700">
-             <select 
-                value={h} 
-                onChange={e => onChange(`${e.target.value.padStart(2, '0')}:${m || '00'}`)}
-                className="bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 font-bold px-1 py-1 cursor-pointer appearance-none text-center min-w-[3ch] hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md transition-colors"
-             >
-                <option value="" disabled>--</option>
-                {hours.map((hr) => (
-                    <option key={hr} value={hr}>{hr}</option>
-                ))}
-             </select>
-             <span className="font-bold text-gray-400 mb-0.5">:</span>
-             <select 
-                value={m} 
-                onChange={e => onChange(`${h || '00'}:${e.target.value.padStart(2, '0')}`)}
-                className="bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 font-bold px-1 py-1 cursor-pointer appearance-none text-center min-w-[3ch] hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md transition-colors"
-             >
-                <option value="" disabled>--</option>
-                {minutes.map((min) => (
-                    <option key={min} value={min}>{min}</option>
-                ))}
-             </select>
-             <Clock size={16} className="text-amber-500 ml-2" />
+      <div className="relative">
+          <div 
+            onClick={() => { setIsOpen(true); setStep('h'); setTempH(h); }}
+            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 flex flex-row-reverse items-center justify-between shadow-sm cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-all"
+          >
+             <div className="flex gap-1.5 items-center text-xl font-mono font-bold text-gray-800 dark:text-gray-100 dir-ltr bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700">
+                <Clock size={18} className="text-amber-500 mr-2" />
+                <span>{h}</span>
+                <span className="text-gray-400 mb-0.5">:</span>
+                <span>{m}</span>
+             </div>
+             
+             <div className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                <span className="font-bold">{label}</span>
+                {hint && <span className="text-xs text-gray-500">{hint}</span>}
+             </div>
           </div>
-          <div className="flex flex-col items-end text-xs text-gray-500 dark:text-gray-400 mr-2">
-             <span className="font-bold">{label}</span>
-             {hint && <span>{hint}</span>}
-          </div>
+
+          {isOpen && (
+            <>
+               <div className="absolute top-full mt-2 left-0 right-0 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-2xl rounded-2xl p-4 z-[9999] animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-slate-700 pb-3">
+                     <span className="font-bold text-gray-800 dark:text-gray-200">
+                        {step === 'h' ? 'اختر الساعة (24)' : 'اختر الدقيقة'}
+                     </span>
+                     <button type="button" onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-red-500 bg-gray-50 dark:bg-slate-700 p-1.5 rounded-full transition-colors">
+                        <X size={16} />
+                     </button>
+                  </div>
+                  
+                  {step === 'h' ? (
+                     <div className="grid grid-cols-6 gap-1.5 dir-ltr">
+                        {hours.map(hour => (
+                           <button 
+                             type="button"
+                             key={hour}
+                             onClick={() => { setTempH(hour); setStep('m'); }}
+                             className={`py-2 rounded-lg text-sm font-bold font-mono transition-all ${hour === h ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-slate-600'}`}
+                           >
+                             {hour}
+                           </button>
+                        ))}
+                     </div>
+                  ) : (
+                     <div>
+                        <div className="grid grid-cols-6 gap-1.5 dir-ltr max-h-48 overflow-y-auto pr-1 hide-scrollbar">
+                           {minutes.map(minute => (
+                              <button 
+                                type="button"
+                                key={minute}
+                                onClick={() => { 
+                                   onChange(`${tempH}:${minute}`); 
+                                   setIsOpen(false); 
+                                }}
+                                className={`py-2 rounded-lg text-sm font-bold font-mono transition-all ${minute === m && tempH === h ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-slate-600'}`}
+                              >
+                                {minute}
+                              </button>
+                           ))}
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setStep('h')}
+                          className="w-full mt-3 py-2 text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                        >
+                          العودة لتحديد الساعة
+                        </button>
+                     </div>
+                  )}
+               </div>
+               <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)}></div>
+            </>
+          )}
       </div>
    )
 }
