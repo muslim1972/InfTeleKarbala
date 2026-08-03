@@ -590,13 +590,14 @@ export const attendanceRecordService = {
         .single();
         
       if (!existingReq) {
-        // Create a device change request and notify via RPC
-        const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
-          p_employee_id: employeeId,
-          p_old_device_id: profile.primary_device_id,
-          p_new_device_id: deviceId
+        // Create a device change request directly
+        const { error: insertError } = await supabase.from('device_change_requests').insert({
+          employee_id: employeeId,
+          old_device_id: profile.primary_device_id,
+          new_device_id: deviceId,
+          status: 'pending'
         });
-        if (rpcError) console.error('Error submitting device change request:', rpcError);
+        if (insertError) console.error('Error submitting device change request:', insertError);
         
         // Send in-app notification to HR/General Manager
         const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
@@ -710,13 +711,14 @@ export const attendanceRecordService = {
         .single();
         
       if (!existingReq) {
-         // Create a device change request and notify via RPC
-         const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
-           p_employee_id: employeeId,
-           p_old_device_id: profile.primary_device_id,
-           p_new_device_id: deviceId
+         // Create a device change request directly
+         const { error: insertError } = await supabase.from('device_change_requests').insert({
+           employee_id: employeeId,
+           old_device_id: profile.primary_device_id,
+           new_device_id: deviceId,
+           status: 'pending'
          });
-         if (rpcError) console.error('Error submitting device change request:', rpcError);
+         if (insertError) console.error('Error submitting device change request:', insertError);
          
          // Send in-app notification to HR/General Manager
          const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();

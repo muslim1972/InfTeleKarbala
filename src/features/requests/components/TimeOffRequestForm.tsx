@@ -63,6 +63,20 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+function getRelativeMins(timeStr: string, startStr: string, endStr: string): number {
+  if (!timeStr) return 0;
+  const mins = timeToMinutes(timeStr);
+  const start = timeToMinutes(startStr);
+  const end = timeToMinutes(endStr);
+  
+  if (end < start) { // Shift crosses midnight
+    if (mins < start && mins <= end + 240) { 
+        return mins + 1440;
+    }
+  }
+  return mins;
+}
+
 function minutesToTime(mins: number): string {
   const h = Math.floor((mins % (24 * 60)) / 60);
   const m = mins % 60;
@@ -132,13 +146,14 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   }, [subtype, shiftEnd, returnTime]);
 
   // ── Derived: duration in minutes ──────────────────────────────────────────
+  const leaveRelative = useMemo(() => getRelativeMins(effectiveLeaveTime, shiftStart, shiftEnd), [effectiveLeaveTime, shiftStart, shiftEnd]);
+  const returnRelative = useMemo(() => getRelativeMins(effectiveReturnTime, shiftStart, shiftEnd), [effectiveReturnTime, shiftStart, shiftEnd]);
+
   const durationMinutes = useMemo(() => {
     if (!effectiveLeaveTime || !effectiveReturnTime) return 0;
-    const leaveMins = timeToMinutes(effectiveLeaveTime);
-    const returnMins = timeToMinutes(effectiveReturnTime);
-    const diff = returnMins - leaveMins;
+    const diff = returnRelative - leaveRelative;
     return diff > 0 ? diff : 0;
-  }, [effectiveLeaveTime, effectiveReturnTime]);
+  }, [effectiveLeaveTime, effectiveReturnTime, leaveRelative, returnRelative]);
 
   const exceedsLimit = durationMinutes > MAX_DURATION_MINUTES;
   const subtypeConfig = SUBTYPE_CONFIGS[subtype];
@@ -252,9 +267,9 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     // Validate leave time is within shift
     if (config.showLeaveTime) {
-      const leaveMins = timeToMinutes(leaveTime);
-      const startMins = timeToMinutes(shiftStart);
-      const endMins = timeToMinutes(shiftEnd);
+      const leaveMins = getRelativeMins(leaveTime, shiftStart, shiftEnd);
+      const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
+      const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
       if (leaveMins < startMins) {
         setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${shiftStart})`);
         return false;
@@ -267,9 +282,9 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     // Validate return time is within shift
     if (config.showReturnTime) {
-      const retMins = timeToMinutes(returnTime);
-      const startMins = timeToMinutes(shiftStart);
-      const endMins = timeToMinutes(shiftEnd);
+      const retMins = getRelativeMins(returnTime, shiftStart, shiftEnd);
+      const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
+      const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
       if (retMins <= startMins) {
         setError(`ساعة العودة يجب أن تكون بعد بداية الدوام (${shiftStart})`);
         return false;
@@ -475,12 +490,10 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             {subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
           </label>
           {subtypeConfig.showLeaveTime ? (
-            <input
-              type="time"
-              value={leaveTime}
-              onChange={(e) => { setLeaveTime(e.target.value); setError(null); }}
-              required
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
+            <ModernTimePicker 
+                value={leaveTime} 
+                onChange={(val: string) => { setLeaveTime(val); setError(null); }} 
+                label={subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
             />
           ) : (
             <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
@@ -497,12 +510,10 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             ساعة العودة
           </label>
           {subtypeConfig.showReturnTime ? (
-            <input
-              type="time"
-              value={returnTime}
-              onChange={(e) => { setReturnTime(e.target.value); setError(null); }}
-              required
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition dir-ltr text-left text-base"
+            <ModernTimePicker 
+                value={returnTime} 
+                onChange={(val: string) => { setReturnTime(val); setError(null); }} 
+                label="ساعة العودة"
             />
           ) : (
             <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
@@ -608,6 +619,49 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     </>
   );
 };
+
+// ── Custom Modern 24h Time Picker ────────────────────────────────────────────
+const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
+   const [h, m] = value ? value.split(':') : ['', ''];
+   
+   // Create options
+   const hours = Array.from({length: 24}).map((_, i) => String(i).padStart(2, '0'));
+   // You can use 60 mins, or step by 5 for cleaner UX. We'll use 60 for full flexibility.
+   const minutes = Array.from({length: 60}).map((_, i) => String(i).padStart(2, '0'));
+
+   return (
+      <div className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-2.5 flex items-center justify-between shadow-sm focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-transparent transition-all">
+          <div className="flex gap-1.5 items-center text-lg dir-ltr bg-white dark:bg-slate-800 rounded-lg p-1.5 border border-gray-100 dark:border-slate-700">
+             <select 
+                value={h} 
+                onChange={e => onChange(`${e.target.value.padStart(2, '0')}:${m || '00'}`)}
+                className="bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 font-bold px-1 py-1 cursor-pointer appearance-none text-center min-w-[3ch] hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md transition-colors"
+             >
+                <option value="" disabled>--</option>
+                {hours.map((hr) => (
+                    <option key={hr} value={hr}>{hr}</option>
+                ))}
+             </select>
+             <span className="font-bold text-gray-400 mb-0.5">:</span>
+             <select 
+                value={m} 
+                onChange={e => onChange(`${h || '00'}:${e.target.value.padStart(2, '0')}`)}
+                className="bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 font-bold px-1 py-1 cursor-pointer appearance-none text-center min-w-[3ch] hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md transition-colors"
+             >
+                <option value="" disabled>--</option>
+                {minutes.map((min) => (
+                    <option key={min} value={min}>{min}</option>
+                ))}
+             </select>
+             <Clock size={16} className="text-amber-500 ml-2" />
+          </div>
+          <div className="flex flex-col items-end text-xs text-gray-500 dark:text-gray-400 mr-2">
+             <span className="font-bold">{label}</span>
+             {hint && <span>{hint}</span>}
+          </div>
+      </div>
+   )
+}
 
 export default TimeOffRequestForm;
 
