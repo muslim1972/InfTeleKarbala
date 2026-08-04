@@ -153,7 +153,7 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = user.role === 'admin' || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
+        const isAllowedRole = user.admin_role === 'developer' || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
 
         if (!isAllowedRole) return;
 
@@ -497,6 +497,9 @@ export const AppNotifications = () => {
                                             requestType = 'قطع إجازتك';
                                         } else {
                                             isApproved = req.status === 'approved';
+                                            if (req.leave_type === 'time_off') {
+                                                requestType = 'إجازتك الزمنية';
+                                            }
                                         }
 
                                         return (
@@ -526,7 +529,7 @@ export const AppNotifications = () => {
                                                             } else {
                                                                 return `لقد تم رفض طلب قطع إجازتك. لا تزال الإجازة مستمرة (من ${req.start_date} إلى ${req.end_date}).`;
                                                             }
-                                                        })() : `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`}
+                                                        })() : req.leave_type === 'time_off' && requestType === 'إجازتك الزمنية' ? `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} بتاريخ (${req.start_date}) لمدة (${req.time_duration_minutes} دقيقة).` : `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`}
                                                     </p>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-2">

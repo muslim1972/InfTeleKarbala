@@ -158,22 +158,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 // إرسال إشعار الدفع الفوري (للمتصفح أو الهاتف)
                 sendPushNotification(request.user_id, message, { title: `تحديث طلب ${typeName}`, url: `${window.location.origin}/requests` });
                 
-                // إضافة إشعار داخل التطبيق (جرس الإشعارات)
-                try {
-                    const { data: userData } = await supabase.auth.getUser();
-                    if (userData?.user?.id) {
-                        await supabase.from('system_notifications').insert({
-                            recipient_id: request.user_id,
-                            sender_id: userData.user.id,
-                            type: 'leave_update',
-                            title: `تحديث طلب ${typeName}`,
-                            content: message,
-                            metadata: { request_id: request.id, status }
-                        });
-                    }
-                } catch (notiErr) {
-                    console.error('Failed to insert employee notification:', notiErr);
-                }
+                // إضافية إشعار النظام أزيلت بناءً على طلب المستخدم لمنع التكرار مع قسم الردود
             }
 
             // Notify HR/Admin if it's a cut or cancellation approval
