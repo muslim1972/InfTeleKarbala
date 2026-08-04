@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
-import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2, ShieldCheck, Bell, Mic, Volume2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { requestNotificationPermission } from '../../services/notifications';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -11,7 +12,63 @@ interface SettingsModalProps {
 export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     const { user, updateProfile, changePassword, uploadAvatar } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'permissions'>('profile');
+
+    // Permissions State
+    const [notifStatus, setNotifStatus] = useState<string>('default');
+    const [camStatus, setCamStatus] = useState<string>('prompt');
+    const [micStatus, setMicStatus] = useState<string>('prompt');
+
+    useEffect(() => {
+        if (activeTab === 'permissions' && typeof window !== 'undefined') {
+            setNotifStatus(Notification.permission);
+            if (navigator.permissions) {
+                navigator.permissions.query({ name: 'camera' as PermissionName }).then(res => setCamStatus(res.state)).catch(() => {});
+                navigator.permissions.query({ name: 'microphone' as PermissionName }).then(res => setMicStatus(res.state)).catch(() => {});
+            }
+        }
+    }, [activeTab]);
+
+    const handleRequestNotifications = async () => {
+        try {
+            await requestNotificationPermission();
+            setNotifStatus(Notification.permission);
+        } catch (err) {
+            toast.error('تعذر طلب صلاحية الإشعارات');
+        }
+    };
+
+    const handleRequestCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream.getTracks().forEach(track => track.stop());
+            toast.success('تم منح صلاحية الكاميرا بنجاح');
+            if (navigator.permissions) {
+                navigator.permissions.query({ name: 'camera' as PermissionName }).then(res => setCamStatus(res.state)).catch(() => {});
+            } else {
+                setCamStatus('granted');
+            }
+        } catch (err) {
+            toast.error('تم رفض صلاحية الكاميرا');
+            setCamStatus('denied');
+        }
+    };
+
+    const handleRequestMic = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            toast.success('تم منح صلاحية المايكروفون بنجاح');
+            if (navigator.permissions) {
+                navigator.permissions.query({ name: 'microphone' as PermissionName }).then(res => setMicStatus(res.state)).catch(() => {});
+            } else {
+                setMicStatus('granted');
+            }
+        } catch (err) {
+            toast.error('تم رفض صلاحية المايكروفون');
+            setMicStatus('denied');
+        }
+    };
 
     // Profile State
     const [fullName, setFullName] = useState(user?.full_name || '');
@@ -167,6 +224,20 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                         بوابة الأمان
                         {activeTab === 'security' && (
                             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-full shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('permissions')}
+                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'permissions'
+                            ? 'text-purple-400'
+                            : 'text-white/50 hover:text-white/80'
+                            }`}
+                    >
+                        <ShieldCheck className="w-5 h-5" />
+                        الأذونات
+                        {activeTab === 'permissions' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400 rounded-t-full shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
                         )}
                     </button>
                 </div>
@@ -376,6 +447,129 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                                         تحديث كلمة السـر
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Section 3: Permissions */}
+                        {activeTab === 'permissions' && (
+                            <div className="space-y-8 animate-in slide-in-from-left-4 fade-in duration-500">
+                                
+                                {/* App Permissions */}
+                                <div className="space-y-6 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-[50px] pointer-events-none group-hover:bg-purple-500/10 transition-colors"></div>
+                                    
+                                    <h3 className="text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4 relative z-10">
+                                        <ShieldCheck className="w-5 h-5 text-purple-400" />
+                                        إدارة الأذونات والصلاحيات
+                                    </h3>
+
+                                    <div className="space-y-4 relative z-10">
+                                        {/* Notifications */}
+                                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-3 bg-blue-500/10 rounded-xl">
+                                                    <Bell className="w-5 h-5 text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">الإشعارات الفورية</h4>
+                                                    <p className="text-xs text-white/50 mt-1">تلقي التنبيهات للرسائل والطلبات</p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {notifStatus === 'granted' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">مفعلة</span>
+                                                ) : notifStatus === 'denied' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">مرفوضة (من الإعدادات)</span>
+                                                ) : (
+                                                    <button onClick={handleRequestNotifications} className="text-xs font-bold px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 active:scale-95 text-white transition-all shadow-lg">طلب الصلاحية</button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Camera */}
+                                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-3 bg-emerald-500/10 rounded-xl">
+                                                    <Camera className="w-5 h-5 text-emerald-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">الكاميرا</h4>
+                                                    <p className="text-xs text-white/50 mt-1">ضرورية لمكالمات الفيديو والمرفقات</p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {camStatus === 'granted' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">مفعلة</span>
+                                                ) : camStatus === 'denied' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">مرفوضة</span>
+                                                ) : (
+                                                    <button onClick={handleRequestCamera} className="text-xs font-bold px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white transition-all shadow-lg">طلب الصلاحية</button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Mic */}
+                                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-3 bg-amber-500/10 rounded-xl">
+                                                    <Mic className="w-5 h-5 text-amber-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">المايكروفون</h4>
+                                                    <p className="text-xs text-white/50 mt-1">ضروري للمكالمات الصوتية والرسائل الصوتية</p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {micStatus === 'granted' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">مفعلة</span>
+                                                ) : micStatus === 'denied' ? (
+                                                    <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">مرفوضة</span>
+                                                ) : (
+                                                    <button onClick={handleRequestMic} className="text-xs font-bold px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-white transition-all shadow-lg">طلب الصلاحية</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Custom Sounds Configuration (UI Only for now) */}
+                                <div className="space-y-6 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner relative overflow-hidden group">
+                                    <h3 className="text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4 relative z-10">
+                                        <Volume2 className="w-5 h-5 text-gray-300" />
+                                        تخصيص النغمات
+                                    </h3>
+                                    <div className="space-y-4 relative z-10">
+                                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">نغمة الرسائل</h4>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <select className="bg-black/60 border border-white/10 text-white text-xs rounded-lg px-3 py-2 outline-none">
+                                                    <option>الافتراضية</option>
+                                                    <option>صوت 1</option>
+                                                    <option>صوت 2</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">نغمة الاتصال (رنين)</h4>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <select className="bg-black/60 border border-white/10 text-white text-xs rounded-lg px-3 py-2 outline-none">
+                                                    <option>الافتراضية</option>
+                                                    <option>رنين 1</option>
+                                                    <option>رنين 2</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
                         )}
 
