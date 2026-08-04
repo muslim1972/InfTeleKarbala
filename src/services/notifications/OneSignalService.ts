@@ -1,7 +1,26 @@
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
-  const OS = (window as any).OneSignal;
-  if (OS) return await OS.Notifications.requestPermission();
+
+  try {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    
+    // Sync with OneSignal after native interaction
+    const w = window as any;
+    w.OneSignalDeferred = w.OneSignalDeferred || [];
+    w.OneSignalDeferred.push(async (OS: any) => {
+      if (OS && OS.Notifications) {
+        await OS.Notifications.requestPermission();
+      }
+    });
+
+    if (w.OneSignal && w.OneSignal.Notifications) {
+      await w.OneSignal.Notifications.requestPermission();
+    }
+  } catch (err) {
+    console.error('Notification Request Error:', err);
+  }
 };
 
 export const initOneSignal = (userId: string) => {

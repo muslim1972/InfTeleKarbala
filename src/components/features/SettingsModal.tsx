@@ -31,10 +31,28 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
     const handleRequestNotifications = async () => {
         try {
+            if (typeof window !== 'undefined' && !window.isSecureContext) {
+                toast.error('عذراً، الإشعارات تتطلب اتصالاً آمناً (HTTPS) أو (localhost)');
+                return;
+            }
+            
             await requestNotificationPermission();
-            setNotifStatus(Notification.permission);
-        } catch (err) {
-            toast.error('تعذر طلب صلاحية الإشعارات');
+            
+            // Re-check permission after a slight delay to allow OS to update state
+            setTimeout(() => {
+                const currentStatus = Notification.permission;
+                setNotifStatus(currentStatus);
+                if (currentStatus === 'granted') {
+                    toast.success('تم تفعيل الإشعارات بنجاح!');
+                } else if (currentStatus === 'denied') {
+                    toast.error('تم رفض الإشعارات من قبل المتصفح أو النظام');
+                } else {
+                    toast.error('لم يتم اتخاذ إجراء، أو تم إلغاء الطلب');
+                }
+            }, 500);
+
+        } catch (err: any) {
+            toast.error('تعذر طلب صلاحية الإشعارات: ' + (err.message || 'خطأ غير معروف'));
         }
     };
 
