@@ -638,11 +638,11 @@ const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
             onClick={() => { setIsOpen(true); setStep('h'); setTempH(h); }}
             className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 flex flex-row-reverse items-center justify-between shadow-sm cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-all"
           >
-             <div className="flex gap-1.5 items-center text-xl font-mono font-bold text-gray-800 dark:text-gray-100 dir-ltr bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700">
-                <Clock size={18} className="text-amber-500 mr-2" />
-                <span>{h}</span>
-                <span className="text-gray-400 mb-0.5">:</span>
+             <div className="flex gap-1.5 items-center text-xl font-mono font-bold text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700">
+                <Clock size={18} className="text-amber-500 ml-2" />
                 <span>{m}</span>
+                <span className="text-gray-400 mb-0.5">:</span>
+                <span>{h}</span>
              </div>
              
              <div className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
