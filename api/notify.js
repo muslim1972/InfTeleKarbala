@@ -32,7 +32,8 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${restKey}`
+        // OneSignal v2 keys (os_v2_app_...) require "Key " instead of "Basic "
+        'Authorization': restKey.startsWith('os_v2_app_') ? `Key ${restKey}` : `Basic ${restKey}`
       },
         body: JSON.stringify({
           app_id: appId,
