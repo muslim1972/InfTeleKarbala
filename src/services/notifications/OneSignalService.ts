@@ -47,20 +47,10 @@ export const requestNotificationPermission = async () => {
     // انتظر اكتمال التهيئة أولاً
     await initializeOneSignal();
 
-    // طلب الصلاحية عبر واجهة المتصفح الأم
-    if ('Notification' in window && Notification.permission === 'default') {
-      const result = await Notification.requestPermission();
-      console.warn('🔔 Browser permission result:', result);
-    }
-    
-    // تسجيل الاشتراك في OneSignal
+    // طلب الصلاحية المباشر عبر مكتبة OneSignal
     if (isInitialized) {
-      try {
-        await OneSignal.Slidedown.promptPush({ force: true });
-      } catch (slideErr) {
-        // Slidedown قد يفشل إذا كان المستخدم رفض سابقاً — ليس خطأ حرجاً
-        console.warn('OneSignal Slidedown:', slideErr);
-      }
+      console.warn('🔔 Requesting permission via OneSignal...');
+      await OneSignal.Notifications.requestPermission();
     }
   } catch (err) {
     console.error('Notification Request Error:', err);
@@ -87,13 +77,16 @@ export const initOneSignal = async (userId: string) => {
     await OneSignal.login(userId);
     console.warn('✅ OneSignal: User logged in:', userId);
 
-    // طلب صلاحية الإشعارات تلقائياً إذا لم يسبق الموافقة أو الرفض
-    const permission = OneSignal.Notifications.permission;
-    if (!permission) {
+    // طلب صلاحية الإشعارات تلقائياً إذا كانت 'default' (لم تُطلب بعد)
+    const nativePermission = OneSignal.Notifications.permissionNative;
+    console.warn('Current native permission:', nativePermission);
+
+    if (nativePermission === 'default') {
       try {
-        await OneSignal.Slidedown.promptPush({ force: true });
+        console.warn('Prompting for push permission...');
+        await OneSignal.Notifications.requestPermission();
       } catch (promptErr) {
-        console.warn('OneSignal auto-prompt:', promptErr);
+        console.warn('OneSignal auto-prompt error:', promptErr);
       }
     }
 
