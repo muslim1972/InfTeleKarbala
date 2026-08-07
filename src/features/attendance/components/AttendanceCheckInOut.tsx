@@ -17,6 +17,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
+import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancement';
 
 // ============================================
 // Device Fingerprint — Cybersecurity Layer
@@ -125,6 +126,7 @@ export default function AttendanceCheckInOut({
 
   const { videoRef, isCameraOpen: cameraOpen, startCamera, stopCamera, captureFrame } = useCamera();
   const { loadModels, detectFaceInFrame } = useFaceDetection();
+  const screenFlashCleanupRef = useRef<(() => void) | null>(null);
 
   // ---- Geofence Logic ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
@@ -170,6 +172,10 @@ export default function AttendanceCheckInOut({
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
+    }
+    if (screenFlashCleanupRef.current) {
+      screenFlashCleanupRef.current();
+      screenFlashCleanupRef.current = null;
     }
     stopCamera();
   }, [stopCamera]);
@@ -256,15 +262,38 @@ export default function AttendanceCheckInOut({
       return;
     }
     
-    const referenceDescriptor = new Float32Array(user.face_descriptor);
+    // Determine if we have a single descriptor or an array of descriptors
+    let referenceDescriptors: Float32Array[] = [];
+    if (Array.isArray(user.face_descriptor)) {
+      if (Array.isArray(user.face_descriptor[0])) {
+        // Multiple descriptors
+        referenceDescriptors = user.face_descriptor.map(d => new Float32Array(d));
+      } else {
+        // Single descriptor
+        referenceDescriptors = [new Float32Array(user.face_descriptor)];
+      }
+    } else {
+      toast.error('بيانات بصمة الوجه غير صالحة');
+      return;
+    }
 
+    // Check for low light and activate flash if needed
+    if (videoRef.current) {
+      const brightness = getAverageBrightness(videoRef.current);
+      if (brightness < 60) {
+        toast('تم تفعيل إضاءة الشاشة نظراً لضعف الإضاءة', { icon: '💡' });
+        screenFlashCleanupRef.current = triggerScreenFlash();
+      }
+    }
+
+    let isDetecting = true;
     const detectLoop = async () => {
-      if (capturedRef.current || !videoRef.current) return;
+      if (capturedRef.current || !videoRef.current || !isDetecting) return;
 
       try {
         debugStatsRef.current.frames++;
         
-        const { detection, distance, ear } = await detectFaceInFrame(videoRef.current, referenceDescriptor);
+        const { detection, distance, ear } = await detectFaceInFrame(videoRef.current, referenceDescriptors);
 
         if (detection) {
           debugStatsRef.current.faces++;
@@ -291,22 +320,29 @@ export default function AttendanceCheckInOut({
               return; // Stop loop
             }
           } else {
+            // Reset match frames if face goes out of bounds or doesn't match
+            debugStatsRef.current.matchFrames = 0;
             setCameraState(prev => ({ ...prev, message: 'الوجه غير متطابق. يرجى تعديل وضعيتك.' }));
           }
         } else {
+          // Reset match frames if no face detected
+          debugStatsRef.current.matchFrames = 0;
           setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة' }));
         }
       } catch (err) {
         console.error("Face detection error:", err);
       }
       
-      // Continue loop
-      if (!capturedRef.current) {
-        requestAnimationFrame(detectLoop);
+      // Continue loop with a small delay instead of requestAnimationFrame to give processing time
+      if (!capturedRef.current && isDetecting) {
+        setTimeout(detectLoop, 150);
       }
     };
     
-    detectLoop();
+    // Add 1-second delay for camera to stabilize its auto-exposure and auto-focus
+    setTimeout(detectLoop, 1000);
+
+    return () => { isDetecting = false; };
   }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
 
   const openCamera = useCallback(async (action: 'punch') => {
@@ -344,7 +380,10 @@ export default function AttendanceCheckInOut({
           videoRef.current.play().then(() => {
             // Start Face Detection if enrolled
             if (isEnrolled) {
-              startFaceDetection(action);
+              // Wait a bit for the camera to adjust lighting before starting detection
+              setTimeout(() => {
+                 startFaceDetection(action);
+              }, 500);
             }
 
             // Countdown timer for automatic cancel
@@ -731,6 +770,17 @@ export default function AttendanceCheckInOut({
                 <span>تثبيت البصمة (صورة مباشرة)</span>
               </div>
             </button>
+
+            {isEnrolled && (
+              <button
+                onClick={() => setShowEnrollment(true)}
+                disabled={loading || processing || cameraOpen}
+                className="py-3 px-6 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                إعادة تسجيل الوجه (بحضور المسؤول)
+              </button>
+            )}
           </div>
         )}
         

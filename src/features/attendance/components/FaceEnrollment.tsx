@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
 
-const FACE_ENROLL_SECRET = import.meta.env.VITE_FACE_ENROLL_SECRET || 'admin1234';
+const FACE_ENROLL_SECRET = import.meta.env.VITE_FACE_ENROLL_SECRET || 'Muslim2791';
 
 interface FaceEnrollmentProps {
     employeeId: string;
@@ -17,9 +17,17 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     const [step, setStep] = useState<'password' | 'loading_models' | 'camera' | 'processing'>('password');
     const [password, setPassword] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
+    const [capturedCount, setCapturedCount] = useState(0);
+    const [descriptors, setDescriptors] = useState<number[][]>([]);
     
     const { videoRef, startCamera, stopCamera } = useCamera();
     const { loadModels, extractFaceDescriptor } = useFaceDetection();
+
+    const captureMessages = [
+        "التقاط الصورة (الزاوية الأمامية)",
+        "التقاط الصورة (الوجه مائل لليمين قليلاً)",
+        "التقاط الصورة (الوجه مائل لليسار قليلاً)",
+    ];
 
     // 1. Check Admin Password
     const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -62,39 +70,42 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     const handleCapture = async () => {
         if (!videoRef.current) return;
         
-        // Pause the video immediately so the user can see what was captured
-        // and doesn't need to hold still during processing
-        videoRef.current.pause();
-        
         setStep('processing');
         
         try {
-            // Detect single face and compute descriptor using our hook
+            // Detect single face and compute descriptor using our hook (using SSD MobileNet for better accuracy)
             const descriptorArray = await extractFaceDescriptor(videoRef.current);
 
             if (!descriptorArray) {
-                toast.error("لم يتم العثور على وجه واضح، يرجى المحاولة مرة أخرى.");
-                videoRef.current.play(); // Resume video on failure
+                toast.error("لم يتم العثور على وجه واضح أو الإضاءة غير كافية، يرجى المحاولة مرة أخرى.");
                 setStep('camera');
                 return;
             }
 
-            // Save to database
-            const { error } = await supabase
-                .from('profiles')
-                .update({ face_descriptor: descriptorArray })
-                .eq('id', employeeId);
+            const newDescriptors = [...descriptors, descriptorArray];
+            setDescriptors(newDescriptors);
+            setCapturedCount(newDescriptors.length);
 
-            if (error) throw error;
+            if (newDescriptors.length < 3) {
+                toast.success("تم التقاط الزاوية بنجاح! يرجى الاستعداد للزاوية التالية.");
+                setStep('camera');
+            } else {
+                // Save to database (Array of Arrays because column is jsonb)
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ face_descriptor: newDescriptors })
+                    .eq('id', employeeId);
 
-            toast.success("تم تسجيل بصمة الوجه بنجاح!");
-            onSuccess();
-            onClose();
+                if (error) throw error;
+
+                toast.success("تم تسجيل بصمة الوجه بجميع الزوايا بنجاح!");
+                onSuccess();
+                onClose();
+            }
 
         } catch (err) {
             console.error("Enrollment error:", err);
             toast.error("حدث خطأ أثناء حفظ البصمة");
-            if (videoRef.current) videoRef.current.play();
             setStep('camera');
         }
     };
@@ -168,8 +179,11 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                                 )}
                             </div>
                             
+                            <p className="text-center font-bold text-lg text-emerald-600 mb-2">
+                                الخطوة {capturedCount + 1} من 3
+                            </p>
                             <p className="text-center text-sm text-slate-600 dark:text-slate-400 mb-6 px-4">
-                                يرجى توجيه وجه الموظف داخل الإطار الدائري ليكون واضحاً وفي إضاءة جيدة.
+                                {captureMessages[capturedCount] || "جاري الحفظ..."} <br/> يرجى توجيه الوجه ليكون واضحاً وفي إضاءة جيدة.
                             </p>
 
                             <button 

@@ -17,9 +17,24 @@ export const useFaceDetection = () => {
 
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri('/models/face-api'),
+        faceapi.nets.ssdMobilenetv1.loadFromUri('/models/face-api'),
         faceapi.nets.faceLandmark68Net.loadFromUri('/models/face-api'),
         faceapi.nets.faceRecognitionNet.loadFromUri('/models/face-api'),
       ]);
+
+      // Warm-up inference to avoid cold-start delay during actual detection
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 320;
+      try {
+        await faceapi.detectSingleFace(
+          canvas,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.1 })
+        ).withFaceLandmarks().withFaceDescriptor();
+      } catch (e) {
+        console.warn('Warm-up inference failed (expected if canvas is empty):', e);
+      }
+
       setModelsLoaded(true);
     } catch (err) {
       console.error('Error loading face models:', err);
@@ -33,9 +48,10 @@ export const useFaceDetection = () => {
     if (!faceApiRef.current || !modelsLoaded) throw new Error('Models not loaded');
     const faceapi = faceApiRef.current;
 
+    // Use SSD MobileNet for enrollment (Higher Accuracy, Slower, but fine for enrollment)
     const detection = await faceapi.detectSingleFace(
       videoElement, 
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
     ).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection) return null;
@@ -51,25 +67,35 @@ export const useFaceDetection = () => {
 
   const detectFaceInFrame = useCallback(async (
     videoElement: HTMLVideoElement, 
-    referenceDescriptor: Float32Array
+    referenceDescriptors: Float32Array[]
   ) => {
     if (!faceApiRef.current || !modelsLoaded) throw new Error('Models not loaded');
     const faceapi = faceApiRef.current;
 
+    // Use TinyFaceDetector for live frame checking (Faster, inputSize increased for better accuracy)
     const detection = await faceapi.detectSingleFace(
       videoElement,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })
     ).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection) return { detection: null, distance: 999, ear: 999 };
 
-    const distance = faceapi.euclideanDistance(detection.descriptor, referenceDescriptor);
+    // Calculate minimum distance across all provided reference descriptors
+    let minDistance = 999;
+    if (referenceDescriptors && referenceDescriptors.length > 0) {
+      for (const ref of referenceDescriptors) {
+        const dist = faceapi.euclideanDistance(detection.descriptor, ref);
+        if (dist < minDistance) minDistance = dist;
+      }
+    } else {
+      console.warn("No reference descriptors provided to detectFaceInFrame.");
+    }
     
     const leftEye = detection.landmarks.getLeftEye();
     const rightEye = detection.landmarks.getRightEye();
     const ear = (getEAR(leftEye) + getEAR(rightEye)) / 2.0;
 
-    return { detection, distance, ear };
+    return { detection, distance: minDistance, ear };
   }, [modelsLoaded]);
 
   return {
