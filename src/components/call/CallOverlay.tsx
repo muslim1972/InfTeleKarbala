@@ -3,7 +3,7 @@ import { useCall } from '../../context/CallContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, Volume1, VideoOff, Video, User, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useLocalParticipant, useTracks, VideoTrack, AudioTrack, RoomAudioRenderer, useRoomContext } from '@livekit/components-react';
+import { useLocalParticipant, useTracks, VideoTrack, AudioTrack, RoomAudioRenderer, useRoomContext, useConnectionState, ConnectionState } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 
 // مؤقت المكالمة
@@ -50,6 +50,7 @@ const ActiveCallUI = () => {
   );
 
   const room = useRoomContext();
+  const connectionState = useConnectionState();
   const [isSpeaker, setIsSpeaker] = useState(true);
 
   const toggleMute = () => {
@@ -90,6 +91,14 @@ const ActiveCallUI = () => {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[10000] flex flex-col items-center justify-between text-white p-12 overflow-hidden bg-slate-900"
     >
+      {/* مؤشر جاري الاتصال */}
+      {connectionState === ConnectionState.Connecting && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-emerald-400 font-medium text-lg animate-pulse">جاري تأمين الاتصال...</p>
+        </div>
+      )}
+
       {/* LiveKit Audio Engine */}
       <RoomAudioRenderer />
 

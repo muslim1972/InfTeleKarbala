@@ -138,6 +138,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
               cleanupCall();
             }
           }
+
+          // Receiver sees that the call was accepted (by another tab/device of the same user)
+          if (isIncoming && updated.status === 'active' && status === 'ringing') {
+            // This tab was ringing, but another tab/device answered it.
+            globalAudioManager.stopAllAudio();
+            cleanupCall();
+          }
         }
       )
       .subscribe();
