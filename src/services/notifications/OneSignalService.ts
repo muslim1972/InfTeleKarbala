@@ -1,50 +1,61 @@
+import OneSignal from 'react-onesignal';
+
+const APP_ID = "beae0757-7abe-46a8-b223-8f6c65e47fb5";
+
+let isInitialized = false;
+
+// تهيئة الخدمة لأول مرة - يتم استدعاؤها من App.tsx أو main.tsx
+export const initializeOneSignal = async () => {
+  if (typeof window === 'undefined') return;
+  
+  if (!isInitialized) {
+    try {
+      await OneSignal.init({
+        appId: APP_ID,
+        allowLocalhostAsSecureOrigin: true,
+      });
+      isInitialized = true;
+      console.log('✅ OneSignal Initialized via React-OneSignal');
+    } catch (e) {
+      console.error('❌ OneSignal Initialization Error:', e);
+    }
+  }
+};
+
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
 
   try {
+    // المحاولة بالواجهة الأم للمتصفح أولاً
     if ('Notification' in window && Notification.permission === 'default') {
       await Notification.requestPermission();
     }
     
-    // Sync with OneSignal after native interaction
-    const w = window as any;
-    w.OneSignalDeferred = w.OneSignalDeferred || [];
-    w.OneSignalDeferred.push(async (OS: any) => {
-      if (OS && OS.Notifications) {
-        await OS.Notifications.requestPermission();
-      }
-    });
-
-    if (w.OneSignal && w.OneSignal.Notifications) {
-      await w.OneSignal.Notifications.requestPermission();
+    // ثم عبر مكتبة OneSignal
+    if (isInitialized) {
+      await OneSignal.Slidedown.promptPush({ force: true });
     }
   } catch (err) {
     console.error('Notification Request Error:', err);
   }
 };
 
-export const initOneSignal = (userId: string) => {
+export const initOneSignal = async (userId: string) => {
   if (typeof window === 'undefined' || !userId) return;
 
-  // Skip OneSignal on localhost to prevent "Web OS Error" and console noise
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('OneSignal: Skipped initialization on localhost');
-    return;
-  }
-
-  const OneSignal = (window as any).OneSignal;
-  
-  const setupWebUser = async (OS: any) => {
-    try {
-      if (typeof OS.login === 'function') OS.login(userId).catch(() => {});
-      const permission = await OS.Notifications.permission;
-      if (!permission) OS.Slidedown.promptPush({ force: true });
-
-      // Click listener for PWA
-      OS.Notifications.addEventListener('click', (event: any) => {
+  try {
+    if (!isInitialized) {
+      await initializeOneSignal();
+    }
+    
+    // تسجيل الدخول بالرقم التعريفي للمستخدم
+    if (isInitialized) {
+      await OneSignal.login(userId);
+      
+      // ربط أحداث النقر للـ PWA
+      OneSignal.Notifications.addEventListener('click', (event: any) => {
         const data = event.notification.additionalData;
         if (data && data.path) {
-          // Navigate in PWA
           if ((window as any).navigateApp) {
             (window as any).navigateApp(data.path);
           } else {
@@ -52,27 +63,20 @@ export const initOneSignal = (userId: string) => {
           }
         }
       });
-    } catch (e) {
-      console.error('OneSignal Web Error:', e);
     }
-  };
-
-  if (OneSignal && (typeof OneSignal.login === 'function' || OneSignal.default)) {
-    setupWebUser(OneSignal.default || OneSignal);
-  } else {
-    (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-    (window as any).OneSignalDeferred.push((OS: any) => setupWebUser(OS));
+  } catch (e) {
+    console.error('OneSignal User Setup Error:', e);
   }
 };
 
 export const logoutOneSignal = async () => {
   if (typeof window === 'undefined') return;
-  const OS = (window as any).OneSignal || ((window as any).OneSignalDeferred && (window as any).OneSignalDeferred[0]);
-  if (OS && typeof OS.logout === 'function') {
+  
+  if (isInitialized) {
     try {
-      await OS.logout();
+      await OneSignal.logout();
     } catch (e: any) {
-      // Ignore errors
+      console.error('OneSignal Logout Error:', e);
     }
   }
 };

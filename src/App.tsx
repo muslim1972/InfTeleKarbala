@@ -274,7 +274,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+import { initializeOneSignal } from './services/notifications';
+
 function App() {
+  useEffect(() => {
+    initializeOneSignal();
+  }, []);
+
   return (
     <div dir="rtl">
       <AuthProvider>
