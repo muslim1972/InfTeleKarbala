@@ -103,9 +103,9 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                 onClose();
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Enrollment error:", err);
-            toast.error("حدث خطأ أثناء حفظ البصمة");
+            toast.error("حدث خطأ أثناء التسجيل: " + (err?.message || "خطأ غير معروف"));
             setStep('camera');
         }
     };
@@ -189,7 +189,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                             <button 
                                 onClick={handleCapture}
                                 disabled={step === 'processing'}
-                                className="w-full bg-brand-green text-white font-bold py-4 rounded-xl hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                                className="w-full bg-brand-green text-white font-bold py-4 rounded-xl hover:bg-emerald-600 active:scale-[0.95] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
                             >
                                 <Camera className="w-6 h-6" />
                                 التقاط وحفظ البصمة

@@ -51,7 +51,7 @@ export const useFaceDetection = () => {
     // Use SSD MobileNet for enrollment (Higher Accuracy, Slower, but fine for enrollment)
     const detection = await faceapi.detectSingleFace(
       videoElement, 
-      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+      new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
     ).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection) return null;
