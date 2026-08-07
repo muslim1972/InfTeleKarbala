@@ -33,9 +33,10 @@ export default defineConfig({
     // ===== استخدام esbuild (الافتراضي في Vite) للضغط السريع =====
     // esbuild أسرع 10-20x من Terser مع نفس جودة الإخراج
     minify: 'esbuild',
-    // إزالة console و debugger من الإنتاج
+    // إزالة console.log و debugger من الإنتاج مع إبقاء console.error و console.warn
     esbuild: {
-      drop: ['console', 'debugger'],
+      pure: ['console.log', 'console.info', 'console.debug'],
+      drop: ['debugger'],
       legalComments: 'none',
     },
     rollupOptions: {

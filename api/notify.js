@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     // إعداد الـ Category لضمان معاملة الأندرويد للإشعار بشكل صحيح
     let androidCategory = type === 'call' ? 'call' : 'msg';
     
-    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+    const response = await fetch('https://api.onesignal.com/notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -36,13 +36,15 @@ export default async function handler(req, res) {
       },
         body: JSON.stringify({
           app_id: appId,
-          include_external_user_ids: [recipientId],
+          // OneSignal User Model (v16+): استخدام include_aliases بدل include_external_user_ids
+          include_aliases: { external_id: [recipientId] },
+          target_channel: "push",
           contents: { en: message, ar: message },
           headings: { 
             en: isBuzz ? "🚨 ALERT 🚨" : (title || "New Notification"), 
             ar: isBuzz ? "🚨 تنبيه عاجل 🚨" : (title || "تنبيه جديد") 
           },
-          url: url || null,
+          url: url || undefined,
           data: { ...(data || {}), isBuzz: !!isBuzz, type: type || 'default' },
           
           // تأكيد استيقاظ الشاشة وعرض الإشعار بشكل طارئ
