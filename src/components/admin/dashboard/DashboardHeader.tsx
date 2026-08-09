@@ -159,6 +159,8 @@ export const DashboardHeader = ({
                                         ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
                                         : 'bg-white/10 border-white/10 text-white placeholder:text-white/40'
                                     }`}
+                                    autoFocus={true}
+                                    showIcon={false}
                                 />
                             </div>
                         )}

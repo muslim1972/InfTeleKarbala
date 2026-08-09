@@ -17,6 +17,8 @@ interface EmployeeSearchProps {
     disabled?: boolean;
     value?: string; // For controlled input (displaying selected name)
     onChange?: (val: string) => void; // When user types
+    autoFocus?: boolean;
+    showIcon?: boolean;
 }
 
 export function EmployeeSearch({
@@ -30,7 +32,9 @@ export function EmployeeSearch({
     limit = 10,
     disabled = false,
     value,
-    onChange
+    onChange,
+    autoFocus = false,
+    showIcon = true
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
     const searchRef = useRef<HTMLDivElement>(null);
@@ -114,15 +118,20 @@ export function EmployeeSearch({
                     onFocus={() => {
                         if (query.trim().length > 0) setShow(true);
                     }}
+                    autoFocus={autoFocus}
                     disabled={disabled}
                     className={cn(
-                        "w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 pr-9 transition-colors",
+                        "w-full rounded-lg px-3 py-2.5 text-sm border focus:outline-none focus:border-brand-green/50 transition-colors",
+                        showIcon && "pr-9",
                         inputBg,
                         disabled && "opacity-50 cursor-not-allowed",
                         inputClassName
                     )}
                 />
-                <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
+                
+                {showIcon && (
+                    <Search className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4", labelClr)} />
+                )}
                 
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     {isSearching && <Loader2 className="w-4 h-4 animate-spin text-brand-green/50" />}
