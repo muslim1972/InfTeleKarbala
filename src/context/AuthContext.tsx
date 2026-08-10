@@ -39,8 +39,6 @@ interface AuthContextType {
   changePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: string }>;
   forgotPassword: (username: string, confirm?: boolean) => Promise<{ success: boolean; supervisor_name?: string; action_required?: string; action_completed?: string; error?: string }>;
-  verify2FA: (code: string, tempUser: AppUser) => Promise<{ success: boolean; error?: string }>;
-  request2FA: (email: string, tempUser: AppUser) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -53,8 +51,6 @@ const AuthContext = createContext<AuthContextType>({
   changePassword: async () => ({ success: false }),
   uploadAvatar: async () => ({ success: false }),
   forgotPassword: async () => ({ success: false }),
-  verify2FA: async () => ({ success: false }),
-  request2FA: async () => ({ success: false }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -111,41 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Profile fetch error:", profileErr);
           }
 
-          // --- BEGIN 2FA BYPASS FIX ---
-          const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم', 'بشير', 'علي عباس جاسم'];
-          const isBypassed = profile && (
-              bypassedAccounts.includes(profile.username) ||
-              profile.full_name?.includes('مسلم') ||
-              profile.full_name?.includes('بشير') ||
-              profile.full_name?.includes('علي عباس جاسم') ||
-              profile.email?.includes('muslimakkeel') ||
-              profile.job_number === '103130022' || // اسيل جبار
-              profile.job_number === '102514467' || // ياسر عبدالامير
-              profile.job_number === 'c121212' || // مستخدم تجريبي
-              profile.admin_role === 'developer'
-          );
 
-          const verifiedAtStr = localStorage.getItem(`2fa_verified_${session.user.id}`);
-          let isVerified = false;
-          
-          if (verifiedAtStr) {
-             const verifiedAt = parseInt(verifiedAtStr, 10);
-             const ONE_DAY = 24 * 60 * 60 * 1000; // صلاحية الـ 2FA لمدة 24 ساعة
-             if (Date.now() - verifiedAt < ONE_DAY) {
-                isVerified = true;
-             } else {
-                localStorage.removeItem(`2fa_verified_${session.user.id}`);
-             }
-          }
-
-          if (!isVerified && !isBypassed) {
-            console.warn("🛡️ Security: Session found but 2FA not verified or expired! Signing out...");
-            await supabase.auth.signOut();
-            setUser(null);
-            setLoading(false);
-            return;
-          }
-          // --- END 2FA BYPASS FIX ---
 
           if (profile) {
             const appUser: AppUser = {
@@ -285,32 +247,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         face_descriptor: fullProfile.face_descriptor
       };
 
-      // 5. Enforce 2FA on Everyone
-      const bypassedAccounts = ['المطور', 'تجريبي 1', 'مستخدم تجريبي', 'مسلم', 'مسلم عقيل', 'م. مسلم', 'بشير', 'علي عباس جاسم'];
-      const isBypassedLogin = true; // تعطيل المصادقة الثنائية مؤقتاً للجميع لأغراض الصيانة
-      /*
-          bypassedAccounts.includes(trimmedUsername) ||
-          appUser.full_name?.includes('مسلم') ||
-          appUser.full_name?.includes('بشير') ||
-          appUser.full_name?.includes('علي عباس جاسم') ||
-          appUser.email?.includes('muslimakkeel') ||
-          appUser.job_number === '103130022' || // اسيل جبار
-          appUser.job_number === '102514467' || // ياسر عبدالامير
-          appUser.job_number === 'c121212' || // مستخدم تجريبي
-          appUser.admin_role === 'developer';
-      */
-          
-      if (isBypassedLogin) {
-        localStorage.setItem(`2fa_verified_${appUser.id}`, Date.now().toString());
-        setUser(appUser);
-        initOneSignal(appUser.id);
-        logVisit(appUser);
-        return { success: true, requires_2fa: false, tempUser: appUser } as any;
-      }
-
-      // Return requires_2fa but DO NOT send email automatically yet
-      // The Login UI will handle asking for the email or confirming it
-      return { success: true, requires_2fa: true, tempUser: appUser } as any;
+      setUser(appUser);
+      initOneSignal(appUser.id);
+      logVisit(appUser);
+      return { success: true };
 
     } catch (err) {
       console.error("Login Error:", err);
@@ -318,84 +258,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const verify2FA = async (code: string, tempUser: AppUser) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { success: false, error: 'انتهت الجلسة. يرجى تسجيل الدخول مجدداً' };
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-verify-2fa`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ code })
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        return { success: false, error: errorData.error || 'الكود غير صحيح' };
-      }
-
-      // --- ADD 2FA VERIFIED FLAG HERE ---
-      localStorage.setItem(`2fa_verified_${tempUser.id}`, Date.now().toString());
-      // ----------------------------------
-
-      setUser(tempUser);
-      initOneSignal(tempUser.id);
-      sessionStorage.removeItem('session_logged');
-      logVisit(tempUser);
-      
-      return { success: true };
-    } catch (err) {
-      console.error("2FA Verify Error:", err);
-      return { success: false, error: 'تعذر التحقق من الكود' };
-    }
-  };
-
-  const request2FA = async (email: string, tempUser: AppUser) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { success: false, error: 'انتهت الجلسة. يرجى تسجيل الدخول مجدداً' };
-
-      // تحديث الإيميل في الداتا بيز إذا كان جديداً أو مُعدلاً
-      if (tempUser.email !== email) {
-        const { error } = await supabase.from('profiles').update({ email }).eq('id', tempUser.id);
-        if (error) {
-          console.error("Email update error:", error);
-          return { success: false, error: 'تعذر حفظ البريد الإلكتروني المحدث' };
-        }
-        tempUser.email = email;
-      }
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-2fa-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        if (res.status === 429) {
-           return { success: false, error: 'تم طلب الكود حديثاً، يرجى الانتظار بضع دقائق' };
-        }
-        return { success: false, error: errorData.error || 'فشل إرسال كود التحقق الثنائي' };
-      }
-      
-      return { success: true };
-    } catch (err) {
-      console.error("2FA Request Error:", err);
-      return { success: false, error: 'تعذر الاتصال بخادم المصادقة الثنائية' };
-    }
-  };
 
   const loginAsVisitor = async () => {
     const visitorUser: AppUser = {
@@ -411,7 +274,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    if (user?.id) localStorage.removeItem(`2fa_verified_${user.id}`);
     await supabase.auth.signOut();
     geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
     logoutOneSignal();
@@ -554,7 +416,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword, verify2FA, request2FA }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsVisitor, logout, updateProfile, changePassword, uploadAvatar, forgotPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

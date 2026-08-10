@@ -6,6 +6,8 @@ export interface PushNotificationOptions {
   type?: 'call' | 'chat' | 'buzz' | 'default';
 }
 
+import { supabase } from '../../lib/supabase';
+
 export const sendPushNotification = async (
   recipientId: string,
   message: string,
@@ -16,16 +18,7 @@ export const sendPushNotification = async (
     return;
   }
 
-  const isLocalhost = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-  if (isLocalhost) {
-    console.log('📬 [Localhost Dev] Push notification blocked. Payload:', { recipientId, message, options });
-    return;
-  }
-
   try {
-    const url = `/api/notify`;
     
     // تحويل الرابط الكامل إلى مسار نسبي للتنقل الداخلي
     let internalPath = options?.url;
@@ -51,17 +44,12 @@ export const sendPushNotification = async (
       type: options?.type
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+    const { error } = await supabase.functions.invoke('send-notification', {
+      body: payload
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.warn('OneSignal API Relay Error:', response.status, errorData);
+    if (error) {
+      console.warn('OneSignal API Relay Error:', error);
     } else {
       console.log('📬 Push notification sent successfully to', recipientId);
     }

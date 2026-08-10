@@ -107,6 +107,39 @@ export const initOneSignal = async (userId: string) => {
 };
 
 /**
+ * فحص حالة صلاحية الإشعارات
+ */
+export const checkNotificationStatus = (): NotificationPermission => {
+  if (typeof window === 'undefined') return 'default';
+  if ('Notification' in window) {
+    return Notification.permission;
+  }
+  return 'default';
+};
+
+/**
+ * التأكد من إذن الإشعارات وطلب الصلاحية إذا كانت ملغاة أو غير مفعّلة
+ */
+export const ensureNotificationPermission = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+
+  const currentStatus = checkNotificationStatus();
+  if (currentStatus === 'granted') return true;
+
+  try {
+    await initializeOneSignal();
+    if (isInitialized) {
+      const permission = await OneSignal.Notifications.requestPermission();
+      return permission;
+    }
+  } catch (err) {
+    console.error('Failed to request notification permission:', err);
+  }
+
+  return checkNotificationStatus() === 'granted';
+};
+
+/**
  * تسجيل خروج المستخدم من OneSignal
  */
 export const logoutOneSignal = async () => {
@@ -118,4 +151,5 @@ export const logoutOneSignal = async () => {
     console.error('OneSignal Logout Error:', e);
   }
 };
+
 
