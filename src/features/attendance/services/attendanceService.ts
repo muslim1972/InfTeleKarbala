@@ -12,16 +12,33 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
   try {
     await supabase.rpc('notify_admins_new_device', { p_employee_name: employeeName });
 
-    const { data: supervisors } = await supabase
-      .from('profiles')
-      .select('id')
-      .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
+    const supervisorIdsSet = new Set<string>();
+    try {
+      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
+      if (rpcProfiles && Array.isArray(rpcProfiles)) {
+        rpcProfiles.forEach((p: any) => {
+          if (
+            p.admin_role === 'general' ||
+            p.admin_role === 'developer' ||
+            p.admin_role === 'biometric' ||
+            p.admin_role === 'hr' ||
+            p.role === 'admin'
+          ) {
+            if (p.id) supervisorIdsSet.add(p.id);
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching via get_available_profiles:', e);
+    }
 
-    if (supervisors && supervisors.length > 0) {
+    const supervisorIds = Array.from(supervisorIdsSet);
+
+    if (supervisorIds.length > 0) {
       const title = 'تسجيل جهاز جديد';
       const content = `قام الموظف (${employeeName}) بتسجيل جهازه لأول مرة بنجاح.`;
-      const pushPromises = supervisors.map(sup =>
-        sendPushNotification(sup.id, content, { title })
+      const pushPromises = supervisorIds.map(supId =>
+        sendPushNotification(supId, content, { title })
       );
       await Promise.allSettled(pushPromises);
     }
@@ -36,13 +53,16 @@ async function notifySupervisorsOfDeviceMismatch(
   newDeviceId: string
 ) {
   try {
+    let employeeName = 'موظف';
     const { data: userProfile } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, department_id')
       .eq('id', employeeId)
-      .single();
+      .maybeSingle();
 
-    const employeeName = userProfile?.full_name || 'موظف';
+    if (userProfile?.full_name) {
+      employeeName = userProfile.full_name;
+    }
 
     const { data: existingReq } = await supabase
       .from('device_change_requests')
@@ -70,24 +90,80 @@ async function notifySupervisorsOfDeviceMismatch(
       }
     }
 
-    const { data: supervisors } = await supabase
-      .from('profiles')
-      .select('id')
-      .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
+    const supervisorIdsSet = new Set<string>();
 
-    if (supervisors && supervisors.length > 0) {
+    // 1. Fetch supervisors via get_available_profiles (SECURITY DEFINER - bypasses RLS)
+    try {
+      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
+      if (rpcProfiles && Array.isArray(rpcProfiles)) {
+        rpcProfiles.forEach((p: any) => {
+          if (
+            p.admin_role === 'general' ||
+            p.admin_role === 'developer' ||
+            p.admin_role === 'biometric' ||
+            p.admin_role === 'hr' ||
+            p.role === 'admin'
+          ) {
+            if (p.id) supervisorIdsSet.add(p.id);
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching via get_available_profiles:', e);
+    }
+
+    // 2. Direct profiles fallback
+    if (supervisorIdsSet.size === 0) {
+      const { data: directProfiles } = await supabase
+        .from('profiles')
+        .select('id, role, admin_role')
+        .or('admin_role.eq.general,admin_role.eq.developer,admin_role.eq.biometric,role.eq.admin');
+
+      if (directProfiles) {
+        directProfiles.forEach(p => { if (p.id) supervisorIdsSet.add(p.id); });
+      }
+    }
+
+    // 3. Escalation: Add direct department manager(s) up the administrative tree
+    if (userProfile?.department_id) {
+      try {
+        let currentDeptId = userProfile.department_id;
+        let visitedDepts = new Set<string>();
+        while (currentDeptId && !visitedDepts.has(currentDeptId)) {
+          visitedDepts.add(currentDeptId);
+          const { data: dept } = await supabase
+            .rpc('get_departments_bypass_rls')
+            .select('id, manager_id, parent_id, level')
+            .eq('id', currentDeptId)
+            .maybeSingle();
+
+          if (!dept) break;
+          if (dept.manager_id && dept.manager_id !== employeeId) {
+            supervisorIdsSet.add(dept.manager_id);
+          }
+          if (dept.level <= 3 && dept.manager_id !== employeeId) break;
+          currentDeptId = dept.parent_id;
+        }
+      } catch (deptErr) {
+        console.error('Error fetching manager hierarchy for device mismatch:', deptErr);
+      }
+    }
+
+    const supervisorIds = Array.from(supervisorIdsSet);
+
+    if (supervisorIds.length > 0) {
       const title = 'تنبيه: تسجيل من جهاز غير معتمد';
       const content = `قام الموظف (${employeeName}) بتسجيل البصمة من جهاز غير معتمد، يرجى المراجعة.`;
 
-      const pushPromises = supervisors.map(sup =>
-        sendPushNotification(sup.id, content, {
+      const pushPromises = supervisorIds.map(supId =>
+        sendPushNotification(supId, content, {
           title,
           url: `${window.location.origin}/admin`
         })
       );
 
-      const systemNotifications = supervisors.map(sup => ({
-        recipient_id: sup.id,
+      const systemNotifications = supervisorIds.map(supId => ({
+        recipient_id: supId,
         title,
         content
       }));
