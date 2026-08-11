@@ -175,67 +175,81 @@ export default function LiveAttendanceBoard() {
 
       {/* Cards Grid */}
       <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <AnimatePresence>
-          {filteredRecords.map((record) => (
-            <motion.div
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              key={record.id}
-              className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
-            >
-              {/* Top Accent line depending on status */}
-              <div className={`absolute top-0 left-0 right-0 h-1 ${getStatusColor(record.liveStatus).split(' ')[0]}`} />
-              
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xl font-bold text-slate-500 dark:text-slate-400 shrink-0">
-                  {record.employee?.full_name?.charAt(0) || '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-slate-800 dark:text-white truncate">
-                    {record.employee?.full_name || 'غير معروف'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {record.employee?.job_number} • {record.department?.name || 'بدون قسم'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">وقت الدخول:</span>
-                  <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
-                    {record.check_in ? record.check_in.substring(11, 16) : '--:--'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">مدة العمل:</span>
-                  <div className="font-medium text-blue-600 dark:text-blue-400">
-                    <LiveTimer record={record} />
+            {filteredRecords.map((record) => {
+              const isDevicePending = record.is_device_pending || record.notes?.includes('جهاز غير معتمد');
+              return (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  key={record.id}
+                  className={`bg-white dark:bg-slate-800 rounded-2xl border p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden ${
+                    isDevicePending
+                      ? 'border-red-400 dark:border-red-600 bg-red-50/20 dark:bg-red-950/20'
+                      : 'border-slate-100 dark:border-slate-700'
+                  }`}
+                >
+                  {/* Top Accent line depending on status */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${isDevicePending ? 'bg-red-600' : getStatusColor(record.liveStatus).split(' ')[0]}`} />
+                  
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xl font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                      {record.employee?.full_name?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <h3 className="font-bold text-slate-800 dark:text-white truncate">
+                          {record.employee?.full_name || 'غير معروف'}
+                        </h3>
+                        {isDevicePending && (
+                          <span className="text-[10px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded shrink-0">
+                            ⚠️ جهاز غير معتمد
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {record.employee?.job_number} • {record.department?.name || 'بدون قسم'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-5 flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-700">
-                <span className={`px-2.5 py-1 text-xs rounded-lg font-medium border ${getStatusColor(record.liveStatus)}`}>
-                  {getStatusText(record.liveStatus)}
-                </span>
-                
-                {record.liveStatus === 'on_break' && record.time_leave_out && (
-                  <span className="text-xs text-slate-500">
-                    منذ {record.time_leave_out.substring(11, 16)}
-                  </span>
-                )}
-                {record.liveStatus === 'checked_out' && record.check_out && (
-                  <span className="text-xs text-slate-500">
-                    في {record.check_out.substring(11, 16)}
-                  </span>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                  <div className="mt-5 space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500">وقت الدخول:</span>
+                      <span className={`font-mono font-medium ${isDevicePending ? 'text-red-600 font-bold dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                        {record.check_in ? record.check_in.substring(11, 16) : '--:--'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500">مدة العمل:</span>
+                      <div className="font-medium text-blue-600 dark:text-blue-400">
+                        <LiveTimer record={record} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <span className={`px-2.5 py-1 text-xs rounded-lg font-medium border ${
+                      isDevicePending ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-300' : getStatusColor(record.liveStatus)
+                    }`}>
+                      {isDevicePending ? 'معلق (جهاز غير معتمد)' : getStatusText(record.liveStatus)}
+                    </span>
+                    
+                    {record.liveStatus === 'on_break' && record.time_leave_out && (
+                      <span className="text-xs text-slate-500">
+                        منذ {record.time_leave_out.substring(11, 16)}
+                      </span>
+                    )}
+                    {record.liveStatus === 'checked_out' && record.check_out && (
+                      <span className="text-xs text-slate-500">
+                        في {record.check_out.substring(11, 16)}
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
         
         {filteredRecords.length === 0 && (
           <div className="col-span-full py-12 text-center text-slate-500">

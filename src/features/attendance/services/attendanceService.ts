@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { sendPushNotification } from '../../../services/notifications';
 import type {
   FingerprintTemplate,
   AttendanceRecord,
@@ -10,8 +11,94 @@ import type {
 async function notifyAdminsForDeviceChange(employeeName: string) {
   try {
     await supabase.rpc('notify_admins_new_device', { p_employee_name: employeeName });
+
+    const { data: supervisors } = await supabase
+      .from('profiles')
+      .select('id')
+      .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
+
+    if (supervisors && supervisors.length > 0) {
+      const title = 'تسجيل جهاز جديد';
+      const content = `قام الموظف (${employeeName}) بتسجيل جهازه لأول مرة بنجاح.`;
+      const pushPromises = supervisors.map(sup =>
+        sendPushNotification(sup.id, content, { title })
+      );
+      await Promise.allSettled(pushPromises);
+    }
   } catch (err) {
-    console.error('Error notifying admins:', err);
+    console.error('Error notifying admins for new device:', err);
+  }
+}
+
+async function notifySupervisorsOfDeviceMismatch(
+  employeeId: string,
+  oldDeviceId: string,
+  newDeviceId: string
+) {
+  try {
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', employeeId)
+      .single();
+
+    const employeeName = userProfile?.full_name || 'موظف';
+
+    const { data: existingReq } = await supabase
+      .from('device_change_requests')
+      .select('id')
+      .eq('employee_id', employeeId)
+      .eq('new_device_id', newDeviceId)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (!existingReq) {
+      const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
+        p_employee_id: employeeId,
+        p_old_device_id: oldDeviceId,
+        p_new_device_id: newDeviceId
+      });
+
+      if (rpcError) {
+        console.error('RPC submit_device_change_request failed, falling back to direct insert:', rpcError);
+        await supabase.from('device_change_requests').insert({
+          employee_id: employeeId,
+          old_device_id: oldDeviceId,
+          new_device_id: newDeviceId,
+          status: 'pending'
+        });
+      }
+    }
+
+    const { data: supervisors } = await supabase
+      .from('profiles')
+      .select('id')
+      .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
+
+    if (supervisors && supervisors.length > 0) {
+      const title = 'تنبيه: تسجيل من جهاز غير معتمد';
+      const content = `قام الموظف (${employeeName}) بتسجيل البصمة من جهاز غير معتمد، يرجى المراجعة.`;
+
+      const pushPromises = supervisors.map(sup =>
+        sendPushNotification(sup.id, content, {
+          title,
+          url: `${window.location.origin}/admin`
+        })
+      );
+
+      const systemNotifications = supervisors.map(sup => ({
+        recipient_id: sup.id,
+        title,
+        content
+      }));
+
+      await Promise.allSettled([
+        ...pushPromises,
+        supabase.from('system_notifications').insert(systemNotifications)
+      ]);
+    }
+  } catch (err) {
+    console.error('Error notifying supervisors of device mismatch:', err);
   }
 }
 
@@ -299,21 +386,11 @@ export const attendanceRecordService = {
 
     if (!profile?.primary_device_id && deviceId) {
       await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
-      // Also notify admins when a new device is registered for the first time
       await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
     } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
       isDevicePending = true;
-      const { data: existingReq } = await supabase.from('device_change_requests').select('id').eq('employee_id', employeeId).eq('new_device_id', deviceId).eq('status', 'pending').single();
-      if (!existingReq) {
-        const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
-          p_employee_id: employeeId,
-          p_old_device_id: profile.primary_device_id,
-          p_new_device_id: deviceId
-        });
-        if (rpcError) console.error('Error submitting device change request:', rpcError);
-      }
+      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
       
-      // Add note about unregistered device
       const mismatchNote = '(تم التسجيل من جهاز غير معتمد)';
       if (updates.notes) {
         updates.notes = updates.notes + ' - ' + mismatchNote;
@@ -575,42 +652,12 @@ export const attendanceRecordService = {
         .from('profiles')
         .update({ primary_device_id: deviceId })
         .eq('id', employeeId);
+      const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+      await notifyAdminsForDeviceChange(userProfile?.full_name || 'موظف');
     } 
-    // 2. If primary_device_id exists and doesn't match deviceId, it's a pending device
     else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
       isDevicePending = true;
-      
-      // Check if a pending request already exists
-      const { data: existingReq } = await supabase
-        .from('device_change_requests')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .eq('new_device_id', deviceId)
-        .eq('status', 'pending')
-        .single();
-        
-      if (!existingReq) {
-        // Create a device change request directly
-        const { error: insertError } = await supabase.from('device_change_requests').insert({
-          employee_id: employeeId,
-          old_device_id: profile.primary_device_id,
-          new_device_id: deviceId,
-          status: 'pending'
-        });
-        if (insertError) console.error('Error submitting device change request:', insertError);
-        
-        // Send in-app notification to HR/General Manager
-        const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-        const { data: hrUsers } = await supabase.from('profiles').select('id').in('role', ['admin', 'hr']);
-        if (hrUsers) {
-            const notifications = hrUsers.map(hr => ({
-                recipient_id: hr.id,
-                title: 'طلب اعتماد جهاز جديد',
-                content: `الموظف ${userProfile?.full_name || 'غير معروف'} قام بتسجيل الحضور من جهاز جديد، يرجى المراجعة.`
-            }));
-            await supabase.from('system_notifications').insert(notifications);
-        }
-      }
+      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
     }
 
     // --- Calculate Lateness Based on Work Schedule ---
@@ -699,39 +746,11 @@ export const attendanceRecordService = {
         .from('profiles')
         .update({ primary_device_id: deviceId })
         .eq('id', employeeId);
+      const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
+      await notifyAdminsForDeviceChange(userProfile?.full_name || 'موظف');
     } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
       isDevicePending = true;
-      
-      const { data: existingReq } = await supabase
-        .from('device_change_requests')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .eq('new_device_id', deviceId)
-        .eq('status', 'pending')
-        .single();
-        
-      if (!existingReq) {
-         // Create a device change request directly
-         const { error: insertError } = await supabase.from('device_change_requests').insert({
-           employee_id: employeeId,
-           old_device_id: profile.primary_device_id,
-           new_device_id: deviceId,
-           status: 'pending'
-         });
-         if (insertError) console.error('Error submitting device change request:', insertError);
-         
-         // Send in-app notification to HR/General Manager
-         const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-         const { data: hrUsers } = await supabase.from('profiles').select('id').in('role', ['admin', 'hr']);
-         if (hrUsers) {
-             const notifications = hrUsers.map(hr => ({
-                 recipient_id: hr.id,
-                 title: 'طلب اعتماد جهاز جديد',
-                 content: `الموظف ${userProfile?.full_name || 'غير معروف'} قام بتسجيل الانصراف من جهاز جديد، يرجى المراجعة.`
-             }));
-             await supabase.from('system_notifications').insert(notifications);
-         }
-      }
+      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
     }
 
     const now = new Date().toISOString();

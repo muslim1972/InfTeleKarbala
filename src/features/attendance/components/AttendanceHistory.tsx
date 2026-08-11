@@ -81,7 +81,10 @@ export default function AttendanceHistory({
         ) : (
           <div className="space-y-3">
             {attendanceHistory.map((record, index) => {
-              const statusStyle = statusColors[record.status] || statusColors.present;
+              const isDevicePending = record.is_device_pending || record.notes?.includes('جهاز غير معتمد');
+              const statusStyle = isDevicePending 
+                ? { bg: 'bg-red-100 border border-red-200', text: 'text-red-700 font-bold', label: 'معلق (جهاز غير معتمد)' }
+                : (statusColors[record.status] || statusColors.present);
               const isExpanded = expandedId === record.id;
               const unverified = isUnverified(record.notes);
 
@@ -91,24 +94,33 @@ export default function AttendanceHistory({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="border border-gray-200 rounded-xl overflow-hidden"
+                  className={`border rounded-xl overflow-hidden ${
+                    isDevicePending ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
+                  }`}
                 >
                   <button
                     onClick={() => toggleExpand(record.id)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    className={`w-full p-4 flex items-center justify-between transition-colors ${
+                      isDevicePending ? 'hover:bg-red-50/70' : 'hover:bg-gray-50'
+                    }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="font-semibold text-gray-800">
+                        <div className="font-semibold text-gray-800 flex items-center gap-2">
                           {formatDate(record.created_at)}
+                          {isDevicePending && (
+                            <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-bold">
+                              ⚠️ جهاز جديد
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          <span className={unverified ? 'text-rose-600 font-extrabold' : ''}>
+                          <span className={isDevicePending ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
                             {formatTime(record.check_in)}
                           </span>
                           <span> - </span>
-                          <span className={unverified ? 'text-rose-600 font-extrabold' : ''}>
+                          <span className={isDevicePending ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
                             {formatTime(record.check_out)}
                           </span>
                         </div>
