@@ -390,13 +390,38 @@ export const AppNotifications = () => {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => handleMarkSystemNotificationRead(notification.id)}
-                                                className="w-full mt-1 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
-                                            >
-                                                <CheckCircle size={14} className="text-slate-400" />
-                                                علم (إخفاء)
-                                            </button>
+                                            {notification.type === 'device_mismatch' ? (
+                                                <div className="flex gap-2 mt-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            handleMarkSystemNotificationRead(notification.id);
+                                                            setShowModal(false);
+                                                            window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'admin_attendance' } }));
+                                                            setTimeout(() => {
+                                                                window.dispatchEvent(new CustomEvent('switch_attendance_subtab', { detail: { subTab: 'deviceRequests' } }));
+                                                            }, 100);
+                                                        }}
+                                                        className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+                                                    >
+                                                        <CheckCircle size={14} />
+                                                        مراجعة طلب الجهاز
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition"
+                                                    >
+                                                        إخفاء
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                    className="w-full mt-1 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
+                                                >
+                                                    <CheckCircle size={14} className="text-slate-400" />
+                                                    علم (إخفاء)
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

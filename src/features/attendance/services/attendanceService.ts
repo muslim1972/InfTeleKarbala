@@ -52,7 +52,7 @@ async function notifySupervisorsOfDeviceMismatch(
 ) {
   console.log('[DeviceMismatch] ▶ START notifySupervisorsOfDeviceMismatch', { employeeId, oldDeviceId, newDeviceId });
   try {
-    // 1. Insert device change request via SECURITY DEFINER RPC (separate from notifications)
+    // 1. Safe insert into device_change_requests via SECURITY DEFINER RPC
     try {
       const { error: dcrError } = await supabase.rpc('submit_device_change_request', {
         p_employee_id: employeeId,
@@ -68,7 +68,7 @@ async function notifySupervisorsOfDeviceMismatch(
       console.warn('[DeviceMismatch] submit_device_change_request threw:', dcrErr);
     }
 
-    // 2. Insert system notifications via NEW dedicated RPC (SECURITY DEFINER, bypasses all RLS)
+    // 2. Insert system notifications via dedicated RPC (SECURITY DEFINER, bypasses RLS)
     console.log('[DeviceMismatch] Calling notify_device_mismatch RPC...');
     const { data: notifyResult, error: notifyError } = await supabase.rpc('notify_device_mismatch', {
       p_employee_id: employeeId
@@ -77,10 +77,10 @@ async function notifySupervisorsOfDeviceMismatch(
     if (notifyError) {
       console.error('[DeviceMismatch] ❌ notify_device_mismatch RPC FAILED:', notifyError);
     } else {
-      console.log('[DeviceMismatch] ✅ notify_device_mismatch succeeded, notifications inserted:', notifyResult);
+      console.log('[DeviceMismatch] ✅ notify_device_mismatch succeeded, notifications inserted count:', notifyResult);
     }
 
-    // 3. Send Push Notifications via OneSignal Edge Function
+    // 3. Optional Push Notifications via OneSignal Edge Function
     try {
       let employeeName = 'موظف';
       const { data: userProfile } = await supabase
@@ -93,18 +93,13 @@ async function notifySupervisorsOfDeviceMismatch(
         employeeName = userProfile.full_name;
       }
 
-      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
-      const supervisorIds: string[] = [];
+      const { data: directProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin')
+        .neq('id', employeeId);
 
-      if (rpcProfiles && Array.isArray(rpcProfiles)) {
-        rpcProfiles.forEach((p: any) => {
-          if (p.admin_role === 'general' || p.admin_role === 'developer' || p.role === 'admin') {
-            if (p.id) supervisorIds.push(p.id);
-          }
-        });
-      }
-
-      console.log('[DeviceMismatch] Push notification targets:', supervisorIds.length);
+      const supervisorIds: string[] = (directProfiles || []).map(p => p.id);
 
       if (supervisorIds.length > 0) {
         const title = 'تنبيه: تسجيل من جهاز غير معتمد';
@@ -301,6 +296,7 @@ export const attendanceRecordService = {
             // Notify user
             await supabase.from('system_notifications').insert({
               recipient_id: employeeId,
+              type: 'system',
               title: 'تجاوز الإجازة الزمنية',
               content: `تم تحويل إجازتك الزمنية إلى إجازة يوم كامل بسبب تأخرك لفترة طويلة.`
             });
@@ -310,6 +306,7 @@ export const attendanceRecordService = {
               const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
               await supabase.from('system_notifications').insert({
                 recipient_id: leaveReq.supervisor_id,
+                type: 'system',
                 title: 'تحويل إجازة زمنية إجبارياً',
                 content: `تم تحويل الإجازة الزمنية للموظف ${profile?.full_name || ''} إلى إجازة يوم كامل لتجاوزه الحد الزمني.`
               });
@@ -323,6 +320,7 @@ export const attendanceRecordService = {
             // Notify user
             await supabase.from('system_notifications').insert({
               recipient_id: employeeId,
+              type: 'system',
               title: 'خصم تأخير من الرصيد الزمني',
               content: `بسبب تأخرك لمدة ${delay} دقيقة عن الإجازة الزمنية، تم خصم ${penalty} دقيقة إضافية من رصيدك (المدة الجديدة: ${newDuration} دقيقة).`
             });

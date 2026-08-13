@@ -67,6 +67,9 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
             if (e.detail?.tab === 'admin_audio') {
                 setActiveTab('admin_audio');
                 window.scrollTo({ top: 0, behavior: 'instant' });
+            } else if (e.detail?.tab === 'admin_attendance') {
+                setActiveTab('admin_attendance');
+                window.scrollTo({ top: 0, behavior: 'instant' });
             }
         };
         window.addEventListener('switch_dashboard_tab', handleSwitchTab);

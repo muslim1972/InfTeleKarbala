@@ -77,10 +77,18 @@ export default function AttendanceAdminSettings() {
   // Work Schedules State
   const [workSchedules, setWorkSchedules] = useState<any[]>([]);
 
-  // Load Locations on mount
+  // Load Locations on mount & listen for tab switch events
   useEffect(() => {
     loadLocations();
     loadWorkSchedules();
+
+    const handleSwitchSubtab = (e: any) => {
+      if (e.detail?.subTab) {
+        setActiveTab(e.detail.subTab);
+      }
+    };
+    window.addEventListener('switch_attendance_subtab', handleSwitchSubtab);
+    return () => window.removeEventListener('switch_attendance_subtab', handleSwitchSubtab);
   }, []);
 
   const loadWorkSchedules = async () => {
@@ -130,18 +138,13 @@ export default function AttendanceAdminSettings() {
     }
   };
 
-  useEffect(() => {
-    loadLocations();
-  }, []);
-
   // Assignments loading
   const loadAssignments = async (locationId: string) => {
-    if (!locationId) return;
     try {
-      const data = await workLocationService.getLocationEmployees(locationId);
+      const data = await workLocationService.getAssignedEmployees(locationId);
       setAssignedEmployees(data);
     } catch (err: any) {
-      toast.error('فشل تحميل قائمة الموظفين: ' + err.message);
+      toast.error('فشل تحميل الموظفين: ' + err.message);
     }
   };
 
@@ -177,16 +180,20 @@ export default function AttendanceAdminSettings() {
     setLoadingLogs(true);
     try {
       const { data, error } = await supabase
-        .from('device_enrollment_logs')
+        .from('attendance_records')
         .select(`
           id,
-          action_type,
-          device_name,
-          created_at,
-          profiles:user_id(full_name, job_number)
+          employee_id,
+          check_in,
+          check_out,
+          check_in_device_id,
+          check_out_device_id,
+          is_device_pending,
+          notes,
+          profiles:employee_id(full_name, job_number, primary_device_id)
         `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .eq('is_device_pending', true)
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       setDeviceLogs(data || []);
@@ -239,6 +246,7 @@ export default function AttendanceAdminSettings() {
       // Notify the employee
       await supabase.from('system_notifications').insert({
         recipient_id: req.employee_id,
+        type: 'system',
         title: 'تم اعتماد جهازك الجديد',
         content: 'تمت الموافقة على جهازك الجديد لتسجيل البصمة واعتماده بنجاح.',
       });
@@ -262,6 +270,7 @@ export default function AttendanceAdminSettings() {
       // Notify the employee
       await supabase.from('system_notifications').insert({
         recipient_id: req.employee_id,
+        type: 'system',
         title: 'تم رفض جهازك الجديد',
         content: 'تم رفض طلبك لاعتماد الجهاز الجديد لتسجيل البصمة. يرجى مراجعة الإدارة.',
       });
@@ -278,6 +287,7 @@ export default function AttendanceAdminSettings() {
       // Notify the employee
       await supabase.from('system_notifications').insert({
         recipient_id: req.employee_id,
+        type: 'system',
         title: 'مراجعة الإدارة بخصوص توثيق الجهاز',
         content: 'لطفا ... تنسب مراجعة السيد معاون مدير المديرية . في هذا اليوم لأتمام الاجراء بشكل اصولي',
       });
