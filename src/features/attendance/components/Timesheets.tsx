@@ -277,7 +277,8 @@ export default function Timesheets() {
               <tbody>
         `;
 
-        const tdStyle = "padding: 3px 2px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.2;";
+        const tdStyle = "padding: 5px 3px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.4;";
+        const timeTdStyle = tdStyle + " font-family: 'Courier New', Courier, monospace; font-size: 9px; font-weight: bold; letter-spacing: 0.5px;";
 
         for (const rec of group.records) {
           if (rec._isPadding) {
@@ -298,12 +299,12 @@ export default function Timesheets() {
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
+             html += `<td style="${timeTdStyle}">--:--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
              html += `<td style="${tdStyle}">--</td>`;
@@ -348,8 +349,7 @@ export default function Timesheets() {
           else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
           
 
-
-          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
+          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48;' : '';
           const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
@@ -361,12 +361,12 @@ export default function Timesheets() {
               <td style="${tdStyle}">${verifyMethod}</td>
               <td style="${tdStyle}">${scheduleName}</td>
 
-              <td style="${tdStyle} ${inTimeColor}">${inTime}</td>
-              <td style="${tdStyle}">${leaveOutStr}</td>
-              <td style="${tdStyle}">${leaveReturnStr}</td>
-              <td style="${tdStyle}">${leaveOut2Str}</td>
-              <td style="${tdStyle}">${leaveReturn2Str}</td>
-              <td style="${tdStyle} ${outTimeColor}">${outTime}</td>
+              <td style="${timeTdStyle} ${inTimeColor}">${inTime}</td>
+              <td style="${timeTdStyle}">${leaveOutStr}</td>
+              <td style="${timeTdStyle}">${leaveReturnStr}</td>
+              <td style="${timeTdStyle}">${leaveOut2Str}</td>
+              <td style="${timeTdStyle}">${leaveReturn2Str}</td>
+              <td style="${timeTdStyle} ${outTimeColor}">${outTime}</td>
               <td style="${tdStyle}">${formatDurationDot(netMins)}</td>
               <td style="${tdStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
               <td style="${tdStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
