@@ -20,8 +20,6 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
           if (
             p.admin_role === 'general' ||
             p.admin_role === 'developer' ||
-            p.admin_role === 'biometric' ||
-            p.admin_role === 'hr' ||
             p.role === 'admin'
           ) {
             if (p.id) supervisorIdsSet.add(p.id);
@@ -56,7 +54,7 @@ async function notifySupervisorsOfDeviceMismatch(
     let employeeName = 'موظف';
     const { data: userProfile } = await supabase
       .from('profiles')
-      .select('full_name, department_id')
+      .select('full_name')
       .eq('id', employeeId)
       .maybeSingle();
 
@@ -92,7 +90,7 @@ async function notifySupervisorsOfDeviceMismatch(
 
     const supervisorIdsSet = new Set<string>();
 
-    // 1. Fetch supervisors via get_available_profiles (SECURITY DEFINER - bypasses RLS)
+    // 1. Fetch Developer & General Supervisor via get_available_profiles (SECURITY DEFINER - bypasses RLS)
     try {
       const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
       if (rpcProfiles && Array.isArray(rpcProfiles)) {
@@ -100,8 +98,6 @@ async function notifySupervisorsOfDeviceMismatch(
           if (
             p.admin_role === 'general' ||
             p.admin_role === 'developer' ||
-            p.admin_role === 'biometric' ||
-            p.admin_role === 'hr' ||
             p.role === 'admin'
           ) {
             if (p.id) supervisorIdsSet.add(p.id);
@@ -112,40 +108,15 @@ async function notifySupervisorsOfDeviceMismatch(
       console.error('Error fetching via get_available_profiles:', e);
     }
 
-    // 2. Direct profiles fallback
+    // 2. Fallback direct profiles query if RPC returned empty set
     if (supervisorIdsSet.size === 0) {
       const { data: directProfiles } = await supabase
         .from('profiles')
         .select('id, role, admin_role')
-        .or('admin_role.eq.general,admin_role.eq.developer,admin_role.eq.biometric,role.eq.admin');
+        .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
 
       if (directProfiles) {
         directProfiles.forEach(p => { if (p.id) supervisorIdsSet.add(p.id); });
-      }
-    }
-
-    // 3. Escalation: Add direct department manager(s) up the administrative tree
-    if (userProfile?.department_id) {
-      try {
-        let currentDeptId = userProfile.department_id;
-        let visitedDepts = new Set<string>();
-        while (currentDeptId && !visitedDepts.has(currentDeptId)) {
-          visitedDepts.add(currentDeptId);
-          const { data: dept } = await supabase
-            .rpc('get_departments_bypass_rls')
-            .select('id, manager_id, parent_id, level')
-            .eq('id', currentDeptId)
-            .maybeSingle();
-
-          if (!dept) break;
-          if (dept.manager_id && dept.manager_id !== employeeId) {
-            supervisorIdsSet.add(dept.manager_id);
-          }
-          if (dept.level <= 3 && dept.manager_id !== employeeId) break;
-          currentDeptId = dept.parent_id;
-        }
-      } catch (deptErr) {
-        console.error('Error fetching manager hierarchy for device mismatch:', deptErr);
       }
     }
 
@@ -165,7 +136,8 @@ async function notifySupervisorsOfDeviceMismatch(
       const systemNotifications = supervisorIds.map(supId => ({
         recipient_id: supId,
         title,
-        content
+        content,
+        is_read: false
       }));
 
       await Promise.allSettled([
