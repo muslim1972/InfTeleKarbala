@@ -48,105 +48,83 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
 async function notifySupervisorsOfDeviceMismatch(
   employeeId: string,
   oldDeviceId: string,
-  newDeviceId: string
+  newDeviceId: string | undefined
 ) {
+  console.log('[DeviceMismatch] ▶ START notifySupervisorsOfDeviceMismatch', { employeeId, oldDeviceId, newDeviceId });
   try {
-    let employeeName = 'موظف';
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', employeeId)
-      .maybeSingle();
-
-    if (userProfile?.full_name) {
-      employeeName = userProfile.full_name;
-    }
-
-    const { data: existingReq } = await supabase
-      .from('device_change_requests')
-      .select('id')
-      .eq('employee_id', employeeId)
-      .eq('new_device_id', newDeviceId)
-      .eq('status', 'pending')
-      .maybeSingle();
-
-    if (!existingReq) {
-      const { error: rpcError } = await supabase.rpc('submit_device_change_request', {
-        p_employee_id: employeeId,
-        p_old_device_id: oldDeviceId,
-        p_new_device_id: newDeviceId
-      });
-
-      if (rpcError) {
-        console.error('RPC submit_device_change_request failed, falling back to direct insert:', rpcError);
-        await supabase.from('device_change_requests').insert({
-          employee_id: employeeId,
-          old_device_id: oldDeviceId,
-          new_device_id: newDeviceId,
-          status: 'pending'
-        });
-      }
-    }
-
-    const supervisorIdsSet = new Set<string>();
-
-    // 1. Fetch Developer & General Supervisor via get_available_profiles (SECURITY DEFINER - bypasses RLS)
+    // 1. Insert device change request via SECURITY DEFINER RPC (separate from notifications)
     try {
+      const { error: dcrError } = await supabase.rpc('submit_device_change_request', {
+        p_employee_id: employeeId,
+        p_old_device_id: oldDeviceId || 'unknown',
+        p_new_device_id: newDeviceId || 'unknown'
+      });
+      if (dcrError) {
+        console.warn('[DeviceMismatch] submit_device_change_request RPC error:', dcrError);
+      } else {
+        console.log('[DeviceMismatch] ✅ submit_device_change_request succeeded');
+      }
+    } catch (dcrErr) {
+      console.warn('[DeviceMismatch] submit_device_change_request threw:', dcrErr);
+    }
+
+    // 2. Insert system notifications via NEW dedicated RPC (SECURITY DEFINER, bypasses all RLS)
+    console.log('[DeviceMismatch] Calling notify_device_mismatch RPC...');
+    const { data: notifyResult, error: notifyError } = await supabase.rpc('notify_device_mismatch', {
+      p_employee_id: employeeId
+    });
+
+    if (notifyError) {
+      console.error('[DeviceMismatch] ❌ notify_device_mismatch RPC FAILED:', notifyError);
+    } else {
+      console.log('[DeviceMismatch] ✅ notify_device_mismatch succeeded, notifications inserted:', notifyResult);
+    }
+
+    // 3. Send Push Notifications via OneSignal Edge Function
+    try {
+      let employeeName = 'موظف';
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+      if (userProfile?.full_name) {
+        employeeName = userProfile.full_name;
+      }
+
       const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
+      const supervisorIds: string[] = [];
+
       if (rpcProfiles && Array.isArray(rpcProfiles)) {
         rpcProfiles.forEach((p: any) => {
-          if (
-            p.admin_role === 'general' ||
-            p.admin_role === 'developer' ||
-            p.role === 'admin'
-          ) {
-            if (p.id) supervisorIdsSet.add(p.id);
+          if (p.admin_role === 'general' || p.admin_role === 'developer' || p.role === 'admin') {
+            if (p.id) supervisorIds.push(p.id);
           }
         });
       }
-    } catch (e) {
-      console.error('Error fetching via get_available_profiles:', e);
-    }
 
-    // 2. Fallback direct profiles query if RPC returned empty set
-    if (supervisorIdsSet.size === 0) {
-      const { data: directProfiles } = await supabase
-        .from('profiles')
-        .select('id, role, admin_role')
-        .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin');
+      console.log('[DeviceMismatch] Push notification targets:', supervisorIds.length);
 
-      if (directProfiles) {
-        directProfiles.forEach(p => { if (p.id) supervisorIdsSet.add(p.id); });
+      if (supervisorIds.length > 0) {
+        const title = 'تنبيه: تسجيل من جهاز غير معتمد';
+        const content = `قام الموظف (${employeeName}) بتسجيل البصمة من جهاز غير معتمد، يرجى المراجعة.`;
+
+        const pushPromises = supervisorIds.map(supId =>
+          sendPushNotification(supId, content, {
+            title,
+            url: `${window.location.origin}/admin`
+          })
+        );
+        await Promise.allSettled(pushPromises);
       }
+    } catch (pushErr) {
+      console.warn('[DeviceMismatch] Push notification error (non-critical):', pushErr);
     }
 
-    const supervisorIds = Array.from(supervisorIdsSet);
-
-    if (supervisorIds.length > 0) {
-      const title = 'تنبيه: تسجيل من جهاز غير معتمد';
-      const content = `قام الموظف (${employeeName}) بتسجيل البصمة من جهاز غير معتمد، يرجى المراجعة.`;
-
-      const pushPromises = supervisorIds.map(supId =>
-        sendPushNotification(supId, content, {
-          title,
-          url: `${window.location.origin}/admin`
-        })
-      );
-
-      const systemNotifications = supervisorIds.map(supId => ({
-        recipient_id: supId,
-        title,
-        content,
-        is_read: false
-      }));
-
-      await Promise.allSettled([
-        ...pushPromises,
-        supabase.from('system_notifications').insert(systemNotifications)
-      ]);
-    }
+    console.log('[DeviceMismatch] ▶ END notifySupervisorsOfDeviceMismatch');
   } catch (err) {
-    console.error('Error notifying supervisors of device mismatch:', err);
+    console.error('[DeviceMismatch] ❌ FATAL error:', err);
   }
 }
 
