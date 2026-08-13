@@ -280,7 +280,7 @@ export default function Timesheets() {
         const ROW_H = '17px';
         const renderCell = (content: string, extraCss = '', isTime = false) => {
           const fontCss = isTime
-            ? `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`
+            ? `font-family: 'Courier New', Courier, monospace; font-size: 8px; letter-spacing: 0.5px;`
             : `font-size: 8px;`;
           return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${ROW_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
         };
@@ -296,7 +296,7 @@ export default function Timesheets() {
           }
           const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, 1).toISOString();
           const dateObj = parseISO(dateStrRaw);
-          const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+          const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
           
           if (rec._isEmpty) {
              html += `<tr style="height: ${ROW_H};">`;
@@ -524,7 +524,7 @@ export default function Timesheets() {
         
         const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, j + 1).toISOString();
         const dateObj = parseISO(dateStrRaw);
-        const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+        const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
 
         if (rec._isEmpty) {
            const dayNameEng = format(dateObj, 'EEEE');
@@ -884,7 +884,7 @@ export default function Timesheets() {
                           }
                           const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, 1).toISOString();
                           const dateObj = parseISO(dateStrRaw);
-                          const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
+                          const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
                           
                           if (rec._isEmpty) {
                               return (
