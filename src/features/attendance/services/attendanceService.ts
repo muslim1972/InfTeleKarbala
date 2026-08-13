@@ -356,7 +356,28 @@ export const attendanceRecordService = {
       .order('created_at', { ascending: false })
       .limit(1);
     if (error) throw error;
-    return data[0] as AttendanceRecord | undefined;
+    
+    const record = data?.[0] as AttendanceRecord | undefined;
+    if (record && Array.isArray(record.raw_punches) && record.raw_punches.length > 0) {
+      const { categorizePunches } = await import('../utils/punchCategorizer');
+      const recat = categorizePunches(record.raw_punches);
+      
+      // Auto-heal record if check_out or breaks differ from DB due to past categorizer state
+      if (
+        record.check_out !== recat.check_out ||
+        record.time_leave_out !== recat.time_leave_out ||
+        record.time_leave_return !== recat.time_leave_return
+      ) {
+        const { data: updatedData } = await supabase
+          .from('attendance_records')
+          .update(recat)
+          .eq('id', record.id)
+          .select()
+          .single();
+        if (updatedData) return updatedData as AttendanceRecord;
+      }
+    }
+    return record;
   },
 
   async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
