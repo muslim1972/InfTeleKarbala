@@ -253,32 +253,32 @@ export default function Timesheets() {
                 </div>
             </div>
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; text-align: center; margin-bottom: 6px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-align: center; margin-bottom: 4px;">
               <thead>
                 <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 1px solid #d1d5db;">
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">التاريخ واليوم</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">نوع اليوم</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">التحقق</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الدوام</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 72px;">التاريخ واليوم</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 50px;">نوع اليوم</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">التحقق</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 44px;">الدوام</th>
 
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">دخول</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ب. راحة 1</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ع. راحة 1</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ب. راحة 2</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ع. راحة 2</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">خروج</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الصافي</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">النقص</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الإضافي</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الحالة</th>
-                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الملاحظات</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">دخول</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ب. راحة 1</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ع. راحة 1</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ب. راحة 2</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ع. راحة 2</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">خروج</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">الصافي</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">النقص</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">الإضافي</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 44px;">الحالة</th>
+                  <th style="padding: 3px 2px; border: 1px solid #d1d5db;">الملاحظات</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        const tdStyle = "padding: 5px 3px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.4;";
-        const timeTdStyle = tdStyle + " font-family: 'Courier New', Courier, monospace; font-size: 9px; font-weight: bold; letter-spacing: 0.5px;";
+        const tdStyle = "padding: 2.2px 2px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.15; font-size: 8px;";
+        const timeTdStyle = tdStyle + " font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;";
 
         for (const rec of group.records) {
           if (rec._isPadding) {
@@ -325,12 +325,16 @@ export default function Timesheets() {
             ? format(parseISO(rec.check_out), 'HH:mm') 
             : (isForgotCheckout ? expectedCheckout : '--:--');
 
-          let scheduleName = 'الجدول الافتراضي';
+          let scheduleName = 'صباحي';
           const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
           let dayType = getDayTypeStr(dateObj, schedule);
           
           if (schedule) {
-             scheduleName = schedule.name;
+             const rawName = schedule.name || '';
+             if (rawName.includes('مسائي')) scheduleName = 'مسائي';
+             else if (rawName.includes('خفر')) scheduleName = 'خفر';
+             else if (rawName.includes('صباحي')) scheduleName = 'صباحي';
+             else scheduleName = rawName.replace(/الجدول|الافتراضي|\(|\)/g, '').trim() || 'صباحي';
           }
 
           const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
