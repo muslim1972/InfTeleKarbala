@@ -255,42 +255,39 @@ export default function Timesheets() {
 
             <table style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; margin-bottom: 3px;">
               <thead>
-                <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 1px solid #d1d5db; height: 16px;">
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 72px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">التاريخ واليوم</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 48px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">نوع اليوم</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">التحقق</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 42px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الدوام</div></th>
+                <tr style="background-color: #f3f4f6; color: #111827;">
+                  <th style="border: 1px solid #d1d5db; width: 72px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">التاريخ واليوم</th>
+                  <th style="border: 1px solid #d1d5db; width: 48px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">نوع اليوم</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">التحقق</th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الدوام</th>
 
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">دخول</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ب. راحة 1</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ع. راحة 1</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ب. راحة 2</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ع. راحة 2</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">خروج</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الصافي</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 36px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">النقص</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 36px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الإضافي</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; width: 42px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الحالة</div></th>
-                  <th style="padding: 0; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الملاحظات</div></th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">دخول</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 1</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 1</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 2</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 2</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">خروج</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الصافي</th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">النقص</th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الإضافي</th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الحالة</th>
+                  <th style="border: 1px solid #d1d5db; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الملاحظات</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        const renderCell = (content: string, extraCss = '', isTime = false, whiteSpace = 'nowrap') => {
+        const ROW_H = '17px';
+        const renderCell = (content: string, extraCss = '', isTime = false) => {
           const fontCss = isTime
-            ? "font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;"
-            : "font-size: 8px;";
-          return `<td style="border: 1px solid #d1d5db; height: 13.5px; padding: 0; margin: 0; text-align: center; vertical-align: middle; box-sizing: border-box; ${extraCss}">
-            <div style="display: flex; align-items: center; justify-content: center; height: 13.5px; width: 100%; line-height: 1; white-space: ${whiteSpace}; ${fontCss}">
-              ${content}
-            </div>
-          </td>`;
+            ? `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`
+            : `font-size: 8px;`;
+          return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${ROW_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
         };
 
         for (const rec of group.records) {
           if (rec._isPadding) {
-             html += `<tr style="height: 13.5px;">`;
+             html += `<tr style="height: ${ROW_H};">`;
              for(let c=0; c<15; c++) {
                  html += renderCell('&nbsp;');
              }
@@ -302,7 +299,7 @@ export default function Timesheets() {
           const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
           
           if (rec._isEmpty) {
-             html += `<tr style="height: 13.5px;">`;
+             html += `<tr style="height: ${ROW_H};">`;
              html += renderCell(dateStr);
              html += renderCell('--');
              html += renderCell('--');
@@ -376,7 +373,7 @@ export default function Timesheets() {
                 .trim();
 
           html += `
-            <tr style="height: 13.5px;">
+            <tr style="height: ${ROW_H};">
               ${renderCell(dateStr)}
               ${renderCell(dayType)}
               ${renderCell(verifyMethod)}
