@@ -253,38 +253,46 @@ export default function Timesheets() {
                 </div>
             </div>
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-align: center; margin-bottom: 4px;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; margin-bottom: 3px;">
               <thead>
-                <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 1px solid #d1d5db;">
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 72px;">التاريخ واليوم</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 50px;">نوع اليوم</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">التحقق</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 44px;">الدوام</th>
+                <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 1px solid #d1d5db; height: 16px;">
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 72px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">التاريخ واليوم</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 48px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">نوع اليوم</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">التحقق</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 42px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الدوام</div></th>
 
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">دخول</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ب. راحة 1</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ع. راحة 1</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ب. راحة 2</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 42px;">ع. راحة 2</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">خروج</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 40px;">الصافي</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">النقص</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 38px;">الإضافي</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db; width: 44px;">الحالة</th>
-                  <th style="padding: 3px 2px; border: 1px solid #d1d5db;">الملاحظات</th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">دخول</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ب. راحة 1</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ع. راحة 1</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ب. راحة 2</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 40px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">ع. راحة 2</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">خروج</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 38px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الصافي</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 36px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">النقص</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 36px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الإضافي</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; width: 42px; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الحالة</div></th>
+                  <th style="padding: 0; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;"><div style="display: flex; align-items: center; justify-content: center; height: 16px; font-size: 8px; font-weight: bold;">الملاحظات</div></th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        const tdStyle = "padding: 2.2px 2px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.15; font-size: 8px;";
-        const timeTdStyle = tdStyle + " font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;";
+        const renderCell = (content: string, extraCss = '', isTime = false, whiteSpace = 'nowrap') => {
+          const fontCss = isTime
+            ? "font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;"
+            : "font-size: 8px;";
+          return `<td style="border: 1px solid #d1d5db; height: 13.5px; padding: 0; margin: 0; text-align: center; vertical-align: middle; box-sizing: border-box; ${extraCss}">
+            <div style="display: flex; align-items: center; justify-content: center; height: 13.5px; width: 100%; line-height: 1; white-space: ${whiteSpace}; ${fontCss}">
+              ${content}
+            </div>
+          </td>`;
+        };
 
         for (const rec of group.records) {
           if (rec._isPadding) {
-             html += `<tr>`;
+             html += `<tr style="height: 13.5px;">`;
              for(let c=0; c<15; c++) {
-                 html += `<td style="${tdStyle}">&nbsp;</td>`;
+                 html += renderCell('&nbsp;');
              }
              html += `</tr>`;
              continue;
@@ -294,22 +302,22 @@ export default function Timesheets() {
           const dateStr = format(dateObj, 'EEEE, d MMMM', { locale: arSA });
           
           if (rec._isEmpty) {
-             html += `<tr>`;
-             html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${timeTdStyle}">--:--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle}">--</td>`;
-             html += `<td style="${tdStyle} color: #999;">لا توجد بصمات</td>`;
+             html += `<tr style="height: 13.5px;">`;
+             html += renderCell(dateStr);
+             html += renderCell('--');
+             html += renderCell('--');
+             html += renderCell('--');
+             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', '', true);
+             html += renderCell('--');
+             html += renderCell('--');
+             html += renderCell('--');
+             html += renderCell('--');
+             html += renderCell('لا توجد بصمات', 'color: #999;');
              html += `</tr>`;
              continue;
           }
@@ -358,33 +366,33 @@ export default function Timesheets() {
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
           
-          html += `
-            <tr style="border-bottom: 1px solid #e5e7eb;">
-              <td style="${tdStyle} white-space: nowrap;">${dateStr}</td>
-              <td style="${tdStyle}">${dayType}</td>
-              <td style="${tdStyle}">${verifyMethod}</td>
-              <td style="${tdStyle}">${scheduleName}</td>
+          const cleanNotesText = rec.is_device_pending
+            ? (rec.notes || '')
+            : (rec.notes || '')
+                .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+                .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+                .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
+                .replace(/\s*-\s*/g, ' ')
+                .trim();
 
-              <td style="${timeTdStyle} ${inTimeColor}">${inTime}</td>
-              <td style="${timeTdStyle}">${leaveOutStr}</td>
-              <td style="${timeTdStyle}">${leaveReturnStr}</td>
-              <td style="${timeTdStyle}">${leaveOut2Str}</td>
-              <td style="${timeTdStyle}">${leaveReturn2Str}</td>
-              <td style="${timeTdStyle} ${outTimeColor}">${outTime}</td>
-              <td style="${tdStyle}">${formatDurationDot(netMins)}</td>
-              <td style="${tdStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
-              <td style="${tdStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
-              <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
-              <td style="${tdStyle} font-size: 8px;">${
-                rec.is_device_pending
-                  ? (rec.notes || '')
-                  : (rec.notes || '')
-                      .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
-                      .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
-                      .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
-                      .replace(/\s*-\s*/g, ' ')
-                      .trim()
-              }</td>
+          html += `
+            <tr style="height: 13.5px;">
+              ${renderCell(dateStr)}
+              ${renderCell(dayType)}
+              ${renderCell(verifyMethod)}
+              ${renderCell(scheduleName)}
+
+              ${renderCell(inTime, inTimeColor, true)}
+              ${renderCell(leaveOutStr, '', true)}
+              ${renderCell(leaveReturnStr, '', true)}
+              ${renderCell(leaveOut2Str, '', true)}
+              ${renderCell(leaveReturn2Str, '', true)}
+              ${renderCell(outTime, outTimeColor, true)}
+              ${renderCell(formatDurationDot(netMins))}
+              ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor)}
+              ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', overtimeColor)}
+              ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
+              ${renderCell(cleanNotesText || '', 'font-size: 7.5px;')}
             </tr>
           `;
         }
