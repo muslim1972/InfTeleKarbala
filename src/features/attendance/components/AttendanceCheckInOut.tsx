@@ -24,6 +24,41 @@ import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancem
 // Uses Web Crypto API (SHA-256) to create a
 // stable, non-reversible device identifier
 // ============================================
+function getCanvasGpuSignature(): string {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 50;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 'no-canvas';
+
+    ctx.textBaseline = 'top';
+    ctx.font = "14px 'Arial', sans-serif";
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(125, 1, 62, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('InfTeleKarbala,123#$!~', 2, 15);
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+    ctx.fillText('InfTeleKarbala,123#$!~', 4, 17);
+
+    let gpuRenderer = '';
+    try {
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (gl) {
+        const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+          gpuRenderer = (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+        }
+      }
+    } catch (e) {}
+
+    return canvas.toDataURL() + '|' + gpuRenderer;
+  } catch (e) {
+    return 'canvas-error';
+  }
+}
+
 const getDeviceFingerprint = async (): Promise<string> => {
   const ua = navigator.userAgent;
   let os = 'جهاز غير معروف';
@@ -64,22 +99,26 @@ const getDeviceFingerprint = async (): Promise<string> => {
 
   const label = `${deviceName} (${os}${browser ? ' - ' + browser : ''})`;
 
-  const raw = [
-    ua,
+  // Pure Physical Hardware Fingerprint (Binds directly to Physical GPU + CPU + Screen + Touch sensors)
+  const rawHardware = [
+    navigator.platform || '',
+    /Android/i.test(ua) ? 'Android' : /iPhone|iPad/i.test(ua) ? 'iOS' : /Windows/i.test(ua) ? 'Windows' : 'OtherOS',
     `${screen.width}x${screen.height}x${screen.colorDepth}`,
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    window.devicePixelRatio || 1,
     navigator.hardwareConcurrency?.toString() ?? '0',
-    navigator.language,
+    navigator.maxTouchPoints?.toString() ?? '0',
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
     new Date().getTimezoneOffset().toString(),
-  ].join('|');
+    getCanvasGpuSignature()
+  ].join('||');
 
   const encoder = new TextEncoder();
-  const data = encoder.encode(raw);
+  const data = encoder.encode(rawHardware);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hardwareHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-  return `${label} [${hash}]`;
+  return `${label} [${hardwareHash}]`;
 };
 
 // ============================================
