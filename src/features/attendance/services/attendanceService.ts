@@ -408,16 +408,34 @@ export const attendanceRecordService = {
 
     let isDevicePending = record?.is_device_pending || false;
 
+    function extractHash(deviceStr: string | null | undefined): string {
+      if (!deviceStr) return '';
+      const match = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
+      if (match) return match[1];
+      return deviceStr.trim();
+    }
+
+    function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
+      if (!stored || !current) return false;
+      if (stored === current) return true;
+      const hash1 = extractHash(stored);
+      const hash2 = extractHash(current);
+      return hash1 !== '' && hash1 === hash2;
+    }
+
     if (!profile?.primary_device_id && deviceId) {
       await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
       await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
-    } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+    } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
       isDevicePending = true;
       await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
       
-      const mismatchNote = '(تم التسجيل من جهاز غير معتمد)';
+      const punchTypeLabel = record?.check_in ? 'خروج' : 'دخول';
+      const mismatchNote = `(${punchTypeLabel}: جهاز غير معتمد)`;
       if (updates.notes) {
-        updates.notes = updates.notes + ' - ' + mismatchNote;
+        if (!updates.notes.includes(mismatchNote)) {
+          updates.notes = updates.notes + ' - ' + mismatchNote;
+        }
       } else if (notes) {
         updates.notes = notes + ' - ' + mismatchNote;
       } else {

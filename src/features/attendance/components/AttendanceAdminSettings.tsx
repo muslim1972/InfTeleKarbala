@@ -6,7 +6,7 @@ import {
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
   Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
-  Activity, FileSpreadsheet, ChevronRight, ChevronLeft
+  Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -236,10 +236,32 @@ export default function AttendanceAdminSettings() {
       const { error: pErr } = await supabase.from('profiles').update({ primary_device_id: req.new_device_id }).eq('id', req.employee_id);
       if (pErr) throw pErr;
       
-      await supabase.from('attendance_records')
-        .update({ is_device_pending: false })
+      const { data: pendingRecs } = await supabase
+        .from('attendance_records')
+        .select('id, notes')
         .eq('employee_id', req.employee_id)
         .eq('is_device_pending', true);
+
+      if (pendingRecs && pendingRecs.length > 0) {
+        for (const r of pendingRecs) {
+          let cleanNote = r.notes || '';
+          cleanNote = cleanNote
+            .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+            .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+            .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
+            .replace(/\s*-\s*/g, ' ')
+            .trim();
+
+          await supabase.from('attendance_records')
+            .update({ is_device_pending: false, notes: cleanNote || null })
+            .eq('id', r.id);
+        }
+      } else {
+        await supabase.from('attendance_records')
+          .update({ is_device_pending: false })
+          .eq('employee_id', req.employee_id)
+          .eq('is_device_pending', true);
+      }
         
       await supabase.from('device_change_requests').update({ status: 'approved' }).eq('id', req.id);
       
@@ -1552,8 +1574,35 @@ export default function AttendanceAdminSettings() {
                           <div className="font-bold text-slate-800 dark:text-slate-200">{req.profiles?.full_name || 'غير معروف'}</div>
                           <div className="text-xs text-slate-500">{req.profiles?.job_number || 'بدون رقم وظيفي'}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono text-xs">
-                          {req.new_device_id}
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium text-xs">
+                          {(() => {
+                            const rawStr = req.new_device_id || '';
+                            const match = rawStr.match(/^(.*?)\s*\[([a-f0-9]{32,64})\]$/i);
+                            if (match) {
+                              return (
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                    <Smartphone className="w-4 h-4 text-blue-500 shrink-0" />
+                                    {match[1]}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono tracking-wider">
+                                    الرمز المشفر: {match[2].substring(0, 16)}...
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                  <Smartphone className="w-4 h-4 text-amber-500 shrink-0" />
+                                  جهاز غير مسمى
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {rawStr}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-slate-500" dir="ltr" style={{ textAlign: 'right' }}>
                           {new Date(req.created_at).toLocaleString('ar-IQ', {

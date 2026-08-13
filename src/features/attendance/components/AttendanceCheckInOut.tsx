@@ -25,8 +25,47 @@ import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancem
 // stable, non-reversible device identifier
 // ============================================
 const getDeviceFingerprint = async (): Promise<string> => {
+  const ua = navigator.userAgent;
+  let os = 'جهاز غير معروف';
+  let deviceName = 'جهاز محمول';
+
+  if (/android/i.test(ua)) {
+    const match = ua.match(/Android\s+([0-9\.]+)/i);
+    os = match ? `Android ${match[1]}` : 'Android';
+    const modelMatch = ua.match(/\;\s*([^;]+)\s+Build\//i);
+    if (modelMatch) {
+      deviceName = modelMatch[1].trim();
+    } else {
+      deviceName = 'هاتف أندرويد';
+    }
+  } else if (/iPhone|iPad|iPod/i.test(ua)) {
+    const match = ua.match(/OS\s+([0-9_]+)/i);
+    const version = match ? match[1].replace(/_/g, '.') : '';
+    os = `iOS ${version}`.trim();
+    deviceName = /iPad/i.test(ua) ? 'جهاز iPad' : 'جهاز iPhone';
+  } else if (/Windows NT/i.test(ua)) {
+    if (/Windows NT 10.0/i.test(ua)) os = 'Windows 10/11';
+    else if (/Windows NT 6.3/i.test(ua)) os = 'Windows 8.1';
+    else os = 'Windows PC';
+    deviceName = 'كمبيوتر شخصي';
+  } else if (/Macintosh|Mac OS X/i.test(ua)) {
+    os = 'macOS';
+    deviceName = 'كمبيوتر أبل (Mac)';
+  } else if (/Linux/i.test(ua)) {
+    os = 'Linux';
+    deviceName = 'جهاز لنيوكس';
+  }
+
+  let browser = '';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+
+  const label = `${deviceName} (${os}${browser ? ' - ' + browser : ''})`;
+
   const raw = [
-    navigator.userAgent,
+    ua,
     `${screen.width}x${screen.height}x${screen.colorDepth}`,
     Intl.DateTimeFormat().resolvedOptions().timeZone,
     navigator.hardwareConcurrency?.toString() ?? '0',
@@ -38,7 +77,9 @@ const getDeviceFingerprint = async (): Promise<string> => {
   const data = encoder.encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `${label} [${hash}]`;
 };
 
 // ============================================
