@@ -125,8 +125,15 @@ export default function AttendanceCheckInOut({
   const capturedRef = useRef(false);
 
   const { videoRef, isCameraOpen: cameraOpen, startCamera, stopCamera, captureFrame } = useCamera();
-  const { loadModels, detectFaceInFrame } = useFaceDetection();
+  const { modelsLoaded, loadModels, detectFaceInFrame } = useFaceDetection();
   const screenFlashCleanupRef = useRef<(() => void) | null>(null);
+
+  // ---- Preload Face Models Silently on Mount ----
+  useEffect(() => {
+    loadModels(false).catch(err => {
+      console.warn('Silent background face models preload:', err);
+    });
+  }, [loadModels]);
 
   // ---- Geofence Logic ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
@@ -288,7 +295,7 @@ export default function AttendanceCheckInOut({
 
     let isDetecting = true;
     const detectLoop = async () => {
-      if (capturedRef.current || !videoRef.current || !isDetecting) return;
+      if (capturedRef.current || !videoRef.current || !isDetecting || !modelsLoaded) return;
 
       try {
         debugStatsRef.current.frames++;
@@ -307,7 +314,7 @@ export default function AttendanceCheckInOut({
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
-            if (ear < 0.30 || debugStatsRef.current.matchFrames >= 10) { // Threshold for blink or steady match
+            if (ear < 0.30 || debugStatsRef.current.matchFrames >= 3) { // Instant match threshold (3 frames ~ 0.4s)
               // Liveness verified!
               if (capturedRef.current) return;
               capturedRef.current = true;
@@ -329,8 +336,10 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.matchFrames = 0;
           setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة' }));
         }
-      } catch (err) {
-        console.error("Face detection error:", err);
+      } catch (err: any) {
+        if (!err?.message?.includes('Models not loaded')) {
+          console.error("Face detection error:", err);
+        }
       }
       
       // Continue loop with a small delay instead of requestAnimationFrame to give processing time
