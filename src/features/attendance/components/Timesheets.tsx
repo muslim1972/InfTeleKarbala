@@ -253,31 +253,31 @@ export default function Timesheets() {
                 </div>
             </div>
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 9px; text-align: center; margin-bottom: 6px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; text-align: center; margin-bottom: 6px;">
               <thead>
                 <tr style="background-color: #f3f4f6; color: #111827; border-bottom: 1px solid #d1d5db;">
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">التاريخ واليوم</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">نوع اليوم</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">التحقق</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">الدوام</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">التاريخ واليوم</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">نوع اليوم</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">التحقق</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الدوام</th>
 
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">دخول</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 1</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 1</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 2</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 2</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">خروج</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">الصافي</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">النقص</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">الإضافي</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">الحالة</th>
-                  <th style="padding: 2px; border: 1px solid #d1d5db;">الملاحظات</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">دخول</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ب. راحة 1</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ع. راحة 1</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ب. راحة 2</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">ع. راحة 2</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">خروج</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الصافي</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">النقص</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الإضافي</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الحالة</th>
+                  <th style="padding: 4px 2px; border: 1px solid #d1d5db; line-height: 1.2;">الملاحظات</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        const tdStyle = "padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;";
+        const tdStyle = "padding: 3px 2px; border: 1px solid #d1d5db; vertical-align: middle; line-height: 1.2;";
 
         for (const rec of group.records) {
           if (rec._isPadding) {
@@ -371,7 +371,16 @@ export default function Timesheets() {
               <td style="${tdStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
               <td style="${tdStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
               <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
-              <td style="${tdStyle} font-size: 8px;">${rec.notes || ''}</td>
+              <td style="${tdStyle} font-size: 8px;">${
+                rec.is_device_pending
+                  ? (rec.notes || '')
+                  : (rec.notes || '')
+                      .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+                      .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+                      .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
+                      .replace(/\s*-\s*/g, ' ')
+                      .trim()
+              }</td>
             </tr>
           `;
         }
@@ -967,7 +976,17 @@ export default function Timesheets() {
                               </td>
                               <td className="px-3 py-3 text-xs text-slate-500">
                                 {rec.is_device_pending ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">⚠️ جهاز غير معتمد</span> : null}
-                                {rec.notes || '--'}
+                                {(() => {
+                                  const clean = rec.is_device_pending
+                                    ? (rec.notes || '')
+                                    : (rec.notes || '')
+                                        .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+                                        .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+                                        .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
+                                        .replace(/\s*-\s*/g, ' ')
+                                        .trim();
+                                  return clean || '--';
+                                })()}
                               </td>
                             </tr>
                           );

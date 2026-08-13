@@ -700,63 +700,123 @@ export default function AttendanceCheckInOut({
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Check In Status */}
-          <div className={`p-6 rounded-2xl border-2 transition-all ${
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* 1. Main Check-In */}
+          <div className={`p-4 rounded-xl border transition-all ${
             todayAttendance?.check_in
               ? todayAttendance.is_device_pending
-                  ? 'border-red-400 bg-red-50/50 dark:bg-red-900/10'
-                  : 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10'
-              : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40'
+                  ? 'border-red-300 bg-red-50/60 dark:bg-red-950/20'
+                  : 'border-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
           }`}>
-            <div className="flex items-center gap-3 mb-3">
-              <LogIn className={`w-6 h-6 ${
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogIn className={`w-4 h-4 ${
                 todayAttendance?.check_in 
-                  ? todayAttendance.is_device_pending
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-gray-400 dark:text-slate-500'
+                  ? todayAttendance.is_device_pending ? 'text-red-500' : 'text-emerald-500'
+                  : 'text-slate-400'
               }`} />
-              <span className="font-bold text-gray-800 dark:text-slate-200">وقت الحضور</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300">دخول رئيسي</span>
             </div>
-            <div className={`text-3xl font-extrabold font-mono ${todayAttendance?.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-white'}`}>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.check_in
+                ? todayAttendance.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300'
+                : 'text-slate-400 dark:text-slate-500'
+            }`}>
               {formatTime(todayAttendance?.check_in)}
             </div>
-            {todayAttendance?.check_in_verified_by_biometric ? (
-              <div className={`flex items-center gap-2 mt-3 text-sm font-bold ${todayAttendance.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                <ShieldCheck className="w-5 h-5" />
-                <span>تم التحقق بيوميترياً بنجاح</span>
-              </div>
-            ) : null}
           </div>
 
-          {/* Check Out Status */}
-            <div className={`p-6 rounded-2xl border-2 transition-all ${
+          {/* 2. Break 1 Out */}
+          <div className={`p-4 rounded-xl border transition-all ${
+            todayAttendance?.time_leave_out
+              ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogOut className={`w-4 h-4 ${todayAttendance?.time_leave_out ? 'text-amber-500' : 'text-slate-400'}`} />
+              <span className="font-bold text-slate-700 dark:text-slate-300">ب. استراحة 1</span>
+            </div>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.time_leave_out ? 'text-amber-700 dark:text-amber-300' : 'text-slate-400 dark:text-slate-500'
+            }`}>
+              {formatTime(todayAttendance?.time_leave_out)}
+            </div>
+          </div>
+
+          {/* 3. Break 1 Return */}
+          <div className={`p-4 rounded-xl border transition-all ${
+            todayAttendance?.time_leave_return
+              ? 'border-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogIn className={`w-4 h-4 ${todayAttendance?.time_leave_return ? 'text-indigo-500' : 'text-slate-400'}`} />
+              <span className="font-bold text-slate-700 dark:text-slate-300">ع. استراحة 1</span>
+            </div>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.time_leave_return ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-400 dark:text-slate-500'
+            }`}>
+              {formatTime(todayAttendance?.time_leave_return)}
+            </div>
+          </div>
+
+          {/* 4. Break 2 Out */}
+          <div className={`p-4 rounded-xl border transition-all ${
+            todayAttendance?.time_leave_out_2
+              ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogOut className={`w-4 h-4 ${todayAttendance?.time_leave_out_2 ? 'text-amber-500' : 'text-slate-400'}`} />
+              <span className="font-bold text-slate-700 dark:text-slate-300">ب. استراحة 2</span>
+            </div>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.time_leave_out_2 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-400 dark:text-slate-500'
+            }`}>
+              {formatTime(todayAttendance?.time_leave_out_2)}
+            </div>
+          </div>
+
+          {/* 5. Break 2 Return */}
+          <div className={`p-4 rounded-xl border transition-all ${
+            todayAttendance?.time_leave_return_2
+              ? 'border-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogIn className={`w-4 h-4 ${todayAttendance?.time_leave_return_2 ? 'text-indigo-500' : 'text-slate-400'}`} />
+              <span className="font-bold text-slate-700 dark:text-slate-300">ع. استراحة 2</span>
+            </div>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.time_leave_return_2 ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-400 dark:text-slate-500'
+            }`}>
+              {formatTime(todayAttendance?.time_leave_return_2)}
+            </div>
+          </div>
+
+          {/* 6. Main Check-Out */}
+          <div className={`p-4 rounded-xl border transition-all ${
             todayAttendance?.check_out
               ? todayAttendance.is_device_pending
-                  ? 'border-red-400 bg-red-50/50 dark:bg-red-900/10'
-                  : 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/10'
-              : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40'
+                  ? 'border-red-300 bg-red-50/60 dark:bg-red-950/20'
+                  : 'border-teal-300 bg-teal-50/60 dark:bg-teal-950/20'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
           }`}>
-            <div className="flex items-center gap-3 mb-3">
-              <LogOut className={`w-6 h-6 ${
+            <div className="flex items-center gap-1.5 mb-1.5 text-xs">
+              <LogOut className={`w-4 h-4 ${
                 todayAttendance?.check_out 
-                  ? todayAttendance.is_device_pending
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-teal-600 dark:text-teal-400'
-                  : 'text-gray-400 dark:text-slate-500'
+                  ? todayAttendance.is_device_pending ? 'text-red-500' : 'text-teal-500'
+                  : 'text-slate-400'
               }`} />
-              <span className="font-bold text-gray-800 dark:text-slate-200">وقت الانصراف</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300">انصراف نهائي</span>
             </div>
-            <div className={`text-3xl font-extrabold font-mono ${todayAttendance?.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-white'}`}>
+            <div className={`text-xl font-extrabold font-mono ${
+              todayAttendance?.check_out
+                ? todayAttendance.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-teal-700 dark:text-teal-300'
+                : 'text-slate-400 dark:text-slate-500'
+            }`}>
               {formatTime(todayAttendance?.check_out)}
             </div>
-            {todayAttendance?.check_out_verified_by_biometric ? (
-              <div className={`flex items-center gap-2 mt-3 text-sm font-bold ${todayAttendance.is_device_pending ? 'text-red-600 dark:text-red-400' : 'text-teal-600 dark:text-teal-400'}`}>
-                <ShieldCheck className="w-5 h-5" />
-                <span>تم التحقق بيوميترياً بنجاح</span>
-              </div>
-            ) : null}
           </div>
         </div>
 

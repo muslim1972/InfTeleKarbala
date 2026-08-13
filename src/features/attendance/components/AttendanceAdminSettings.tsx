@@ -236,31 +236,27 @@ export default function AttendanceAdminSettings() {
       const { error: pErr } = await supabase.from('profiles').update({ primary_device_id: req.new_device_id }).eq('id', req.employee_id);
       if (pErr) throw pErr;
       
-      const { data: pendingRecs } = await supabase
+      const { data: empRecs } = await supabase
         .from('attendance_records')
-        .select('id, notes')
-        .eq('employee_id', req.employee_id)
-        .eq('is_device_pending', true);
+        .select('id, notes, is_device_pending')
+        .eq('employee_id', req.employee_id);
 
-      if (pendingRecs && pendingRecs.length > 0) {
-        for (const r of pendingRecs) {
-          let cleanNote = r.notes || '';
-          cleanNote = cleanNote
-            .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
-            .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
-            .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
-            .replace(/\s*-\s*/g, ' ')
-            .trim();
+      if (empRecs && empRecs.length > 0) {
+        for (const r of empRecs) {
+          if (r.is_device_pending || (r.notes && r.notes.includes('جهاز غير معتمد'))) {
+            let cleanNote = r.notes || '';
+            cleanNote = cleanNote
+              .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+              .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+              .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
+              .replace(/\s*-\s*/g, ' ')
+              .trim();
 
-          await supabase.from('attendance_records')
-            .update({ is_device_pending: false, notes: cleanNote || null })
-            .eq('id', r.id);
+            await supabase.from('attendance_records')
+              .update({ is_device_pending: false, notes: cleanNote || null })
+              .eq('id', r.id);
+          }
         }
-      } else {
-        await supabase.from('attendance_records')
-          .update({ is_device_pending: false })
-          .eq('employee_id', req.employee_id)
-          .eq('is_device_pending', true);
       }
         
       await supabase.from('device_change_requests').update({ status: 'approved' }).eq('id', req.id);

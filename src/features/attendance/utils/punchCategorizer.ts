@@ -56,30 +56,31 @@ export function categorizePunches(
     finalNotes = 'يرجى المراجعة , كثير البصمات';
   }
 
-  const updates: Partial<AttendanceRecord> = {};
+  const updates: any = {
+    check_in: null,
+    time_leave_out: null,
+    time_leave_return: null,
+    time_leave_out_2: null,
+    time_leave_return_2: null,
+    check_out: null,
+    check_out_location: null,
+    check_out_device_id: null,
+    check_out_snapshot_url: null,
+    check_out_verified_by_biometric: null,
+  };
 
   // 4. Special case: 1 punch + Night shift check
   if (filteredPunches.length === 1) {
     const punch = filteredPunches[0];
-    
-    // Check if yesterday they forgot to punch out and if it applies
-    // A simple heuristic: if yesterday has an IN but NO OUT, we might consider this an OUT for yesterday?
-    // Wait, the user said: "اذا نسي ولم ينهي اليوم عند 23:59... وينظر لليوم الذي يليه اذا كان لديه بصمة واحدة فيتم اعتبارها خروج من الدوام ويوضع دخول 00:01 صباحا بالاحمر"
-    
-    // BUT we must only do this if this punch is the FIRST punch of today, and yesterday they missed out.
-    // Actually, if there is exactly 1 punch TODAY, and yesterday has a missing out...
-    
     const missedOutYesterday = yesterdayRecord?.check_in && !yesterdayRecord?.check_out;
     
     if (missedOutYesterday && todayDateStr) {
-      // It's considered an OUT punch for a night shift
       updates.check_out = punch.time;
       updates.check_out_location = punch.location;
       updates.check_out_device_id = punch.device_id;
       updates.check_out_snapshot_url = punch.snapshot_url;
       updates.check_out_verified_by_biometric = punch.verified_by_biometric;
       
-      // Add a fake IN punch at 00:01
       updates.check_in = `${todayDateStr}T00:01:00.000Z`;
       const fakeInNote = 'دخول تلقائي (مكمل لخفر الأمس)';
       updates.notes = finalNotes ? `${finalNotes} | ${fakeInNote}` : fakeInNote;
