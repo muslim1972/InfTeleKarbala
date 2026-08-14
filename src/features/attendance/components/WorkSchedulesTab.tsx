@@ -88,13 +88,17 @@ export default function WorkSchedulesTab() {
                       الافتراضي
                     </span>
                   )}
-                  <span className="bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 text-xs px-2.5 py-0.5 rounded-full font-medium">
-                    {schedule.type === 'fixed' ? 'دوام ثابت' : 'دوام مرن'}
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                    schedule.type === 'roster' 
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 font-bold' 
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                  }`}>
+                    {schedule.type === 'roster' ? 'دوام مناوب (شفتات)' : 'دوام اعتيادي (صباحي)'}
                   </span>
                 </div>
                 <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  فترة السماح للتأخير: <strong className="text-slate-700 dark:text-slate-300">{schedule.grace_period_minutes} دقيقة</strong>
+                  فترة السماح للتأخير (الصباحي): <strong className="text-slate-700 dark:text-slate-300">{schedule.grace_period_minutes} دقيقة</strong>
                 </p>
               </div>
               <div className="flex gap-2">
@@ -128,35 +132,66 @@ export default function WorkSchedulesTab() {
 
             <div className="p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-                {schedule.days?.map((day: any) => (
-                  <div 
-                    key={day.id} 
-                    className={`p-3 rounded-xl border text-center ${
-                      day.is_rest_day 
-                        ? 'bg-slate-50 border-slate-100 dark:bg-slate-900/50 dark:border-slate-800' 
-                        : 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30'
-                    }`}
-                  >
-                    <div className="font-bold text-sm mb-2 text-slate-700 dark:text-slate-300">
-                      {getDayName(day.day_of_week)}
+                {schedule.days?.map((day: any) => {
+                  const isRoster = schedule.type === 'roster';
+                  const hasShifts = day.is_morning || day.is_evening || day.is_night;
+                  const isRest = day.is_rest_day || (!hasShifts && isRoster);
+
+                  return (
+                    <div 
+                      key={day.id || day.day_of_week} 
+                      className={`p-3 rounded-xl border text-center transition-all ${
+                        isRest 
+                          ? (isRoster 
+                              ? 'bg-emerald-50/40 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' 
+                              : 'bg-slate-50 border-slate-100 dark:bg-slate-900/50 dark:border-slate-800')
+                          : 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30'
+                      }`}
+                    >
+                      <div className="font-bold text-sm mb-2 text-slate-700 dark:text-slate-300">
+                        {getDayName(day.day_of_week)}
+                      </div>
+                      
+                      {isRest ? (
+                        <div className={`text-xs font-bold py-1 rounded-lg ${
+                          isRoster 
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                            : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800'
+                        }`}>
+                          {isRoster ? 'تعويضية (راحة)' : 'عطلة'}
+                        </div>
+                      ) : isRoster ? (
+                        <div className="space-y-1 mt-1">
+                          {day.is_morning && (
+                            <div className="text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300 py-0.5 rounded px-1">
+                              صباحي (08:00 - 15:00)
+                            </div>
+                          )}
+                          {day.is_evening && (
+                            <div className="text-[10px] font-bold bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-300 py-0.5 rounded px-1">
+                              مسائي (14:30 - 20:00)
+                            </div>
+                          )}
+                          {day.is_night && (
+                            <div className="text-[10px] font-bold bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-300 py-0.5 rounded px-1">
+                              خفر (20:00 - 08:00ص)
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1.5 mt-2 bg-white dark:bg-slate-800 py-1.5 rounded-lg border border-blue-50 dark:border-slate-700">
+                          <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                            {day.start_time?.substring(0, 5) || '08:00'}
+                          </div>
+                          <div className="text-slate-400 dark:text-slate-500 text-[10px] font-medium px-1">إلى</div>
+                          <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                            {day.end_time?.substring(0, 5) || '15:00'}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {day.is_rest_day ? (
-                      <div className="text-xs font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 py-1 rounded-lg">
-                        عطلة (Rest Day)
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1.5 mt-2 bg-white dark:bg-slate-800 py-1.5 rounded-lg border border-blue-50 dark:border-slate-700">
-                        <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {day.start_time?.substring(0, 5)}
-                        </div>
-                        <div className="text-slate-400 dark:text-slate-500 text-[10px] font-medium px-1">إلى</div>
-                        <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {day.end_time?.substring(0, 5)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -86,21 +86,32 @@ export function formatDurationDot(minutes: number): string {
   return formatDurationArabic(minutes);
 }
 
-// Compute if late based on schedule (simple check for timesheets)
-export function computeLateMinutes(checkIn: string | undefined, scheduleStart: string | undefined, gracePeriod: number = 0): number {
+// Compute if late based on schedule and shift type
+export function computeLateMinutes(
+  checkIn: string | undefined, 
+  scheduleStart: string | undefined, 
+  gracePeriod: number = 0
+): number {
   if (!checkIn || !scheduleStart) return 0;
   
   const checkInDate = parseISO(checkIn);
   if (!isValid(checkInDate)) return 0;
   
-  // Create a schedule start date on the same day as checkIn
   const expectedStartStr = `${format(checkInDate, 'yyyy-MM-dd')}T${scheduleStart}`;
   const expectedStartDate = parseISO(expectedStartStr);
-  
   if (!isValid(expectedStartDate)) return 0;
   
+  // Morning shift allows 30 mins grace (from 08:00 to 08:30)
+  // Evening (14:30) and Night (20:00) have 0 grace because presence must not have gaps
+  let effectiveGrace = gracePeriod;
+  if (scheduleStart === '08:00') {
+    effectiveGrace = Math.max(gracePeriod, 30);
+  } else if (scheduleStart === '14:30' || scheduleStart === '20:00') {
+    effectiveGrace = 0; // Strict handover time
+  }
+
   const diff = differenceInMinutes(checkInDate, expectedStartDate);
-  if (diff > gracePeriod) {
+  if (diff > effectiveGrace) {
     return diff;
   }
   return 0;
@@ -121,15 +132,28 @@ export function computeDeficitMinutes(
     const expectedStartStr = `${format(checkInDate, 'yyyy-MM-dd')}T${scheduleStart}`;
     const expectedStartDate = parseISO(expectedStartStr);
     if (isValid(expectedStartDate)) {
+      let effectiveGrace = gracePeriod;
+      if (scheduleStart === '08:00') {
+        effectiveGrace = Math.max(gracePeriod, 30);
+      } else if (scheduleStart === '14:30' || scheduleStart === '20:00') {
+        effectiveGrace = 0;
+      }
+      
       const lateMins = differenceInMinutes(checkInDate, expectedStartDate);
-      if (lateMins > gracePeriod) deficit += lateMins;
+      if (lateMins > effectiveGrace) deficit += lateMins;
     }
   }
 
   if (record.check_out) {
     const checkOutDate = parseISO(record.check_out);
     if (isValid(checkOutDate)) {
-      const expectedEndStr = `${format(checkOutDate, 'yyyy-MM-dd')}T${scheduleEnd}`;
+      // For morning shift (end 15:00), employee can leave starting from 14:30 without penalty
+      let effectiveEnd = scheduleEnd;
+      if (scheduleEnd === '15:00' && scheduleStart === '08:00') {
+        effectiveEnd = '14:30';
+      }
+
+      const expectedEndStr = `${format(checkOutDate, 'yyyy-MM-dd')}T${effectiveEnd}`;
       const expectedEndDate = parseISO(expectedEndStr);
       if (isValid(expectedEndDate)) {
         const earlyMins = differenceInMinutes(expectedEndDate, checkOutDate);

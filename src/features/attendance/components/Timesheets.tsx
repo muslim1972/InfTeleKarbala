@@ -95,53 +95,102 @@ export default function Timesheets() {
     }
   };
 
-  const getExpectedCheckoutTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
+  const getShiftInfo = useCallback((empScheduleId: string | undefined, dateStr: string) => {
     const defaultSchedule = workSchedules.find(s => s.is_default) || workSchedules[0];
     const schedule = empScheduleId ? workSchedules.find(s => s.id === empScheduleId) : defaultSchedule;
-    if (!schedule) return '15:00';
     
     const dateObj = new Date(dateStr);
-    const dayOfWeek = dateObj.getDay(); 
-    
-    const daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-    
-    // If the specific day has an end time, use it
-    if (daySchedule && !daySchedule.is_rest_day && daySchedule.end_time) {
-      return daySchedule.end_time.substring(0, 5); 
+    const dayOfWeek = dateObj.getDay();
+    const isRoster = schedule?.type === 'roster';
+    const daySchedule = schedule?.days?.find((d: any) => d.day_of_week === dayOfWeek);
+
+    const isMorning = daySchedule?.is_morning ?? (!daySchedule?.is_rest_day && daySchedule?.start_time?.startsWith('08'));
+    const isEvening = daySchedule?.is_evening ?? (daySchedule?.start_time?.startsWith('14') || daySchedule?.end_time?.startsWith('20'));
+    const isNight = daySchedule?.is_night ?? (daySchedule?.start_time?.startsWith('20') || daySchedule?.end_time?.startsWith('08'));
+
+    const hasShifts = isMorning || isEvening || isNight;
+    const isRest = isRoster ? !hasShifts : (daySchedule?.is_rest_day ?? false);
+
+    // Label
+    let label = 'صباحي';
+    if (isRoster) {
+      if (!hasShifts) label = 'تعويضية';
+      else if (isEvening && isNight) label = 'مسائي + خفر';
+      else if (isMorning && isEvening) label = 'صباحي + مسائي';
+      else if (isMorning) label = 'صباحي';
+      else if (isEvening) label = 'مسائي';
+      else if (isNight) label = 'خفر';
+    } else if (schedule?.name) {
+      const raw = schedule.name;
+      if (raw.includes('مسائي')) label = 'مسائي';
+      else if (raw.includes('خفر')) label = 'خفر';
+      else if (raw.includes('صباحي')) label = 'صباحي';
+      else label = raw.replace(/الجدول|الافتراضي|\(|\)/g, '').trim() || 'صباحي';
     }
-    
-    // If they checked in on a rest day or the day has no specific end time,
-    // fallback to the first available working day's end time in their schedule!
-    const anyWorkingDay = schedule.days?.find((d: any) => !d.is_rest_day && d.end_time);
-    if (anyWorkingDay) {
-      return anyWorkingDay.end_time.substring(0, 5);
+
+    // Expected check-in & check-out times
+    let expectedIn = '08:00';
+    let expectedOut = '15:00';
+
+    if (isRoster) {
+      if (isMorning) {
+        expectedIn = '08:00';
+        if (isNight) expectedOut = '08:00';
+        else if (isEvening) expectedOut = '20:00';
+        else expectedOut = '15:00';
+      } else if (isEvening) {
+        expectedIn = '14:30';
+        if (isNight) expectedOut = '08:00';
+        else expectedOut = '20:00';
+      } else if (isNight) {
+        expectedIn = '20:00';
+        expectedOut = '08:00';
+      } else {
+        expectedIn = '08:00';
+        expectedOut = '15:00';
+      }
+    } else {
+      if (daySchedule && !daySchedule.is_rest_day) {
+        expectedIn = daySchedule.start_time?.substring(0, 5) || '08:00';
+        expectedOut = daySchedule.end_time?.substring(0, 5) || '15:00';
+      }
     }
-    
-    return '15:00';
+
+    return {
+      schedule,
+      isRoster,
+      isRest,
+      isMorning,
+      isEvening,
+      isNight,
+      hasShifts,
+      label,
+      expectedIn,
+      expectedOut
+    };
   }, [workSchedules]);
+
+  const getExpectedCheckoutTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
+    return getShiftInfo(empScheduleId, dateStr).expectedOut;
+  }, [getShiftInfo]);
 
   const getExpectedCheckinTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
-    const defaultSchedule = workSchedules.find(s => s.is_default) || workSchedules[0];
-    const schedule = empScheduleId ? workSchedules.find(s => s.id === empScheduleId) : defaultSchedule;
-    if (!schedule) return '08:00';
-    
-    const dateObj = new Date(dateStr);
-    const dayOfWeek = dateObj.getDay(); 
-    
-    const daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-    if (daySchedule && !daySchedule.is_rest_day && daySchedule.start_time) {
-      return daySchedule.start_time.substring(0, 5); 
-    }
-    
-    const anyWorkingDay = schedule.days?.find((d: any) => !d.is_rest_day && d.start_time);
-    if (anyWorkingDay) {
-      return anyWorkingDay.start_time.substring(0, 5);
-    }
-    
-    return '08:00';
-  }, [workSchedules]);
+    return getShiftInfo(empScheduleId, dateStr).expectedIn;
+  }, [getShiftInfo]);
 
   const getDayTypeStr = useCallback((dateObj: Date, schedule: any) => {
+    const isRoster = schedule?.type === 'roster';
+    const dayOfWeek = dateObj.getDay();
+    const daySchedule = schedule?.days?.find((d: any) => d.day_of_week === dayOfWeek);
+
+    // If Roster schedule: holidays and weekends do NOT apply!
+    if (isRoster) {
+      const hasShifts = daySchedule?.is_morning || daySchedule?.is_evening || daySchedule?.is_night;
+      if (hasShifts) return 'يوم عمل';
+      return 'تعويضية';
+    }
+
+    // Standard Morning / Fixed schedule: governed by official holidays & weekends
     const dateOnly = format(dateObj, 'yyyy-MM-dd');
     const holiday = globalHolidays.find(h => dateOnly >= h.start_date && dateOnly <= h.end_date);
     if (holiday) return `عطلة: ${holiday.name}`;
@@ -151,13 +200,10 @@ export default function Timesheets() {
        return 'عطلة';
     }
 
-    if (schedule) {
-       const dayOfWeek = dateObj.getDay();
-       const daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-       if (daySchedule && daySchedule.is_rest_day) {
-          return 'عطلة';
-       }
+    if (daySchedule && daySchedule.is_rest_day) {
+       return 'عطلة';
     }
+
     return 'يوم عمل';
   }, [globalHolidays, globalSettings]);
 
@@ -193,17 +239,39 @@ export default function Timesheets() {
            if (!recordsByDay[day]) recordsByDay[day] = [];
            recordsByDay[day].push(r);
        });
+
+       const empScheduleId = group.employee?.work_schedule_id;
        
        for (let day = 1; day <= 31; day++) {
            if (day <= daysInMonth) {
+               const currentDateObj = new Date(year, month - 1, day);
+               const shiftInfo = getShiftInfo(empScheduleId, currentDateObj.toISOString());
+
                if (recordsByDay[day] && recordsByDay[day].length > 0) {
-                   newRecords.push(recordsByDay[day][0]); // 1 record per day per employee
+                   const rec = recordsByDay[day][0];
+                   newRecords.push(rec);
+
+                   const netMins = computeWorkedMinutes(rec, undefined, shiftInfo.expectedOut);
+                   const defMins = computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                   const ovtMins = computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+
+                   group.totalWorkMins += netMins;
+                   group.totalDeficit += defMins;
+                   group.totalOvertime += ovtMins;
+                   if (rec.status === 'late') group.lateCount++;
                } else {
                    const fakeDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+                   const dayType = getDayTypeStr(currentDateObj, shiftInfo.schedule);
+                   const isWorkingDay = dayType === 'يوم عمل';
+
+                   if (isWorkingDay) {
+                     group.absenceCount++;
+                   }
+
                    newRecords.push({
                        _isEmpty: true,
                        check_in: fakeDate,
-                       status: 'absent'
+                       status: isWorkingDay ? 'absent' : (dayType === 'تعويضية' ? 'rest' : 'holiday')
                    });
                }
            } else {
@@ -216,7 +284,7 @@ export default function Timesheets() {
     });
 
     return result;
-  }, [records, getExpectedCheckoutTime, getExpectedCheckinTime, year, month]);
+  }, [records, getShiftInfo, getDayTypeStr, year, month]);
 
   const exportToPDF = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
@@ -297,13 +365,16 @@ export default function Timesheets() {
           const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, 1).toISOString();
           const dateObj = parseISO(dateStrRaw);
           const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
+          const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
+          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+          const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
           
           if (rec._isEmpty) {
              html += `<tr style="height: ${ROW_H};">`;
              html += renderCell(dateStr);
+             html += renderCell(dayType);
              html += renderCell('--');
-             html += renderCell('--');
-             html += renderCell('--');
+             html += renderCell(shiftInfo.label);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
@@ -313,8 +384,8 @@ export default function Timesheets() {
              html += renderCell('--');
              html += renderCell('--');
              html += renderCell('--');
-             html += renderCell('--');
-             html += renderCell('لا توجد بصمات', 'color: #999;');
+             html += renderCell(dayType === 'تعويضية' ? 'راحة' : dayType === 'عطلة' ? 'عطلة' : 'غائب');
+             html += renderCell(dayType === 'تعويضية' ? 'تعويضية' : 'لا توجد بصمات', 'color: #999;');
              html += `</tr>`;
              continue;
           }
@@ -322,25 +393,14 @@ export default function Timesheets() {
           const isPastDay = dateObj.toDateString() !== new Date().toDateString();
           const isForgotCheckout = !rec.check_out && isPastDay && rec.check_in;
           
-          const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
-          const expectedCheckout = getExpectedCheckoutTime(scheduleId, dateStrRaw);
-          const expectedCheckin = getExpectedCheckinTime(scheduleId, dateStrRaw);
+          const expectedCheckout = shiftInfo.expectedOut;
+          const expectedCheckin = shiftInfo.expectedIn;
           
           const outTime = rec.check_out 
             ? format(parseISO(rec.check_out), 'HH:mm') 
             : (isForgotCheckout ? expectedCheckout : '--:--');
 
-          let scheduleName = 'صباحي';
-          const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
-          let dayType = getDayTypeStr(dateObj, schedule);
-          
-          if (schedule) {
-             const rawName = schedule.name || '';
-             if (rawName.includes('مسائي')) scheduleName = 'مسائي';
-             else if (rawName.includes('خفر')) scheduleName = 'خفر';
-             else if (rawName.includes('صباحي')) scheduleName = 'صباحي';
-             else scheduleName = rawName.replace(/الجدول|الافتراضي|\(|\)/g, '').trim() || 'صباحي';
-          }
+          const scheduleName = shiftInfo.label;
 
           const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
           const leaveReturnStr = rec.time_leave_return ? format(parseISO(rec.time_leave_return), 'HH:mm') : '--:--';
@@ -525,72 +585,49 @@ export default function Timesheets() {
         const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, j + 1).toISOString();
         const dateObj = parseISO(dateStrRaw);
         const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
+        const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
+        const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+        const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
 
         if (rec._isEmpty) {
-           const dayNameEng = format(dateObj, 'EEEE');
-           const isWeekend = globalSettings?.weekend_days?.includes(dayNameEng);
-           if (!isWeekend) {
-               html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: #fef2f2;">`;
-               html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
-               html += `<td style="${tdStyle}">يوم عمل</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">الجدول الافتراضي</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle} color: #e11d48;">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle} color: #e11d48;">--:--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">غائب</td>`;
-               html += `<td style="${tdStyle} font-size: 8px;">لا توجد بصمات</td>`;
-               html += `</tr>`;
-               continue;
-           } else {
-               html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: #f8fafc;">`;
-               html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
-               html += `<td style="${tdStyle}">عطلة</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">الجدول الافتراضي</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--:--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">--</td>`;
-               html += `<td style="${tdStyle}">عطلة</td>`;
-               html += `<td style="${tdStyle} font-size: 8px;">لا توجد بصمات</td>`;
-               html += `</tr>`;
-               continue;
-           }
+            const isRest = dayType === 'تعويضية';
+            const isHoliday = dayType.startsWith('عطلة');
+            const isWorking = dayType === 'يوم عمل';
+
+            html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: ${isWorking ? '#fef2f2' : '#f8fafc'};">`;
+            html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
+            html += `<td style="${tdStyle}">${dayType}</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle}">${shiftInfo.label}</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdStyle}">--:--</td>`;
+            html += `<td style="${tdStyle}">--:--</td>`;
+            html += `<td style="${tdStyle}">--:--</td>`;
+            html += `<td style="${tdStyle}">--:--</td>`;
+            html += `<td style="${tdStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdStyle}">${isRest ? 'راحة' : isHoliday ? 'عطلة' : 'غائب'}</td>`;
+            html += `<td style="${tdStyle} font-size: 8px;">${isRest ? 'تعويضية' : 'لا توجد بصمات'}</td>`;
+            html += `</tr>`;
+            continue;
         }
         
         const inTime = rec.check_in ? format(parseISO(rec.check_in), 'HH:mm') : '--:--';
         const isPastDay = dateObj.toDateString() !== new Date().toDateString();
         const isForgotCheckout = !rec.check_out && isPastDay && rec.check_in;
         
-        const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
-        const expectedCheckout = getExpectedCheckoutTime(scheduleId, dateStrRaw);
-        const expectedCheckin = getExpectedCheckinTime(scheduleId, dateStrRaw);
+        const expectedCheckout = shiftInfo.expectedOut;
+        const expectedCheckin = shiftInfo.expectedIn;
         
         const outTime = rec.check_out 
           ? format(parseISO(rec.check_out), 'HH:mm') 
           : (isForgotCheckout ? expectedCheckout : '--:--');
 
-        let scheduleName = 'الجدول الافتراضي';
-        const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
-        let dayType = getDayTypeStr(dateObj, schedule);
-        
-        if (schedule) scheduleName = schedule.name;
+        const scheduleName = shiftInfo.label;
 
         const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
         const leaveReturnStr = rec.time_leave_return ? format(parseISO(rec.time_leave_return), 'HH:mm') : '--:--';
@@ -885,33 +922,40 @@ export default function Timesheets() {
                           const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, 1).toISOString();
                           const dateObj = parseISO(dateStrRaw);
                           const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
+                          const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
+                          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+                          const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
                           
                           if (rec._isEmpty) {
                               return (
                                   <tr key={`empty-${i}`} className="border-b border-slate-100 dark:border-slate-800">
                                       <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
-                                      <td colSpan={15} className="px-3 py-3 text-sm text-center text-slate-500">لا توجد بصمات</td>
+                                      <td className="px-3 py-3 text-sm">
+                                        <span className={dayType === 'تعويضية' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType.startsWith('عطلة') ? 'text-amber-600 font-bold text-xs' : 'text-slate-500'}>
+                                          {dayType}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-3 text-sm text-slate-400">--</td>
+                                      <td className="px-3 py-3 text-sm">
+                                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-xs">{shiftInfo.label}</span>
+                                      </td>
+                                      <td colSpan={12} className="px-3 py-3 text-sm text-center text-slate-400">
+                                        {dayType === 'تعويضية' ? 'يوم استراحة تعويضية' : 'لا توجد بصمات'}
+                                      </td>
                                   </tr>
                               );
                           }
                           const inTime = rec.check_in ? format(parseISO(rec.check_in), 'HH:mm') : '--:--';
                           const isPastDay = dateObj.toDateString() !== new Date().toDateString();
                           const isForgotCheckout = !rec.check_out && isPastDay && rec.check_in;
-                          const scheduleId = rec.work_schedule_id || group.employee.work_schedule_id;
-                          const expectedCheckout = getExpectedCheckoutTime(scheduleId, dateStrRaw);
-                          const expectedCheckin = getExpectedCheckinTime(scheduleId, dateStrRaw);
+                          const expectedCheckout = shiftInfo.expectedOut;
+                          const expectedCheckin = shiftInfo.expectedIn;
                           
                           const outTime = rec.check_out 
                             ? format(parseISO(rec.check_out), 'HH:mm') 
                             : (isForgotCheckout ? expectedCheckout : '--:--');
                           
-                          let scheduleName = 'الجدول الافتراضي';
-                          const schedule = scheduleId ? workSchedules.find(s => s.id === scheduleId) : (workSchedules.find(s => s.is_default) || workSchedules[0]);
-                          let dayType = getDayTypeStr(dateObj, schedule);
-                          
-                          if (schedule) {
-                             scheduleName = schedule.name;
-                          }
+                          const scheduleName = shiftInfo.label;
 
                           const leaveOutStr = rec.time_leave_out ? format(parseISO(rec.time_leave_out), 'HH:mm') : '--:--';
                           const leaveReturnStr = rec.time_leave_return ? format(parseISO(rec.time_leave_return), 'HH:mm') : '--:--';
