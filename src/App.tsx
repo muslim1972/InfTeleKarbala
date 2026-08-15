@@ -62,12 +62,11 @@ const AppContent = () => {
   const CAPACITIES_DEPT_ID = '33333333-2222-2222-2222-222222222222';
 
   const [hasCapacities, setHasCapacities] = useState(false);
-  const [capacitiesChecked, setCapacitiesChecked] = useState(false);
+  const [capacitiesChecked, setCapacitiesChecked] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setHasCapacities(false);
-      setCapacitiesChecked(true);
       return;
     }
 
@@ -79,14 +78,12 @@ const AppContent = () => {
       user.admin_role === 'general'
     ) {
       setHasCapacities(true);
-      setCapacitiesChecked(true);
       return;
     }
 
     // 2. فحص تلقائي: هل ينتمي لقسم تجهيز خدمات المعلوماتية أو أقسامه الفرعية؟
     if (!user.department_id) {
       setHasCapacities(false);
-      setCapacitiesChecked(true);
       return;
     }
 
@@ -111,9 +108,7 @@ const AppContent = () => {
           setHasCapacities(isEligible);
         }
       } catch (err) {
-        console.error('فشل فحص استحقاق السعات:', err);
-      } finally {
-        setCapacitiesChecked(true);
+        console.error('فحص استحقاق السعات:', err);
       }
     };
 
@@ -180,8 +175,8 @@ const AppContent = () => {
     (window.navigator as any).standalone ||
     isCapacitor;
 
-  // إظهار شاشة التحميل أثناء التحقق من الجلسة أو فحص السعات
-  if (loading || !capacitiesChecked) return <LoadingScreen />;
+  // إظهار شاشة التحميل فقط عند عدم توفر بيانات مستخدم مخزنة مسبقاً
+  if (loading) return <LoadingScreen />;
 
   // ── عرض الشاشة الافتتاحية (مرة واحدة لكل جلسة — لجميع الحالات) ──
   if (showSplash) {
