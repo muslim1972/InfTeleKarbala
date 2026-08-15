@@ -340,10 +340,9 @@ export default function AttendanceCheckInOut({
     if (!videoRef.current || !isEnrolled || !user?.face_descriptor) return;
     
     try {
-      setCameraState(prev => ({ ...prev, message: 'جاري تحميل نماذج الذكاء الاصطناعي...' }));
+      setCameraState(prev => ({ ...prev, message: 'جاري مطابقة بصمة الوجه...' }));
       await loadModels();
-      setCameraState(prev => ({ ...prev, message: 'تم التحميل. يرجى النظر للكاميرا ورمش العينين' }));
-      toast('يرجى النظر للكاميرا ورمش العينين للمطابقة', { icon: '👀', duration: 4000 });
+      setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة ورمش العينين' }));
     } catch (err) {
       toast.error('تعذر تحميل نماذج الذكاء الاصطناعي. يرجى التأكد من جودة الإنترنت.');
       return;
@@ -375,7 +374,7 @@ export default function AttendanceCheckInOut({
 
     let isDetecting = true;
     const detectLoop = async () => {
-      if (capturedRef.current || !videoRef.current || !isDetecting || !modelsLoaded) return;
+      if (capturedRef.current || !videoRef.current || !isDetecting) return;
 
       try {
         debugStatsRef.current.frames++;
@@ -387,19 +386,19 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
           
-          if (distance < 0.55) {
+          if (distance < 0.60) {
             debugStatsRef.current.matchFrames++;
-            setCameraState(prev => ({ ...prev, message: 'وجه متطابق! يرجى الثبات أو رمش العينين...' }));
+            setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
             
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
-            if (ear < 0.30 || debugStatsRef.current.matchFrames >= 3) { // Instant match threshold (3 frames ~ 0.4s)
+            if (ear < 0.32 || debugStatsRef.current.matchFrames >= 2) { // Instant match threshold (~ 0.25s)
               // Liveness verified!
               if (capturedRef.current) return;
               capturedRef.current = true;
               
-              setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري التسجيل...' }));
+              setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
               showDebugAlert();
               
               const result = await captureAndUpload();
@@ -407,18 +406,18 @@ export default function AttendanceCheckInOut({
               return; // Stop loop
             }
           } else {
-            // Reset match frames if face goes out of bounds or doesn't match
+            // Reset match frames if face distance exceeds threshold
             debugStatsRef.current.matchFrames = 0;
-            setCameraState(prev => ({ ...prev, message: 'الوجه غير متطابق. يرجى تعديل وضعيتك.' }));
+            setCameraState(prev => ({ ...prev, message: 'يرجى التوجيه المباشر نحو الكاميرا داخل الإطار' }));
           }
         } else {
           // Reset match frames if no face detected
           debugStatsRef.current.matchFrames = 0;
-          setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة' }));
+          setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الإطار البيضاوي' }));
         }
       } catch (err: any) {
         if (!err?.message?.includes('Models not loaded')) {
-          console.error("Face detection error:", err);
+          console.warn("Face detection warning:", err);
         }
       }
       
@@ -428,8 +427,8 @@ export default function AttendanceCheckInOut({
       }
     };
     
-    // Add 1-second delay for camera to stabilize its auto-exposure and auto-focus
-    setTimeout(detectLoop, 1000);
+    // Add small delay for camera to stabilize its auto-exposure and auto-focus
+    setTimeout(detectLoop, 300);
 
     return () => { isDetecting = false; };
   }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);

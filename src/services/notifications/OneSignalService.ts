@@ -10,9 +10,11 @@ let isInitialized = false;
  * تهيئة OneSignal - تُنادى من App.tsx عند التحميل الأول
  * تستخدم Promise singleton لمنع السباق الزمني
  */
+let hasFailedPermanently = false;
+
 export const initializeOneSignal = (): Promise<void> => {
   if (typeof window === 'undefined') return Promise.resolve();
-  if (isInitialized) return Promise.resolve();
+  if (isInitialized || hasFailedPermanently) return Promise.resolve();
   
   // إذا كانت التهيئة جارية بالفعل، أعد نفس الـ Promise
   if (initPromise) return initPromise;
@@ -24,13 +26,13 @@ export const initializeOneSignal = (): Promise<void> => {
     isInitialized = true;
     console.warn('✅ OneSignal: Initialized successfully');
   }).catch((e: any) => {
-    // "OneSignal is already initialized" ليس خطأ حقيقي
-    if (typeof e === 'string' && e.includes('already initialized')) {
+    const errStr = String(e || '');
+    if (errStr.includes('already initialized')) {
       isInitialized = true;
       console.warn('✅ OneSignal: Was already initialized');
     } else {
-      console.error('❌ OneSignal Init Error:', e);
-      initPromise = null; // السماح بإعادة المحاولة
+      console.warn('⚠️ OneSignal Init Skipped (Non-production domain or disabled):', errStr);
+      hasFailedPermanently = true; // منع تكرار المحاولة وتعليق التطبيق
     }
   });
 

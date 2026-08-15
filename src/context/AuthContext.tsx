@@ -54,8 +54,29 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  // تهيئة فورية للمستخدم من الكاش المحلي لمنع الشاشة البيضاء والتحميل الطويل نهائياً
+  const [user, setUser] = useState<AppUser | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const visitor = sessionStorage.getItem("visitor_user");
+      if (visitor) return JSON.parse(visitor);
+
+      const cached = localStorage.getItem("cached_app_user");
+      if (cached) return JSON.parse(cached);
+    } catch (e) {
+      console.warn("Error reading cached user", e);
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      if (sessionStorage.getItem("visitor_user")) return false;
+      if (localStorage.getItem("cached_app_user")) return false;
+    } catch (e) {}
+    return true;
+  });
 
   // Helper to log visit
   const logVisit = async (userData: AppUser) => {
@@ -68,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user_agent: navigator.userAgent
       });
       setUser(userData);
-      initOneSignal(userData.id);
+      localStorage.setItem("cached_app_user", JSON.stringify(userData));
       sessionStorage.setItem('session_logged', 'true');
     } catch (e) {
       console.error("Failed to log visit", e);
@@ -77,47 +98,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Check current session on mount
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       try {
         // 1. Check for Visitor Session
         const visitor = sessionStorage.getItem("visitor_user");
         if (visitor) {
-          setUser(JSON.parse(visitor));
-          setLoading(false);
+          if (isMounted) {
+            setUser(JSON.parse(visitor));
+            setLoading(false);
+          }
           return;
         }
 
-        // 2. Check Supabase Session
-        const { data, error: sessionError } = await supabase.auth.getSession();
+        // 2. Check Supabase Session مع مهلة زمنية سريعة (2.5 ثانية كحد أقصى) لتفادي تعليق الـ Refresh Token
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null }; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null }, error: { message: 'auth_timeout' } }), 2500)
+        );
+
+        const { data, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]);
 
         if (sessionError) {
-          console.warn("Session retrieval error:", sessionError);
-          // Attempt to clear invalid session state safely
-          supabase.auth.signOut().catch(e => console.error("Sign out error", e));
+          const errStr = String((sessionError as any)?.message || sessionError || '');
+          if (errStr.includes('auth_timeout') || errStr.includes('Invalid Refresh Token') || errStr.includes('Refresh Token Not Found')) {
+            console.warn("⚠️ Invalid or timed out auth token detected. Cleaning local storage...");
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+                  localStorage.removeItem(key);
+                }
+              }
+              supabase.auth.signOut().catch(() => {});
+            } catch (e) {}
+          }
         }
 
         const session = data?.session;
         if (session?.user) {
-          // Fetch full profile via secure RPC (bypasses RLS safely)
-          const { data: profile, error: profileErr } = await supabase
-            .rpc('get_own_profile')
-            .single() as { data: any; error: any };
+          // Fetch full profile via secure RPC مع مهلة أمان سريعة (2.5 ثانية)
+          const profilePromise = supabase.rpc('get_own_profile').single();
+          const profileTimeout = new Promise<{ data: any; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: 'profile_timeout' }), 2500)
+          );
+          const { data: profile, error: profileErr }: any = await Promise.race([profilePromise, profileTimeout]);
 
-          if (profileErr) {
-            console.error("Profile fetch error:", profileErr);
-          }
-
-
-
-          if (profile) {
+          if (profile && isMounted) {
             const appUser: AppUser = {
               id: profile.id,
-              username: profile.username, // Now in profiles
+              username: profile.username,
               full_name: profile.full_name,
               job_number: profile.job_number,
               role: profile.role || 'user',
               admin_role: profile.admin_role,
-              avatar_url: profile.avatar || profile.avatar_url, // Handle both naming conventions
+              avatar_url: profile.avatar || profile.avatar_url,
               department_id: profile.department_id,
               can_view_requests: profile.can_view_requests,
               specialization: profile.specialization,
@@ -134,14 +170,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               face_descriptor: profile.face_descriptor
             };
             setUser(appUser);
-            initOneSignal(appUser.id);
-            logVisit(appUser);
+            localStorage.setItem("cached_app_user", JSON.stringify(appUser));
+
+            // تشغيل الإشعارات وسجل الدخول في الخلفية دون حجب التطبيق
+            setTimeout(() => {
+              initOneSignal(appUser.id).catch(() => {});
+              logVisit(appUser).catch(() => {});
+            }, 1000);
+          }
+        } else if (!session && (sessionError as any)?.message !== 'auth_timeout') {
+          localStorage.removeItem("cached_app_user");
+          if (isMounted && !sessionStorage.getItem("visitor_user")) {
+            setUser(null);
           }
         }
       } catch (err) {
         console.error("Auth initialization failed:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
@@ -149,17 +195,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        // We could re-fetch profile here if needed, but usually login handles it
-      } else {
-        // Logged out
+      if (!session) {
         if (!sessionStorage.getItem("visitor_user")) {
-          setUser(null);
+          localStorage.removeItem("cached_app_user");
+          if (isMounted) setUser(null);
         }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (username: string, password: string) => {

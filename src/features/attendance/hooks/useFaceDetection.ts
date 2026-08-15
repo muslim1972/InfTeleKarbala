@@ -132,7 +132,7 @@ export const useFaceDetection = () => {
     // Use TinyFaceDetector for live frame checking (Faster, inputSize optimized for speed & accuracy)
     const detection = await faceapi.detectSingleFace(
       videoElement,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.20 })
     ).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection) return { detection: null, distance: 999, ear: 999 };
