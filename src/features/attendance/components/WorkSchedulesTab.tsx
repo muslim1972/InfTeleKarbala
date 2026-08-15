@@ -77,125 +77,127 @@ export default function WorkSchedulesTab() {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {schedules.map((schedule) => (
-          <div key={schedule.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-start">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">{schedule.name}</h3>
-                  {schedule.is_default && (
-                    <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-medium">
-                      الافتراضي
+        {schedules.map((schedule) => {
+          const isRoster = schedule.type === 'roster';
+          const nameLower = (schedule.name || '').toLowerCase();
+          const isEvening = nameLower.includes('مسائي') || schedule.days?.some((d: any) => d.is_evening || d.start_time?.startsWith('14'));
+          const isNight = nameLower.includes('خفر') || schedule.days?.some((d: any) => d.is_night || d.start_time?.startsWith('20'));
+
+          let typeBadgeText = 'دوام صباحي (08:00 - 15:00)';
+          let typeBadgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+          let showGrace = true;
+
+          if (isRoster) {
+            typeBadgeText = 'دوام مناوب (شفتات)';
+            typeBadgeClass = 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 font-bold';
+            showGrace = false;
+          } else if (isEvening) {
+            typeBadgeText = 'دوام مسائي (14:30 - 20:00)';
+            typeBadgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 font-bold';
+            showGrace = false;
+          } else if (isNight) {
+            typeBadgeText = 'دوام خفر (20:00 - 08:00ص)';
+            typeBadgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 font-bold';
+            showGrace = false;
+          }
+
+          return (
+            <div key={schedule.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">{schedule.name}</h3>
+                    {schedule.is_default && (
+                      <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                        الافتراضي
+                      </span>
+                    )}
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${typeBadgeClass}`}>
+                      {typeBadgeText}
                     </span>
+                  </div>
+                  {showGrace ? (
+                    <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      فترة السماح للتأخير: <strong className="text-slate-700 dark:text-slate-300">{schedule.grace_period_minutes} دقيقة</strong>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      الالتزام بموعد البداية والنهاية بدقة (بدون فترة سماحية)
+                    </p>
                   )}
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                    schedule.type === 'roster' 
-                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 font-bold' 
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                  }`}>
-                    {schedule.type === 'roster' ? 'دوام مناوب (شفتات)' : 'دوام اعتيادي (صباحي)'}
-                  </span>
                 </div>
-                <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  فترة السماح للتأخير (الصباحي): <strong className="text-slate-700 dark:text-slate-300">{schedule.grace_period_minutes} دقيقة</strong>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => { setEditingSchedule(schedule); setIsFormOpen(true); }}
-                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                {!schedule.is_default && (
+                <div className="flex gap-2">
                   <button 
-                    onClick={async () => {
-                      if(window.confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
-                        try {
-                          const { error } = await supabase.from('work_schedules').delete().eq('id', schedule.id);
-                          if(error) throw error;
-                          toast.success('تم حذف الجدول بنجاح');
-                          loadSchedules();
-                        } catch(err: any) {
-                          toast.error('فشل الحذف: ' + err.message);
-                        }
-                      }
-                    }}
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    onClick={() => { setEditingSchedule(schedule); setIsFormOpen(true); }}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Edit2 className="w-4 h-4" />
                   </button>
-                )}
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-                {schedule.days?.map((day: any) => {
-                  const isRoster = schedule.type === 'roster';
-                  const hasShifts = day.is_morning || day.is_evening || day.is_night;
-                  const isRest = day.is_rest_day || (!hasShifts && isRoster);
-
-                  return (
-                    <div 
-                      key={day.id || day.day_of_week} 
-                      className={`p-3 rounded-xl border text-center transition-all ${
-                        isRest 
-                          ? (isRoster 
-                              ? 'bg-emerald-50/40 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' 
-                              : 'bg-slate-50 border-slate-100 dark:bg-slate-900/50 dark:border-slate-800')
-                          : 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30'
-                      }`}
+                  {!schedule.is_default && (
+                    <button 
+                      onClick={async () => {
+                        if(window.confirm('هل أنت متأكد من حذف هذا الجدول؟')) {
+                          try {
+                            const { error } = await supabase.from('work_schedules').delete().eq('id', schedule.id);
+                            if(error) throw error;
+                            toast.success('تم حذف الجدول بنجاح');
+                            loadSchedules();
+                          } catch(err: any) {
+                            toast.error('فشل الحذف: ' + err.message);
+                          }
+                        }
+                      }}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                     >
-                      <div className="font-bold text-sm mb-2 text-slate-700 dark:text-slate-300">
-                        {getDayName(day.day_of_week)}
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {schedule.days?.map((day: any) => {
+                    const isRest = day.is_rest_day;
+
+                    return (
+                      <div 
+                        key={day.id || day.day_of_week} 
+                        className={`p-3 rounded-xl border text-center transition-all ${
+                          isRest 
+                            ? 'bg-slate-50 border-slate-100 dark:bg-slate-900/50 dark:border-slate-800'
+                            : 'bg-blue-50/30 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30'
+                        }`}
+                      >
+                        <div className="font-bold text-sm mb-2 text-slate-700 dark:text-slate-300">
+                          {getDayName(day.day_of_week)}
+                        </div>
+                        
+                        {isRest ? (
+                          <div className="text-xs font-bold py-1 rounded-lg text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800">
+                            {day.day_of_week === 5 || day.day_of_week === 6 ? 'عطلة أسبوعية' : 'عطلة'}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 mt-2 bg-white dark:bg-slate-800 py-1.5 rounded-lg border border-blue-50 dark:border-slate-700">
+                            <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                              {day.start_time?.substring(0, 5) || '08:00'}
+                            </div>
+                            <div className="text-slate-400 dark:text-slate-500 text-[10px] font-medium px-1">إلى</div>
+                            <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                              {day.end_time?.substring(0, 5) || '15:00'}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      
-                      {isRest ? (
-                        <div className={`text-xs font-bold py-1 rounded-lg ${
-                          isRoster 
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                            : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800'
-                        }`}>
-                          {isRoster ? 'تعويضية (راحة)' : 'عطلة'}
-                        </div>
-                      ) : isRoster ? (
-                        <div className="space-y-1 mt-1">
-                          {day.is_morning && (
-                            <div className="text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300 py-0.5 rounded px-1">
-                              صباحي (08:00 - 15:00)
-                            </div>
-                          )}
-                          {day.is_evening && (
-                            <div className="text-[10px] font-bold bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-300 py-0.5 rounded px-1">
-                              مسائي (14:30 - 20:00)
-                            </div>
-                          )}
-                          {day.is_night && (
-                            <div className="text-[10px] font-bold bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-300 py-0.5 rounded px-1">
-                              خفر (20:00 - 08:00ص)
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1.5 mt-2 bg-white dark:bg-slate-800 py-1.5 rounded-lg border border-blue-50 dark:border-slate-700">
-                          <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {day.start_time?.substring(0, 5) || '08:00'}
-                          </div>
-                          <div className="text-slate-400 dark:text-slate-500 text-[10px] font-medium px-1">إلى</div>
-                          <div className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {day.end_time?.substring(0, 5) || '15:00'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {isFormOpen && (

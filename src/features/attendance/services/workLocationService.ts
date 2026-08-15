@@ -93,6 +93,13 @@ export const workLocationService = {
   },
 
   /**
+   * Alias for getLocationEmployees
+   */
+  async getAssignedEmployees(locationId: string): Promise<any[]> {
+    return this.getLocationEmployees(locationId);
+  },
+
+  /**
    * Assigns an employee to a work location and optionally sets their work schedule
    */
   async assignEmployee(locationId: string, employeeId: string, workScheduleId?: string | null): Promise<void> {

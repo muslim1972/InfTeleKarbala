@@ -15,8 +15,9 @@ import WorkSchedulesTab from './WorkSchedulesTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
+import EmployeeSchedulesTab from './EmployeeSchedulesTab';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
+type Tab = 'locations' | 'assignments' | 'employeeSchedules' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
@@ -339,6 +340,8 @@ export default function AttendanceAdminSettings() {
           check_out_verified_by_biometric,
           check_in_location,
           check_out_location,
+          check_in_snapshot_url,
+          check_out_snapshot_url,
           is_auto_check_in,
           is_auto_check_out,
           admin_notes,
@@ -361,20 +364,26 @@ export default function AttendanceAdminSettings() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const formatted = (data || []).map((r: any) => ({
-        id: r.id,
-        employeeName: r.employee?.full_name || 'غير معروف',
-        jobNumber: r.employee?.job_number || '---',
-        checkIn: r.check_in,
-        checkOut: r.check_out,
-        status: r.status,
-        verifiedIn: r.check_in_verified_by_biometric,
-        verifiedOut: r.check_out_verified_by_biometric,
-        checkInLocation: r.check_in_location,
-        isAutoCheckIn: r.is_auto_check_in,
-        isAutoCheckOut: r.is_auto_check_out,
-        adminNotes: r.admin_notes
-      }));
+      const formatted = (data || []).map((r: any) => {
+        let verifyMethod = 'يدوي';
+        if (r.check_in_snapshot_url) verifyMethod = 'بصمة وجه';
+        else if (r.check_in_location) verifyMethod = 'موقع جغرافي';
+        else if (r.is_auto_check_in || r.is_auto_check_out) verifyMethod = 'تسجيل آلي';
+
+        return {
+          id: r.id,
+          employeeName: r.employee?.full_name || 'غير معروف',
+          jobNumber: r.employee?.job_number || '---',
+          checkIn: r.check_in,
+          checkOut: r.check_out,
+          status: r.status,
+          verifyMethod,
+          checkInLocation: r.check_in_location,
+          isAutoCheckIn: r.is_auto_check_in,
+          isAutoCheckOut: r.is_auto_check_out,
+          adminNotes: r.admin_notes
+        };
+      });
 
       setRecords(formatted);
 
@@ -697,6 +706,18 @@ export default function AttendanceAdminSettings() {
           >
             <Calendar className="w-5 h-5" />
             جداول العمل
+          </button>
+
+          <button
+            onClick={() => setActiveTab('employeeSchedules')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
+              activeTab === 'employeeSchedules'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            إعداد دوام الموظفين
           </button>
 
           <button
@@ -1388,7 +1409,7 @@ export default function AttendanceAdminSettings() {
                         <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">وقت الحضور</th>
                         <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">وقت الانصراف</th>
                         <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">الحالة</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">بصمة حضور</th>
+                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">طريقة التحقق</th>
                         <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400 font-mono hidden md:table-cell">موقع البصمة</th>
                       </tr>
                     </thead>
@@ -1411,14 +1432,14 @@ export default function AttendanceAdminSettings() {
                             </span>
                           </td>
                           <td className="py-4 px-4">
-                            <div className="flex gap-2">
-                              {r.verifiedIn ? (
-                                <Check className="w-5 h-5 text-emerald-500" />
-                              ) : (
-                                <X className="w-5 h-5 text-rose-500" />
-                              )}
-                              <span className="text-xs text-slate-400">({r.verifiedIn ? 'بيومتري' : 'يدوي'})</span>
-                            </div>
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                              r.verifyMethod === 'بصمة وجه' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                              r.verifyMethod === 'موقع جغرافي' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' :
+                              r.verifyMethod === 'تسجيل آلي' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300' :
+                              'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}>
+                              {r.verifyMethod}
+                            </span>
                           </td>
                           <td className="py-4 px-4 font-mono text-xs text-slate-400 hidden md:table-cell">
                             {r.checkInLocation || 'غير مسجل'}
@@ -1660,6 +1681,10 @@ export default function AttendanceAdminSettings() {
 
       {activeTab === 'timesheets' && (
         <Timesheets />
+      )}
+
+      {activeTab === 'employeeSchedules' && (
+        <EmployeeSchedulesTab />
       )}
 
       {activeTab === 'holidays' && (
