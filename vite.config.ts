@@ -28,34 +28,39 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
   build: {
-    // ===== تحصين أمني: تعطيل Source Maps نهائياً في الإنتاج =====
+    // ===== تسريع زمن البناء وتفادي Transpilation الزائد =====
+    target: 'esnext',
+    reportCompressedSize: false, // يوفر 10-20 ثانية من حساب الـ gzip لكل ملف وأصل
     sourcemap: false,
-    // ===== استخدام esbuild (الافتراضي في Vite) للضغط السريع =====
-    // esbuild أسرع 10-20x من Terser مع نفس جودة الإخراج
     minify: 'esbuild',
+    cssCodeSplit: true,
     // إزالة console.log و debugger من الإنتاج مع إبقاء console.error و console.warn
     esbuild: {
       pure: ['console.log', 'console.info', 'console.debug'],
       drop: ['debugger'],
       legalComments: 'none',
+      treeShaking: true,
     },
     rollupOptions: {
       output: {
-        // منع توليد ملفات sourcemap حتى في الـ chunks
         sourcemap: false,
         manualChunks: {
-          // فصل المكتبات الثقيلة
+          // فصل المكتبات الأساسية
           'vendor-react': ['react', 'react-dom'],
           'vendor-framer': ['framer-motion'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-icons': ['lucide-react'],
-          'vendor-utils': ['localforage', 'react-hot-toast'],
-          'vendor-pdf': ['pdf-lib', '@pdf-lib/fontkit'], // فصل مكاتب الـ PDF
+          'vendor-utils': ['localforage', 'react-hot-toast', 'date-fns'],
+          'vendor-pdf': ['pdf-lib', '@pdf-lib/fontkit'],
+          'vendor-html2pdf': ['html2pdf.js', 'html2canvas', 'jspdf'],
+          'vendor-excel': ['exceljs', 'xlsx'],
+          'vendor-katex': ['katex', 'react-katex'],
+          'vendor-face-api': ['@vladmandic/face-api'],
+          'vendor-livekit': ['livekit-client', '@livekit/components-react'],
         }
       }
     },
-    // تقليل تحذيرات الحجم لأن مكتبات الـ PDF ثقيلة طبيعياً
     chunkSizeWarningLimit: 2500,
   }
 })

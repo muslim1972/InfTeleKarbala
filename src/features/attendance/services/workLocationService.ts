@@ -100,6 +100,19 @@ export const workLocationService = {
   },
 
   /**
+   * Finds the assigned location of an employee
+   */
+  async getEmployeeLocation(employeeId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('work_location_employees')
+      .select('location_id')
+      .eq('employee_id', employeeId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.location_id || null;
+  },
+
+  /**
    * Assigns an employee to a work location and optionally sets their work schedule
    */
   async assignEmployee(locationId: string, employeeId: string, workScheduleId?: string | null): Promise<void> {

@@ -15,9 +15,10 @@ import WorkSchedulesTab from './WorkSchedulesTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
-import EmployeeSchedulesTab from './EmployeeSchedulesTab';
+import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
+import EmployeeRosterModal from './EmployeeRosterModal';
 
-type Tab = 'locations' | 'assignments' | 'employeeSchedules' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
@@ -42,6 +43,41 @@ export default function AttendanceAdminSettings() {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
+  const [rosterEmployee, setRosterEmployee] = useState<any | null>(null);
+  const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
+
+  const handleSelectGlobalEmployee = async (emp: any) => {
+    try {
+      const locId = await workLocationService.getEmployeeLocation(emp.id);
+      if (locId) {
+        setSelectedLocId(locId);
+        setHighlightedEmpId(emp.id);
+        const loc = locations.find(l => l.id === locId);
+        toast.success(`تم الانتقال إلى: ${loc?.name || 'موقع العمل'} وتحديد الموظف (${emp.full_name})`);
+      } else {
+        toast((t) => (
+          <div className="text-xs space-y-1">
+            <p className="font-bold">الموظف ({emp.full_name}) غير مرتبط بأي موقع حالياً.</p>
+            {selectedLocId ? (
+              <button
+                onClick={async () => {
+                  toast.dismiss(t.id);
+                  await handleAssignEmployee(emp.id);
+                }}
+                className="mt-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs"
+              >
+                ربطه بموقع ({locations.find(l => l.id === selectedLocId)?.name})
+              </button>
+            ) : (
+              <p className="text-slate-400">اختر موقع عمل أولاً لربطه به.</p>
+            )}
+          </div>
+        ), { duration: 6000 });
+      }
+    } catch (err: any) {
+      toast.error('حدث خطأ أثناء البحث: ' + err.message);
+    }
+  };
 
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -609,13 +645,13 @@ export default function AttendanceAdminSettings() {
         <div className="relative flex items-center group w-full mb-4">
           <button 
             onClick={() => scrollTabs('right')}
-            className="absolute right-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 md:hidden flex translate-x-1/2"
+            className="absolute right-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center translate-x-2 transition-all cursor-pointer"
             title="تمرير لليمين"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
           
-          <div ref={tabsRef} className="flex gap-2 overflow-x-auto py-2 px-4 hide-scrollbar scroll-smooth w-full items-center">
+          <div ref={tabsRef} className="flex gap-2 overflow-x-auto py-2 px-8 hide-scrollbar scroll-smooth w-full items-center">
           {isHighAdmin && (
             <button
               onClick={() => setActiveTab('liveBoard')}
@@ -709,18 +745,6 @@ export default function AttendanceAdminSettings() {
           </button>
 
           <button
-            onClick={() => setActiveTab('employeeSchedules')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'employeeSchedules'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            إعداد دوام الموظفين
-          </button>
-
-          <button
             onClick={() => setActiveTab('holidays')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
               activeTab === 'holidays'
@@ -735,7 +759,7 @@ export default function AttendanceAdminSettings() {
 
           <button 
             onClick={() => scrollTabs('left')}
-            className="absolute left-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur p-2 rounded-full shadow-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 md:hidden flex -translate-x-1/2"
+            className="absolute left-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center -translate-x-2 transition-all cursor-pointer"
             title="تمرير لليسار"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -1066,197 +1090,221 @@ export default function AttendanceAdminSettings() {
         )}
 
         {/* =========================================================================
-            TAB 2: EMPLOYEE ASSIGNMENTS
+            TAB 2: EMPLOYEE ASSIGNMENTS & SCHEDULES
             ========================================================================= */}
         {!loading && activeTab === 'assignments' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 no-print animate-in fade-in duration-300">
-            
-            {/* Right Side: Locations Selector */}
-            <div className="lg:col-span-1 space-y-4">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-blue-500" />
-                اختر موقع العمل
-              </h2>
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2">
-                {locations.filter(l => l.is_active).map((loc) => (
-                  <button
-                    key={loc.id}
-                    onClick={() => setSelectedLocId(loc.id)}
-                    className={`w-full text-right p-4 rounded-xl font-bold transition-all border flex items-center justify-between ${
-                      selectedLocId === loc.id
-                        ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-500/20'
-                        : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-300'
-                    }`}
-                  >
-                    <span>{loc.name}</span>
-                    <MapPin className={`w-4 h-4 ${selectedLocId === loc.id ? 'text-white' : 'text-slate-400'}`} />
-                  </button>
-                ))}
-                {locations.filter(l => l.is_active).length === 0 && (
-                  <p className="text-sm text-slate-500 text-center py-4">يرجى إضافة أو تفعيل موقع عمل واحد على الأقل.</p>
-                )}
-              </div>
+          <div className="space-y-6 no-print animate-in fade-in duration-300">
+            {/* Global Employee Search to Navigate to Location and Schedule */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/60 p-5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <Search className="w-4 h-4 text-blue-500" />
+                البحث السريع عن موظف للانتقال المباشر لموقعه وتعديل دوامه
+              </label>
+              <EmployeeSearch
+                onSelect={handleSelectGlobalEmployee}
+                placeholder="ابحث بالاسم أو الرقم الوظيفي للوصول المباشر للموظف في موقعه..."
+              />
             </div>
 
-            {/* Left Side: Assign Panel */}
-            <div className="lg:col-span-2 space-y-6">
-              {selectedLocId ? (
-                <>
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 space-y-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
-                      <Users className="w-6 h-6 text-blue-500" />
-                      إدارة المنتسبين لـ: <span className="text-blue-500">{locations.find(l => l.id === selectedLocId)?.name}</span>
-                    </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Right Side: Locations Selector */}
+              <div className="lg:col-span-1 space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-500" />
+                  اختر موقع العمل
+                </h2>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2">
+                  {locations.filter(l => l.is_active).map((loc) => (
+                    <button
+                      key={loc.id}
+                      onClick={() => {
+                        setSelectedLocId(loc.id);
+                        setHighlightedEmpId(null);
+                      }}
+                      className={`w-full text-right p-4 rounded-xl font-bold transition-all border flex items-center justify-between ${
+                        selectedLocId === loc.id
+                          ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      <span>{loc.name}</span>
+                      <MapPin className={`w-4 h-4 ${selectedLocId === loc.id ? 'text-white' : 'text-slate-400'}`} />
+                    </button>
+                  ))}
+                  {locations.filter(l => l.is_active).length === 0 && (
+                    <p className="text-sm text-slate-500 text-center py-4">يرجى إضافة أو تفعيل موقع عمل واحد على الأقل.</p>
+                  )}
+                </div>
+              </div>
 
-                    {/* Search & Assign Input */}
-                    <div className="relative">
-                      <label className="text-sm font-bold block mb-2">بحث عن موظف لربطه بالموقع (الاسم أو الرقم الوظيفي)</label>
+              {/* Left Side: Assign Panel */}
+              <div className="lg:col-span-2 space-y-6">
+                {selectedLocId ? (
+                  <>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 space-y-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                        <Users className="w-6 h-6 text-blue-500" />
+                        إدارة المنتسبين لـ: <span className="text-blue-500">{locations.find(l => l.id === selectedLocId)?.name}</span>
+                      </h2>
+
+                      {/* Search & Assign Input */}
                       <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="اكتب الاسم أو الرقم الوظيفي..."
-                          value={employeeSearch}
-                          onChange={(e) => setEmployeeSearch(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-11 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                        <label className="text-sm font-bold block mb-2">إضافة موظف جديد لهذا الموقع</label>
+                        <EmployeeSearch
+                          onSelect={(emp) => handleAssignEmployee(emp.id)}
+                          placeholder="ابحث عن موظف لربطه بهذا الموقع..."
                         />
-                        <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
                       </div>
-
-                      <div className="mt-4">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-2">جدول الدوام (اختياري)</label>
-                        <select
-                          value={selectedScheduleId}
-                          onChange={(e) => setSelectedScheduleId(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                        >
-                          <option value="">الجدول الافتراضي للنظام</option>
-                          {workSchedules.map(sch => (
-                            <option key={sch.id} value={sch.id}>{sch.name} {sch.is_default ? '(الافتراضي)' : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Dropdown Suggestions */}
-                      {searchResults.length > 0 && (
-                        <div className="absolute z-30 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl mt-1 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700 max-h-60 overflow-y-auto">
-                          {searchResults.map((emp) => (
-                            <button
-                              key={emp.id}
-                              onClick={() => handleAssignEmployee(emp.id)}
-                              className="w-full text-right p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-center transition-all"
-                            >
-                              <div>
-                                <p className="font-bold text-sm">{emp.full_name}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">الرقم الوظيفي: {emp.job_number}</p>
-                              </div>
-                              <UserPlus className="w-5 h-5 text-blue-500" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
 
-                  {/* Assigned list */}
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                      قائمة الموظفين المرتبطين بالموقع ({assignedEmployees.length})
-                    </h3>
-                    
-                    {assignedEmployees.length === 0 ? (
-                      <div className="text-center py-12 text-slate-500">
-                        <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                        <p>لا يوجد موظفون مرتبطون بهذا الموقع حالياً.</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        {assignedEmployees.map((ae) => {
-                          const isEditing = editingEmployeeId === ae.employee_id;
-                          return (
-                          <div key={ae.id} className="py-4 flex justify-between items-center">
-                            <div className="flex-1">
-                              <p className="font-bold">{ae.employee?.full_name}</p>
-                              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-1">
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                  الرقم الوظيفي: {ae.employee?.job_number}
-                                </p>
-                                
-                                {isEditing ? (
-                                  <div className="flex items-center gap-2 mt-2 md:mt-0">
-                                    <select
-                                      value={editScheduleId}
-                                      onChange={e => setEditScheduleId(e.target.value)}
-                                      className="text-xs bg-slate-50 border rounded-lg px-2 py-1.5 dark:bg-slate-900 dark:border-slate-700 font-bold"
-                                    >
-                                      <option value="">الجدول الافتراضي</option>
-                                      {workSchedules.map(sch => (
-                                        <option key={sch.id} value={sch.id}>{sch.name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
-                                    جدول الدوام: {
-                                      ae.employee?.work_schedule_id 
-                                      ? workSchedules.find(s => s.id === ae.employee.work_schedule_id)?.name || 'مخصص'
-                                      : 'الافتراضي'
-                                    }
+                    {/* Assigned list */}
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6">
+                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        قائمة الموظفين المرتبطين بالموقع ({assignedEmployees.length})
+                      </h3>
+                      
+                      {assignedEmployees.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500">
+                          <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                          <p>لا يوجد موظفون مرتبطون بهذا الموقع حالياً.</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                          {assignedEmployees.map((ae) => {
+                            const isEditing = editingEmployeeId === ae.employee_id;
+                            const isHighlighted = highlightedEmpId === ae.employee_id;
+                            const empSchedule = workSchedules.find(s => s.id === ae.employee?.work_schedule_id);
+
+                            let scheduleBadge = (
+                              <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
+                                صباحي (08:00 - 15:00)
+                              </span>
+                            );
+
+                            if (empSchedule?.type === 'roster') {
+                              scheduleBadge = (
+                                <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
+                                  مناوب (شفتات أسبوعية)
+                                </span>
+                              );
+                            } else if (empSchedule?.name?.includes('مسائي')) {
+                              scheduleBadge = (
+                                <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
+                                  مسائي (14:30 - 20:00)
+                                </span>
+                              );
+                            } else if (empSchedule?.name?.includes('خفر')) {
+                              scheduleBadge = (
+                                <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
+                                  خفر (20:00 - 08:00ص)
+                                </span>
+                              );
+                            }
+
+                            return (
+                            <div 
+                              key={ae.id} 
+                              className={`py-4 px-3 rounded-xl transition-all flex flex-col md:flex-row justify-between md:items-center gap-3 ${
+                                isHighlighted ? 'bg-blue-50/80 dark:bg-blue-950/30 ring-2 ring-blue-500/30' : ''
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{ae.employee?.full_name}</p>
+                                <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                    الرقم الوظيفي: {ae.employee?.job_number || '---'}
                                   </p>
+                                  
+                                  {isEditing ? (
+                                    <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
+                                      <select
+                                        value={editScheduleId}
+                                        onChange={e => setEditScheduleId(e.target.value)}
+                                        className="text-xs bg-slate-50 border rounded-lg px-2.5 py-1.5 dark:bg-slate-900 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200 outline-none"
+                                      >
+                                        <option value="">صباحي (الافتراضي)</option>
+                                        {workSchedules.filter(s => s.type !== 'roster').map(sch => (
+                                          <option key={sch.id} value={sch.id}>{sch.name}</option>
+                                        ))}
+                                      </select>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setRosterEmployee({
+                                            ...ae.employee,
+                                            work_schedule_id: ae.employee?.work_schedule_id
+                                          });
+                                        }}
+                                        className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1"
+                                      >
+                                        <ShieldCheck className="w-3.5 h-3.5" />
+                                        تخصيص جدول المناوبة (شفتات)
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs text-slate-400">الدوام:</span>
+                                      {scheduleBadge}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleUpdateShift(ae.employee_id)}
+                                      className="text-emerald-500 hover:text-emerald-600 bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl transition-all"
+                                      title="حفظ"
+                                    >
+                                      <Save className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingEmployeeId(null)}
+                                      className="text-slate-500 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl transition-all"
+                                      title="إلغاء"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingEmployeeId(ae.employee_id);
+                                        setEditScheduleId(ae.employee?.work_schedule_id || '');
+                                      }}
+                                      className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 p-2 rounded-xl transition-all flex items-center gap-1 text-xs font-bold"
+                                      title="تعديل جدول الدوام"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                      تعديل
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemoveEmployee(ae.employee_id)}
+                                      className="text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 p-2 rounded-xl transition-all"
+                                      title="إلغاء الربط بالموقع"
+                                    >
+                                      <UserMinus className="w-4 h-4" />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
-                            <div className="flex gap-2 mr-4">
-                              {isEditing ? (
-                                <>
-                                  <button
-                                    onClick={() => handleUpdateShift(ae.employee_id)}
-                                    className="text-emerald-500 hover:text-emerald-600 bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl transition-all"
-                                    title="حفظ الوقت"
-                                  >
-                                    <Save className="w-5 h-5" />
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingEmployeeId(null)}
-                                    className="text-slate-500 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl transition-all"
-                                    title="إلغاء"
-                                  >
-                                    <X className="w-5 h-5" />
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setEditingEmployeeId(ae.employee_id);
-                                      setEditScheduleId(ae.employee?.work_schedule_id || '');
-                                    }}
-                                    className="text-blue-500 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 p-2.5 rounded-xl transition-all"
-                                    title="تعديل جدول الدوام"
-                                  >
-                                    <Edit2 className="w-5 h-5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveEmployee(ae.employee_id)}
-                                    className="text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 p-2.5 rounded-xl transition-all"
-                                    title="إلغاء الربط بالموقع"
-                                  >
-                                    <UserMinus className="w-5 h-5" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )})}
-                      </div>
-                    )}
+                          )})}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-12 text-center text-slate-500">
+                    <MapPin className="w-12 h-12 mx-auto mb-3 text-slate-400 animate-bounce" />
+                    <p>يرجى اختيار أحد مواقع العمل من القائمة الجانبية لإدارة موظفيه وتخصيص شفتاتهم.</p>
                   </div>
-                </>
-              ) : (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-12 text-center text-slate-500">
-                  <MapPin className="w-12 h-12 mx-auto mb-3 text-slate-400 animate-bounce" />
-                  <p>يرجى اختيار أحد مواقع العمل من القائمة الجانبية لإدارة موظفيه.</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1679,18 +1727,27 @@ export default function AttendanceAdminSettings() {
         <LiveAttendanceBoard />
       )}
 
-      {activeTab === 'timesheets' && (
+      {activeTab === 'timesheets' && isHighAdmin && (
         <Timesheets />
-      )}
-
-      {activeTab === 'employeeSchedules' && (
-        <EmployeeSchedulesTab />
       )}
 
       {activeTab === 'holidays' && (
         <HolidaysTab />
       )}
     </div>
+
+      {/* Floating Roster Customization Modal */}
+      {rosterEmployee && (
+        <EmployeeRosterModal
+          employee={rosterEmployee}
+          locationName={locations.find(l => l.id === selectedLocId)?.name}
+          onClose={() => setRosterEmployee(null)}
+          onSave={() => {
+            setRosterEmployee(null);
+            if (selectedLocId) loadAssignments(selectedLocId);
+          }}
+        />
+      )}
 
       {/* Processing Modal */}
       {processingRecord && (
