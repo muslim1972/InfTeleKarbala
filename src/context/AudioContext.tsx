@@ -34,7 +34,17 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const getSupabaseBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const host = window.location.hostname;
+    if (host === '10.56.3.3' || host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin;
+    }
+  }
+  return import.meta.env.VITE_SUPABASE_URL || 'https://khr-itpc.egov.iq';
+};
+
+const SUPABASE_URL = getSupabaseBaseUrl();
 const BUCKET_NAME = "quran";
 const SURAH_NAMES = [
     "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
