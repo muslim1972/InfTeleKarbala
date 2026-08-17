@@ -39,6 +39,7 @@ export default function Timesheets() {
   const [workSchedules, setWorkSchedules] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [globalHolidays, setGlobalHolidays] = useState<any[]>([]);
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
 
   useEffect(() => {
     loadFilters();
@@ -72,6 +73,9 @@ export default function Timesheets() {
       
       const schedules = await timesheetService.getWorkSchedules();
       setWorkSchedules(schedules);
+
+      const emps = await timesheetService.getEmployees();
+      setAllEmployees(emps);
 
       const { data: settingsData } = await supabase.from('attendance_settings').select('*').eq('id', 1).single();
       if (settingsData) setGlobalSettings(settingsData);
@@ -210,11 +214,29 @@ export default function Timesheets() {
   const groupedData = useMemo(() => {
     const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number }> = {};
     
+    const relevantEmployees = allEmployees.filter(emp => {
+      if (departmentId !== 'all' && emp.department_id !== departmentId) return false;
+      if (employeeId !== 'all' && emp.id !== employeeId) return false;
+      return true;
+    });
+
+    relevantEmployees.forEach(emp => {
+      groups[emp.id] = {
+        employee: emp,
+        records: [],
+        totalWorkMins: 0,
+        totalDeficit: 0,
+        totalOvertime: 0,
+        lateCount: 0,
+        absenceCount: 0
+      };
+    });
+
     records.forEach(rec => {
       const empId = rec.employee_id;
       if (!groups[empId]) {
         groups[empId] = {
-          employee: rec.employee,
+          employee: rec.employee || { id: empId, full_name: 'موظف' },
           records: [],
           totalWorkMins: 0,
           totalDeficit: 0,
@@ -296,7 +318,7 @@ export default function Timesheets() {
       const printDate = new Date().toLocaleDateString('en-GB');
 
       let html = `
-        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
+        <div style="direction: rtl; font-family: 'Cairo', 'Tajawal', 'Segoe UI', Tahoma, sans-serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
       `;
 
       for (let i = 0; i < groupedData.length; i++) {
@@ -346,10 +368,10 @@ export default function Timesheets() {
         `;
 
         const ROW_H = '17px';
-        const renderCell = (content: string, extraCss = '', isTime = false) => {
-          const fontCss = isTime
-            ? `font-family: 'Courier New', Courier, monospace; font-size: 8px; letter-spacing: 0.5px;`
-            : `font-size: 8px;`;
+        const renderCell = (content: string, extraCss = '', isNumber = false) => {
+          const fontCss = isNumber
+            ? `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`
+            : `font-family: Arial, 'Segoe UI', Tahoma, sans-serif; font-size: 8.5px; font-weight: bold;`;
           return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${ROW_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
         };
 
@@ -381,9 +403,9 @@ export default function Timesheets() {
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
-             html += renderCell('--');
-             html += renderCell('--');
-             html += renderCell('--');
+             html += renderCell('--', '', true);
+             html += renderCell('--', '', true);
+             html += renderCell('--', '', true);
              html += renderCell(dayType === 'تعويضية' ? 'راحة' : dayType === 'عطلة' ? 'عطلة' : 'غائب');
              html += renderCell(dayType === 'تعويضية' ? 'تعويضية' : 'لا توجد بصمات', 'color: #999;');
              html += `</tr>`;
@@ -445,9 +467,9 @@ export default function Timesheets() {
               ${renderCell(leaveOut2Str, '', true)}
               ${renderCell(leaveReturn2Str, '', true)}
               ${renderCell(outTime, outTimeColor, true)}
-              ${renderCell(formatDurationDot(netMins))}
-              ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor)}
-              ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', overtimeColor)}
+              ${renderCell(formatDurationDot(netMins), '', true)}
+              ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor, true)}
+              ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', overtimeColor, true)}
               ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
               ${renderCell(cleanNotesText || '', 'font-size: 7.5px;')}
             </tr>
@@ -540,7 +562,7 @@ export default function Timesheets() {
       const printDate = new Date().toLocaleDateString('en-GB');
 
       let html = `
-        <div style="direction: rtl; font-family: 'Amiri', 'Cairo', 'Segoe UI', Tahoma, serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
+        <div style="direction: rtl; font-family: 'Cairo', 'Tajawal', 'Segoe UI', Tahoma, sans-serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
       `;
 
       const group = targetGroup;
@@ -576,11 +598,15 @@ export default function Timesheets() {
             <tbody>
       `;
 
+      const numStyle = `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`;
+      const textStyle = `font-family: Arial, 'Segoe UI', Tahoma, sans-serif; font-size: 8.5px; font-weight: bold;`;
+
       for (let j = 0; j < group.records.length; j++) {
         const rec = group.records[j];
         if (rec._isPadding) continue;
 
-        const tdStyle = `padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle;`;
+        const tdStyle = `padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle; ${textStyle}`;
+        const tdNumStyle = `padding: 1px 2px; border: 1px solid #d1d5db; height: 16px; vertical-align: middle; ${numStyle}`;
         
         const dateStrRaw = rec.check_in ? rec.check_in : new Date(year, month - 1, j + 1).toISOString();
         const dateObj = parseISO(dateStrRaw);
@@ -601,15 +627,15 @@ export default function Timesheets() {
             html += `<td style="${tdStyle}">${shiftInfo.label}</td>`;
             html += `<td style="${tdStyle}">--</td>`;
             html += `<td style="${tdStyle}">--</td>`;
-            html += `<td style="${tdStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
-            html += `<td style="${tdStyle}">--:--</td>`;
-            html += `<td style="${tdStyle}">--:--</td>`;
-            html += `<td style="${tdStyle}">--:--</td>`;
-            html += `<td style="${tdStyle}">--:--</td>`;
-            html += `<td style="${tdStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
-            html += `<td style="${tdStyle}">--</td>`;
-            html += `<td style="${tdStyle}">--</td>`;
-            html += `<td style="${tdStyle}">--</td>`;
+            html += `<td style="${tdNumStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdNumStyle}">--:--</td>`;
+            html += `<td style="${tdNumStyle}">--:--</td>`;
+            html += `<td style="${tdNumStyle}">--:--</td>`;
+            html += `<td style="${tdNumStyle}">--:--</td>`;
+            html += `<td style="${tdNumStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdNumStyle}">--</td>`;
+            html += `<td style="${tdNumStyle}">--</td>`;
+            html += `<td style="${tdNumStyle}">--</td>`;
             html += `<td style="${tdStyle}">${isRest ? 'راحة' : isHoliday ? 'عطلة' : 'غائب'}</td>`;
             html += `<td style="${tdStyle} font-size: 8px;">${isRest ? 'تعويضية' : 'لا توجد بصمات'}</td>`;
             html += `</tr>`;
@@ -676,15 +702,15 @@ export default function Timesheets() {
             <td style="${tdStyle}">${scheduleName}</td>
             <td style="${tdStyle}">${checkInImgHtml}</td>
             <td style="${tdStyle}">${checkOutImgHtml}</td>
-            <td style="${tdStyle} ${inTimeColor}">${inTime}</td>
-            <td style="${tdStyle}">${leaveOutStr}</td>
-            <td style="${tdStyle}">${leaveReturnStr}</td>
-            <td style="${tdStyle}">${leaveOut2Str}</td>
-            <td style="${tdStyle}">${leaveReturn2Str}</td>
-            <td style="${tdStyle} ${outTimeColor}">${outTime}</td>
-            <td style="${tdStyle}">${formatDurationDot(netMins)}</td>
-            <td style="${tdStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
-            <td style="${tdStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
+            <td style="${tdNumStyle} ${inTimeColor}">${inTime}</td>
+            <td style="${tdNumStyle}">${leaveOutStr}</td>
+            <td style="${tdNumStyle}">${leaveReturnStr}</td>
+            <td style="${tdNumStyle}">${leaveOut2Str}</td>
+            <td style="${tdNumStyle}">${leaveReturn2Str}</td>
+            <td style="${tdNumStyle} ${outTimeColor}">${outTime}</td>
+            <td style="${tdNumStyle}">${formatDurationDot(netMins)}</td>
+            <td style="${tdNumStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
+            <td style="${tdNumStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
             <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
             <td style="${tdStyle} font-size: 8px;">${rec.notes || ''}</td>
           </tr>

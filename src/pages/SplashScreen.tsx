@@ -154,7 +154,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     const exitTimer = window.setTimeout(() => {
       setIsExiting(true);
       stopAudio();
-    }, 2500);
+    }, 10000);
 
     return () => {
       window.clearTimeout(exitTimer);

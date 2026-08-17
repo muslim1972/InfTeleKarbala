@@ -74,7 +74,7 @@ export function EmployeeSearch({
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             // Ignore if click is inside the search portal
-            if ((e.target as Element)?.closest('.employee-search-portal')) return;
+            if (e.target instanceof Element && e.target.closest('.employee-search-portal')) return;
 
             if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
                 setShow(false);
@@ -83,7 +83,7 @@ export function EmployeeSearch({
 
         const handleScroll = (e: Event) => {
             if (searchRef.current && searchRef.current.contains(e.target as Node)) return;
-            if ((e.target as Element)?.closest('.employee-search-portal')) return;
+            if (e.target instanceof Element && e.target.closest('.employee-search-portal')) return;
             setShow(false);
         };
 

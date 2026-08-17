@@ -39,7 +39,7 @@ export const timesheetService = {
   },
 
   async getEmployees(departmentId?: string) {
-    let query = supabase.from('profiles').select('id, full_name, job_number').order('full_name');
+    let query = supabase.from('profiles').select('id, full_name, job_number, department_id, work_schedule_id').order('full_name');
     if (departmentId && departmentId !== 'all') {
       query = query.eq('department_id', departmentId);
     }

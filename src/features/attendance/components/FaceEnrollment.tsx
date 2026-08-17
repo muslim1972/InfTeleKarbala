@@ -90,15 +90,37 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                 toast.success("تم التقاط الزاوية بنجاح! يرجى الاستعداد للزاوية التالية.");
                 setStep('camera');
             } else {
-                // Save to database (Array of Arrays because column is jsonb)
+                // Save to database (Array of Arrays because column is jsonb) + Bind device fingerprint
+                let deviceId: string | null = null;
+                try {
+                    const { getDeviceFingerprint } = await import('../../../utils/deviceFingerprint');
+                    deviceId = await getDeviceFingerprint();
+                } catch (dErr) {
+                    console.warn("Could not compute device fingerprint during face enroll:", dErr);
+                }
+
+                const updatePayload: any = { face_descriptor: newDescriptors };
+                if (deviceId) {
+                    updatePayload.primary_device_id = deviceId;
+                }
+
                 const { error } = await supabase
                     .from('profiles')
-                    .update({ face_descriptor: newDescriptors })
+                    .update(updatePayload)
                     .eq('id', employeeId);
 
                 if (error) throw error;
 
-                toast.success("تم تسجيل بصمة الوجه بجميع الزوايا بنجاح!");
+                // Also clear pending device flag for today's record
+                const todayStr = new Date().toISOString().split('T')[0];
+                await supabase
+                    .from('attendance_records')
+                    .update({ is_device_pending: false })
+                    .eq('employee_id', employeeId)
+                    .gte('created_at', `${todayStr}T00:00:00`)
+                    .lte('created_at', `${todayStr}T23:59:59`);
+
+                toast.success("تم تسجيل بصمة الوجه واقتران الجهاز المعتمد بنجاح!");
                 onSuccess();
                 onClose();
             }

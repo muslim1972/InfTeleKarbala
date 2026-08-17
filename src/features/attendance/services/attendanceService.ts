@@ -427,7 +427,7 @@ export const attendanceRecordService = {
       .eq('id', employeeId)
       .single();
 
-    let isDevicePending = record?.is_device_pending || false;
+    let isDevicePending = false;
 
     function extractHash(deviceStr: string | null | undefined): string {
       if (!deviceStr) return '';
@@ -447,6 +447,10 @@ export const attendanceRecordService = {
     if (!profile?.primary_device_id && deviceId) {
       await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
       await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
+      isDevicePending = false;
+    } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
+      // Current punch matches approved device!
+      isDevicePending = false;
     } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
       isDevicePending = true;
       await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
