@@ -19,7 +19,7 @@ export function usePromotionData() {
                 .from('promotion_settings')
                 .select('*')
                 .limit(1)
-                .single();
+                .maybeSingle();
             if (error) throw error;
             setSettings(data);
         } catch (err) {

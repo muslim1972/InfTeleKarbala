@@ -61,7 +61,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
                 .update(updatePayload)
                 .eq('id', student.id)
                 .select()
-                .single();
+                .maybeSingle();
 
             if (error) {
                 if (error.code === '23505') { // Unique violation for username

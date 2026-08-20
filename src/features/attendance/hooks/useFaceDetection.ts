@@ -129,10 +129,10 @@ export const useFaceDetection = () => {
     if (!faceApiRef.current || !globalDetectionModelsLoaded) throw new Error('Models not loaded');
     const faceapi = faceApiRef.current;
 
-    // Use TinyFaceDetector for live frame checking (Faster, inputSize optimized for speed & accuracy)
+    // Use TinyFaceDetector for live frame checking (Faster, inputSize 416 optimized for speed & low-light accuracy)
     const detection = await faceapi.detectSingleFace(
       videoElement,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.20 })
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.15 })
     ).withFaceLandmarks().withFaceDescriptor();
 
     if (!detection) return { detection: null, distance: 999, ear: 999 };

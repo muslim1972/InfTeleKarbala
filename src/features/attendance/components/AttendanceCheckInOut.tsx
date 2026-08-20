@@ -292,7 +292,7 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
           
-          if (distance < 0.60) {
+          if (distance < 0.64) {
             debugStatsRef.current.matchFrames++;
             setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
             

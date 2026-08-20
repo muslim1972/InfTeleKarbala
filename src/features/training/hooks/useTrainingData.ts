@@ -19,7 +19,7 @@ export function useTrainingData() {
                 .from('summer_training_settings')
                 .select('*')
                 .limit(1)
-                .single();
+                .maybeSingle();
             if (error) throw error;
             setSettings(data);
         } catch (err) {
@@ -232,18 +232,34 @@ export function useTrainingData() {
         }
     }, []);
 
-    // ── جلب نتائج الاختبارات ──
+    // ── جلب نتائج الاختبارات (ملخص خفيف وسريع بدون تحميل تفاصيل الأسئلة الثقيلة) ──
     const fetchResults = useCallback(async (): Promise<TrainingResult[]> => {
         try {
             const { data, error } = await supabase
                 .from('summer_training_results')
-                .select('*')
+                .select('id, student_id, score, total_questions, attempt_number, duration_seconds, started_at, completed_at, created_at')
                 .order('created_at', { ascending: false });
             if (error) throw error;
             return data || [];
         } catch (err) {
             console.error('فشل جلب النتائج:', err);
             return [];
+        }
+    }, []);
+
+    // ── جلب تفاصيل محاولة محددة عند النقر فقط ──
+    const fetchAttemptDetails = useCallback(async (attemptId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('summer_training_results')
+                .select('id, exam_details')
+                .eq('id', attemptId)
+                .maybeSingle();
+            if (error) throw error;
+            return data?.exam_details || null;
+        } catch (err) {
+            console.error('فشل جلب تفاصيل المحاولة:', err);
+            return null;
         }
     }, []);
 
@@ -305,6 +321,7 @@ export function useTrainingData() {
         deleteStudent,
         saveTrainingResult,
         fetchResults,
+        fetchAttemptDetails,
         getStudentAttemptCount,
         getAutocompleteSuggestions,
         authenticateTrainee,

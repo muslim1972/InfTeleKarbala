@@ -4,39 +4,20 @@
  * وحدة توليد وتتبع البصمة الرقمية للجهاز (Web Crypto SHA-256 + GPU Hardware)
  */
 
-function getCanvasGpuSignature(): string {
+function getGpuHardwareInfo(): string {
   try {
     const canvas = document.createElement('canvas');
-    canvas.width = 200;
-    canvas.height = 50;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return 'no-canvas';
-
-    ctx.textBaseline = 'top';
-    ctx.font = "14px 'Arial', sans-serif";
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(125, 1, 62, 20);
-    ctx.fillStyle = '#069';
-    ctx.fillText('InfTeleKarbala,123#$!~', 2, 15);
-    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-    ctx.fillText('InfTeleKarbala,123#$!~', 4, 17);
-
-    let gpuRenderer = '';
-    try {
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (gl) {
-        const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
-        if (debugInfo) {
-          gpuRenderer = (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
-        }
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+      const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
+      if (debugInfo) {
+        const vendor = (gl as any).getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '';
+        const renderer = (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+        return `${vendor}||${renderer}`;
       }
-    } catch (e) {}
-
-    return canvas.toDataURL() + '|' + gpuRenderer;
-  } catch (e) {
-    return 'canvas-error';
-  }
+    }
+  } catch (e) {}
+  return 'no-gpu-info';
 }
 
 export async function getDeviceFingerprint(): Promise<string> {
@@ -71,13 +52,7 @@ export async function getDeviceFingerprint(): Promise<string> {
     deviceName = 'جهاز لنيوكس';
   }
 
-  let browser = '';
-  if (/Edg\//i.test(ua)) browser = 'Edge';
-  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
-  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
-  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
-
-  const label = `${deviceName} (${os}${browser ? ' - ' + browser : ''})`;
+  const label = `${deviceName} (${os})`;
 
   const rawHardware = [
     navigator.platform || '',
@@ -88,7 +63,7 @@ export async function getDeviceFingerprint(): Promise<string> {
     navigator.maxTouchPoints?.toString() ?? '0',
     Intl.DateTimeFormat().resolvedOptions().timeZone,
     new Date().getTimezoneOffset().toString(),
-    getCanvasGpuSignature()
+    getGpuHardwareInfo()
   ].join('||');
 
   const encoder = new TextEncoder();

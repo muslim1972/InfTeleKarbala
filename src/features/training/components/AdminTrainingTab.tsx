@@ -39,7 +39,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const {
         settings, settingsLoading, updateSettings,
         uploadFile, deleteFile, checkFileExists,
-        fetchResults, fetchStudents,
+        fetchResults, fetchStudents, fetchAttemptDetails,
     } = useTrainingData();
 
     // ── Students Modal ──
@@ -563,6 +563,41 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             toast.success('تم حذف نتائج الطالب بنجاح');
         } catch {
             toast.error('فشل حذف نتائج الطالب');
+        }
+    };
+
+    // ── Select Student Results (Lazy loads detailed questions) ──
+    const handleSelectStudentResults = async (studentResults: TrainingResult[]) => {
+        const sortedAttempts = [...studentResults].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setSelectedStudentResults(sortedAttempts);
+        const lastIdx = sortedAttempts.length - 1;
+        setActiveAttemptIndex(lastIdx);
+
+        if (sortedAttempts[lastIdx] && !sortedAttempts[lastIdx].exam_details) {
+            const details = await fetchAttemptDetails(sortedAttempts[lastIdx].id);
+            if (details) {
+                setSelectedStudentResults(prev => {
+                    if (!prev) return prev;
+                    const next = [...prev];
+                    next[lastIdx] = { ...next[lastIdx], exam_details: details };
+                    return next;
+                });
+            }
+        }
+    };
+
+    const handleAttemptChange = async (idx: number) => {
+        setActiveAttemptIndex(idx);
+        if (selectedStudentResults && selectedStudentResults[idx] && !selectedStudentResults[idx].exam_details) {
+            const details = await fetchAttemptDetails(selectedStudentResults[idx].id);
+            if (details) {
+                setSelectedStudentResults(prev => {
+                    if (!prev) return prev;
+                    const next = [...prev];
+                    next[idx] = { ...next[idx], exam_details: details };
+                    return next;
+                });
+            }
         }
     };
 
@@ -1197,11 +1232,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                     const isPassed = finalScore >= 70;
 
                                                     return (
-                                                        <div key={student.id} onClick={() => {
-                                                            const sortedAttempts = [...studentResults].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-                                                            setSelectedStudentResults(sortedAttempts);
-                                                            setActiveAttemptIndex(sortedAttempts.length - 1);
-                                                        }} className={cn(
+                                                        <div key={student.id} onClick={() => handleSelectStudentResults(studentResults)} className={cn(
                                                             "relative p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md text-right",
                                                             isDark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-white border-slate-200 hover:border-emerald-300"
                                                         )}>
@@ -1290,7 +1321,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                             <label className={cn("text-xs font-bold", isDark ? "text-white/70" : "text-slate-600")}>اختر المحاولة:</label>
                                             <select 
                                                 value={activeAttemptIndex} 
-                                                onChange={(e) => setActiveAttemptIndex(Number(e.target.value))}
+                                                onChange={(e) => handleAttemptChange(Number(e.target.value))}
                                                 className={cn(
                                                     "px-3 py-1 rounded-lg text-sm font-bold border outline-none",
                                                     isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
@@ -1357,9 +1388,6 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                     <p className={cn("text-xs mt-2", isDark ? "text-white/40" : "text-slate-400")}>الاختبارات القديمة لا تحتوي على سجل بالأسئلة المحددة، بينما الاختبارات الجديدة سيتم حفظ تفاصيلها بالكامل هنا.</p>
                                 </div>
                             )}
-                        </div>
-                        <div className={cn("p-4 border-t flex justify-end", isDark ? "border-white/10" : "border-slate-100")}>
-                            <button onClick={() => setSelectedResult(null)} className="px-6 py-2 bg-slate-500 hover:bg-slate-600 text-white font-bold text-sm rounded-xl transition-all">إغلاق</button>
                         </div>
                     </div>
                 </div>

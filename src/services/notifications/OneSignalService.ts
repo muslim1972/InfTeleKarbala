@@ -1,31 +1,57 @@
-import OneSignal from 'react-onesignal';
-
 const APP_ID = "beae0757-7abe-46a8-b223-8f6c65e47fb5";
 
 let initPromise: Promise<void> | null = null;
 let isInitialized = false;
-let hasFailedPermanently = false;
+
+const getOS = () => {
+  return (typeof window !== 'undefined') ? (window as any).OneSignal : null;
+};
 
 /**
- * تهيئة OneSignal - تكتشف النطاق تلقائياً وتتخطى النطاقات غير الرسمية بهدوء وبسرعة 0ms
+ * تهيئة OneSignal محلياً باستخدام السكريبت المرفق (v16)
  */
 export const initializeOneSignal = (): Promise<void> => {
   if (typeof window === 'undefined') return Promise.resolve();
-  if (isInitialized || hasFailedPermanently) return Promise.resolve();
+  if (isInitialized) return Promise.resolve();
   
   if (initPromise) return initPromise;
 
-  initPromise = OneSignal.init({
-    appId: APP_ID,
-    allowLocalhostAsSecureOrigin: true,
-  }).then(() => {
-    isInitialized = true;
-  }).catch((e: any) => {
-    const errStr = String(e || '');
-    if (errStr.includes('already initialized')) {
-      isInitialized = true;
-    } else {
-      hasFailedPermanently = true; // منع تكرار المحاولة نهائياً عند العمل على Vercel أو النطاقات التجريبية
+  initPromise = new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve();
+    }, 2000);
+
+    const win = window as any;
+    win.OneSignalDeferred = win.OneSignalDeferred || [];
+    win.OneSignalDeferred.push(async function(OneSignal: any) {
+      try {
+        await OneSignal.init({
+          appId: APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+        });
+        isInitialized = true;
+      } catch (e: any) {
+        if (String(e).includes('already initialized')) {
+          isInitialized = true;
+        }
+      }
+      clearTimeout(timer);
+      resolve();
+    });
+    
+    // Fallback if OneSignal is already loaded and not using Deferred
+    if (win.OneSignal && typeof win.OneSignal.init === 'function' && !isInitialized) {
+       win.OneSignal.init({
+          appId: APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+       }).then(() => {
+           isInitialized = true;
+           clearTimeout(timer);
+           resolve();
+       }).catch(() => {
+           clearTimeout(timer);
+           resolve();
+       });
     }
   });
 
@@ -36,8 +62,9 @@ export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined') return;
   try {
     await initializeOneSignal();
-    if (isInitialized) {
-      await OneSignal.Notifications.requestPermission();
+    const OS = getOS();
+    if (isInitialized && OS && OS.Notifications) {
+      await OS.Notifications.requestPermission();
     }
   } catch (err) {}
 };
@@ -46,27 +73,32 @@ export const initOneSignal = async (userId: string) => {
   if (typeof window === 'undefined' || !userId) return;
   try {
     await initializeOneSignal();
-    if (!isInitialized) return;
+    const OS = getOS();
+    if (!OS) return;
 
-    await OneSignal.login(userId);
-
-    const nativePermission = OneSignal.Notifications.permissionNative;
-    if (nativePermission === 'default') {
-      try {
-        await OneSignal.Notifications.requestPermission();
-      } catch (promptErr) {}
+    if (OS.login) {
+      await OS.login(userId);
     }
 
-    OneSignal.Notifications.addEventListener('click', (event: any) => {
-      const data = event.notification.additionalData;
-      if (data && data.path) {
-        if ((window as any).navigateApp) {
-          (window as any).navigateApp(data.path);
-        } else {
-          window.location.hash = data.path;
-        }
+    if (OS.Notifications) {
+      const nativePermission = OS.Notifications.permissionNative;
+      if (nativePermission === 'default') {
+        try {
+          await OS.Notifications.requestPermission();
+        } catch (promptErr) {}
       }
-    });
+
+      OS.Notifications.addEventListener('click', (event: any) => {
+        const data = event.notification.additionalData;
+        if (data && data.path) {
+          if ((window as any).navigateApp) {
+            (window as any).navigateApp(data.path);
+          } else {
+            window.location.hash = data.path;
+          }
+        }
+      });
+    }
   } catch (e) {}
 };
 
@@ -86,8 +118,9 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
 
   try {
     await initializeOneSignal();
-    if (isInitialized) {
-      const permission = await OneSignal.Notifications.requestPermission();
+    const OS = getOS();
+    if (isInitialized && OS && OS.Notifications) {
+      const permission = await OS.Notifications.requestPermission();
       return permission;
     }
   } catch (err) {}
@@ -98,6 +131,9 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
 export const logoutOneSignal = async () => {
   if (typeof window === 'undefined' || !isInitialized) return;
   try {
-    await OneSignal.logout();
+    const OS = getOS();
+    if (OS && OS.logout) {
+      await OS.logout();
+    }
   } catch (e: any) {}
 };

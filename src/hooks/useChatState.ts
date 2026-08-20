@@ -43,7 +43,7 @@ async function compressImage(file: File, maxSizeBytes: number): Promise<Blob> {
               tryCompress(quality - 0.1);
             }
           },
-          'image/webp',
+          'image/jpeg',
           quality
         );
       };
@@ -637,12 +637,13 @@ export function useChatState(conversationId: string) {
       }
 
       // 4. Upload to storage
-      const filePath = `${user.id}/${optimisticId}.webp`;
+      const filePath = `${user.id}/${optimisticId}.jpeg`;
       console.log(`[ImageSend] Uploading to: image-message/${filePath}`);
+      const imageFileToUpload = new File([imageBlob], "image.jpeg", { type: "image/jpeg" });
       const { error: uploadError } = await supabase.storage
         .from('image-message')
-        .upload(filePath, imageBlob, {
-          contentType: 'image/webp',
+        .upload(filePath, imageFileToUpload, {
+          contentType: 'image/jpeg',
           upsert: false,
         });
 
@@ -729,7 +730,7 @@ export function useChatState(conversationId: string) {
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
       URL.revokeObjectURL(localPreviewUrl);
       // Cleanup uploaded file on failure
-      const filePath = `${user.id}/${optimisticId}.webp`;
+      const filePath = `${user.id}/${optimisticId}.jpeg`;
       supabase.storage.from('image-message').remove([filePath]).catch(() => { });
     } finally {
       setIsSending(false);

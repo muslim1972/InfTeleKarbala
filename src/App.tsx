@@ -95,10 +95,10 @@ const AppContent = () => {
       try {
         // جلب القسم الحالي للموظف
         const { data: dept } = await supabase
-          .rpc('get_departments_bypass_rls')
+          .from('departments')
           .select('id, parent_id')
           .eq('id', user.department_id)
-          .single();
+          .maybeSingle();
 
         if (dept) {
           // القسم نفسه أو القسم الأب هو "تجهيز خدمات المعلوماتية"
