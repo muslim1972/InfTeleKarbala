@@ -40,6 +40,7 @@
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
     "katex": "^0.16.44",
+    "konva": "^10.3.1",
     "livekit-client": "^2.20.1",
     "livekit-server-sdk": "^2.17.0",
     "localforage": "^1.10.0",
@@ -51,13 +52,16 @@
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
     "react-katex": "^3.1.0",
+    "react-konva": "^19.2.5",
     "react-onesignal": "^3.5.6",
     "react-router-dom": "^7.14.2",
     "react-webcam": "^7.2.0",
     "tailwind-merge": "^3.4.1",
     "tesseract.js": "^7.0.0",
     "uuid": "^14.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
