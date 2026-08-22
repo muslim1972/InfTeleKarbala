@@ -133,12 +133,15 @@ export default function SimCanvas(): React.ReactElement {
   /* ===================== أحداث المؤشر ===================== */
   const onMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (panning.current) {
-      moved.current = true;
       const p = panning.current;
+      const dx = e.evt.clientX - p.sx;
+      const dy = e.evt.clientY - p.sy;
+      /* لا يُعد «تحريكاً» إلا بعد تجاوز عتبة 3 بكسل — كي لا تُلغي الاهتزازات الدقيقة النقرات */
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved.current = true;
       st.setViewport({
         scale: vp.scale,
-        tx: p.tx + (e.evt.clientX - p.sx),
-        ty: p.ty + (e.evt.clientY - p.sy),
+        tx: p.tx + dx,
+        ty: p.ty + dy,
       });
       return;
     }
@@ -147,10 +150,13 @@ export default function SimCanvas(): React.ReactElement {
   };
 
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    /* إصلاح حرج: يُصفَّر عند كل ضغطة — سابقاً كان يُصفَّر فقط عند بدء
+       التحريك، فبقيت قيمته true بعد أول سحب للخريطة وتجاهلت لوحة
+       الرسم كل نقرات أدوات الرسم إلى الأبد. */
+    moved.current = false;
     const isPan = e.evt.button === 1 || tool === 'pan' || spaceDown;
     if (isPan) {
       panning.current = { sx: e.evt.clientX, sy: e.evt.clientY, tx: vp.tx, ty: vp.ty };
-      moved.current = false;
     }
   };
 
