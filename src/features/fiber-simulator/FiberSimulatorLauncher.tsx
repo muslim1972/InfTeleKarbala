@@ -34,21 +34,13 @@ export default function FiberSimulatorLauncher(): React.ReactElement | null {
       return;
     }
     setBlock(null);
-    /* فتح المحاكي بملء الشاشة 100% — ضمن نافذة تنشيط المستخدم (النقرة) */
-    if (!document.fullscreenElement) {
-      void document.documentElement.requestFullscreen().catch(() => {
-        /* رفض المتصفح لا يمنع العمل — المساحة تملأ نافذة المتصفح كاملة على أي حال */
-      });
-    }
+    /* ملء الشاشة يطلبه عنصر المحاكي نفسه بعد تركيبه —
+       كي لا يتأثر المستند/التطبيق الأساسي إطلاقاً */
     setOpen(true);
   };
 
-  /* إغلاق المحاكي والخروج من وضع ملء الشاشة إن كان مفعلاً */
   const closeWorkspace = () => {
     setOpen(false);
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => {});
-    }
   };
 
   return (

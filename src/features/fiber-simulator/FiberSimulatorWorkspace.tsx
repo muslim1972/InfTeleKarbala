@@ -48,6 +48,9 @@ export default function FiberSimulatorWorkspace({
   /* يمنع وسم «غير محفوظ» أثناء استرجاع مشروع من قاعدة البيانات */
   const suppressDirty = useRef(0);
   const mounted = useRef(false);
+  /* حاوية المحاكي — هي من يدخل وضع ملء الشاشة (وليس المستند كله)،
+     فتتضخم لوحة المحاكي وحدها ولا يتأثر التطبيق الأساسي إطلاقاً */
+  const rootRef = useRef<HTMLDivElement>(null);
 
   /* ===== تتبع التعديلات غير المحفوظة ===== */
   useEffect(() => {
@@ -93,6 +96,23 @@ export default function FiberSimulatorWorkspace({
     return () => window.clearTimeout(t);
   }, [toast]);
 
+  /* ===== ملء الشاشة على حاوية المحاكي نفسها عند الفتح =====
+     يُطلب مباشرة بعد التركيب (ضمن فترة تنشيط المستخدم من نقرة «تشغيل»).
+     إن رفض المتصفح: تبقى الحاوية مالئة لنافذة المتصفح عبر fixed inset-0. */
+  useEffect(() => {
+    const el = rootRef.current;
+    if (el && !document.fullscreenElement) {
+      void el.requestFullscreen().catch(() => {});
+    }
+    /* عند إزالة الحاوية (إغلاق المحاكي) نضمن الخروج من ملء الشاشة
+       كي يعود التطبيق الأساسي إلى حالته الطبيعية */
+    return () => {
+      if (document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
+
   /* ===== مزامنة حالة ملء الشاشة ===== */
   useEffect(() => {
     const h = () => setIsFs(!!document.fullscreenElement);
@@ -102,7 +122,7 @@ export default function FiberSimulatorWorkspace({
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    else void document.documentElement.requestFullscreen().catch(() => {});
+    else rootRef.current?.requestFullscreen().catch(() => {});
   };
 
   /* ===== حفظ المحاكاة باسمها ===== */
@@ -211,7 +231,7 @@ export default function FiberSimulatorWorkspace({
   }, [st, confirmExit, projectName]);
 
   return (
-    <div dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
+    <div ref={rootRef} dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
       {/* الرأس */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-3">
         <button
