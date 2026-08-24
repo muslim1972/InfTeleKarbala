@@ -755,7 +755,7 @@ export default function SimCanvas(): React.ReactElement {
             <div
               dir="rtl"
               onMouseLeave={() => setHintPop(null)}
-              className="absolute z-30 max-h-[360px] w-[300px] overflow-y-auto rounded-xl border border-sky-500/40 bg-[#0b1628]/95 p-3.5 shadow-2xl shadow-black/70"
+              className="absolute z-30 max-h-[360px] w-[300px] overflow-y-auto rounded-xl border border-sky-500/40 bg-[#0b1628] p-3.5 shadow-2xl shadow-black/70"
               style={{ left: hintPop.x, top: hintPop.y }}
             >
               {/* الرأس: الاسم + المصطلح + رقم الخطوة */}

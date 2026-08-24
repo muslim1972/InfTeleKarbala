@@ -8,7 +8,7 @@
  * box-shadow ضخم، مع بطاقة شرح تتموضع ذكياً حول الهدف.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GraduationCap, X } from 'lucide-react';
 import { useEduStore } from '../store/education.store';
 import { TRAINING_PATHS } from '../education/training-paths';
@@ -169,11 +169,17 @@ export default function OnboardingTour(): React.ReactElement | null {
   const { tourOpen, closeTour } = useEduStore();
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  /* أبعاد إطار العرض — تُحدَّث عند تغيير حجم النافذة لضمان تموضع سليم على كل الشاشات */
+  const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight });
+  /* الارتفاع الفعلي المقاس للبطاقة — يصحح التموضع دون تقديرات ثابتة */
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardH, setCardH] = useState(240);
 
   const step = STEPS[idx];
   const isLast = idx === STEPS.length - 1;
 
   const measure = useCallback(() => {
+    setVp({ w: window.innerWidth, h: window.innerHeight });
     if (!step?.selector) {
       setRect(null);
       return;
@@ -198,6 +204,14 @@ export default function OnboardingTour(): React.ReactElement | null {
     if (tourOpen) measure();
   }, [tourOpen, idx, measure]);
 
+  /* قياس الارتفاع الفعلي بعد الرسم — يعيد التموضع إذا اختلفت عن التقدير */
+  useLayoutEffect(() => {
+    if (tourOpen && cardRef.current) {
+      const h = cardRef.current.offsetHeight;
+      if (h > 0 && Math.abs(h - cardH) > 4) setCardH(h);
+    }
+  }, [tourOpen, idx, cardH]);
+
   useEffect(() => {
     if (!tourOpen) return;
     const onResize = () => measure();
@@ -217,8 +231,8 @@ export default function OnboardingTour(): React.ReactElement | null {
   if (!tourOpen || !step) return null;
 
   /* ===== تموضع البطاقة ذكياً حول الهدف ===== */
-  const W = 350;
-  const H = 240; // تقدير ارتفاع البطاقة
+  const { w: vw, h: vh } = vp;
+  const cardW = Math.min(350, vw - 24); /* شاشات ضيقة: لا تتجاوز الحواف */
   let cardStyle: React.CSSProperties;
   let pointerClass = '';
 
@@ -228,35 +242,44 @@ export default function OnboardingTour(): React.ReactElement | null {
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      width: Math.min(460, window.innerWidth - 48),
+      width: Math.min(460, vw - 48),
+    };
+  } else if (
+    /* هدف ضخم كاللوحة الهندسية: مساحته تغلب الشاشة، أو عرضه وارتفاعه
+       يشغلان معظمها — البطاقة أسفل وسط الشاشة بمعزل عن مركز الرسم */
+    rect.width * rect.height > vw * vh * 0.45 ||
+    (rect.width > vw * 0.55 && rect.height > vh * 0.35)
+  ) {
+    cardStyle = {
+      top: Math.max(8, vh - cardH - 20),
+      left: (vw - cardW) / 2,
+      width: cardW,
     };
   } else {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
     /* أفقياً: إن كان الهدف في الثلث الأيمن نضع البطاقة يساره (واجهة RTL) */
     const targetRightSide = rect.left > vw * 0.6;
     let left: number;
-    if (targetRightSide && rect.left - W - 16 > 8) {
-      left = rect.left - W - 16;
+    if (targetRightSide && rect.left - cardW - 16 > 8) {
+      left = rect.left - cardW - 16;
       pointerClass = 'tour-pointer-right';
-    } else if (!targetRightSide && rect.left + rect.width + W + 16 < vw - 8) {
+    } else if (!targetRightSide && rect.left + rect.width + cardW + 16 < vw - 8) {
       left = rect.left + rect.width + 16;
       pointerClass = 'tour-pointer-left';
     } else {
-      left = Math.min(Math.max(8, rect.left + rect.width / 2 - W / 2), vw - W - 8);
+      left = Math.max(8, Math.min(rect.left + rect.width / 2 - cardW / 2, vw - cardW - 8));
     }
-    /* عمودياً: تحت الهدف إن اتسع، وإلا فوقه */
+    /* عمودياً: تحت الهدف إن اتسع، وإلا فوقه، وإلا توسّط مقيَّد بحدود الشاشة */
     let top: number;
-    if (rect.top + rect.height + H + 16 < vh) {
+    if (rect.top + rect.height + cardH + 16 < vh) {
       top = rect.top + rect.height + 16;
       if (!pointerClass) pointerClass = 'tour-pointer-top';
-    } else if (rect.top - H - 16 > 8) {
-      top = rect.top - H - 16;
+    } else if (rect.top - cardH - 16 > 8) {
+      top = rect.top - cardH - 16;
       if (!pointerClass) pointerClass = 'tour-pointer-bottom';
     } else {
-      top = Math.min(Math.max(8, rect.top + rect.height / 2 - H / 2), vh - H - 8);
+      top = Math.max(8, Math.min(rect.top + rect.height / 2 - cardH / 2, vh - cardH - 8));
     }
-    cardStyle = { top, left, width: W };
+    cardStyle = { top, left, width: cardW };
   }
 
   return (
@@ -276,9 +299,11 @@ export default function OnboardingTour(): React.ReactElement | null {
       )}
       {!rect && <div className="absolute inset-0 bg-[#020610]/80" />}
 
-      {/* بطاقة الشرح */}
+      {/* بطاقة الشرح — خلفية معتمة كلياً كي لا تتسرب ألوان الخريطة
+          الساطعة خلفها فيتشوش النص (إصلاح الشفافية) */}
       <div
-        className={`absolute rounded-2xl border border-slate-700 bg-slate-900/98 p-5 shadow-2xl ${pointerClass}`}
+        ref={cardRef}
+        className={`absolute rounded-2xl border border-slate-600 bg-[#0b1322] p-5 shadow-2xl shadow-black/80 ${pointerClass}`}
         style={cardStyle}
       >
         <div className="mb-2 flex items-center justify-between gap-3">
