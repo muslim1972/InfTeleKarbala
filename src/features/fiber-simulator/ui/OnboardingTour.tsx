@@ -2,8 +2,8 @@
  * ============================================================
  * الجولة التدريبية التوجيهية — Onboarding Tour
  * ============================================================
- * تُفتح تلقائياً أول مرة (تُذكر في localStorage)، وزر «؟» في
- * الرأس يعيد فتحها متى شاء المستخدم.
+ * تُفتح تلقائياً عند كل تشغيل للمحاكي (بعد مهلة قصيرة تستقر
+ * فيها حركة ملء الشاشة)، وزر «؟» في الرأس يعيد فتحها متى شاء.
  * التقنية: إبراز منطقة الهدف (Spotlight) بعتامة حولها عبر
  * box-shadow ضخم، مع بطاقة شرح تتموضع ذكياً حول الهدف.
  */
@@ -30,7 +30,7 @@ const STEPS: TourStep[] = [
       <>
         <p>
           هذه بيئة تدريب هندسية متكاملة: ستصمم شبكة ألياف ضوئية حقيقية على خريطة، من
-          الحفر حتى لحام آخر ليفة واختبار الإشارة — بأسعار مواد واقعية ومعايير عالمية
+          الحفر حتى لحام آخر شعيرة واختبار الإشارة — بأسعار مواد واقعية ومعايير عالمية
           (ITU-T G.984 / TIA-598).
         </p>
         <p className="mt-2 text-slate-300">
@@ -166,7 +166,7 @@ interface Rect {
 }
 
 export default function OnboardingTour(): React.ReactElement | null {
-  const { tourOpen, closeTour, markTourSeen } = useEduStore();
+  const { tourOpen, closeTour } = useEduStore();
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
 
@@ -211,7 +211,6 @@ export default function OnboardingTour(): React.ReactElement | null {
   }, [tourOpen]);
 
   const finish = () => {
-    markTourSeen();
     closeTour();
   };
 

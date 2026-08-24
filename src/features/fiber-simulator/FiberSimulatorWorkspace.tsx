@@ -103,9 +103,12 @@ export default function FiberSimulatorWorkspace({
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  /* ===== فتح الجولة التدريبية تلقائياً أول زيارة فقط ===== */
+  /* ===== فتح الجولة التدريبية تلقائياً عند كل تشغيل للمحاكي =====
+     مهلة قصيرة (450ms) حتى تستقر حركة الانتقال إلى ملء الشاشة
+     ويلتقي القياس بمواضع العناصر النهائية — بلا وميض أو تعارض */
   useEffect(() => {
-    if (!edu.tourSeen) edu.openTour();
+    const t = window.setTimeout(() => edu.openTour(), 450);
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

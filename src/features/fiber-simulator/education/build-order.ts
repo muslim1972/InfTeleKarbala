@@ -127,7 +127,7 @@ export function checkToolAllowed(tool: ToolId, e: ProjectEntities): GuardResult 
         messageAr:
           'صندوق FAT يتغذى من كبينة FDC — ركّب الكبينة أولاً ثم وزّع القواسم.',
         lessonAr:
-          'القاسم البصري يحتاج ليفة مغذية من ODF الكبينة؛ قاسم بلا تغذية لا يقسم شيئاً.',
+          'القاسم البصري يحتاج شعيرة مغذية من ODF الكبينة؛ قاسم بلا تغذية لا يقسم شيئاً.',
         requiredStep: step('fdc'),
       };
     return { ok: true };

@@ -3,7 +3,7 @@
  * مختبر اللحام — الطور الثالث في محاكي FTTH
  * ============================================================
  * محاكاة تعليمية لعملية اللحام الحراري (Fusion Splicing):
- * 1) اختيار ليفة اللون الصحيح وفق التسلسل المعياري TIA-598
+ * 1) اختيار شعيرة اللون الصحيح وفق التسلسل المعياري TIA-598
  *    (رقم المنفذ في FAT يحدد اللون).
  * 2) لعبة قوس اللحام: ضبط قدرة القوس في المنطقة الخضراء
  *    يمنح لحامةً بفقد منخفض (0.02 dB) والانحراف يرفع الفقد.
@@ -275,12 +275,12 @@ export default function SplicingLab(): React.ReactElement {
                 </h2>
                 <p className="text-[12px] text-slate-500">
                   FAT ({task.fatId.slice(0, 6)}…) — المنفذ رقم {task.portNumber} —
-                  الليفة المعيارية رقم {task.fiberIndex + 1}
+                  الشعيرة المعيارية رقم {task.fiberIndex + 1}
                 </p>
               </div>
               <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-semibold text-slate-300">
                 {stage === 'color'
-                  ? 'الخطوة 1: اختر ليفة اللون الصحيح'
+                  ? 'الخطوة 1: اختر شعيرة اللون الصحيح'
                   : stage === 'arc'
                     ? 'الخطوة 2: نفّذ اللحام الحراري'
                     : 'النتيجة'}
@@ -295,7 +295,7 @@ export default function SplicingLab(): React.ReactElement {
                   تُلحم شعيرات الكابل بترتيب لوني ثابت داخل الكلوزر. المنفذ رقم{' '}
                   <span className="font-bold text-indigo-300">{task.portNumber}</span> يأخذ
                   اللون الترتيبي <span className="font-bold text-indigo-300">{(task.portNumber - 1) % 12 + 1}</span>{' '}
-                  من التسلسل. اختر الليفة الصحيحة من الصينية:
+                  من التسلسل. اختر الشعيرة الصحيحة من الصينية:
                 </p>
                 <div className="grid grid-cols-6 gap-2">
                   {FIBER_COLORS.map((name, i) => (
@@ -320,7 +320,7 @@ export default function SplicingLab(): React.ReactElement {
                 </div>
                 {wrongColor !== null && (
                   <p className="mt-3 text-[12px] font-semibold text-red-400">
-                    ليفة خاطئة — راجع التسلسل اللوني (رقم المنفذ يطابق رقم اللون).
+                    شعيرة خاطئة — راجع التسلسل اللوني (رقم المنفذ يطابق رقم اللون).
                   </p>
                 )}
                 <details className="mt-4 rounded-lg border border-slate-800 bg-slate-900/60 p-3">

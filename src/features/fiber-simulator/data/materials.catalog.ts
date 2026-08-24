@@ -12,7 +12,7 @@
  * - القواسم PLC وتجربة نشر FTTH: bwnfiber.com (يونيو 2026).
  * - أنابيب HDPE 32/26mm: ecomtelco.com (~0.45$/م) + alvapipe.com.
  * - غرف التفتيش: chemicalsuppliesmktplc.co.uk (غرفة ~£170).
- * - تكاليف اللحام: fiber-products.com (8-15€/ليفة أوروبا)،
+ * - تكاليف اللحام: fiber-products.com (8-15€/شعيرة أوروبا)،
  *   thepricer.org و nfmconsulting.com (أمريكا)، lffenquanban.com (آسيا).
  * - تكاليف الحفر المدنية: fiberbroadband.org 2025 deployment report،
  *   fiber-products.com (أعمال مدنية 10-85€/م).
@@ -42,13 +42,13 @@ export interface CatalogItem {
 
 const ITEMS: CatalogItem[] = [
   /* ---------------- كابلات الألياف الضوئية ---------------- */
-  { id: 'cable_drop_1f', category: 'cable', nameAr: 'كابل إسقاط 1 ليف GJYXFCH (Figure-8)', unit: 'm', priceUSD: 0.06, note: 'FOB 0.02-0.03$/م × معامل موقعي' },
-  { id: 'cable_drop_2f', category: 'cable', nameAr: 'كابل إسقاط 2 ليف GJYXFCH', unit: 'm', priceUSD: 0.08 },
-  { id: 'cable_dist_24f', category: 'cable', nameAr: 'كابل توزيع 24 ليف GYTS (مدرع)', unit: 'm', priceUSD: 0.7, note: 'FOB 0.31-0.46$/م' },
-  { id: 'cable_dist_48f', category: 'cable', nameAr: 'كابل توزيع 48 ليف GYTS', unit: 'm', priceUSD: 0.9 },
-  { id: 'cable_feeder_96f', category: 'cable', nameAr: 'كابل رئيسي 96 ليف GYTS', unit: 'm', priceUSD: 1.1, note: 'FOB ~0.66-0.72$/م (تقرير 2026)' },
-  { id: 'cable_feeder_144f', category: 'cable', nameAr: 'كابل رئيسي 144 ليف GYTS', unit: 'm', priceUSD: 1.45 },
-  { id: 'cable_feeder_288f', category: 'cable', nameAr: 'كابل رئيسي 288 ليف GYTS', unit: 'm', priceUSD: 2.6 },
+  { id: 'cable_drop_1f', category: 'cable', nameAr: 'كابل إسقاط 1 شعيرة GJYXFCH (Figure-8)', unit: 'm', priceUSD: 0.06, note: 'FOB 0.02-0.03$/م × معامل موقعي' },
+  { id: 'cable_drop_2f', category: 'cable', nameAr: 'كابل إسقاط 2 شعيرة GJYXFCH', unit: 'm', priceUSD: 0.08 },
+  { id: 'cable_dist_24f', category: 'cable', nameAr: 'كابل توزيع 24 شعيرة GYTS (مدرع)', unit: 'm', priceUSD: 0.7, note: 'FOB 0.31-0.46$/م' },
+  { id: 'cable_dist_48f', category: 'cable', nameAr: 'كابل توزيع 48 شعيرة GYTS', unit: 'm', priceUSD: 0.9 },
+  { id: 'cable_feeder_96f', category: 'cable', nameAr: 'كابل رئيسي 96 شعيرة GYTS', unit: 'm', priceUSD: 1.1, note: 'FOB ~0.66-0.72$/م (تقرير 2026)' },
+  { id: 'cable_feeder_144f', category: 'cable', nameAr: 'كابل رئيسي 144 شعيرة GYTS', unit: 'm', priceUSD: 1.45 },
+  { id: 'cable_feeder_288f', category: 'cable', nameAr: 'كابل رئيسي 288 شعيرة GYTS', unit: 'm', priceUSD: 2.6 },
 
   /* ---------------- الأنابيب (Ducts) ---------------- */
   { id: 'duct_hdpe32', category: 'duct', nameAr: 'أنبوب HDPE 32/26 مم (Silicon Core)', unit: 'm', priceUSD: 0.55 },
@@ -67,10 +67,10 @@ const ITEMS: CatalogItem[] = [
   /* ---------------- المنشآت ---------------- */
   { id: 'manhole_concrete', category: 'structure', nameAr: 'غرفة تفتيش خرسانية 1×1×1.2م (توريد + تركيب)', unit: 'pc', priceUSD: 180 },
   { id: 'handhole_polymer', category: 'structure', nameAr: 'هاند هول بوليمري 45×45سم', unit: 'pc', priceUSD: 45 },
-  { id: 'fdc_cabinet', category: 'structure', nameAr: 'كبينة FDC خارجية 288 ليف مع ODF', unit: 'pc', priceUSD: 350 },
+  { id: 'fdc_cabinet', category: 'structure', nameAr: 'كبينة FDC خارجية 288 شعيرة مع ODF', unit: 'pc', priceUSD: 350 },
   { id: 'fat_16', category: 'structure', nameAr: 'صندوق توزيع FAT خارجي 16 منفذ', unit: 'pc', priceUSD: 15 },
   { id: 'fat_32', category: 'structure', nameAr: 'صندوق توزيع FAT خارجي 32 منفذ', unit: 'pc', priceUSD: 22 },
-  { id: 'closure_48f', category: 'structure', nameAr: 'كلوزر لحام قبة 48 ليف', unit: 'pc', priceUSD: 25 },
+  { id: 'closure_48f', category: 'structure', nameAr: 'كلوزر لحام قبة 48 شعيرة', unit: 'pc', priceUSD: 25 },
 
   /* ---------------- العناصر البصرية السلبية ---------------- */
   { id: 'splitter_1x4', category: 'passive', nameAr: 'قاسم PLC مقاس 1:4 (LGX/ABS)', unit: 'pc', priceUSD: 3 },
@@ -79,7 +79,7 @@ const ITEMS: CatalogItem[] = [
   { id: 'splitter_1x32', category: 'passive', nameAr: 'قاسم PLC مقاس 1:32', unit: 'pc', priceUSD: 16 },
 
   /* ---------------- الإنهاءات والعمالة ---------------- */
-  { id: 'splice_fusion', category: 'termination', nameAr: 'لحام حراري (للّيفة الواحدة شاملة الحماية والتوثيق)', unit: 'splice', priceUSD: 6, note: 'أوروبا 8-15€/ليفة — معدّل لأجور العراق' },
+  { id: 'splice_fusion', category: 'termination', nameAr: 'لحام حراري (للشعيرة الواحدة شاملة الحماية والتوثيق)', unit: 'splice', priceUSD: 6, note: 'أوروبا 8-15€/شعيرة — معدّل لأجور العراق' },
   { id: 'connector_fast', category: 'termination', nameAr: 'كبسة سريعة SC/APC', unit: 'pc', priceUSD: 0.8 },
   { id: 'pigtail_sc', category: 'termination', nameAr: 'بيج تيل SC/APC 1.5م', unit: 'pc', priceUSD: 0.7 },
   { id: 'patch_cord', category: 'termination', nameAr: 'باتش كورد SC/SC APC 1.5م', unit: 'pc', priceUSD: 1.2 },

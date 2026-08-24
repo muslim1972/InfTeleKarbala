@@ -290,7 +290,7 @@ export default function SimInspector(): React.ReactElement {
 
         {selCabinet && (
           <div className="space-y-2 text-[11px]">
-            <div className="text-slate-300">كبينة FDC بسعة {selCabinet.capacityF} ليفاً</div>
+            <div className="text-slate-300">كبينة FDC بسعة {selCabinet.capacityF} شعيرة</div>
             <p className="text-slate-500">تُحدد السعة قبل التركيب من شريط الأدوات (قادم: تعدد الكبائن حسب المستوى).</p>
             <DeleteButton onClick={() => st.removeEntity('cabinet', selCabinet.id)} />
           </div>

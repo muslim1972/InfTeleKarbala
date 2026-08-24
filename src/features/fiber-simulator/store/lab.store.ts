@@ -12,7 +12,7 @@ import type { ScoreResult } from '../engine/scoring';
 export interface SpliceRecord {
   dropId: string;
   buildingId: string;
-  /** رقم الليفة في التسلسل اللوني TIA-598 (0..11) */
+  /** رقم الشعيرة في التسلسل اللوني TIA-598 (0..11) */
   fiberIndex: number;
   correctColor: boolean;
   /** فقد اللحامة المقاس فعلياً dB */
