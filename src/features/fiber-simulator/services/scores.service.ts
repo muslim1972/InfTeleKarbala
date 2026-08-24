@@ -83,55 +83,93 @@ export async function fetchBestFiberScore(
   return (data as FiberScoreRow | null) ?? null;
 }
 
-/* ===================== حفظ/استرجاع مشروع ===================== */
+/* ===================== مشاريع متعددة مسماة =====================
+ * كل مستخدم يملك مجموعة مشاريع مستقلة؛ الاسم مميز له (فهرس
+ * فريد uq_fiber_sim_projects_user_name). الحفظ فوق مشروع قائم
+ * يتم بمعرّفه لا باسمه، و«حفظ باسم جديد» يُدرج صفاً جديداً.
+ */
 
-export async function saveFiberProject(input: {
+/** قائمة كل مشاريع المستخدم — الأحدث تعديلاً أولاً */
+export async function listFiberProjects(userId: string): Promise<FiberProjectRow[]> {
+  const { data, error } = await supabase
+    .from('fiber_sim_projects')
+    .select('id, map_id, name, phase, entities, updated_at')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) throw new Error(`تعذر جلب قائمة المشاريع: ${error.message}`);
+  return (data as FiberProjectRow[]) ?? [];
+}
+
+/** حفظ فوق مشروع قائم — بالمعرّف حصراً لتفادي أي تضارب أسماء */
+export async function updateFiberProject(
+  userId: string,
+  projectId: string,
+  input: { name: string; phase: PhaseId; entities: ProjectEntities }
+): Promise<void> {
+  const { error } = await supabase
+    .from('fiber_sim_projects')
+    .update({
+      name: input.name,
+      phase: input.phase,
+      entities: input.entities,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+    .eq('user_id', userId);
+  if (error) throw new Error(`تعذر تحديث المشروع: ${error.message}`);
+}
+
+/** حفظ نسخة جديدة (Save As) — يرفض الاسم المكرر برسالة واضحة */
+export async function insertFiberProject(input: {
   userId: string;
   mapId: string;
   name: string;
   phase: PhaseId;
   entities: ProjectEntities;
-}): Promise<void> {
-  /* صف واحد لكل (مستخدم، خريطة) — upsert يدوي: حدّث إن وُجد */
-  const { data: existing } = await supabase
+}): Promise<FiberProjectRow> {
+  const { data, error } = await supabase
     .from('fiber_sim_projects')
-    .select('id')
-    .eq('user_id', input.userId)
-    .eq('map_id', input.mapId)
-    .maybeSingle();
-
-  if (existing) {
-    const { error } = await supabase
-      .from('fiber_sim_projects')
-      .update({
-        name: input.name,
-        phase: input.phase,
-        entities: input.entities,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', (existing as { id: string }).id);
-    if (error) throw new Error(`تعذر تحديث المشروع: ${error.message}`);
-  } else {
-    const { error } = await supabase.from('fiber_sim_projects').insert({
+    .insert({
       user_id: input.userId,
       map_id: input.mapId,
       name: input.name,
       phase: input.phase,
       entities: input.entities,
-    });
-    if (error) throw new Error(`تعذر حفظ المشروع: ${error.message}`);
+    })
+    .select('id, map_id, name, phase, entities, updated_at')
+    .single();
+  if (error) {
+    /* 23505 = خرق قيد التفرد (اسم مستخدم مسبقاً) */
+    if (error.code === '23505')
+      throw new Error(`يوجد مشروع محفوظ بالاسم «${input.name}» — اختر اسماً مختلفاً`);
+    throw new Error(`تعذر حفظ المشروع: ${error.message}`);
   }
+  return data as FiberProjectRow;
 }
 
+/** حذف مشروع — مقيد بمالكه */
+export async function deleteFiberProject(userId: string, projectId: string): Promise<void> {
+  const { error } = await supabase
+    .from('fiber_sim_projects')
+    .delete()
+    .eq('id', projectId)
+    .eq('user_id', userId);
+  if (error) throw new Error(`تعذر حذف المشروع: ${error.message}`);
+}
+
+/** أحدث مشروع محفوظ لخريطة معينة — للاسترجاع التلقائي عند الفتح */
 export async function loadFiberProject(
   userId: string,
   mapId: string
 ): Promise<FiberProjectRow | null> {
   const { data, error } = await supabase
     .from('fiber_sim_projects')
-    .select('*')
+    .select('id, map_id, name, phase, entities, updated_at')
     .eq('user_id', userId)
     .eq('map_id', mapId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) throw new Error(`تعذر جلب المشروع: ${error.message}`);
   return (data as FiberProjectRow | null) ?? null;

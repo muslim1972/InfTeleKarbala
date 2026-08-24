@@ -9,12 +9,19 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Save, TriangleAlert, X } from 'lucide-react';
+import { Check, FolderOpen, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Save, Trash2, TriangleAlert, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { simRedo, simUndo, useSimulatorStore } from './store/simulator.store';
 import { useEduStore } from './store/education.store';
 import { checkPhaseAllowed, computeBuildProgress, type GuardResult } from './education/build-order';
-import { loadFiberProject, saveFiberProject } from './services/scores.service';
+import {
+  deleteFiberProject,
+  insertFiberProject,
+  listFiberProjects,
+  loadFiberProject,
+  updateFiberProject,
+  type FiberProjectRow,
+} from './services/scores.service';
 import { getMapById } from './data/maps/registry';
 import SimCanvas from './ui/SimCanvas';
 import SimToolbar from './ui/SimToolbar';
@@ -45,6 +52,14 @@ export default function FiberSimulatorWorkspace({
   const [projectName, setProjectName] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  /* المشروع المفتوح حالياً: معرّفه واسمه المحفوظ (أساس منطق Save As) */
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [savedName, setSavedName] = useState('');
+  /* نافذة «فتح المشروع» */
+  const [openDlg, setOpenDlg] = useState(false);
+  const [projects, setProjects] = useState<FiberProjectRow[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isFs, setIsFs] = useState(false);
@@ -84,6 +99,8 @@ export default function FiberSimulatorWorkspace({
         st.loadEntities(row.entities);
         st.setPhase(row.phase);
         setProjectName(row.name);
+        setProjectId(row.id);
+        setSavedName(row.name);
         setToast(`تم استرجاع المحاكاة المحفوظة «${row.name}» — واصل من حيث توقفت`);
       } catch {
         /* لا مشروع محفوظ بعد — نبدأ من صفحة بيضاء */
@@ -174,29 +191,107 @@ export default function FiberSimulatorWorkspace({
     else rootRef.current?.requestFullscreen().catch(() => {});
   };
 
-  /* ===== حفظ المحاكاة باسمها ===== */
+  /* ===== حفظ المحاكاة — منطق مزدوج =====
+   * أ) الاسم كما هو (يطابق اسم المشروع المفتوح) → تحديث المشروع
+   *    نفسه بمعرّفه — لا ينشئ شيئاً جديداً ولا يفقد البيانات.
+   * ب) الاسم معدَّل → «حفظ باسم جديد» (Save As): نسخة مستقلة
+   *    بالاسم الجديد، والنسخة الأصلية تبقى محفوظة كما هي.
+   *    الاسم المكرر يُرفض من قاعدة البيانات (قيد التفرد) برسالة واضحة. */
   const doSave = async (): Promise<boolean> => {
     if (!user) {
       setToast('تعذر تحديد المستخدم — لا يمكن الحفظ');
       return false;
     }
+    const name = projectName.trim() || 'محاكاة بدون اسم';
     setSaving(true);
     try {
-      await saveFiberProject({
-        userId: user.id,
-        mapId: st.mapId,
-        name: projectName.trim() || 'محاكاة بدون اسم',
-        phase: st.phase,
-        entities: st.entities,
-      });
+      if (projectId && name === savedName) {
+        /* (أ) حفظ فوق المشروع الحالي نفسه */
+        await updateFiberProject(user.id, projectId, {
+          name,
+          phase: st.phase,
+          entities: st.entities,
+        });
+        setToast(`تم تحديث المشروع «${name}»`);
+      } else {
+        /* (ب) نسخة جديدة — أول حفظ أو تغيير الاسم */
+        const row = await insertFiberProject({
+          userId: user.id,
+          mapId: st.mapId,
+          name,
+          phase: st.phase,
+          entities: st.entities,
+        });
+        setProjectId(row.id);
+        setSavedName(row.name);
+        setToast(
+          projectId
+            ? `تم حفظ نسخة جديدة «${name}» — والنسخة «${savedName}» محفوظة كما هي`
+            : `تم حفظ المشروع «${name}» — افتحه لاحقاً من زر «فتح مشروع»`
+        );
+      }
       setDirty(false);
-      setToast('تم حفظ المحاكاة — يمكنك العودة إليها لاحقاً ومتابعتها');
       return true;
     } catch (err) {
       setToast(err instanceof Error ? err.message : 'تعذر حفظ المحاكاة');
       return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  /* ===== فتح المشروع: جلب قائمة المشاريع المحفوظة ===== */
+  const openProjectList = async () => {
+    if (!user) {
+      setToast('تعذر تحديد المستخدم — لا يمكن جلب المشاريع');
+      return;
+    }
+    setOpenDlg(true);
+    setListLoading(true);
+    try {
+      setProjects(await listFiberProjects(user.id));
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'تعذر جلب قائمة المشاريع');
+      setProjects([]);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  /* ===== تحميل مشروع مختار إلى مساحة العمل ===== */
+  const openProject = (row: FiberProjectRow) => {
+    /* خريطة مختلفة؟ نبدّل الخريطة أولاً ثم نستبدل الكيانات */
+    const m = getMapById(row.map_id);
+    if (m && m.id !== st.mapId) st.loadMap(m);
+    suppressDirty.current = 2;
+    st.loadEntities(row.entities);
+    st.setPhase(row.phase);
+    setProjectName(row.name);
+    setSavedName(row.name);
+    setProjectId(row.id);
+    setDirty(false);
+    setOpenDlg(false);
+    setToast(`تم فتح المشروع «${row.name}» — واصل من حيث توقفت`);
+  };
+
+  /* ===== حذف مشروع من القائمة ===== */
+  const removeProject = async (row: FiberProjectRow) => {
+    if (!user) return;
+    setDeletingId(row.id);
+    try {
+      await deleteFiberProject(user.id, row.id);
+      setProjects((ps) => ps.filter((p) => p.id !== row.id));
+      /* لو حُذف المشروع المفتوح حالياً: يبقى العمل قائماً لكن
+         الحفظ القادم سيُنشئ مشروعاً جديداً بالاسم الحالي */
+      if (projectId === row.id) {
+        setProjectId(null);
+        setSavedName('');
+      }
+      setToast(`تم حذف المشروع «${row.name}»`);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'تعذر حذف المشروع');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -221,6 +316,10 @@ export default function FiberSimulatorWorkspace({
       if (t && ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) return;
 
       if (e.key === 'Escape') {
+        if (openDlg) {
+          setOpenDlg(false);
+          return;
+        }
         if (confirmExit) {
           setConfirmExit(false);
           return;
@@ -277,7 +376,7 @@ export default function FiberSimulatorWorkspace({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st, confirmExit, projectName]);
+  }, [st, confirmExit, projectName, projectId, savedName, openDlg]);
 
   return (
     <div ref={rootRef} dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
@@ -334,9 +433,18 @@ export default function FiberSimulatorWorkspace({
           />
           <button
             type="button"
+            onClick={() => void openProjectList()}
+            title="فتح مشروع محفوظ — قائمة بمشاريعك المحفوظة لمواصلة العمل عليها"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-700"
+          >
+            <FolderOpen size={14} />
+            فتح مشروع
+          </button>
+          <button
+            type="button"
             onClick={() => void doSave()}
             disabled={saving}
-            title="حفظ المحاكاة (Ctrl+S)"
+            title="حفظ (Ctrl+S) — بنفس الاسم يحدّث المشروع الحالي، وباسم معدَّل ينشئ نسخة جديدة"
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -540,6 +648,111 @@ export default function FiberSimulatorWorkspace({
                 </p>
               )}
               <p className="mt-1.5 text-[10px] text-slate-500">انقر للإخفاء</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* نافذة «فتح المشروع» — قائمة المشاريع المحفوظة من قاعدة البيانات */}
+      {openDlg && (
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-[126] flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setOpenDlg(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-2xl border border-slate-700 bg-[#0b1322] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5">
+              <h3 className="text-sm font-bold text-slate-100">مشاريعك المحفوظة</h3>
+              <button
+                type="button"
+                onClick={() => setOpenDlg(false)}
+                title="إغلاق"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {listLoading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span className="text-sm">جارٍ جلب المشاريع…</span>
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="py-10 text-center text-[13px] leading-relaxed text-slate-500">
+                  لا توجد مشاريع محفوظة بعد.
+                  <br />
+                  صمّم شبكتك ثم اضغط «حفظ» لتظهر هنا.
+                </div>
+              ) : (
+                projects.map((row) => {
+                  const m = getMapById(row.map_id);
+                  const ph = PHASES.find((p) => p.id === row.phase);
+                  const isOpen = row.id === projectId;
+                  return (
+                    <div
+                      key={row.id}
+                      className={`mb-2 flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+                        isOpen
+                          ? 'border-indigo-500/60 bg-indigo-500/10'
+                          : 'border-slate-800 bg-slate-900/60 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-[13px] font-bold text-slate-100">
+                            {row.name}
+                          </span>
+                          {isOpen && (
+                            <span className="shrink-0 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[9.5px] font-bold text-indigo-300">
+                              المفتوح الآن
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10.5px] text-slate-500">
+                          <span>{m ? m.name : row.map_id}</span>
+                          <span>· {ph ? ph.nameAr : row.phase}</span>
+                          <span dir="ltr">
+                            · {new Date(row.updated_at).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openProject(row)}
+                        className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-indigo-500"
+                      >
+                        فتح
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeProject(row)}
+                        disabled={deletingId === row.id}
+                        title="حذف المشروع نهائياً"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-400 transition-colors hover:bg-rose-500/15 disabled:opacity-50"
+                      >
+                        {deletingId === row.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="border-t border-slate-800 px-5 py-2.5 text-[10.5px] text-slate-500">
+              {projects.length > 0
+                ? `${projects.length} مشروعاً — مرتبة من الأحدث تعديلاً · الحفظ باسم معدَّل ينشئ نسخة جديدة`
+                : 'الحفظ باسم معدَّل عن المشروع المفتوح ينشئ نسخة جديدة مستقلة'}
             </div>
           </div>
         </div>

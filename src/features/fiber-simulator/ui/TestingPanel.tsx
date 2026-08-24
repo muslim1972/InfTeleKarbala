@@ -33,7 +33,6 @@ import { scoreProject } from '../engine/scoring';
 import { SPLICE_LOSS_DB } from '../engine/physics';
 import OtdrPanel from './OtdrPanel';
 import {
-  saveFiberProject,
   saveFiberScore,
 } from '../services/scores.service';
 import {
@@ -159,14 +158,9 @@ export default function TestingPanel(): React.ReactElement {
           opticalPass: report.opticalOk,
           score,
         });
-        await saveFiberProject({
-          userId: user.id,
-          mapId: map.id,
-          name: map.name,
-          phase: 'testing',
-          entities,
-        });
-        setSavedMsg('حُفظت النتيجة والمشروع في قاعدة البيانات');
+        /* حفظ المشروع يبقى بيد المستخدم من زر «حفظ» (بنفس الاسم
+           تحديث / باسم معدل نسخة جديدة) — يمنع تضارب الأسماء */
+        setSavedMsg('حُفظت النتيجة في قاعدة البيانات — لحفظ التصميم استخدم زر «حفظ» في الرأس');
       } catch (e) {
         setSavedMsg(e instanceof Error ? e.message : 'تعذر الحفظ في قاعدة البيانات');
       } finally {
