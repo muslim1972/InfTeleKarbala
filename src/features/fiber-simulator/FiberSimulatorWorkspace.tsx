@@ -8,10 +8,12 @@
  * ورسالة تأكيد «هل تريد حفظ التغييرات؟» قبل الخروج.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { Loader2, Maximize2, Minimize2, Save, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Save, TriangleAlert, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { simRedo, simUndo, useSimulatorStore } from './store/simulator.store';
+import { useEduStore } from './store/education.store';
+import { checkPhaseAllowed, computeBuildProgress, type GuardResult } from './education/build-order';
 import { loadFiberProject, saveFiberProject } from './services/scores.service';
 import { getMapById } from './data/maps/registry';
 import SimCanvas from './ui/SimCanvas';
@@ -19,6 +21,7 @@ import SimToolbar from './ui/SimToolbar';
 import SimInspector from './ui/SimInspector';
 import SplicingLab from './ui/SplicingLab';
 import TestingPanel from './ui/TestingPanel';
+import OnboardingTour from './ui/OnboardingTour';
 import type { PhaseId } from './types';
 
 const PHASES: { id: PhaseId; nameAr: string; descAr: string }[] = [
@@ -35,6 +38,7 @@ export default function FiberSimulatorWorkspace({
 }): React.ReactElement {
   const user = useAuth().user;
   const st = useSimulatorStore();
+  const edu = useEduStore();
   const map = getMapById(st.mapId);
 
   /* ===== تسمية المحاكاة وحالة الحفظ ===== */
@@ -44,6 +48,9 @@ export default function FiberSimulatorWorkspace({
   const [confirmExit, setConfirmExit] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isFs, setIsFs] = useState(false);
+  /* رسالة اعتراض موحّدة للأطوار والخطوات المقفلة + مؤقت إخفائها */
+  const [blockMsg, setBlockMsg] = useState<GuardResult | null>(null);
+  const blockTimer = useRef(0);
 
   /* يمنع وسم «غير محفوظ» أثناء استرجاع مشروع من قاعدة البيانات */
   const suppressDirty = useRef(0);
@@ -95,6 +102,45 @@ export default function FiberSimulatorWorkspace({
     const t = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(t);
   }, [toast]);
+
+  /* ===== فتح الجولة التدريبية تلقائياً أول زيارة فقط ===== */
+  useEffect(() => {
+    if (!edu.tourSeen) edu.openTour();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ===== رسالة الاعتراض التعليمية الموحّدة (أطوار + خطوات مقفلة) ===== */
+  const showBlock = (g: GuardResult) => {
+    window.clearTimeout(blockTimer.current);
+    setBlockMsg(g);
+    edu.logError({
+      code: g.code ?? 'ORDER_BLOCKED',
+      severity: 'warn',
+      titleAr: g.titleAr ?? 'ترتيب خاطئ',
+      messageAr: g.messageAr ?? '',
+      lessonAr: g.lessonAr ?? '',
+    });
+    blockTimer.current = window.setTimeout(() => setBlockMsg(null), 8000);
+  };
+  useEffect(() => () => window.clearTimeout(blockTimer.current), []);
+
+  /* ===== حساب تقدم البناء الخمس خطوات ===== */
+  const homesTotal = map?.requirements.homes ?? 1;
+  const progress = useMemo(
+    () => computeBuildProgress(st.entities, homesTotal),
+    [st.entities, homesTotal]
+  );
+
+  /* ===== نقر طور — محمي بقيود الترتيب ===== */
+  const onPhaseClick = (id: PhaseId) => {
+    if (id === st.phase) return;
+    const g = checkPhaseAllowed(id, st.entities);
+    if (!g.ok) {
+      showBlock(g);
+      return;
+    }
+    st.setPhase(id);
+  };
 
   /* ===== ملء الشاشة على حاوية المحاكي نفسها عند الفتح =====
      يُطلب مباشرة بعد التركيب (ضمن فترة تنشيط المستخدم من نقرة «تشغيل»).
@@ -252,6 +298,15 @@ export default function FiberSimulatorWorkspace({
           {isFs ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
         </button>
 
+        <button
+          type="button"
+          onClick={edu.openTour}
+          title="الجولة التدريبية — تعريف بالواجهة والأدوات وترتيب البناء"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-indigo-400 hover:bg-indigo-500/15 hover:text-indigo-300"
+        >
+          <HelpCircle size={18} />
+        </button>
+
         <div className="min-w-0">
           <h1 className="truncate text-sm font-bold text-slate-100">
             محاكي بناء شبكات الألياف الضوئية FTTH
@@ -292,8 +347,8 @@ export default function FiberSimulatorWorkspace({
           )}
         </div>
 
-        {/* متدرج الأطوار */}
-        <nav className="mr-auto flex items-center gap-1">
+        {/* متدرج الأطوار — محمي بقيود الترتيب التعليمي */}
+        <nav data-tour="phases" className="mr-auto flex items-center gap-1">
           {PHASES.map((p, i) => {
             const active = st.phase === p.id;
             const done = PHASES.findIndex((x) => x.id === st.phase) > i;
@@ -302,7 +357,7 @@ export default function FiberSimulatorWorkspace({
                 key={p.id}
                 type="button"
                 title={p.descAr}
-                onClick={() => st.setPhase(p.id)}
+                onClick={() => onPhaseClick(p.id)}
                 className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                   active
                     ? 'bg-indigo-500/25 text-indigo-200 ring-1 ring-indigo-400/50'
@@ -322,6 +377,72 @@ export default function FiberSimulatorWorkspace({
         </span>
       </header>
 
+      {/* شريط التقدم التعليمي — الخطوات الخمس بإلزامية الترتيب (أطوار التصميم فقط) */}
+      {(st.phase === 'civil' || st.phase === 'optical') && (
+        <div
+          data-tour="progress"
+          dir="rtl"
+          className="flex h-11 shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/50 px-3"
+        >
+          <span className="shrink-0 text-[11px] font-bold text-slate-400">تسلسل البناء:</span>
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+            {progress.steps.map((s) => (
+              <button
+                key={s.meta.id}
+                type="button"
+                title={`${s.meta.goalAr}${s.locked ? ' (مقفلة — أنجز ما قبلها أولاً)' : ''}`}
+                onClick={() => {
+                  if (s.locked) {
+                    showBlock({
+                      ok: false,
+                      code: 'STEP_LOCKED',
+                      titleAr: 'خطوة مقفلة — الترتيب الهندسي أولاً',
+                      messageAr: `«${s.meta.titleAr}» تتطلب إنجاز «${
+                        progress.currentStep?.titleAr ?? 'الخطوة الحالية'
+                      }» أولاً — أكملها ثم عد لهذه الخطوة.`,
+                      lessonAr:
+                        'كل طبقة من الشبكة تُبنى مادياً فوق التي تسبقها: الأنابيب تحت الأرض قبل المنشآت، والتغذية قبل التوزيع. تجاهل الترتيب يعيد الحفر ويضاعف الكلفة.',
+                      requiredStep: progress.currentStep ?? undefined,
+                    });
+                    return;
+                  }
+                  st.setTool(s.meta.tools[0]);
+                }}
+                className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold transition-colors ${
+                  s.current
+                    ? 'bg-indigo-500/20 text-indigo-200 ring-1 ring-indigo-400/50'
+                    : s.done
+                      ? 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                      : s.locked
+                        ? 'cursor-not-allowed text-slate-600'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+              >
+                {s.done ? (
+                  <Check size={11} className="text-emerald-400" />
+                ) : s.locked ? (
+                  <Lock size={10} />
+                ) : (
+                  <span className="text-slate-500">{s.meta.order}.</span>
+                )}
+                {s.meta.titleAr}
+                <span className="text-[9px] font-normal text-slate-500">{s.countAr}</span>
+              </button>
+            ))}
+          </div>
+          {/* النسبة الكلية */}
+          <div className="mr-auto flex shrink-0 items-center gap-2">
+            <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-l from-emerald-500 to-sky-400 transition-all duration-500"
+                style={{ width: `${progress.overallPct}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-bold text-emerald-300">{progress.overallPct}%</span>
+          </div>
+        </div>
+      )}
+
       {/* الجسم — يتغير حسب الطور */}
       <div className="flex min-h-0 flex-1">
         {st.phase === 'splicing' ? (
@@ -335,7 +456,7 @@ export default function FiberSimulatorWorkspace({
         ) : (
           <>
             <SimToolbar />
-            <main className="min-w-0 flex-1">
+            <main data-tour="canvas" className="min-w-0 flex-1">
               <SimCanvas />
             </main>
             <SimInspector />
@@ -389,6 +510,40 @@ export default function FiberSimulatorWorkspace({
           </div>
         </div>
       )}
+
+      {/* رسالة اعتراض خرق الترتيب (أطوار/خطوات) */}
+      {blockMsg && (
+        <div
+          dir="rtl"
+          onClick={() => setBlockMsg(null)}
+          className="absolute left-1/2 top-20 z-[125] max-w-[400px] -translate-x-1/2 cursor-pointer rounded-xl border border-amber-500/50 bg-[#1f1608]/95 p-3 shadow-2xl shadow-black/70"
+        >
+          <div className="flex items-start gap-2">
+            <TriangleAlert className="mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-400" />
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold text-amber-300">{blockMsg.titleAr}</div>
+              <p className="mt-1 text-[12.5px] leading-[1.7] text-slate-200">{blockMsg.messageAr}</p>
+              {blockMsg.lessonAr && (
+                <p className="mt-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-[11.5px] leading-[1.65] text-amber-200/90">
+                  <span className="font-semibold">الدرس المستفاد: </span>
+                  {blockMsg.lessonAr}
+                </p>
+              )}
+              {blockMsg.requiredStep && (
+                <p className="mt-1.5 text-[11.5px] text-sky-300">
+                  <span className="font-semibold">المطلوب الآن: </span>
+                  {blockMsg.requiredStep.order}. {blockMsg.requiredStep.titleAr} —{' '}
+                  {blockMsg.requiredStep.goalAr}
+                </p>
+              )}
+              <p className="mt-1.5 text-[10px] text-slate-500">انقر للإخفاء</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* الجولة التدريبية التوجيهية */}
+      <OnboardingTour />
 
       {/* تنبيه عائم */}
       {toast && (

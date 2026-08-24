@@ -9,21 +9,29 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
+import { Link2, ListOrdered, ArrowLeft, BookOpen, TriangleAlert } from 'lucide-react';
 import type Konva from 'konva';
 import { useSimulatorStore } from '../store/simulator.store';
+import { useEduStore } from '../store/education.store';
 import { getMapById } from '../data/maps/registry';
 import { TRENCH_METHODS } from '../data/materials.catalog';
+import { ELEMENT_INFO, type InfoKey } from '../education/element-info';
+import { checkToolAllowed, type GuardResult } from '../education/build-order';
 import {
   computeSnap,
   dist,
   nearestBuildingConnection,
   polylineLength,
+  projectOnSegment,
   type NodeRef,
   type SnapResult,
 } from '../engine/geometry';
-import type { EntityKind, TrenchMethod, Vec2 } from '../types';
+import type { EntityKind, TrenchMethod, ToolId, Vec2 } from '../types';
 
 const flat = (pts: Vec2[]): number[] => pts.flatMap((p) => [p.x, p.y]);
+
+/** أدوات البناء التي تخضع لحرّاس ترتيب التسلسل */
+const BUILD_TOOLS = new Set<ToolId>(['trench', 'manhole', 'handhole', 'fdc', 'fat', 'drop']);
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -42,6 +50,13 @@ export default function SimCanvas(): React.ReactElement {
   const [size, setSize] = useState({ w: 900, h: 600 });
   const [hover, setHover] = useState<{ world: Vec2; snap: SnapResult } | null>(null);
   const [spaceDown, setSpaceDown] = useState(false);
+  /* نافذة التلميح العائمة — مفتاح العنصر + موقع الشاشة داخل الحاوية */
+  const [hintPop, setHintPop] = useState<{ key: InfoKey; x: number; y: number } | null>(null);
+  /* رسالة اعتراض خرق الترتيب */
+  const [guard, setGuard] = useState<GuardResult | null>(null);
+  const guardTimer = useRef<number>(0);
+
+  const edu = useEduStore();
 
   const panning = useRef<{ sx: number; sy: number; tx: number; ty: number } | null>(null);
   const moved = useRef(false);
@@ -77,6 +92,14 @@ export default function SimCanvas(): React.ReactElement {
       window.removeEventListener('keyup', up);
     };
   }, []);
+
+  /* تنظيف مؤقت رسالة الاعتراض عند الإزالة */
+  useEffect(() => () => window.clearTimeout(guardTimer.current), []);
+
+  /* مغادرة وضع التلميح تُخفي النافذة العائمة */
+  useEffect(() => {
+    if (tool !== 'hint') setHintPop(null);
+  }, [tool]);
 
   /* ===================== ملاءمة العرض ===================== */
   useEffect(() => {
@@ -175,9 +198,83 @@ export default function SimCanvas(): React.ReactElement {
     st.setViewport({ scale, tx: pos.x - wx * scale, ty: pos.y - wy * scale });
   };
 
+  /* ===================== وضع التلميح التعليمي ===================== */
+  /** فتح نافذة المعلومات العلمية عند نقرة عنصر — تتموضع قرب المؤشر داخل الحاوية */
+  const openHint = (key: InfoKey, e: Konva.KonvaEventObject<MouseEvent>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const POP_W = 300;
+    const POP_MAX_H = 360;
+    const x = Math.min(Math.max(8, e.evt.clientX - rect.left + 12), Math.max(8, rect.width - POP_W - 8));
+    const rawY = e.evt.clientY - rect.top + 12;
+    const y = rawY + POP_MAX_H > rect.height ? Math.max(8, rawY - POP_MAX_H - 24) : rawY;
+    setHintPop({ key, x, y });
+    edu.markExplored(key);
+  };
+
+  /** حلّ مفتاح المعلومات لكيان مشروع (المنشآت تفرّق منهل/هاند هول) */
+  const infoKeyForEntity = (kind: EntityKind, id: string): InfoKey => {
+    if (kind === 'structure') {
+      const s = entities.structures.find((x) => x.id === id);
+      return s?.kind === 'handhole' ? 'handhole' : 'manhole';
+    }
+    if (kind === 'trench') return 'trench';
+    if (kind === 'cabinet') return 'fdc';
+    if (kind === 'fat') return 'fat';
+    return 'drop';
+  };
+
+  /**
+   * كشف العناصر الثابتة للخريطة (المقسم/الدور/الشارع) تحت نقرة المؤشر.
+   * هذه العناصر مرسومة بلا استماع للأحداث، لذا يمر نقرها إلى المسرح —
+   * ووضع التلميح يفرّغها عبر اختبار مسافة هندسي.
+   */
+  const infoKeyAtWorld = (p: Vec2): InfoKey | null => {
+    if (!map) return null;
+    /* المقسم — مربّع 4×2.4م حول نقطته */
+    if (Math.abs(p.x - map.exchange.point.x) <= 3.5 && Math.abs(p.y - map.exchange.point.y) <= 3.5)
+      return 'exchange';
+    /* الدور — مستطيل 10×10م بهامش متر */
+    const inBuilding = map.buildings.some((b) => {
+      const minX = b.polygon.reduce((m, q) => Math.min(m, q.x), Infinity);
+      const minY = b.polygon.reduce((m, q) => Math.min(m, q.y), Infinity);
+      return p.x >= minX - 1 && p.x <= minX + 11 && p.y >= minY - 1 && p.y <= minY + 11;
+    });
+    if (inBuilding) return 'home';
+    /* الشوارع — ضمن نصف عرض الشارع + متر هوامش */
+    const nearRoad = map.roads.some((r) => {
+      for (let i = 1; i < r.centerline.length; i++) {
+        if (projectOnSegment(p, r.centerline[i - 1], r.centerline[i]).dist <= r.width / 2 + 1)
+          return true;
+      }
+      return false;
+    });
+    if (nearRoad) return 'road';
+    return null;
+  };
+
+  /* ===================== رسالة اعتراض خرق الترتيب ===================== */
+  /** تعرض البطاقة وتسجل الخطأ في السجل التعليمي ثم تُخفيها تلقائياً */
+  const showGuard = (g: GuardResult) => {
+    window.clearTimeout(guardTimer.current);
+    setGuard(g);
+    edu.logError({
+      code: g.code ?? 'ORDER_UNKNOWN',
+      severity: 'warn',
+      titleAr: g.titleAr ?? 'ترتيب خاطئ',
+      messageAr: g.messageAr ?? '',
+      lessonAr: g.lessonAr ?? '',
+    });
+    guardTimer.current = window.setTimeout(() => setGuard(null), 8000);
+  };
+
   /* ===================== نقرات الأدوات ===================== */
   const onEntityClick = (kind: EntityKind, id: string) => (e: Konva.KonvaEventObject<MouseEvent>) => {
     e.cancelBubble = true;
+    if (tool === 'hint') {
+      openHint(infoKeyForEntity(kind, id), e);
+      return;
+    }
     if (tool === 'eraser') st.removeEntity(kind, id);
     else if (tool === 'select') st.setSelection([id]);
   };
@@ -203,6 +300,24 @@ export default function SimCanvas(): React.ReactElement {
     const world = getWorld();
     if (!world) return;
     const p = hover?.snap.point ?? doSnap(world).point;
+
+    /* وضع التلميح: كشف العناصر الثابتة (المقسم/الدار/الشارع) —
+       والنقر على فراغ يُخفي النافذة العائمة كي لا تحجب المخطط */
+    if (tool === 'hint') {
+      const key = infoKeyAtWorld(world);
+      if (key) openHint(key, e);
+      else setHintPop(null);
+      return;
+    }
+
+    /* حرّاس الترتيب التعليمي: أدوات البناء ممنوعة قبل استيفاء خطواتها السابقة */
+    if (BUILD_TOOLS.has(tool)) {
+      const g = checkToolAllowed(tool, entities);
+      if (!g.ok) {
+        showGuard(g);
+        return;
+      }
+    }
 
     switch (tool) {
       case 'trench':
@@ -280,7 +395,15 @@ export default function SimCanvas(): React.ReactElement {
   const measureLen = st.measureFrom && st.measureTo ? dist(st.measureFrom, st.measureTo) : null;
 
   const cursor =
-    tool === 'pan' || spaceDown ? 'grab' : tool === 'select' ? 'default' : tool === 'eraser' ? 'pointer' : 'crosshair';
+    tool === 'pan' || spaceDown
+      ? 'grab'
+      : tool === 'select'
+        ? 'default'
+        : tool === 'hint'
+          ? 'help'
+          : tool === 'eraser'
+            ? 'pointer'
+            : 'crosshair';
 
   /* ترجمة عربية لطريقة الحفر */
   const methodMeta = (m: TrenchMethod) => TRENCH_METHODS[m];
@@ -623,6 +746,113 @@ export default function SimCanvas(): React.ReactElement {
           نقرة يسرى: إضافة · نقرة مزدوجة/Enter: إنهاء · يمين/Esc: إلغاء · مسافة+سحب: تحريك · عجلة: تكبير
         </span>
       </div>
+
+      {/* ===================== نافذة التلميح العائمة ===================== */}
+      {hintPop &&
+        (() => {
+          const info = ELEMENT_INFO[hintPop.key];
+          return (
+            <div
+              dir="rtl"
+              onMouseLeave={() => setHintPop(null)}
+              className="absolute z-30 max-h-[360px] w-[300px] overflow-y-auto rounded-xl border border-sky-500/40 bg-[#0b1628]/95 p-3.5 shadow-2xl shadow-black/70"
+              style={{ left: hintPop.x, top: hintPop.y }}
+            >
+              {/* الرأس: الاسم + المصطلح + رقم الخطوة */}
+              <div className="mb-2 flex items-start gap-2 border-b border-slate-700/60 pb-2">
+                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-bold text-sky-200">{info.titleAr}</div>
+                  <div className="text-[10.5px] font-mono tracking-wide text-slate-500" dir="ltr">
+                    {info.termEn}
+                  </div>
+                </div>
+                <span className="mr-auto shrink-0 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[10.5px] font-semibold text-sky-300">
+                  خطوة {info.orderNo}/{info.orderTotal}
+                </span>
+              </div>
+
+              {/* ما هو؟ — المعلومات العلمية */}
+              <p className="text-[12.5px] leading-[1.75] text-slate-300">{info.whatAr}</p>
+
+              {/* وظيفته في الشبكة */}
+              <div className="mt-2 rounded-lg bg-sky-500/10 px-2 py-1.5 text-[12px] leading-[1.65] text-sky-200">
+                <span className="font-semibold">وظيفته: </span>
+                {info.roleAr}
+              </div>
+
+              {/* الترتيب الصحيح أثناء البناء */}
+              <div className="mt-2 space-y-1.5 border-t border-slate-700/60 pt-2 text-[12px] leading-[1.65]">
+                <div className="flex gap-1.5">
+                  <ListOrdered className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <p className="text-slate-300">
+                    <span className="font-semibold text-amber-300">يأتي بعد: </span>
+                    {info.comesAfterAr}
+                  </p>
+                </div>
+                <div className="flex gap-1.5">
+                  <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                  <p className="text-slate-300">
+                    <span className="font-semibold text-indigo-300">يرتبط بـ/يعتمد على: </span>
+                    {info.dependsAr}
+                  </p>
+                </div>
+                <div className="flex gap-1.5">
+                  <ArrowLeft className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <p className="text-slate-300">
+                    <span className="font-semibold text-emerald-300">تليه خطوات: </span>
+                    {info.nextAr}
+                  </p>
+                </div>
+              </div>
+
+              {/* المرجع القياسي العالمي */}
+              {info.standardAr && (
+                <div
+                  className="mt-2 rounded-lg border border-slate-700/70 bg-slate-800/40 px-2 py-1.5 text-[11px] leading-[1.6] text-slate-400"
+                  dir="rtl"
+                >
+                  <span className="font-semibold text-slate-300">المرجع القياسي: </span>
+                  {info.standardAr}
+                </div>
+              )}
+
+              <p className="mt-2 text-center text-[10px] text-slate-600">
+                أخرج المؤشر من النافذة أو انقر عنصراً آخر لإخفائها
+              </p>
+            </div>
+          );
+        })()}
+
+      {/* ===================== رسالة اعتراض خرق الترتيب ===================== */}
+      {guard && (
+        <div
+          dir="rtl"
+          onClick={() => setGuard(null)}
+          className="absolute left-1/2 top-4 z-30 max-w-[380px] -translate-x-1/2 cursor-pointer rounded-xl border border-amber-500/50 bg-[#1f1608]/95 p-3 shadow-2xl shadow-black/70"
+        >
+          <div className="flex items-start gap-2">
+            <TriangleAlert className="mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-400" />
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold text-amber-300">{guard.titleAr}</div>
+              <p className="mt-1 text-[12.5px] leading-[1.7] text-slate-200">{guard.messageAr}</p>
+              {guard.lessonAr && (
+                <p className="mt-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-[11.5px] leading-[1.65] text-amber-200/90">
+                  <span className="font-semibold">الدرس المستفاد: </span>
+                  {guard.lessonAr}
+                </p>
+              )}
+              {guard.requiredStep && (
+                <p className="mt-1.5 text-[11.5px] text-sky-300">
+                  <span className="font-semibold">الخطوة المطلوبة الآن: </span>
+                  {guard.requiredStep.order}. {guard.requiredStep.titleAr} — {guard.requiredStep.goalAr}
+                </p>
+              )}
+              <p className="mt-1.5 text-[10px] text-slate-500">انقر للإخفاء · تُسجَّل هذه الأخطاء في سجل التعلّم الخاص بك</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

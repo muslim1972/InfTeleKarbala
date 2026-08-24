@@ -7,6 +7,7 @@ import {
   CircleDot,
   Eraser,
   Hand,
+  Lightbulb,
   Maximize2,
   MousePointer2,
   Network,
@@ -30,7 +31,7 @@ import {
 import { TRENCH_METHODS } from '../data/materials.catalog';
 import type { ToolId, TrenchMethod } from '../types';
 
-const TOOLS: { id: ToolId; label: string; icon: typeof MousePointer2; key?: string }[] = [
+const TOOLS: { id: ToolId; label: string; icon: typeof MousePointer2; tourId?: string }[] = [
   { id: 'select', label: 'تحديد', icon: MousePointer2 },
   { id: 'pan', label: 'تحريك العرض', icon: Hand },
   { id: 'measure', label: 'قياس مسافة', icon: Ruler },
@@ -41,6 +42,7 @@ const TOOLS: { id: ToolId; label: string; icon: typeof MousePointer2; key?: stri
   { id: 'fat', label: 'تركيب صندوق FAT', icon: Network },
   { id: 'drop', label: 'كابل إسقاط نحو دار', icon: Cable },
   { id: 'eraser', label: 'ممحاة (حذف عنصر)', icon: Eraser },
+  { id: 'hint', label: 'تلميح تعليمي — فعّله ثم انقر أي عنصر في المخطط لمعرفة وظيفته وترتيبه', icon: Lightbulb, tourId: 'hint-tool' },
 ];
 
 function ToolButton({
@@ -89,17 +91,19 @@ export default function SimToolbar(): React.ReactElement {
   };
 
   return (
-    <div className="flex h-full w-16 flex-col items-center gap-1 overflow-y-auto border-slate-800 bg-slate-900/80 py-2">
+    <div data-tour="toolbar" className="flex h-full w-16 flex-col items-center gap-1 overflow-y-auto border-slate-800 bg-slate-900/80 py-2">
       {TOOLS.map((t, i) => (
         <div key={t.id} className="flex flex-col items-center">
           {(i === 3 || i === 10) && <div className="my-1 h-px w-8 bg-slate-800" />}
-          <ToolButton
-            active={st.tool === t.id}
-            label={t.label}
-            onClick={() => st.setTool(t.id)}
-          >
-            <t.icon size={18} />
-          </ToolButton>
+          <div data-tour={t.tourId}>
+            <ToolButton
+              active={st.tool === t.id}
+              label={t.label}
+              onClick={() => st.setTool(t.id)}
+            >
+              <t.icon size={18} />
+            </ToolButton>
+          </div>
         </div>
       ))}
 

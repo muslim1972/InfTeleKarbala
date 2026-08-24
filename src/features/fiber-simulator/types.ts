@@ -124,6 +124,7 @@ export type ToolId =
   | 'fdc'
   | 'fat'
   | 'drop'
-  | 'eraser';
+  | 'eraser'
+  | 'hint';
 
 export type PhaseId = 'civil' | 'optical' | 'splicing' | 'testing';
