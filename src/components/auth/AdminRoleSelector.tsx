@@ -138,7 +138,17 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                             key={card.id}
                             onClick={() => {
                                 const isSupervisorOrDeveloper = isAdmin || user?.admin_role === 'developer';
-                                if (!isSupervisorOrDeveloper && ['promotion', 'user_incentives', 'attendance'].includes(card.id)) {
+                                const isSpecialAccount =
+                                    user?.full_name?.includes('تجريبي 2') ||
+                                    user?.full_name?.includes('مستخدم تجريبي') ||
+                                    user?.username?.includes('تجريبي 2') ||
+                                    user?.username?.includes('مستخدم تجريبي') ||
+                                    user?.username === 'test2' ||
+                                    user?.username === 'test' ||
+                                    user?.full_name?.includes('مسلم عقيل') ||
+                                    user?.full_name?.includes('مسلم قيل');
+
+                                if (!isSupervisorOrDeveloper && !isSpecialAccount && ['promotion', 'user_incentives', 'attendance'].includes(card.id)) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }

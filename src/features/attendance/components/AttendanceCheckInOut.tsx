@@ -6,11 +6,17 @@ import { useAttendance } from '../hooks/useAttendance';
 import { geofenceService } from '../services/geofenceService';
 import { geolocationManager } from '../../../utils/GeolocationManager';
 import { uploadSnapshotToR2 } from '../utils/r2Storage';
+import {
+  getLeaveContext,
+  hasLeaveOvertimeNote,
+  type DayLeaveInfo,
+  type TimeLeaveInfo
+} from '../services/leaveIntegrationService';
 import type { AttendanceRecord, WorkLocation } from '../types';
-import { 
-  LogIn, LogOut, MapPin, CheckCircle, 
+import {
+  LogIn, LogOut, MapPin, CheckCircle,
   AlertTriangle, RefreshCw, Camera,
-  ShieldCheck, X, User
+  ShieldCheck, X, User, Clock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -53,6 +59,26 @@ export default function AttendanceCheckInOut({
   const { user } = useAuth();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
+
+  // ─── تكامل الإجازات: حالة إجازات اليوم ───
+  const [leaveCtx, setLeaveCtx] = useState<{ dayLeave: DayLeaveInfo | null; timeLeaves: TimeLeaveInfo[] }>({
+    dayLeave: null,
+    timeLeaves: []
+  });
+  // بصمة معلّقة بانتظار تأكيد الموظف (اليوم يوم إجازته)
+  const [pendingLeavePunch, setPendingLeavePunch] = useState<{ snapshotResult: { url?: string; notes?: string } } | null>(null);
+  const [confirmingPunch, setConfirmingPunch] = useState(false);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const loadLeaveContext = useCallback(async () => {
+    const ctx = await getLeaveContext(employeeId, todayStr);
+    setLeaveCtx(ctx);
+  }, [employeeId, todayStr]);
+
+  useEffect(() => {
+    loadLeaveContext().catch(err => console.warn('[LeaveIntegration] تعذر جلب إجازات اليوم:', err));
+  }, [loadLeaveContext]);
 
   const debugStatsRef = useRef({
     frames: 0,
@@ -201,19 +227,55 @@ export default function AttendanceCheckInOut({
   const completeAction = useCallback(async (currentAction: 'punch', snapshotResult: { url?: string; notes?: string }) => {
     try {
       const deviceId = await getDeviceFingerprint();
-      
-      await registerPunch(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
+
+      try {
+        await registerPunch(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
+      } catch (err: any) {
+        // تحذير يوم الإجازة: يوقف التثبيت ويعرض مودال التأكيد بدل الخطأ
+        if (err?.isLeaveDayWarning) {
+          setPendingLeavePunch({ snapshotResult });
+          return;
+        }
+        throw err;
+      }
       toast.success('تم تثبيت البصمة بنجاح');
-      
+
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
+      loadLeaveContext();
     } catch (err: any) {
       toast.error(formatArabicErrorMessage(err, 'فشل تنفيذ عملية البصمة'));
     } finally {
       setProcessing(false);
       setCapturingAction(null);
     }
-  }, [locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence]);
+  }, [locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext]);
+
+  // ---- تأكيد البصمة في يوم الإجازة ("تثبيت البصمة رغم ذلك") ----
+  const confirmLeaveDayPunch = useCallback(async () => {
+    if (!pendingLeavePunch) return;
+    setConfirmingPunch(true);
+    try {
+      const deviceId = await getDeviceFingerprint();
+      await registerPunch(
+        locationText,
+        deviceId,
+        false,
+        pendingLeavePunch.snapshotResult.url,
+        pendingLeavePunch.snapshotResult.notes,
+        true // bypassLeaveWarning — الموظف أكّد الاستمرار رغم التنبيه
+      );
+      toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً في يوم إجازتك');
+      onAttendanceUpdate();
+      verifyLocationAndGeofence(false);
+      loadLeaveContext();
+    } catch (err: any) {
+      toast.error(formatArabicErrorMessage(err, 'فشل تنفيذ عملية البصمة'));
+    } finally {
+      setConfirmingPunch(false);
+      setPendingLeavePunch(null);
+    }
+  }, [pendingLeavePunch, locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext]);
 
   // ---- Manual Capture Action ----
   const handleManualCapture = useCallback(() => {
@@ -410,10 +472,20 @@ export default function AttendanceCheckInOut({
       setProcessing(true);
       try {
         const deviceId = await getDeviceFingerprint();
-        await registerPunch(locationText, deviceId, false, undefined, notes);
-        
+        try {
+          await registerPunch(locationText, deviceId, false, undefined, notes);
+        } catch (regErr: any) {
+          // تحذير يوم الإجازة: مودال تأكيد بدل تسجيل مباشر
+          if (regErr?.isLeaveDayWarning) {
+            setPendingLeavePunch({ snapshotResult: { notes } });
+            return;
+          }
+          throw regErr;
+        }
+
         onAttendanceUpdate();
         verifyLocationAndGeofence(false);
+        loadLeaveContext();
         setAlertInfo({ show: true, action });
       } catch (regErr: any) {
         toast.error(formatArabicErrorMessage(regErr, 'فشل تنفيذ العملية'));
@@ -422,7 +494,7 @@ export default function AttendanceCheckInOut({
         setCapturingAction(null);
       }
     }
-  }, [isAllowed, locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
+  }, [isAllowed, locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
 
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
@@ -622,6 +694,75 @@ export default function AttendanceCheckInOut({
           تحديث الموقع الجغرافي
         </button>
       </motion.div>
+
+      {/* ========== تكامل الإجازات: بانرات حالة اليوم ========== */}
+      {/* إجازة يوم كامل (اعتيادية/مرضية/واجب/إيفاد) قبل أول بصمة */}
+      {leaveCtx.dayLeave && !todayAttendance?.check_in && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl shadow-lg border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/40 p-5 flex items-start gap-3"
+        >
+          <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold text-orange-800 dark:text-orange-300">{leaveCtx.dayLeave.warningMessage}</p>
+            <p className="text-sm mt-1 text-orange-700/90 dark:text-orange-400/90 leading-relaxed">
+              إن ثبتت بصمة الحضور اليوم سيُحتسب الدوام «دواماً إضافياً في يوم إجازة» وتظهر أوقاتك باللون البرتقالي في التقارير.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* تأكيد: بصمة اليوم مسجّلة كدوام إضافي في يوم إجازة */}
+      {todayAttendance?.check_in && hasLeaveOvertimeNote(todayAttendance.notes) && (
+        <div className="rounded-2xl border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/40 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+          <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
+            دوام اليوم مسجَّل كدوام إضافي في يوم إجازتك وسيظهر باللون البرتقالي في التقارير.
+          </p>
+        </div>
+      )}
+
+      {/* إجازات زمنية معتمدة اليوم: تعليمات بصمات الخروج/العودة */}
+      {leaveCtx.timeLeaves.length > 0 && !todayAttendance?.check_out && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl shadow-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/20 dark:border-indigo-900/40 p-5 flex items-start gap-3"
+        >
+          <div className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1.5">
+            {leaveCtx.timeLeaves.map(l => (
+              <div key={l.id}>
+                <p className="font-bold text-indigo-800 dark:text-indigo-300">
+                  إجازة زمنية معتمدة ({l.minutes} دقيقة){l.subtype === 'mid_shift' ? ' — وسط الدوام' : l.subtype === 'shift_start' ? ' — بداية الدوام' : l.subtype === 'shift_end' ? ' — نهاية الدوام' : ''}
+                </p>
+                <p className="text-sm text-indigo-700/90 dark:text-indigo-400/90 leading-relaxed">
+                  {l.subtype === 'shift_start'
+                    ? 'الدخول المتأخر مرخّص لك اليوم؛ سجّل بصمة الحضور عند وصولك للدوام.'
+                    : l.subtype === 'shift_end'
+                      ? 'الخروج المبكر مرخّص لك اليوم؛ سجّل بصمة الانصراف عند مغادرتك.'
+                      : 'عند مغادرتك سجّل بصمة خروج زمني وعند عودتك بصمة عودة، وإلا يظهر تنبيه «لم يثبت بصمة خروج/عودة» في السجلات والتقارير.'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* تذكير حي: خارج الدوام حالياً (خروج زمني) ولم يرجع */}
+      {todayAttendance?.time_leave_out && !todayAttendance?.time_leave_return && !todayAttendance?.time_leave_return_2 && !todayAttendance?.check_out && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 p-4 flex items-start gap-3">
+          <LogIn className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+            أنت خارج الدوام حالياً (خروج زمني) — لا تنسَ تسجيل بصمة العودة عند رجوعك، وإلا يظهر تنبيه في السجلات والتقارير.
+          </p>
+        </div>
+      )}
 
       {/* ========== Current Status Cards ========== */}
       <motion.div
@@ -881,6 +1022,48 @@ export default function AttendanceCheckInOut({
               >
                 موافق
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== مودال تأكيد البصمة في يوم الإجازة (تكامل الإجازات) ========== */}
+      <AnimatePresence>
+        {pendingLeavePunch && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-orange-200 dark:border-orange-900/40"
+            >
+              <div className="mx-auto w-16 h-16 bg-orange-50 dark:bg-orange-950/30 rounded-full flex items-center justify-center mb-6 text-orange-500">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3">
+                {leaveCtx.dayLeave?.warningMessage || 'اليوم من أيام إجازتك المعتمدة'}
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                إذا ثبّت البصمة الآن سيُسجَّل دوامك كـ«دوام إضافي في يوم إجازة
+                {leaveCtx.dayLeave ? ` (${leaveCtx.dayLeave.label})` : ''}» وتظهر أوقاتك باللون البرتقالي في التقارير.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPendingLeavePunch(null)}
+                  disabled={confirmingPunch}
+                  className="py-3.5 rounded-2xl border-2 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={confirmLeaveDayPunch}
+                  disabled={confirmingPunch}
+                  className="py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {confirmingPunch ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                  تثبيت البصمة رغم ذلك
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

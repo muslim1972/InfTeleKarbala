@@ -1,5 +1,13 @@
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
+import {
+  getLeaveContext,
+  evaluateTimeLeavePunches,
+  buildLeaveDayOvertimeNote,
+  mergeNote,
+  LeaveDayPunchWarning,
+  type TimeLeaveInfo
+} from './leaveIntegrationService';
 import type {
   FingerprintTemplate,
   AttendanceRecord,
@@ -380,13 +388,22 @@ export const attendanceRecordService = {
     return record;
   },
 
-  async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
+  async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) {
     const { categorizePunches } = await import('../utils/punchCategorizer');
-    
+
     // 1. Get today's record
     const today = new Date().toISOString().split('T')[0];
     let record = await this.getTodayByEmployeeId(employeeId);
-    
+
+    // ─── تكامل الإجازات (1): فحص إجازة اليوم قبل تثبيت أول بصمة حضور ───
+    // إن كان اليوم من أيام إجازة معتمدة (اعتيادية/مرضية/واجب/إيفاد) نوقف
+    // التسجيل ونرمي تحذيراً يعرض للموظف، ما لم يكن قد أكّده مسبقاً عبر
+    // bypassLeaveWarning (زر "تثبيت البصمة رغم ذلك" في واجهة البصمة).
+    const leaveCtx = await getLeaveContext(employeeId, today);
+    if (leaveCtx.dayLeave && !record && !bypassLeaveWarning) {
+      throw new LeaveDayPunchWarning(leaveCtx.dayLeave);
+    }
+
     const newPunch = {
       time: new Date().toISOString(),
       location,
@@ -419,6 +436,14 @@ export const attendanceRecordService = {
     // 4. Run categorizer
     const updates = categorizePunches(rawPunches, yesterdayRecord, today);
     updates.raw_punches = rawPunches;
+
+    // ─── تكامل الإجازات (2): بصمة في يوم إجازة → ملاحظة دوام إضافي ───
+    // تُضاف سواء أكّد الموظف البصمة بعد التنبيه أو اعتُمدت الإجازة بعد دخوله،
+    // وتُستخدم لاحقاً في التقارير لتلوين الوقت بالبرتقالي.
+    if (leaveCtx.dayLeave) {
+      const baseNotes = record?.notes || updates.notes || notes;
+      updates.notes = mergeNote(baseNotes, buildLeaveDayOvertimeNote(leaveCtx.dayLeave.label));
+    }
 
     // Device logic
     const { data: profile } = await supabase
@@ -473,31 +498,60 @@ export const attendanceRecordService = {
       // Update existing record
       const { data, error } = await supabase.from('attendance_records').update(updates).eq('id', record.id).select().single();
       if (error) throw error;
-      
+
       const savedRecord = data as AttendanceRecord;
       try {
         await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
       } catch (e) {
         console.error('Error applying mandatory penalties:', e);
       }
-      return savedRecord;
+      // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
+      return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
     } else {
       // Create new record
       updates.employee_id = employeeId;
       updates.department_id = profile?.department_id;
       updates.work_schedule_id = profile?.work_schedule_id;
       updates.status = 'present'; // Default
-      
+
       const { data, error } = await supabase.from('attendance_records').insert(updates).select().single();
       if (error) throw error;
-      
+
       const savedRecord = data as AttendanceRecord;
       try {
         await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
       } catch (e) {
         console.error('Error applying mandatory penalties:', e);
       }
-      return savedRecord;
+      // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
+      return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
+    }
+  },
+
+  /**
+   * تكامل الإجازات (3): عند إغلاق اليوم (تسجيل الانصراف) تُقيَّم التزامات
+   * الإجازات الزمنية المعتمدة — إن لم يُثبت الموظف بصمة الخروج/العودة
+   * المطلوبة يُضاف تحذير دقيق إلى ملاحظات السجل ليظهر في السجلات والتقارير.
+   * لا تُقيَّم الحالة قبل الانصراف حتى لا يظهر تحذير مبكر أثناء الدوام.
+   */
+  async applyTimeLeavePunchWarnings(record: AttendanceRecord, timeLeaves: TimeLeaveInfo[]): Promise<AttendanceRecord> {
+    try {
+      if (!timeLeaves.length || !record.check_out) return record;
+      const status = evaluateTimeLeavePunches(record, timeLeaves);
+      if (!status?.message) return record;
+      const newNotes = mergeNote(record.notes, status.message);
+      if (newNotes === record.notes) return record;
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .update({ notes: newNotes })
+        .eq('id', record.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as AttendanceRecord;
+    } catch (err) {
+      console.error('[LeaveIntegration] فشل إضافة تحذير بصمات الإجازة الزمنية:', err);
+      return record;
     }
   },
 

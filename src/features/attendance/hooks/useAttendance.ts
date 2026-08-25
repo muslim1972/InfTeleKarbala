@@ -103,7 +103,7 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const registerPunch = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string) => {
+  const registerPunch = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -114,11 +114,15 @@ export function useAttendance(employeeId: string) {
         verifiedByBiometric = true;
       }
 
-      const record = await attendanceRecordService.registerPunch(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes);
+      const record = await attendanceRecordService.registerPunch(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes, bypassLeaveWarning);
       setTodayAttendance(record);
       return record;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'حدث خطأ');
+      // تحذير يوم الإجازة يعالجه المكوّن بمودال تأكيد — لا يُعرض كخطأ عام
+      const isLeaveDayWarning = (err as any)?.isLeaveDayWarning === true;
+      if (!isLeaveDayWarning) {
+        setError(err instanceof Error ? err.message : 'حدث خطأ');
+      }
       throw err;
     } finally {
       setLoading(false);

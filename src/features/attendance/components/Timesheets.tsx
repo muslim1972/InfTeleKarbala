@@ -9,6 +9,15 @@ import { arSA } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
+// ─── تكامل الإجازات (تقارير): عرض أيام الإجازات والدوام الإضافي فيها ───
+import {
+  getApprovedLeavesInRange,
+  hasLeaveOvertimeNote,
+  LEAVE_TYPE_LABELS,
+  coversDate,
+  DAY_LEAVE_TYPES,
+  type LeaveRequestLite
+} from '../services/leaveIntegrationService';
 
 
 export default function Timesheets() {
@@ -40,6 +49,7 @@ export default function Timesheets() {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [globalHolidays, setGlobalHolidays] = useState<any[]>([]);
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  const [monthLeaves, setMonthLeaves] = useState<LeaveRequestLite[]>([]);
 
   useEffect(() => {
     loadFilters();
@@ -92,6 +102,13 @@ export default function Timesheets() {
     try {
       const data = await timesheetService.getMonthlyTimesheets(year, month, departmentId, employeeId);
       setRecords(data);
+
+      // ─── تكامل الإجازات (تقارير): جلب إجازات الشهر المعتمدة لتمييز أيام الإجازة عن الغياب ───
+      const lastDay = new Date(year, month, 0).getDate();
+      const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endStr = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+      const leaves = await getApprovedLeavesInRange(startStr, endStr);
+      setMonthLeaves(leaves);
     } catch (err: any) {
       toast.error('فشل تحميل التقارير: ' + err.message);
     } finally {
@@ -212,8 +229,16 @@ export default function Timesheets() {
   }, [globalHolidays, globalSettings]);
 
   const groupedData = useMemo(() => {
-    const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number }> = {};
-    
+    const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number, leaveCount: number }> = {};
+
+    // ─── تكامل الإجازات (تقارير): خريطة إجازات اليوم الكامل المعتمدة لكل موظف ───
+    const dayLeavesByEmp: Record<string, LeaveRequestLite[]> = {};
+    monthLeaves.forEach(l => {
+      if (!DAY_LEAVE_TYPES.includes(l.leave_type)) return;
+      if (!dayLeavesByEmp[l.user_id]) dayLeavesByEmp[l.user_id] = [];
+      dayLeavesByEmp[l.user_id].push(l);
+    });
+
     const relevantEmployees = allEmployees.filter(emp => {
       if (departmentId !== 'all' && emp.department_id !== departmentId) return false;
       if (employeeId !== 'all' && emp.id !== employeeId) return false;
@@ -228,7 +253,8 @@ export default function Timesheets() {
         totalDeficit: 0,
         totalOvertime: 0,
         lateCount: 0,
-        absenceCount: 0
+        absenceCount: 0,
+        leaveCount: 0
       };
     });
 
@@ -242,7 +268,8 @@ export default function Timesheets() {
           totalDeficit: 0,
           totalOvertime: 0,
           lateCount: 0,
-          absenceCount: 0
+          absenceCount: 0,
+          leaveCount: 0
         };
       }
       
@@ -286,14 +313,21 @@ export default function Timesheets() {
                    const dayType = getDayTypeStr(currentDateObj, shiftInfo.schedule);
                    const isWorkingDay = dayType === 'يوم عمل';
 
-                   if (isWorkingDay) {
+                   // ─── تكامل الإجازات: هل اليوم مغطى بإجازة معتمدة (يوم كامل)؟ ───
+                   const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
+                   const dayLeave = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+
+                   if (dayLeave) {
+                     group.leaveCount++;
+                   } else if (isWorkingDay) {
                      group.absenceCount++;
                    }
 
                    newRecords.push({
                        _isEmpty: true,
                        check_in: fakeDate,
-                       status: isWorkingDay ? 'absent' : (dayType === 'تعويضية' ? 'rest' : 'holiday')
+                       status: dayLeave ? 'leave' : (isWorkingDay ? 'absent' : (dayType === 'تعويضية' ? 'rest' : 'holiday')),
+                       leaveLabel: dayLeave ? (LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة') : undefined
                    });
                }
            } else {
@@ -306,7 +340,7 @@ export default function Timesheets() {
     });
 
     return result;
-  }, [records, getShiftInfo, getDayTypeStr, year, month]);
+  }, [records, getShiftInfo, getDayTypeStr, year, month, monthLeaves]);
 
   const exportToPDF = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
@@ -392,22 +426,30 @@ export default function Timesheets() {
           const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
           
           if (rec._isEmpty) {
+             const isLeaveDay = rec.status === 'leave';
+             const leaveLabel = rec.leaveLabel || 'إجازة';
              html += `<tr style="height: ${ROW_H};">`;
              html += renderCell(dateStr);
              html += renderCell(dayType);
              html += renderCell('--');
              html += renderCell(shiftInfo.label);
+             html += renderCell('--:--', isLeaveDay ? 'color: #ea580c; font-weight: bold;' : '', true);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
              html += renderCell('--:--', '', true);
-             html += renderCell('--:--', '', true);
-             html += renderCell('--:--', '', true);
+             html += renderCell('--:--', isLeaveDay ? 'color: #ea580c; font-weight: bold;' : '', true);
              html += renderCell('--', '', true);
              html += renderCell('--', '', true);
              html += renderCell('--', '', true);
-             html += renderCell(dayType === 'تعويضية' ? 'راحة' : dayType === 'عطلة' ? 'عطلة' : 'غائب');
-             html += renderCell(dayType === 'تعويضية' ? 'تعويضية' : 'لا توجد بصمات', 'color: #999;');
+             html += renderCell(
+               isLeaveDay ? leaveLabel : dayType === 'تعويضية' ? 'راحة' : dayType.startsWith('عطلة') ? 'عطلة' : 'غائب',
+               isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''
+             );
+             html += renderCell(
+               isLeaveDay ? leaveLabel : dayType === 'تعويضية' ? 'تعويضية' : 'لا توجد بصمات',
+               isLeaveDay ? 'color: #ea580c; font-weight: bold;' : 'color: #999;'
+             );
              html += `</tr>`;
              continue;
           }
@@ -440,6 +482,10 @@ export default function Timesheets() {
           else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
           
 
+          // ─── تكامل الإجازات: يوم إجازة أدى فيه الموظف دواماً → عرض الأوقات بالبرتقالي ───
+          const isLeaveOvertimeDay = hasLeaveOvertimeNote(rec.notes);
+          const leaveOvertimeColor = 'color: #ea580c; font-weight: bold;';
+
           const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48;' : '';
           const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
@@ -461,15 +507,15 @@ export default function Timesheets() {
               ${renderCell(verifyMethod)}
               ${renderCell(scheduleName)}
 
-              ${renderCell(inTime, inTimeColor, true)}
+              ${renderCell(inTime, isLeaveOvertimeDay ? leaveOvertimeColor : inTimeColor, true)}
               ${renderCell(leaveOutStr, '', true)}
               ${renderCell(leaveReturnStr, '', true)}
               ${renderCell(leaveOut2Str, '', true)}
               ${renderCell(leaveReturn2Str, '', true)}
-              ${renderCell(outTime, outTimeColor, true)}
-              ${renderCell(formatDurationDot(netMins), '', true)}
+              ${renderCell(outTime, isLeaveOvertimeDay ? leaveOvertimeColor : outTimeColor, true)}
+              ${renderCell(formatDurationDot(netMins), isLeaveOvertimeDay ? leaveOvertimeColor : '', true)}
               ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor, true)}
-              ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', overtimeColor, true)}
+              ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', isLeaveOvertimeDay ? leaveOvertimeColor : overtimeColor, true)}
               ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
               ${renderCell(cleanNotesText || '', 'font-size: 7.5px;')}
             </tr>
@@ -482,7 +528,7 @@ export default function Timesheets() {
                     إجمالي الصافي: ${formatDurationDot(group.totalWorkMins)} | 
                     إجمالي النقص: ${formatDurationDot(group.totalDeficit)} | 
                     إجمالي الإضافي: ${formatDurationDot(group.totalOvertime)} | 
-                    تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
+                    تأخير: ${group.lateCount} | غياب: ${group.absenceCount} | إجازات: ${group.leaveCount}
                   </td>
                 </tr>
               </tbody>
@@ -619,25 +665,27 @@ export default function Timesheets() {
             const isRest = dayType === 'تعويضية';
             const isHoliday = dayType.startsWith('عطلة');
             const isWorking = dayType === 'يوم عمل';
+            const isLeaveDay = rec.status === 'leave';
+            const leaveLabel = rec.leaveLabel || 'إجازة';
 
-            html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: ${isWorking ? '#fef2f2' : '#f8fafc'};">`;
+            html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: ${isWorking && !isLeaveDay ? '#fef2f2' : '#f8fafc'};">`;
             html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
             html += `<td style="${tdStyle}">${dayType}</td>`;
             html += `<td style="${tdStyle}">--</td>`;
             html += `<td style="${tdStyle}">${shiftInfo.label}</td>`;
             html += `<td style="${tdStyle}">--</td>`;
             html += `<td style="${tdStyle}">--</td>`;
-            html += `<td style="${tdNumStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdNumStyle} ${isWorking && !isLeaveDay ? 'color: #e11d48;' : isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
-            html += `<td style="${tdNumStyle} ${isWorking ? 'color: #e11d48;' : ''}">--:--</td>`;
+            html += `<td style="${tdNumStyle} ${isWorking && !isLeaveDay ? 'color: #e11d48;' : isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--</td>`;
             html += `<td style="${tdNumStyle}">--</td>`;
             html += `<td style="${tdNumStyle}">--</td>`;
-            html += `<td style="${tdStyle}">${isRest ? 'راحة' : isHoliday ? 'عطلة' : 'غائب'}</td>`;
-            html += `<td style="${tdStyle} font-size: 8px;">${isRest ? 'تعويضية' : 'لا توجد بصمات'}</td>`;
+            html += `<td style="${tdStyle} ${isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">${isLeaveDay ? leaveLabel : isRest ? 'راحة' : isHoliday ? 'عطلة' : 'غائب'}</td>`;
+            html += `<td style="${tdStyle} font-size: 8px; ${isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">${isLeaveDay ? leaveLabel : isRest ? 'تعويضية' : 'لا توجد بصمات'}</td>`;
             html += `</tr>`;
             continue;
         }
@@ -723,7 +771,7 @@ export default function Timesheets() {
                   إجمالي الصافي: ${formatDurationDot(group.totalWorkMins)} | 
                   إجمالي النقص: ${formatDurationDot(group.totalDeficit)} | 
                   إجمالي الإضافي: ${formatDurationDot(group.totalOvertime)} | 
-                  تأخير: ${group.lateCount} | غياب: ${group.absenceCount}
+                  تأخير: ${group.lateCount} | غياب: ${group.absenceCount} | إجازات: ${group.leaveCount}
                 </td>
               </tr>
             </tbody>
@@ -953,6 +1001,8 @@ export default function Timesheets() {
                           const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
                           
                           if (rec._isEmpty) {
+                              const isLeaveDay = rec.status === 'leave';
+                              const leaveLabel = rec.leaveLabel || 'إجازة';
                               return (
                                   <tr key={`empty-${i}`} className="border-b border-slate-100 dark:border-slate-800">
                                       <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
@@ -965,8 +1015,8 @@ export default function Timesheets() {
                                       <td className="px-3 py-3 text-sm">
                                         <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-xs">{shiftInfo.label}</span>
                                       </td>
-                                      <td colSpan={12} className="px-3 py-3 text-sm text-center text-slate-400">
-                                        {dayType === 'تعويضية' ? 'يوم استراحة تعويضية' : 'لا توجد بصمات'}
+                                      <td colSpan={12} className={`px-3 py-3 text-sm text-center ${isLeaveDay ? 'text-orange-600 font-bold' : 'text-slate-400'}`}>
+                                        {isLeaveDay ? `${leaveLabel} (يوم إجازة معتمدة)` : dayType === 'تعويضية' ? 'يوم استراحة تعويضية' : 'لا توجد بصمات'}
                                       </td>
                                   </tr>
                               );
@@ -1005,6 +1055,9 @@ export default function Timesheets() {
                             rec.notes.includes('بدون')
                           );
 
+                          // ─── تكامل الإجازات: يوم إجازة أدى فيه الموظف دواماً → عرض الأوقات بالبرتقالي ───
+                          const isLeaveOvertimeDay = hasLeaveOvertimeNote(rec.notes);
+
                           return (
                             <tr key={rec.id || i} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
@@ -1034,15 +1087,15 @@ export default function Timesheets() {
                                   )}
                                 </div>
                               </td>
-                              <td className={`px-3 py-3 font-mono ${unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{inTime}</td>
+                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{inTime}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveOutStr}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveReturnStr}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveOut2Str}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveReturn2Str}</td>
-                              <td className={`px-3 py-3 font-mono ${isForgotCheckout || unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
-                              <td className="px-3 py-3 font-bold text-blue-600">{formatDurationDot(netMins)}</td>
+                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : isForgotCheckout || unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
+                              <td className={`px-3 py-3 font-bold ${isLeaveOvertimeDay ? 'text-orange-600' : 'text-blue-600'}`}>{formatDurationDot(netMins)}</td>
                               <td className="px-3 py-3 font-bold text-rose-600">{deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
-                              <td className="px-3 py-3 font-bold text-emerald-600">{overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
+                              <td className={`px-3 py-3 font-bold ${isLeaveOvertimeDay ? 'text-orange-600' : 'text-emerald-600'}`}>{overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
                               <td className="px-3 py-3">
                                 <span className={`px-2 py-1 rounded text-xs ${
                                   rec.is_device_pending ? 'bg-red-100 text-red-800 border border-red-200' :
