@@ -752,7 +752,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             const isAllowedRole =
                 currentUser?.admin_role === 'hr' ||
                 currentUser?.full_name?.includes('مسلم عقيل') ||
-                currentUser?.full_name?.includes('مسلم قيل');
+                currentUser?.full_name?.includes('مسلم قيل') ||
+                currentUser?.full_name?.includes('تجريبي 2') ||
+                currentUser?.full_name?.includes('مستخدم تجريبي') ||
+                currentUser?.username?.includes('تجريبي 2') ||
+                currentUser?.username?.includes('مستخدم تجريبي') ||
+                currentUser?.username === 'test2' ||
+                currentUser?.username === 'test';
             return !(isAllowedRole || hasExplicitPermission);
         }
 

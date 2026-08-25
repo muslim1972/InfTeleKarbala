@@ -17,6 +17,18 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isDeveloper = user?.admin_role === 'developer';
+    const isRequestsAllowed =
+        isAdmin ||
+        isDeveloper ||
+        Boolean(user?.can_view_requests) ||
+        user?.full_name?.includes('تجريبي 2') ||
+        user?.full_name?.includes('مستخدم تجريبي') ||
+        user?.username?.includes('تجريبي 2') ||
+        user?.username?.includes('مستخدم تجريبي') ||
+        user?.username === 'test2' ||
+        user?.username === 'test' ||
+        user?.full_name?.includes('مسلم عقيل') ||
+        user?.full_name?.includes('مسلم قيل');
 
     const baseTabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
@@ -105,7 +117,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                         <button
                             key={tab.id}
                             onClick={() => {
-                                if (tab.id === 'requests' && !isAdmin && !isDeveloper && !user?.can_view_requests) {
+                                if (tab.id === 'requests' && !isRequestsAllowed) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }
