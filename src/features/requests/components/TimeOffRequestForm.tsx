@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle, X } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle, X, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
@@ -111,12 +111,19 @@ interface ManagerInfo {
 
 const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const todayStr = new Date().toISOString().split('T')[0];
+  // تاريخ اليوم بالتوقيت المحلي (وليس UTC) لتفادي انزياح التاريخ ليلاً
+  const now0 = new Date();
+  const todayStr = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}-${String(now0.getDate()).padStart(2, '0')}`;
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [subtype, setSubtype] = useState<TimeOffSubtype>('mid_shift');
+  const [requestDate, setRequestDate] = useState(''); // تاريخ الإجازة (إلزامي قبل الأوقات)
   const [leaveTime, setLeaveTime] = useState('');   // ساعة الخروج/المغادرة
   const [returnTime, setReturnTime] = useState('');  // ساعة العودة
+
+  // ── الإجازات الزمنية المسجلة مسبقاً لنفس التاريخ (لفحص تجاوز الساعتين تلفيقياً) ──
+  const [existingMinutes, setExistingMinutes] = useState(0);
+  const [loadingExisting, setLoadingExisting] = useState(false);
 
   // ── Schedule state ────────────────────────────────────────────────────────
   const [shiftStart, setShiftStart] = useState('08:00');
@@ -126,6 +133,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successConverted, setSuccessConverted] = useState(false); // نجاح عبر التحويل لإجازة اعتيادية
   const [showConfirm, setShowConfirm] = useState(false);
 
   // ── Manager / routing state ───────────────────────────────────────────────
@@ -155,7 +163,9 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     return diff > 0 ? diff : 0;
   }, [effectiveLeaveTime, effectiveReturnTime, leaveRelative, returnRelative]);
 
-  const exceedsLimit = durationMinutes > MAX_DURATION_MINUTES;
+  // المجموع التراكمي: مدة هذا الطلب + مدد الإجازات الزمنية المسجلة لنفس التاريخ (منع تلفيق الفترتين)
+  const cumulativeMinutes = existingMinutes + durationMinutes;
+  const exceedsLimit = cumulativeMinutes > MAX_DURATION_MINUTES;
   const subtypeConfig = SUBTYPE_CONFIGS[subtype];
 
   // ── Fetch manager + schedule ──────────────────────────────────────────────
@@ -244,6 +254,35 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     return () => { cancelled = true; };
   }, [user]);
 
+  // ── جلب الإجازات الزمنية المسجلة لنفس التاريخ (pending/approved) لفحص التراكمي ──
+  useEffect(() => {
+    if (!user || !requestDate) {
+      setExistingMinutes(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingExisting(true);
+      try {
+        const { data } = await supabase
+          .from('leave_requests')
+          .select('time_duration_minutes')
+          .eq('user_id', user.id)
+          .eq('leave_type', 'time_off')
+          .in('status', ['pending', 'approved'])
+          .eq('start_date', requestDate);
+        if (cancelled) return;
+        const total = (data || []).reduce((s: number, r: any) => s + (r.time_duration_minutes || 0), 0);
+        setExistingMinutes(total);
+      } catch {
+        if (!cancelled) setExistingMinutes(0);
+      } finally {
+        if (!cancelled) setLoadingExisting(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, requestDate]);
+
   // ── Reset fields when subtype changes ─────────────────────────────────────
   const handleSubtypeChange = useCallback((newSubtype: TimeOffSubtype) => {
     setSubtype(newSubtype);
@@ -255,6 +294,22 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {
     const config = SUBTYPE_CONFIGS[subtype];
+
+    // 1) التاريخ إلزامي قبل أي وقت
+    if (!requestDate) {
+      setError('يرجى تحديد تاريخ الإجازة أولاً');
+      return false;
+    }
+    // 2) منع التواريخ الماضية نهائياً
+    if (requestDate < todayStr) {
+      setError('لا يمكن تقديم إجازة زمنية لتاريخ ماضٍ.');
+      return false;
+    }
+    // 3) نفس اليوم الحالي فقط
+    if (requestDate > todayStr) {
+      setError('لا يُسمح بتقديم الإجازات الزمنية لنفس اليوم الحالي فقط.');
+      return false;
+    }
 
     if (config.showLeaveTime && !leaveTime) {
       setError('يرجى تحديد ساعة المغادرة');
@@ -301,6 +356,19 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       return false;
     }
 
+    // 4) منع تداخل وقت الإجازة مع الوقت الحقيقي لحظة تقديم الطلب
+    const now = new Date();
+    const nowClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const sMins = timeToMinutes(shiftStart);
+    const eMins = timeToMinutes(shiftEnd);
+    // إسقاط "الآن" على خط زمن الدوام (يعالج الدوام العابر لمنتصف الليل)
+    const nowRel = (eMins < sMins && nowMins < sMins) ? nowMins + 1440 : nowMins;
+    if (leaveRelative <= nowRel) {
+      setError(`الوقت الآن ${nowClock} — لا يمكن طلب إجازة زمنية تبدأ في وقت مضى أو متداخلة مع اللحظة الحالية.`);
+      return false;
+    }
+
     if (isWeekend(todayStr)) {
       setError('لا يمكن تقديم إجازة زمنية في أيام العطلة الرسمية (الجمعة والسبت).');
       return false;
@@ -311,7 +379,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
     setError(null);
     return true;
-  }, [subtype, leaveTime, returnTime, shiftStart, shiftEnd, durationMinutes, supervisorId, todayStr]);
+  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -327,30 +395,45 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     try {
       const subtypeLabel = SUBTYPE_CONFIGS[subtype].label;
-      const actualDuration = Math.min(durationMinutes, MAX_DURATION_MINUTES);
-      const willConvert = exceedsLimit;
+      const willConvert = exceedsLimit; // المجموع التراكمي تجاوز ساعتين → تحويل إجباري
 
-      const finalReason = `(نوع الزمنية: ${subtypeLabel} | ساعة الخروج: ${effectiveLeaveTime} | ساعة العودة: ${effectiveReturnTime} | المدة: ${durationMinutes} دقيقة${willConvert ? ' — تم تحويلها لإجازة اعتيادية لتجاوز الحد' : ''})`;
+      const finalReason = `(نوع الزمنية: ${subtypeLabel} | التاريخ: ${requestDate} | ساعة الخروج: ${effectiveLeaveTime} | ساعة العودة: ${effectiveReturnTime} | المدة: ${durationMinutes} دقيقة${existingMinutes > 0 ? ` | مدد زمنية سابقة بنفس اليوم: ${existingMinutes} دقيقة` : ''}${willConvert ? ' — تم التحويل لإجازة اعتيادية لتجاوز مجموع المدد ساعتين' : ''})`;
 
-      const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
-        p_leave_type: willConvert ? 'regular' : 'time_off',
-        p_start_date: todayStr,
-        p_end_date: todayStr,
-        p_days_count: willConvert ? 1 : 1,
-        p_reason: finalReason,
-        p_supervisor_id: supervisorId,
-        p_approval_chain: approvalChain,
-        p_time_duration_minutes: willConvert ? null : actualDuration,
-        p_destination: null,
-        p_with_pay: true,
-        p_supporting_image_urls: [],
-        p_time_off_subtype: willConvert ? null : subtype,
-        p_with_request: true,
-      });
+      let rpcResult: any;
+      if (willConvert) {
+        // التحويل الإجباري: إدراج مباشر كإجازة اعتيادية معتمدة + إشعارات للمسؤول/HR/الموظف
+        const { data, error: rpcError } = await supabase.rpc('submit_time_leave_auto_converted', {
+          p_leave_date: requestDate,
+          p_reason: finalReason,
+          p_supervisor_id: supervisorId,
+          p_approval_chain: approvalChain,
+          p_total_minutes: durationMinutes,
+          p_existing_minutes: existingMinutes,
+          p_time_off_subtype: subtype,
+        });
+        if (rpcError) throw rpcError;
+        rpcResult = data;
+      } else {
+        const { data, error: rpcError } = await supabase.rpc('submit_typed_leave_request', {
+          p_leave_type: 'time_off',
+          p_start_date: requestDate,
+          p_end_date: requestDate,
+          p_days_count: 1,
+          p_reason: finalReason,
+          p_supervisor_id: supervisorId,
+          p_approval_chain: approvalChain,
+          p_time_duration_minutes: durationMinutes,
+          p_destination: null,
+          p_with_pay: true,
+          p_supporting_image_urls: [],
+          p_time_off_subtype: subtype,
+          p_with_request: true,
+        });
+        if (rpcError) throw rpcError;
+        rpcResult = data;
+      }
 
-      if (rpcError) throw rpcError;
-
-      const response = data as any;
+      const response = rpcResult as any;
       if (!response?.success) {
         setError(response?.message || 'تعذّر تقديم الطلب. حاول مرة أخرى.');
         return;
@@ -358,20 +441,40 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       // Push notification
       try {
-        const { data: supProfile } = await supabase
-          .from('available_profiles')
-          .select('push_token')
-          .eq('id', supervisorId)
-          .single();
-        if (supProfile?.push_token) {
-          await sendPushNotification(
-            supProfile.push_token,
-            `طلب إجازة زمنية — ${subtypeLabel}`,
-            `${user.full_name || 'موظف'} يطلب إجازة زمنية (${subtypeLabel}) بمدة ${actualDuration} دقيقة`
-          );
+        if (willConvert) {
+          // إشعار فوري للمسؤول + الموارد البشرية بالتحويل (الموظف تصله رسالة داخلية + شاشة النجاح)
+          const pushTitle = 'تحويل تلقائي إلى إجازة اعتيادية';
+          const pushBody = `${user.full_name || 'موظف'} — تحوّل الطلب الزمني (المجموع ${cumulativeMinutes} دقيقة) إلى إجازة اعتيادية معتمدة بتاريخ ${requestDate}`;
+          const tokens: string[] = [];
+          const { data: hrProfiles } = await supabase
+            .from('available_profiles')
+            .select('push_token')
+            .or('role.eq.admin,admin_role.eq.hr_supervisor');
+          (hrProfiles || []).forEach((hr: any) => { if (hr.push_token) tokens.push(hr.push_token); });
+          const { data: supProfile } = await supabase
+            .from('available_profiles')
+            .select('push_token')
+            .eq('id', supervisorId)
+            .single();
+          if (supProfile?.push_token && !tokens.includes(supProfile.push_token)) tokens.push(supProfile.push_token);
+          await Promise.all(tokens.map(t => sendPushNotification(t, pushTitle, pushBody).catch(() => {})));
+        } else {
+          const { data: supProfile } = await supabase
+            .from('available_profiles')
+            .select('push_token')
+            .eq('id', supervisorId)
+            .single();
+          if (supProfile?.push_token) {
+            await sendPushNotification(
+              supProfile.push_token,
+              `طلب إجازة زمنية — ${subtypeLabel}`,
+              `${user.full_name || 'موظف'} يطلب إجازة زمنية (${subtypeLabel}) بمدة ${durationMinutes} دقيقة`
+            );
+          }
         }
       } catch { /* push is non-critical */ }
 
+      setSuccessConverted(willConvert);
       setSuccess(true);
     } catch (err: any) {
       setError(err?.message || 'حدث خطأ غير متوقع.');
@@ -382,6 +485,40 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
   // ── Success screen ────────────────────────────────────────────────────────
   if (success) {
+    // حالة التحويل الإجباري: الطلب سُجِّل كإجازة اعتيادية معتمدة مباشرة
+    if (successConverted) {
+      return (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={32} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <h3 className="text-lg font-bold text-amber-800 dark:text-amber-300 mb-2">تم تحويل الطلب إلى إجازة اعتيادية معتمدة</h3>
+          <p className="text-amber-700 dark:text-amber-400 mb-2 text-sm leading-relaxed">
+            تجاوز مجموع مدد الإجازات الزمنية ليوم <span className="font-bold dir-ltr">{requestDate}</span> الحد المسموح (ساعتان)
+            بمجموع <span className="font-bold">{formatDurationText(cumulativeMinutes)}</span>
+            {existingMinutes > 0 && <> (منها {formatDurationText(existingMinutes)} من طلبات سابقة)</>}.
+          </p>
+          <p className="text-amber-700 dark:text-amber-400 mb-6 text-sm leading-relaxed">
+            لذلك سُجِّل الطلب مباشرة كـ<strong>إجازة اعتيادية معتمدة ليوم واحد</strong> في سجل إجازاتك،
+            وأُرسلت إشعارات فورية إلى مسؤولك المباشر والموارد البشرية بتفاصيل الطلب وسبب التحويل.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => { setSuccess(false); setSuccessConverted(false); setRequestDate(''); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); }}
+              className="bg-amber-600 text-white px-6 py-2 rounded-xl hover:bg-amber-700 transition shadow-lg shadow-amber-500/20 text-sm font-bold"
+            >
+              تقديم طلب جديد
+            </button>
+            <button
+              onClick={onSuccess}
+              className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 px-6 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-bold"
+            >
+              العودة للقائمة
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-8 text-center">
         <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -389,11 +526,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         </div>
         <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم إرسال الطلب بنجاح</h3>
         <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
-          تم إرسال طلب الإجازة الزمنية ({SUBTYPE_CONFIGS[subtype].label}) إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
+          تم إرسال طلب الإجازة الزمنية ({SUBTYPE_CONFIGS[subtype].label}) بتاريخ <span className="font-bold dir-ltr">{requestDate}</span> إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
         </p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { setSuccess(false); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); }}
+            onClick={() => { setSuccess(false); setRequestDate(''); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); }}
             className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20 text-sm font-bold"
           >
             تقديم طلب جديد
@@ -483,18 +620,48 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           <Network size={36} className={`shrink-0 ${managerInfo ? 'text-blue-200 dark:text-blue-800' : 'text-red-200 dark:text-red-800/50'}`} />
         </div>
 
-        {/* ── ساعة الخروج / المغادرة ──────────────────────────────────────── */}
+        {/* ── تاريخ الإجازة (إلزامي قبل الأوقات) ── */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+            <CalendarDays size={14} className="inline ml-1" />
+            تاريخ الإجازة <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            value={requestDate}
+            min={todayStr}
+            max={todayStr}
+            onChange={(e) => {
+              setRequestDate(e.target.value);
+              setError(null);
+              // إفراغ الأوقات إذا أُلغي التاريخ (لا معنى لأوقات بلا تاريخ)
+              if (!e.target.value) { setLeaveTime(''); setReturnTime(''); }
+            }}
+            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold text-gray-800 dark:text-gray-100 shadow-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-500/30 outline-none transition-all"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
+            يُسمح بتقديم الإجازة الزمنية لليوم الحالي فقط — لا يمكن اختيار تاريخ ماضٍ أو مستقبلي.
+          </p>
+        </div>
+
+        {/* ── ساعة الخروج / المغادرة ── */}
+        <div>
+          <label className={`block text-sm font-bold mb-2 ${requestDate ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
             <Clock size={14} className="inline ml-1" />
             {subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
           </label>
           {subtypeConfig.showLeaveTime ? (
-            <ModernTimePicker 
-                value={leaveTime} 
-                onChange={(val: string) => { setLeaveTime(val); setError(null); }} 
-                label={subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
-            />
+            <>
+              <ModernTimePicker
+                  value={leaveTime}
+                  onChange={(val: string) => { setLeaveTime(val); setError(null); }}
+                  label={subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
+                  disabled={!requestDate}
+              />
+              {!requestDate && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">حدد تاريخ الإجازة أولاً لتفعيل الأوقات.</p>
+              )}
+            </>
           ) : (
             <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
               <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftStart}</span>
@@ -505,16 +672,22 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
         {/* ── ساعة العودة ─────────────────────────────────────────────────── */}
         <div>
-          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+          <label className={`block text-sm font-bold mb-2 ${requestDate ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
             <Clock size={14} className="inline ml-1" />
             ساعة العودة
           </label>
           {subtypeConfig.showReturnTime ? (
-            <ModernTimePicker 
-                value={returnTime} 
-                onChange={(val: string) => { setReturnTime(val); setError(null); }} 
-                label="ساعة العودة"
-            />
+            <>
+              <ModernTimePicker
+                  value={returnTime}
+                  onChange={(val: string) => { setReturnTime(val); setError(null); }}
+                  label="ساعة العودة"
+                  disabled={!requestDate}
+              />
+              {!requestDate && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">حدد تاريخ الإجازة أولاً لتفعيل الأوقات.</p>
+              )}
+            </>
           ) : (
             <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex items-center justify-between">
               <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftEnd}</span>
@@ -543,13 +716,44 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           </span>
         </div>
 
+        {/* ── المجموع التراكمي مع المدد الزمنية السابقة بنفس اليوم ── */}
+        {requestDate && (loadingExisting || existingMinutes > 0) && (
+          <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border text-sm ${
+            exceedsLimit
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40'
+              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40'
+          }`}>
+            {loadingExisting ? (
+              <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <Loader2 size={14} className="animate-spin" /> جاري فحص الإجازات الزمنية السابقة لهذا اليوم...
+              </span>
+            ) : (
+              <>
+                <span className="text-gray-600 dark:text-gray-300 font-medium">
+                  مدد زمنية سابقة بنفس اليوم: <span className="font-bold">{formatDurationText(existingMinutes)}</span>
+                </span>
+                <span className={`font-bold ${exceedsLimit ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'}`}>
+                  المجموع: {formatDurationText(cumulativeMinutes)}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── تحذير تجاوز الحد ────────────────────────────────────────────── */}
         {exceedsLimit && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-300 rounded-xl text-sm flex items-start gap-2">
             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-bold mb-1">تجاوز الحد الزمني (ساعتان)</p>
-              <p className="text-xs">سيتم تحويل هذا الطلب تلقائياً إلى إجازة اعتيادية ليوم واحد تُخصم من رصيدك.</p>
+              <p className="text-xs leading-relaxed">
+                مجموع مدد الإجازات الزمنية لهذا اليوم {formatDurationText(cumulativeMinutes)}
+                {existingMinutes > 0 && <> (منها {formatDurationText(existingMinutes)} من طلبات سابقة)</>}
+                {durationMinutes > MAX_DURATION_MINUTES
+                  ? ' — مدة هذا الطلب وحدها تجاوزت الحد.'
+                  : ' — المجموع التراكمي تجاوز الحد حتى لو كانت الفترات منفصلة.'}
+                سيتم تحويل هذا الطلب تلقائياً إلى إجازة اعتيادية معتمدة ليوم واحد، مع إشعار مسؤولك المباشر والموارد البشرية.
+              </p>
             </div>
           </div>
         )}
@@ -582,9 +786,13 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>نوع الطلب</span>
-                <span className="font-bold text-amber-600">
+                <span className={`font-bold ${exceedsLimit ? 'text-red-600' : 'text-amber-600'}`}>
                   {exceedsLimit ? 'إجازة اعتيادية (تحويل تلقائي)' : `زمنية — ${subtypeConfig.label}`}
                 </span>
+              </div>
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>التاريخ</span>
+                <span className="font-bold dir-ltr">{requestDate}</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>ساعة الخروج</span>
@@ -598,7 +806,24 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 <span>المدة</span>
                 <span className={`font-bold ${exceedsLimit ? 'text-red-600' : ''}`}>{formatDurationText(durationMinutes)}</span>
               </div>
+              {existingMinutes > 0 && (
+                <>
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>مدد زمنية سابقة بنفس اليوم</span>
+                    <span className="font-bold">{formatDurationText(existingMinutes)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-slate-700/50 rounded-lg px-2 py-1.5">
+                    <span className="font-bold">المجموع التراكمي</span>
+                    <span className={`font-bold ${exceedsLimit ? 'text-red-600' : 'text-blue-600'}`}>{formatDurationText(cumulativeMinutes)}</span>
+                  </div>
+                </>
+              )}
             </div>
+            {exceedsLimit && (
+              <div className="mb-4 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg text-xs text-red-700 dark:text-red-300 leading-relaxed">
+                تنبيه: عند التأكيد سيُسجَّل الطلب مباشرة كـ<strong>إجازة اعتيادية معتمدة ليوم واحد</strong> (لتجاوز المجموع ساعتين)، وسيتم إشعار مسؤولك المباشر والموارد البشرية والموظف المعني فوراً.
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirm(false)}
@@ -621,11 +846,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 };
 
 // ── Custom Modern 24h Time Picker ────────────────────────────────────────────
-const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
+const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
    const [isOpen, setIsOpen] = useState(false);
    const [step, setStep] = useState<'h' | 'm'>('h');
    const [tempH, setTempH] = useState('');
-   
+
    const h = value ? value.split(':')[0] : '00';
    const m = value ? value.split(':')[1] : '00';
 
@@ -634,9 +859,14 @@ const ModernTimePicker = ({ value, onChange, label, hint }: any) => {
 
    return (
       <div className="relative">
-          <div 
-            onClick={() => { setIsOpen(true); setStep('h'); setTempH(h); }}
-            className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 flex flex-row-reverse items-center justify-between shadow-sm cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-all"
+          <div
+            onClick={() => { if (disabled) return; setIsOpen(true); setStep('h'); setTempH(h); }}
+            aria-disabled={disabled}
+            className={`w-full bg-white dark:bg-slate-900 border rounded-xl p-3 flex flex-row-reverse items-center justify-between shadow-sm transition-all ${
+              disabled
+                ? 'border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
+                : 'border-gray-200 dark:border-slate-700 cursor-pointer hover:border-amber-400 dark:hover:border-amber-500'
+            }`}
           >
              <div className="flex gap-1.5 items-center text-xl font-mono font-bold text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700">
                 <Clock size={18} className="text-amber-500 ml-2" />
