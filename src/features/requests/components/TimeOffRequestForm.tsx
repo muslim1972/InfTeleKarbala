@@ -128,6 +128,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Schedule state ────────────────────────────────────────────────────────
   const [shiftStart, setShiftStart] = useState('08:00');
   const [shiftEnd, setShiftEnd] = useState('15:00');
+  const [workScheduleId, setWorkScheduleId] = useState<string | null>(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
@@ -182,23 +183,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           .eq('id', user.id)
           .single();
 
-        // Load work schedule
-        if (profile?.work_schedule_id) {
-          const dayOfWeek = new Date().getDay();
-          const { data: scheduleDay } = await supabase
-            .from('work_schedule_days')
-            .select('start_time, end_time')
-            .eq('schedule_id', profile.work_schedule_id)
-            .eq('day_of_week', dayOfWeek)
-            .single();
-
-          if (scheduleDay?.start_time && scheduleDay?.end_time) {
-            if (!cancelled) {
-              setShiftStart(scheduleDay.start_time.substring(0, 5));
-              setShiftEnd(scheduleDay.end_time.substring(0, 5));
-            }
-          }
-        }
+        // حفظ معرف الدوام — أوقات اليوم تُحمَّل عبر effect مستقل (حسب التاريخ المختار)
+        if (!cancelled) setWorkScheduleId(profile?.work_schedule_id ?? null);
 
         if (!profile?.department_id || cancelled) return;
 
@@ -254,6 +240,30 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     return () => { cancelled = true; };
   }, [user]);
 
+  // ── تحميل أوقات دوام يوم الطلب (تختلف بين أيام الأسبوع) ──────────────────
+  useEffect(() => {
+    if (!workScheduleId) return;
+    const targetDate = requestDate || todayStr; // بلا تاريخ → دوام اليوم الحالي
+    const dayOfWeek = new Date(targetDate).getDay();
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: scheduleDay } = await supabase
+          .from('work_schedule_days')
+          .select('start_time, end_time')
+          .eq('schedule_id', workScheduleId)
+          .eq('day_of_week', dayOfWeek)
+          .maybeSingle(); // يوم الراحة = لا صف
+        if (cancelled) return;
+        if (scheduleDay?.start_time && scheduleDay?.end_time) {
+          setShiftStart(scheduleDay.start_time.substring(0, 5));
+          setShiftEnd(scheduleDay.end_time.substring(0, 5));
+        }
+      } catch { /* الإبقاء على الدوام الحالي عند الفشل */ }
+    })();
+    return () => { cancelled = true; };
+  }, [workScheduleId, requestDate, todayStr]);
+
   // ── جلب الإجازات الزمنية المسجلة لنفس التاريخ (pending/approved) لفحص التراكمي ──
   useEffect(() => {
     if (!user || !requestDate) {
@@ -300,14 +310,9 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       setError('يرجى تحديد تاريخ الإجازة أولاً');
       return false;
     }
-    // 2) منع التواريخ الماضية نهائياً
+    // 2) منع التواريخ الماضية نهائياً (اليوم الحالي والأيام القادمة مسموحة)
     if (requestDate < todayStr) {
       setError('لا يمكن تقديم إجازة زمنية لتاريخ ماضٍ.');
-      return false;
-    }
-    // 3) نفس اليوم الحالي فقط
-    if (requestDate > todayStr) {
-      setError('لا يُسمح بتقديم الإجازات الزمنية لنفس اليوم الحالي فقط.');
       return false;
     }
 
@@ -356,21 +361,24 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       return false;
     }
 
-    // 4) منع تداخل وقت الإجازة مع الوقت الحقيقي لحظة تقديم الطلب
-    const now = new Date();
-    const nowClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const sMins = timeToMinutes(shiftStart);
-    const eMins = timeToMinutes(shiftEnd);
-    // إسقاط "الآن" على خط زمن الدوام (يعالج الدوام العابر لمنتصف الليل)
-    const nowRel = (eMins < sMins && nowMins < sMins) ? nowMins + 1440 : nowMins;
-    if (leaveRelative <= nowRel) {
-      setError(`الوقت الآن ${nowClock} — لا يمكن طلب إجازة زمنية تبدأ في وقت مضى أو متداخلة مع اللحظة الحالية.`);
-      return false;
+    // 4) منع تداخل وقت الإجازة مع الوقت الحقيقي — لطلبات اليوم الحالي فقط
+    //    (الأيام القادمة لم تحدث بعد، فلا معنى لفحصها ضد "الآن")
+    if (requestDate === todayStr) {
+      const now = new Date();
+      const nowClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const sMins = timeToMinutes(shiftStart);
+      const eMins = timeToMinutes(shiftEnd);
+      // إسقاط "الآن" على خط زمن الدوام (يعالج الدوام العابر لمنتصف الليل)
+      const nowRel = (eMins < sMins && nowMins < sMins) ? nowMins + 1440 : nowMins;
+      if (leaveRelative <= nowRel) {
+        setError(`الوقت الآن ${nowClock} — لا يمكن طلب إجازة زمنية لليوم تبدأ في وقت مضى أو متداخلة مع اللحظة الحالية.`);
+        return false;
+      }
     }
 
-    if (isWeekend(todayStr)) {
-      setError('لا يمكن تقديم إجازة زمنية في أيام العطلة الرسمية (الجمعة والسبت).');
+    if (isWeekend(requestDate)) {
+      setError('تاريخ الإجازة المحدد يقع في أيام العطلة الرسمية (الجمعة والسبت) — اختر يوماً آخر.');
       return false;
     }
     if (!supervisorId) {
@@ -630,17 +638,17 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             type="date"
             value={requestDate}
             min={todayStr}
-            max={todayStr}
             onChange={(e) => {
               setRequestDate(e.target.value);
               setError(null);
-              // إفراغ الأوقات إذا أُلغي التاريخ (لا معنى لأوقات بلا تاريخ)
-              if (!e.target.value) { setLeaveTime(''); setReturnTime(''); }
+              // إفراغ الأوقات عند تغيير/إلغاء التاريخ (الدوام قد يختلف بين الأيام)
+              setLeaveTime('');
+              setReturnTime('');
             }}
             className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold text-gray-800 dark:text-gray-100 shadow-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-500/30 outline-none transition-all"
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
-            يُسمح بتقديم الإجازة الزمنية لليوم الحالي فقط — لا يمكن اختيار تاريخ ماضٍ أو مستقبلي.
+            يُسمح بتقديم الإجازة الزمنية لليوم الحالي أو الأيام القادمة — لا يمكن اختيار تاريخ ماضٍ.
           </p>
         </div>
 
