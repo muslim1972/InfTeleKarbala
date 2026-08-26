@@ -129,10 +129,19 @@ export function toDateStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-/** هل يغطي الطلب التاريخ المحدد؟ (يعامل end_date الفارغ كبداية) */
+/**
+ * هل يغطي الطلب التاريخ المحدد؟
+ * دلالة end_date في قاعدة البيانات هي «يوم المباشرة المتوقعة» (خارج الإجازة):
+ * نموذج الطلب يحسبها (البداية + عدد الأيام) ثم يدفعها بعد الجمعة/السبت/الأعياد،
+ * لذا تكون الحدود حصرية (دون يوم المباشرة) متى تجاوزت يوم البداية.
+ * أما إن ساوت يوم البداية أو كانت فارغة فالإجازة يوم واحد (كالزمنية والواجب والإيفاد).
+ */
 export function coversDate(req: LeaveRequestLite, dateStr: string): boolean {
-  const end = req.end_date || req.start_date;
-  return req.start_date <= dateStr && dateStr <= end;
+  if (dateStr < req.start_date) return false;
+  if (req.end_date && req.end_date > req.start_date) {
+    return dateStr < req.end_date;
+  }
+  return dateStr === req.start_date;
 }
 
 /** دمج ملاحظة جديدة مع الملاحظات الحالية دون تكرار */

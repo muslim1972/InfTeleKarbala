@@ -709,7 +709,7 @@ export default function AttendanceCheckInOut({
           <div>
             <p className="font-bold text-orange-800 dark:text-orange-300">{leaveCtx.dayLeave.warningMessage}</p>
             <p className="text-sm mt-1 text-orange-700/90 dark:text-orange-400/90 leading-relaxed">
-              إن ثبتت بصمة الحضور اليوم سيُحتسب الدوام «دواماً إضافياً في يوم إجازة» وتظهر أوقاتك باللون البرتقالي في التقارير.
+              إن ثبتت بصمة الحضور اليوم سيُحتسب الدوام «دواماً إضافياً في يوم إجازة».
             </p>
           </div>
         </motion.div>
@@ -720,7 +720,7 @@ export default function AttendanceCheckInOut({
         <div className="rounded-2xl border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/40 p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
           <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
-            دوام اليوم مسجَّل كدوام إضافي في يوم إجازتك وسيظهر باللون البرتقالي في التقارير.
+            دوام اليوم مسجَّل كدوام إضافي في يوم إجازتك.
           </p>
         </div>
       )}
@@ -978,23 +978,6 @@ export default function AttendanceCheckInOut({
             )}
           </div>
         )}
-        
-        {/* Debug Camera Button */}
-        <button
-          onClick={async () => {
-            try {
-              alert(`Secure Context: ${window.isSecureContext}\nMediaDevices: ${!!navigator.mediaDevices}\nUserAgent: ${navigator.userAgent}`);
-              if (!navigator.mediaDevices) return alert("navigator.mediaDevices is undefined");
-              await navigator.mediaDevices.getUserMedia({ video: true });
-              alert("نجح فتح الكاميرا في الفحص المبدئي!");
-            } catch (e: any) {
-              alert(`فشل الفحص:\nName: ${e.name}\nMessage: ${e.message}`);
-            }
-          }}
-          className="mt-4 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
-        >
-          فحص الكاميرا (للمطور)
-        </button>
       </motion.div>
 
       {/* ========== Custom Alert Modal (Unverified Registration) ========== */}

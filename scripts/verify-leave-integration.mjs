@@ -12,8 +12,10 @@ const LEAVE_OVERTIME_NOTE_PREFIX = 'دوام إضافي في يوم إجازة';
 
 function isRequestedLeave(req) { return req.with_request !== false; }
 function coversDate(req, dateStr) {
-  const end = req.end_date || req.start_date;
-  return req.start_date <= dateStr && dateStr <= end;
+  // دلالة end_date في قاعدة البيانات: يوم المباشرة (حصري) متى تجاوز البداية، وإلا يوم واحد
+  if (dateStr < req.start_date) return false;
+  if (req.end_date && req.end_date > req.start_date) return dateStr < req.end_date;
+  return dateStr === req.start_date;
 }
 function mergeNote(existing, addition) {
   if (!existing) return addition;
@@ -79,6 +81,12 @@ check('coversDate: يوم قبل النطاق', coversDate({ start_date: '2026-0
 check('coversDate: يوم بعد النطاق', coversDate({ start_date: '2026-08-10', end_date: '2026-08-15' }, '2026-08-16') === false);
 check('coversDate: end_date فارغ = يوم واحد', coversDate({ start_date: '2026-08-10', end_date: null }, '2026-08-10') === true);
 check('coversDate: end_date فارغ يستثني اليوم التالي', coversDate({ start_date: '2026-08-10', end_date: null }, '2026-08-11') === false);
+// دلالة end_date = يوم المباشرة (حصري) — انحدار حالة الإصلاح
+check('إجازة يوم واحد (26→27): يوم الإجازة نفسه مغطى', coversDate({ start_date: '2026-08-26', end_date: '2026-08-27' }, '2026-08-26') === true);
+check('إجازة يوم واحد (26→27): يوم المباشرة 27 غير مغطى (الخلل المصحَّح)', coversDate({ start_date: '2026-08-26', end_date: '2026-08-27' }, '2026-08-27') === false);
+check('إجازة 3 أيام (26→29): اليومان الأوسطان مغطيان', coversDate({ start_date: '2026-08-26', end_date: '2026-08-29' }, '2026-08-27') === true && coversDate({ start_date: '2026-08-26', end_date: '2026-08-29' }, '2026-08-28') === true);
+check('إجازة 3 أيام (26→29): يوم المباشرة 29 غير مغطى', coversDate({ start_date: '2026-08-26', end_date: '2026-08-29' }, '2026-08-29') === false);
+check('end_date = البداية (زمنية/واجب/إيفاد): يوم واحد فقط', coversDate({ start_date: '2026-08-26', end_date: '2026-08-26' }, '2026-08-26') === true && coversDate({ start_date: '2026-08-26', end_date: '2026-08-26' }, '2026-08-27') === false);
 
 console.log('═══ 2) السيناريو الثاني: الإجازة الزمنية (mid_shift) ═══');
 const mid = [{ id: '1', leaveType: 'time_off', subtype: 'mid_shift', minutes: 60 }];
