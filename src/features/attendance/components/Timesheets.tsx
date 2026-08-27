@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { supabase } from '../../../lib/supabase';
 import { computeWorkedMinutes, formatDurationArabic, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
@@ -190,14 +190,6 @@ export default function Timesheets() {
       expectedOut
     };
   }, [workSchedules]);
-
-  const getExpectedCheckoutTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
-    return getShiftInfo(empScheduleId, dateStr).expectedOut;
-  }, [getShiftInfo]);
-
-  const getExpectedCheckinTime = useCallback((empScheduleId: string | undefined, dateStr: string) => {
-    return getShiftInfo(empScheduleId, dateStr).expectedIn;
-  }, [getShiftInfo]);
 
   const getDayTypeStr = useCallback((dateObj: Date, schedule: any) => {
     const isRoster = schedule?.type === 'roster';
@@ -616,7 +608,7 @@ export default function Timesheets() {
             await new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
 
             const canvas = await html2canvas(holder, {
-              scale: 2,
+              scale: EXPORT_SCALE,
               useCORS: true,
               logging: false,
               backgroundColor: '#ffffff',
@@ -701,41 +693,38 @@ export default function Timesheets() {
       html += `</div>`;
 
       const opt = {
-          margin: [5, 5, 5, 5], // mm (top, left, bottom, right)
+          margin: [5, 5, 5, 5] as [number, number, number, number], // mm (top, left, bottom, right)
           filename: `جدول_الحضور_والانصراف_${month}_${year}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-              scale: 2, 
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: {
+              scale: 2,
               useCORS: true,
               logging: false,
               windowWidth: 1050
           },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' as const },
           enableLinks: true,
           pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
       };
 
       const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf()
-        .set(opt)
-        .from(html)
-        .toPdf()
-        .get('pdf')
-        .then((pdf: any) => {
-          const totalPages = pdf.internal.getNumberOfPages();
-          for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            pdf.setFontSize(10);
-            pdf.setTextColor(100);
-            pdf.text(
-              `${i} / ${totalPages}`, 
-              pdf.internal.pageSize.getWidth() / 2, 
-              pdf.internal.pageSize.getHeight() - 5, 
-              { align: 'center' }
-            );
-          }
-        })
-        .save();
+      // نمط Worker: الاحتفاظ بمرجع السلسلة قبل await — لأن await على .then()
+      // يُعيد Promise<void> يفقد توابع الـWorker مثل .save() (خطأ TS2339)
+      const worker = html2pdf().set(opt).from(html).toPdf();
+      const pdf: any = await worker.get('pdf');
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(10);
+        pdf.setTextColor(100);
+        pdf.text(
+          `${i} / ${totalPages}`,
+          pdf.internal.pageSize.getWidth() / 2,
+          pdf.internal.pageSize.getHeight() - 5,
+          { align: 'center' }
+        );
+      }
+      await worker.save();
 
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
@@ -943,40 +932,37 @@ export default function Timesheets() {
       html += `</div>`;
 
       const opt = {
-          margin: [5, 5, 5, 5],
+          margin: [5, 5, 5, 5] as [number, number, number, number],
           filename: `جدول_حضور_${group.employee.full_name}_${month}_${year}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-              scale: 2, 
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: {
+              scale: 2,
               useCORS: true,
               logging: false,
               windowWidth: 1050
           },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' as const },
           pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
       };
 
       const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf()
-        .set(opt)
-        .from(html)
-        .toPdf()
-        .get('pdf')
-        .then((pdf: any) => {
-          const totalPages = pdf.internal.getNumberOfPages();
-          for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            pdf.setFontSize(10);
-            pdf.setTextColor(100);
-            pdf.text(
-              `${i} / ${totalPages}`, 
-              pdf.internal.pageSize.getWidth() / 2, 
-              pdf.internal.pageSize.getHeight() - 5, 
-              { align: 'center' }
-            );
-          }
-        })
-        .save();
+      // نمط Worker: الاحتفاظ بمرجع السلسلة قبل await — لأن await على .then()
+      // يُعيد Promise<void> يفقد توابع الـWorker مثل .save() (خطأ TS2339)
+      const worker = html2pdf().set(opt).from(html).toPdf();
+      const pdf: any = await worker.get('pdf');
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(10);
+        pdf.setTextColor(100);
+        pdf.text(
+          `${i} / ${totalPages}`,
+          pdf.internal.pageSize.getWidth() / 2,
+          pdf.internal.pageSize.getHeight() - 5,
+          { align: 'center' }
+        );
+      }
+      await worker.save();
 
       toast.success('تم تصدير الملف بنجاح', { id: toastId });
     } catch (err: any) {
