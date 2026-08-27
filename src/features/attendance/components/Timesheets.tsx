@@ -570,15 +570,37 @@ export default function Timesheets() {
         holder.style.cssText = 'position: absolute; top: 0; left: -11000px; width: 1050px; background: #ffffff; margin: 0;';
         document.body.appendChild(holder);
 
+        // ─── إصلاح التباطؤ التصاعدي (كان 5 ثوانٍ للموظف الأول → 3 دقائق عند الموظف 250) ───
+        // السبب الجذري 1 (الأهم — تسرب ذاكرة): كل موظف يخصص كانفس بظهر ~12MB، والمتصفح
+        //   يؤجل تحرير الظهور حتى GC، فتتراكم غيغابايتات عند مئات الموظفين → اختناق GC
+        //   وتباطؤ تصاعدي وتجمد شبه كامل. العلاج: تصفير width/height بعد كل استخدام =
+        //   تحرير فوري وحتمي لظهر الكانفس (لا ننتظر GC إطلاقاً).
+        // السبب 2 (كلفة ثابتة عالية): html2canvas يستنسخ كامل مستند الصفحة (واجهة التطبيق
+        //   بجداولها الضخمة) في كل استدعاء. العلاج: ignoreElements لاستنساخ holder وسلسلة
+        //   أسلافه فقط → زمن ثابت ومنخفض لكل موظف.
+        // السبب 3 (كلفة مخفية في jsPDF): addImage بلا alias يجعل jsPDF يحسب hash حرفاً
+        //   بحرف على نص base64 كامل (~1MB) لكل صورة. العلاج: alias فريد قصير لكل صفحة.
+        const keepForClone = new Set<Element>([
+          document.documentElement, document.head, document.body, holder,
+        ]);
+        const ignoreExceptHolder = (el: Element) =>
+          !(keepForClone.has(el) || holder.contains(el));
+
+        const total = groupedData.length;
+        const t0 = performance.now();
+
         try {
-          for (let i = 0; i < groupedData.length; i++) {
+          for (let i = 0; i < total; i++) {
+            const recStart = performance.now();
             const group = groupedData[i];
             toast.loading(
-              `جاري التصدير: الموظف ${i + 1} من ${groupedData.length} — ${group.employee.full_name}`,
+              `جاري التصدير: الموظف ${i + 1} من ${total} — ${group.employee.full_name}`,
               { id: toastId }
             );
 
             // 0 = بلا فاصل صفحات (كل موظف يُرسم وحده ويبدأ صفحة PDF جديدة أدناه)
+            // ملاحظة: لا يوجد أي استعلام قاعدة بيانات داخل الحلقة — كل البيانات مقروءة
+            // مسبقاً في groupedData (جلب واحد قبل التصدير، وSupabase بلا اتصالات دائمة)
             holder.innerHTML = buildEmployeeHtml(group, 0);
 
             // انتظار إطارين لضمان اكتمال التخطيط قبل الالتقاط
@@ -590,20 +612,25 @@ export default function Timesheets() {
               logging: false,
               backgroundColor: '#ffffff',
               windowWidth: 1050,
+              // استنساخ holder فقط دون واجهة التطبيق → ثبات زمن كل موظف
+              ignoreElements: ignoreExceptHolder,
             });
 
             // إضافة الكانفس للـPDF مع تقطيعه إن تجاوز صفحة (نادر — التصميم يتسع بصفحة واحدة)
             const pxPerMm = canvas.width / contentW;
             const sliceHpx = Math.floor(contentH * pxPerMm);
             let y = 0;
+            let sliceIdx = 0;
             while (y < canvas.height) {
               const h = Math.min(sliceHpx, canvas.height - y);
               let pageCanvas: HTMLCanvasElement = canvas;
+              let isTempSlice = false;
               if (h < canvas.height) {
                 pageCanvas = document.createElement('canvas');
                 pageCanvas.width = canvas.width;
                 pageCanvas.height = h;
                 pageCanvas.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+                isTempSlice = true;
               }
               if (!(y === 0 && i === 0)) pdf.addPage('a4', 'landscape');
               pdf.addImage(
@@ -613,12 +640,27 @@ export default function Timesheets() {
                 margin,
                 contentW,
                 h / pxPerMm,
-                undefined,
+                `emp${i}_p${sliceIdx}`,
                 'FAST'
               );
+              // تحرير فوري لأي شريحة مؤقتة
+              if (isTempSlice) { pageCanvas.width = 0; pageCanvas.height = 0; }
               y += h;
+              sliceIdx++;
             }
+
+            // تحرير فوري وحتمي لظهر الكانفس الرئيسي (~12MB) — جوهر إصلاح التسرب
+            canvas.width = 0;
+            canvas.height = 0;
             holder.innerHTML = '';
+
+            // إتاحة حلقة الأحداث بين الموظفين: واجهة سلسة + فرصة GC
+            await new Promise((r) => setTimeout(r, 0));
+
+            // قياس زمن كل سجل (Console) للتحقق من ثبات الأداء عبر كامل العملية
+            const perRec = ((performance.now() - recStart) / 1000).toFixed(1);
+            const elapsedMin = ((performance.now() - t0) / 60000).toFixed(1);
+            console.info(`[تصدير PDF] موظف ${i + 1}/${total}: ${perRec} ث | إجمالي منذ البداية: ${elapsedMin} د`);
           }
         } finally {
           document.body.removeChild(holder);
