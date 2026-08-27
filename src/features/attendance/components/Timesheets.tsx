@@ -351,13 +351,11 @@ export default function Timesheets() {
       const lastDay = new Date(year, month, 0).getDate();
       const printDate = new Date().toLocaleDateString('en-GB');
 
-      let html = `
-        <div style="direction: rtl; font-family: 'Cairo', 'Tajawal', 'Segoe UI', Tahoma, sans-serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
-      `;
-
-      for (let i = 0; i < groupedData.length; i++) {
-        const group = groupedData[i];
+      // باني HTML لصفحة موظف واحد — يُستخدم في مسار الموظف الواحد (html2pdf)
+      // ومسار الدفعة الكبيرة (jsPDF مباشرة) لضمان تطابق المخرجات 100%
+      const buildEmployeeHtml = (group: any, i: number): string => {
         const pageBreakStyle = i > 0 ? 'page-break-before: always; padding-top: 10px;' : '';
+        let html = '';
 
         html += `
           <div style="${pageBreakStyle}">
@@ -543,6 +541,110 @@ export default function Timesheets() {
             </table>
           </div>
         `;
+        return html;
+      };
+
+      // ===== مسار الدفعة الكبيرة (أكثر من موظف واحد) =====
+      // السبب الجذري للصفحات البيضاء سابقاً: html2pdf يرسم المستند كله في كانفس واحد ضخم،
+      // والكانفس في المتصفح له حدود قصوى (نحو 268 مليون بكسل مساحةً وطول <= 32767px).
+      // 355 موظفاً = كانفس بنحو 983 مليون بكسل → فشل تخصيص صامت → كانفس فارغ → صفحات بيضاء.
+      // الحل: html2canvas لكل موظف على حدة (كانفس ~3 ملايين بكسل فقط) + بناء PDF مباشرة بـ jsPDF.
+      if (groupedData.length > 1) {
+        const [{ jsPDF: JsPDF }, html2canvasMod] = await Promise.all([
+          import('jspdf'),
+          import('html2canvas'),
+        ]);
+        const html2canvas: (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement> =
+          (html2canvasMod as any).default ?? html2canvasMod;
+
+        const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const margin = 5;
+        const contentW = pageW - margin * 2;
+        const contentH = pageH - margin * 2;
+
+        // حاوية مخفية خارج الشاشة بنفس عرض windowWidth المعتمد سابقاً (1050px)
+        const holder = document.createElement('div');
+        holder.setAttribute('dir', 'rtl');
+        holder.style.cssText = 'position: absolute; top: 0; left: -11000px; width: 1050px; background: #ffffff; margin: 0;';
+        document.body.appendChild(holder);
+
+        try {
+          for (let i = 0; i < groupedData.length; i++) {
+            const group = groupedData[i];
+            toast.loading(
+              `جاري التصدير: الموظف ${i + 1} من ${groupedData.length} — ${group.employee.full_name}`,
+              { id: toastId }
+            );
+
+            // 0 = بلا فاصل صفحات (كل موظف يُرسم وحده ويبدأ صفحة PDF جديدة أدناه)
+            holder.innerHTML = buildEmployeeHtml(group, 0);
+
+            // انتظار إطارين لضمان اكتمال التخطيط قبل الالتقاط
+            await new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+
+            const canvas = await html2canvas(holder, {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff',
+              windowWidth: 1050,
+            });
+
+            // إضافة الكانفس للـPDF مع تقطيعه إن تجاوز صفحة (نادر — التصميم يتسع بصفحة واحدة)
+            const pxPerMm = canvas.width / contentW;
+            const sliceHpx = Math.floor(contentH * pxPerMm);
+            let y = 0;
+            while (y < canvas.height) {
+              const h = Math.min(sliceHpx, canvas.height - y);
+              let pageCanvas: HTMLCanvasElement = canvas;
+              if (h < canvas.height) {
+                pageCanvas = document.createElement('canvas');
+                pageCanvas.width = canvas.width;
+                pageCanvas.height = h;
+                pageCanvas.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+              }
+              if (!(y === 0 && i === 0)) pdf.addPage('a4', 'landscape');
+              pdf.addImage(
+                pageCanvas.toDataURL('image/jpeg', 0.98),
+                'JPEG',
+                margin,
+                margin,
+                contentW,
+                h / pxPerMm,
+                undefined,
+                'FAST'
+              );
+              y += h;
+            }
+            holder.innerHTML = '';
+          }
+        } finally {
+          document.body.removeChild(holder);
+        }
+
+        // ترقيم الصفحات بنفس أسلوب المسار الآخر
+        const totalPages = pdf.getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+          pdf.setPage(p);
+          pdf.setFontSize(10);
+          pdf.setTextColor(100);
+          pdf.text(`${p} / ${totalPages}`, pageW / 2, pageH - 5, { align: 'center' });
+        }
+
+        await pdf.save(`جدول_الحضور_والانصراف_${month}_${year}.pdf`);
+        toast.success('تم تصدير الملف بنجاح', { id: toastId });
+        return;
+      }
+
+      // ===== مسار الموظف الواحد: html2pdf كما هو — مثبت ويعمل 100% =====
+      let html = `
+        <div style="direction: rtl; font-family: 'Cairo', 'Tajawal', 'Segoe UI', Tahoma, sans-serif; color: black; background: white; width: 1030px; margin: 0 auto; padding: 0 10px; box-sizing: border-box;">
+      `;
+
+      for (let i = 0; i < groupedData.length; i++) {
+        html += buildEmployeeHtml(groupedData[i], i);
       }
 
       html += `</div>`;
