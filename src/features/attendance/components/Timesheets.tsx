@@ -380,39 +380,41 @@ export default function Timesheets() {
             <table style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; margin-bottom: 3px;">
               <thead>
                 <tr style="background-color: #f3f4f6; color: #111827;">
-                  <th style="border: 1px solid #d1d5db; width: 72px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">التاريخ واليوم</th>
-                  <th style="border: 1px solid #d1d5db; width: 48px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">نوع اليوم</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">التحقق</th>
-                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">الدوام</th>
+                  <th style="border: 1px solid #d1d5db; width: 72px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">التاريخ واليوم</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 48px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">نوع اليوم</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">التحقق</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">الدوام</span></th>
 
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">دخول</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 1</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 1</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 2</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 2</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">خروج</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">الصافي</th>
-                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">النقص</th>
-                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">الإضافي</th>
-                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">الحالة</th>
-                  <th style="border: 1px solid #d1d5db; height: 18px; line-height: 20px; font-size: 8px; font-weight: bold; padding: 0;">الملاحظات</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">دخول</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">ب. راحة 1</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">ع. راحة 1</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">ب. راحة 2</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">ع. راحة 2</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">خروج</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">الصافي</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">النقص</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">الإضافي</span></th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">الحالة</span></th>
+                  <th style="border: 1px solid #d1d5db; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;"><span style="position: relative; top: -1px;">الملاحظات</span></th>
                 </tr>
               </thead>
               <tbody>
         `;
 
         const ROW_H = '17px';
-        // line-height أكبر من ارتفاع الصف: html2canvas يرسم النص منزاحاً للأسفل داخل خلايا الجدول
-        // (معادلة قياس الخط الداخلية فيه تُورّث line-height الصفحة فيتضخم البعد للـbaseline).
-        // زيادة line-height ترفع صندوق السطر للأعلى (يتمركز متمدداً) فترفع النص معها —
-        // الميل المؤكد بالتجربة: كل 2px تغيير في line-height يحرك النص 1px رأسياً.
-        // ارتفاع الصف ثابت لا يتأثر (height + overflow hidden).
-        const LINE_H = '21px';
+        // تحذير جوهري: في جداول CSS قيمة height للخلية حد أدنى فقط — أي line-height أكبر
+        // من ارتفاع الصف (محاولة سابقة: 21px) يُنمّي كل صف فعلياً 17→21px فينزل يوم 30 و31
+        // إلى صفحة ثانية، وoverflow:hidden لا يمنع هذا النمو.
+        // الحل: line-height يبقى = ارتفاع الصف (17px) فيثبت الجدول بصفحة واحدة، ورفع النص
+        // نحو المركز يتم بإزاحة relative على span شفاف يحيط بالنص وحده — html2canvas يرسم
+        // النص من إحداثيات getClientRects الحقيقية فتُنقل الإزاحة النصَ 1:1 (كل 1px = 1px)
+        // دون أي تأثير على ارتفاع الخلية. (الرفع المعتمد: 2px — يعادل تأثير lh=21px السابق).
+        const TEXT_LIFT = '2px';
         const renderCell = (content: string, extraCss = '', isNumber = false) => {
           const fontCss = isNumber
             ? `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`
             : `font-family: Arial, 'Segoe UI', Tahoma, sans-serif; font-size: 8.5px; font-weight: bold;`;
-          return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${LINE_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
+          return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${ROW_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}"><span style="position: relative; top: -${TEXT_LIFT};">${content}</span></td>`;
         };
 
         for (const rec of group.records) {
