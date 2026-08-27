@@ -586,6 +586,15 @@ export default function Timesheets() {
         const ignoreExceptHolder = (el: Element) =>
           !(keepForClone.has(el) || holder.contains(el));
 
+        // ─── إعدادات ضغط مخرجات الدفعة الكبيرة ───
+        // المشكلة: 355 صفحة × 718KB (scale 2 + جودة 0.98) = 255MB.
+        // الحل المعتمد: scale 1.6 (≈149DPI بدل 186) + جودة JPEG 0.85 → متوقع ~50MB (خفض ~80%)
+        // مع بقاء النص حاداً: يُرسم vector عند 1.6×، و0.85 لا تُحدث تشوهات على النصوص.
+        // (خفض الجودة وحدها إلى 0.80 مع scale 2 يُشوّه حروف 8.5px — مجرّب ومرفوض).
+        // لتعديل الحساسية مستقبلاً: غيّر هذين الرقمين فقط (أعلى = أجود وأكبر حجماً).
+        const EXPORT_SCALE = 1.6;
+        const EXPORT_JPEG_QUALITY = 0.85;
+
         const total = groupedData.length;
         const t0 = performance.now();
 
@@ -634,7 +643,7 @@ export default function Timesheets() {
               }
               if (!(y === 0 && i === 0)) pdf.addPage('a4', 'landscape');
               pdf.addImage(
-                pageCanvas.toDataURL('image/jpeg', 0.98),
+                pageCanvas.toDataURL('image/jpeg', EXPORT_JPEG_QUALITY),
                 'JPEG',
                 margin,
                 margin,
