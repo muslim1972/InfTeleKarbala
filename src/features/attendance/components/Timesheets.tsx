@@ -39,6 +39,18 @@ const settleFrames = (): Promise<void> =>
     ? yieldTask()
     : new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
 
+// إيقافة خلفية دقيقة بلا مؤقتات: حظر متزامن عبر Atomics.wait — لا يستهلك معالجاً
+// وغير خاضع لأي خنق (بخلاف setTimeout الذي قد يُقيَّد لمرة/دقيقة بعد 5 دقائق خفاء).
+// Safari قد يرفضه على الخيط الرئيسي → بديل setTimeout (خنقه ≥1s يبقى إيقافة مقبولة).
+const pauseBackground = (ms: number): Promise<void> => {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+    return Promise.resolve();
+  } catch {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  }
+};
+
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -679,8 +691,11 @@ export default function Timesheets() {
             canvas.height = 0;
             holder.innerHTML = '';
 
-            // إتاحة حلقة الأحداث بين الموظفين: واجهة سلسة + فرصة GC
-            await new Promise((r) => setTimeout(r, 0));
+            // إتاحة حلقة الأحداث بين الموظفين: واجهة سلسة + فرصة GC.
+            // في الخلفية: إيقافة مهذبة 600ms تخفف الضغط عن المعالج كي لا يتباطأ
+            // التطبيق/النظام أثناء استمرار التصدير خلفياً (انظر pauseBackground).
+            if (document.hidden) await pauseBackground(600);
+            else await yieldTask();
 
             // قياس زمن كل سجل (Console) للتحقق من ثبات الأداء عبر كامل العملية
             const perRec = ((performance.now() - recStart) / 1000).toFixed(1);
