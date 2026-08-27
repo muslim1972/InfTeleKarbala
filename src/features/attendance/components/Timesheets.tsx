@@ -380,33 +380,37 @@ export default function Timesheets() {
             <table style="width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; margin-bottom: 3px;">
               <thead>
                 <tr style="background-color: #f3f4f6; color: #111827;">
-                  <th style="border: 1px solid #d1d5db; width: 72px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">التاريخ واليوم</th>
-                  <th style="border: 1px solid #d1d5db; width: 48px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">نوع اليوم</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">التحقق</th>
-                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الدوام</th>
+                  <th style="border: 1px solid #d1d5db; width: 72px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">التاريخ واليوم</th>
+                  <th style="border: 1px solid #d1d5db; width: 48px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">نوع اليوم</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">التحقق</th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">الدوام</th>
 
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">دخول</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 1</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 1</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 2</th>
-                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 2</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">خروج</th>
-                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الصافي</th>
-                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">النقص</th>
-                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الإضافي</th>
-                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الحالة</th>
-                  <th style="border: 1px solid #d1d5db; height: 18px; line-height: 18px; font-size: 8px; font-weight: bold; padding: 0;">الملاحظات</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">دخول</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 1</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 1</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">ب. راحة 2</th>
+                  <th style="border: 1px solid #d1d5db; width: 40px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">ع. راحة 2</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">خروج</th>
+                  <th style="border: 1px solid #d1d5db; width: 38px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">الصافي</th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">النقص</th>
+                  <th style="border: 1px solid #d1d5db; width: 36px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">الإضافي</th>
+                  <th style="border: 1px solid #d1d5db; width: 42px; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">الحالة</th>
+                  <th style="border: 1px solid #d1d5db; height: 18px; line-height: 16px; font-size: 8px; font-weight: bold; padding: 0;">الملاحظات</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
         const ROW_H = '17px';
+        // line-height أقل من ارتفاع الصف بمقدار 2px: html2canvas يرسم النص منزاحاً للأسفل (~2-3px)
+        // بسبب معادلة قياس الخط الداخلية فيه، فخفض ارتفاع صندوق السطر يعوّض ذلك ويوسّط النص رأسياً
+        // دون أي تغيير في ارتفاع الصف أو أبعاد الجدول (الارتفاع مثبت بـ height + overflow hidden)
+        const LINE_H = '15px';
         const renderCell = (content: string, extraCss = '', isNumber = false) => {
           const fontCss = isNumber
             ? `font-family: 'Courier New', Courier, monospace; font-size: 8.5px; font-weight: bold; letter-spacing: 0.3px;`
             : `font-family: Arial, 'Segoe UI', Tahoma, sans-serif; font-size: 8.5px; font-weight: bold;`;
-          return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${ROW_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
+          return `<td style="border: 1px solid #d1d5db; height: ${ROW_H}; line-height: ${LINE_H}; padding: 0; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; ${fontCss} ${extraCss}">${content}</td>`;
         };
 
         for (const rec of group.records) {
