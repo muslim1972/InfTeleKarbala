@@ -19,6 +19,26 @@ import {
   type LeaveRequestLite
 } from '../services/leaveIntegrationService';
 
+// ─── جدولة آمنة لاستمرار التصدير في التبويبات الخلفية ───
+// requestAnimationFrame لا يُطلق إطلاقاً عند إخفاء التبويبة (تجمّد كامل للحلقة)،
+// وsetTimeout يُخنق في الخلفية (Chrome/Edge: ثانية/مؤقت، وبعد 5 دقائق خفاء مرة/دقيقة).
+// مهام MessageChannel مهام ماكرو غير خاضعة لخنق المؤقتات في جميع المتصفحات
+// (Chrome/Firefox/Safari/Edge) — وهي البديل القياسي المعتمد (أساس scheduler.yield).
+const yieldTask = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => resolve();
+    ch.port2.postMessage(0);
+  });
+
+// عند الظهور: إطاران rAF كما كان (اكتمال التخطيط والرسم قبل الالتقاط).
+// عند الإخفاء: تمريرة مهمة واحدة تكفي — لا يوجد مسار رسم أصلاً، والتخطيط
+// يُحسب عند الطلب عند قراءة html2canvas له، فالنتيجة متطابقة تماماً.
+const settleFrames = (): Promise<void> =>
+  document.hidden
+    ? yieldTask()
+    : new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -589,6 +609,9 @@ export default function Timesheets() {
 
         const total = groupedData.length;
         const t0 = performance.now();
+        // مؤشر تقدم في عنوان التبويبة: يستمر بالتحديث أثناء عمل التبويبة بالخلفية
+        // (وسيلة التحقق الرئيسية أن التصدير لم يتجمد عند مغادرة التبويبة)
+        const prevTitle = document.title;
 
         try {
           for (let i = 0; i < total; i++) {
@@ -598,14 +621,15 @@ export default function Timesheets() {
               `جاري التصدير: الموظف ${i + 1} من ${total} — ${group.employee.full_name}`,
               { id: toastId }
             );
+            document.title = `تصدير PDF: ${i + 1}/${total}`;
 
             // 0 = بلا فاصل صفحات (كل موظف يُرسم وحده ويبدأ صفحة PDF جديدة أدناه)
             // ملاحظة: لا يوجد أي استعلام قاعدة بيانات داخل الحلقة — كل البيانات مقروءة
             // مسبقاً في groupedData (جلب واحد قبل التصدير، وSupabase بلا اتصالات دائمة)
             holder.innerHTML = buildEmployeeHtml(group, 0);
 
-            // انتظار إطارين لضمان اكتمال التخطيط قبل الالتقاط
-            await new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+            // انتظار استقرار التخطيط قبل الالتقاط (آمن للخلفية — انظر settleFrames)
+            await settleFrames();
 
             const canvas = await html2canvas(holder, {
               scale: EXPORT_SCALE,
@@ -665,6 +689,7 @@ export default function Timesheets() {
           }
         } finally {
           document.body.removeChild(holder);
+          document.title = prevTitle;
         }
 
         // ترقيم الصفحات بنفس أسلوب المسار الآخر
