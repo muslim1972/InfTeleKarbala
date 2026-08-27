@@ -4,6 +4,7 @@ import { Camera, ShieldCheck, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
+import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
 
 const FACE_ENROLL_SECRET = import.meta.env.VITE_FACE_ENROLL_SECRET || 'Muslim2791';
 
@@ -93,7 +94,6 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                 // Save to database (Array of Arrays because column is jsonb) + Bind device fingerprint
                 let deviceId: string | null = null;
                 try {
-                    const { getDeviceFingerprint } = await import('../../../utils/deviceFingerprint');
                     deviceId = await getDeviceFingerprint();
                 } catch (dErr) {
                     console.warn("Could not compute device fingerprint during face enroll:", dErr);
