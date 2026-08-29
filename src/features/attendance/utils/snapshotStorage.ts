@@ -44,7 +44,9 @@ export const uploadSnapshot = async (base64Data: string, prefix: string = 'snaps
     for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
     const blob = new Blob([uInt8Array], { type: contentType });
 
-    const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+    // أرقام فقط: أي رمز بين قوسين مربعين يحوي نقطتين (صنف اعتباطي) يولّد قاعدة
+    // CSS تالفة لدى ماسح Tailwind (تحذير esbuild css minify) — لذا نتجنبها هنا
+    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
     const randomStr = Math.random().toString(36).substring(2, 8);
     const fileName = `${prefix}_${timestamp}_${randomStr}.webp`;
 
