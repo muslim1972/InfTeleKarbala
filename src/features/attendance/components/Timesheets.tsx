@@ -540,8 +540,11 @@ export default function Timesheets() {
           const isLeaveOvertimeDay = hasLeaveOvertimeNote(rec.notes);
           const leaveOvertimeColor = 'color: #ea580c; font-weight: bold;';
 
-          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48;' : '';
-          const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
+          const isVirtualOut = rec.notes?.includes('خروج نهائي افتراضي');
+          const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
+
+          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out || isVirtualOut) ? 'color: #e11d48; font-weight: bold;' : '';
+          const inTimeColor = (rec.status === 'late' || isVirtualIn) ? 'color: #e11d48; font-weight: bold;' : '';
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
           
@@ -553,6 +556,8 @@ export default function Timesheets() {
                 .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
                 .replace(/\s*-\s*/g, ' ')
                 .trim();
+
+          const notesStyle = (isVirtualIn || isVirtualOut) ? 'font-size: 7.5px; color: #e11d48; font-weight: bold;' : 'font-size: 7.5px;';
 
           html += `
             <tr style="height: ${ROW_H};">
@@ -571,7 +576,7 @@ export default function Timesheets() {
               ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor, true)}
               ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', isLeaveOvertimeDay ? leaveOvertimeColor : overtimeColor, true)}
               ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
-              ${renderCell(cleanNotesText || '', 'font-size: 7.5px;')}
+              ${renderCell(cleanNotesText || '', notesStyle)}
             </tr>
           `;
         }
@@ -1311,6 +1316,8 @@ export default function Timesheets() {
                               </td>
                               <td className="px-3 py-3 text-xs text-slate-500">
                                 {rec.is_device_pending ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">⚠️ جهاز غير معتمد</span> : null}
+                                {rec.notes?.includes('دخول اولي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 دخول اولي افتراضي</span> : null}
+                                {rec.notes?.includes('خروج نهائي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 خروج نهائي افتراضي</span> : null}
                                 {(() => {
                                   const clean = rec.is_device_pending
                                     ? (rec.notes || '')

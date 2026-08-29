@@ -181,22 +181,24 @@ export const fingerprintTemplateService = {
 // Attendance Record Services
 // =============================================
 
-// ─── أدوات التاريخ المحلي لحدود يوم البصمة ───
-// toISOString() يرجع تاريخ UTC، وفي بغداد (UTC+3) يبقى «أمس» حتى الساعة 03:00
-// المحلية؛ اعتماده في «يوم البصمة» كان يُبقي بطاقة الأمس ظاهرة بعد منتصف الليل.
-/** تاريخ اليوم المحلي بصيغة YYYY-MM-DD وفق توقيت جهاز المستخدم */
+// ─── أدوات التاريخ المحلي لحدود يوم البصمة (توقيت بغداد UTC+3) ───
+import { 
+  determineShiftType, 
+  validateEarlyCheckIn, 
+  getBaghdadDateStr, 
+  countRealPunches 
+} from '../utils/shiftRules';
+
+/** تاريخ اليوم المحلي بصيغة YYYY-MM-DD وفق توقيت بغداد */
 export function getLocalDateStr(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return getBaghdadDateStr(d);
 }
 
 /** حدود اليوم المحلي (00:00 و23:59:59 محلياً) محوّلة إلى UTC ISO للاستعلام من timestamptz */
 function localDayRangeUTC(dateStr: string): { start: string; end: string } {
   const [y, m, d] = dateStr.split('-').map(Number);
-  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
-  const end = new Date(y, m - 1, d, 23, 59, 59, 999);
+  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - (3 * 3600 * 1000));
+  const end = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - (3 * 3600 * 1000));
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
@@ -413,17 +415,72 @@ export const attendanceRecordService = {
   async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) {
     const { categorizePunches } = await import('../utils/punchCategorizer');
 
-    // 1. Get today's record (تاريخ محلي — انظر getLocalDateStr)
+    // 1. Get today's record (تاريخ محلي وفق توقيت بغداد)
     const today = getLocalDateStr();
     let record = await this.getTodayByEmployeeId(employeeId);
 
     // ─── تكامل الإجازات (1): فحص إجازة اليوم قبل تثبيت أول بصمة حضور ───
-    // إن كان اليوم من أيام إجازة معتمدة (اعتيادية/مرضية/واجب/إيفاد) نوقف
-    // التسجيل ونرمي تحذيراً يعرض للموظف، ما لم يكن قد أكّده مسبقاً عبر
-    // bypassLeaveWarning (زر "تثبيت البصمة رغم ذلك" في واجهة البصمة).
     const leaveCtx = await getLeaveContext(employeeId, today);
     if (leaveCtx.dayLeave && !record && !bypassLeaveWarning) {
       throw new LeaveDayPunchWarning(leaveCtx.dayLeave);
+    }
+
+    // 2. Fetch profile & schedule to determine shift type
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('department_id, primary_device_id, work_schedule_id, full_name')
+      .eq('id', employeeId)
+      .single();
+
+    let workSchedule = null;
+    if (profile?.work_schedule_id) {
+      const { data: ws } = await supabase
+        .from('work_schedules')
+        .select('*')
+        .eq('id', profile.work_schedule_id)
+        .single();
+      workSchedule = ws;
+    }
+
+    const shiftType = determineShiftType(profile, workSchedule);
+
+    // 3. Load yesterday's record for night-shift logic (حدود يوم أمس المحلي بتوقيت بغداد)
+    const yesterdayDateStr = getBaghdadDateStr(new Date(Date.now() - 86400000));
+    const yesterdayRange = localDayRangeUTC(yesterdayDateStr);
+    const { data: yesterdayData } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .gte('created_at', yesterdayRange.start)
+      .lte('created_at', yesterdayRange.end)
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    const yesterdayRecord = yesterdayData?.[0] as AttendanceRecord | undefined;
+    const yesterdayRealCount = yesterdayRecord ? countRealPunches(yesterdayRecord.raw_punches) : 0;
+    const yesterdayWasOdd = yesterdayRealCount % 2 === 1 || (yesterdayRecord?.check_in && !yesterdayRecord?.check_out);
+
+    // فحص ما إذا كانت البصمة الحالية هي استكمال لخفر/مناوبة الأمس
+    const isFollowUpOvernight = shiftType === 'shift' && Boolean(yesterdayWasOdd) && (!record || !record.raw_punches || record.raw_punches.length === 0);
+
+    // 4. قيد الحضور المبكر (قبل 6:30 ص)
+    const earlyCheck = validateEarlyCheckIn(shiftType, new Date(), isFollowUpOvernight);
+    if (!earlyCheck.allowed && !record) {
+      throw new Error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
+    }
+
+    // 5. إذا كان الموظف مناوباً ولديه خفر ممتد: إغلاق سجل الأمس تلقائياً عند 23:59
+    if (isFollowUpOvernight && yesterdayRecord && !yesterdayRecord.check_out) {
+      const virtualOutTime = `${yesterdayDateStr}T23:59:00.000Z`;
+      const updatedNotes = mergeNote(yesterdayRecord.notes, '(خروج نهائي افتراضي)');
+      await supabase
+        .from('attendance_records')
+        .update({
+          check_out: virtualOutTime,
+          notes: updatedNotes
+        })
+        .eq('id', yesterdayRecord.id)
+        .catch(console.warn);
     }
 
     const newPunch = {
@@ -435,44 +492,22 @@ export const attendanceRecordService = {
       verified_by_biometric: verifiedByBiometric
     };
 
-    // 2. Load yesterday's record for night-shift logic (حدود يوم أمس المحلي بصيغة UTC)
-    const yesterdayRange = localDayRangeUTC(getLocalDateStr(new Date(Date.now() - 86400000)));
-    const { data: yesterdayData } = await supabase
-      .from('attendance_records')
-      .select('check_in, check_out')
-      .eq('employee_id', employeeId)
-      .gte('created_at', yesterdayRange.start)
-      .lte('created_at', yesterdayRange.end)
-      .order('created_at', { ascending: false })
-      .limit(1);
-      
-    const yesterdayRecord = yesterdayData?.[0] as AttendanceRecord | undefined;
-
-    // 3. Update raw_punches
+    // 6. Update raw_punches
     let rawPunches = [];
     if (record && record.raw_punches) {
       rawPunches = Array.isArray(record.raw_punches) ? record.raw_punches : [];
     }
     rawPunches.push(newPunch);
 
-    // 4. Run categorizer
-    const updates = categorizePunches(rawPunches, yesterdayRecord, today);
+    // 7. Run categorizer with shift rules
+    const updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false);
     updates.raw_punches = rawPunches;
 
     // ─── تكامل الإجازات (2): بصمة في يوم إجازة → ملاحظة دوام إضافي ───
-    // تُضاف سواء أكّد الموظف البصمة بعد التنبيه أو اعتُمدت الإجازة بعد دخوله،
-    // وتُستخدم لاحقاً في التقارير لتلوين الوقت بالبرتقالي.
     if (leaveCtx.dayLeave) {
       const baseNotes = record?.notes || updates.notes || notes;
       updates.notes = mergeNote(baseNotes, buildLeaveDayOvertimeNote(leaveCtx.dayLeave.label));
     }
-
-    // Device logic
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name')
-      .eq('id', employeeId)
-      .single();
 
     let isDevicePending = false;
 

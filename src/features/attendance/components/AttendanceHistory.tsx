@@ -106,21 +106,31 @@ export default function AttendanceHistory({
                   >
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="font-semibold text-gray-800 flex items-center gap-2">
+                        <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
                           {formatDate(record.created_at)}
                           {isDevicePending && (
                             <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-bold">
                               ⚠️ جهاز جديد
                             </span>
                           )}
+                          {record.notes?.includes('دخول اولي افتراضي') && (
+                            <span className="text-xs bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
+                              دخول افتراضي
+                            </span>
+                          )}
+                          {record.notes?.includes('خروج نهائي افتراضي') && (
+                            <span className="text-xs bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
+                              خروج افتراضي
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          <span className={isDevicePending ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
+                          <span className={isDevicePending || record.notes?.includes('دخول اولي افتراضي') ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
                             {formatTime(record.check_in)}
                           </span>
                           <span> - </span>
-                          <span className={isDevicePending ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
+                          <span className={isDevicePending || record.notes?.includes('خروج نهائي افتراضي') ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
                             {formatTime(record.check_out)}
                           </span>
                         </div>
