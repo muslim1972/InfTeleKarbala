@@ -42,9 +42,28 @@ export const useCamera = () => {
     setIsCameraOpen(false);
   }, []);
 
+  // انتظار جاهزية بث الفيديو — التقاط قبل الجاهزية ينتج لوحة 0×0 وصورة فارغة
+  const waitForVideoReady = (video: HTMLVideoElement, timeoutMs = 3000): Promise<void> =>
+    new Promise((resolve, reject) => {
+      if (video.readyState >= 2 && video.videoWidth > 0) return resolve();
+      const startedAt = Date.now();
+      const timer = window.setInterval(() => {
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          window.clearInterval(timer);
+          resolve();
+        } else if (Date.now() - startedAt > timeoutMs) {
+          window.clearInterval(timer);
+          reject(new Error('لم تكتمل جاهزية الكاميرا (إطار فارغ)'));
+        }
+      }, 100);
+    });
+
   const captureFrame = useCallback(async (canvasEl: HTMLCanvasElement): Promise<string> => {
     const video = videoRef.current;
     if (!video) throw new Error('Video not active');
+
+    // لا نرسم قبل وصول أول إطار حقيقي من الكاميرا
+    await waitForVideoReady(video);
 
     const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('Could not get canvas context');
@@ -52,7 +71,7 @@ export const useCamera = () => {
     const MAX_DIM = 300;
     let targetWidth = video.videoWidth;
     let targetHeight = video.videoHeight;
-    
+
     if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
       if (targetWidth > targetHeight) {
         targetHeight = Math.floor(targetHeight * (MAX_DIM / targetWidth));
@@ -63,11 +82,20 @@ export const useCamera = () => {
       }
     }
 
+    if (targetWidth < 16 || targetHeight < 16) {
+      throw new Error(`أبعاد الإطار غير صالحة (${targetWidth}×${targetHeight})`);
+    }
+
     canvasEl.width = targetWidth;
     canvasEl.height = targetHeight;
     ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
 
-    return canvasEl.toDataURL('image/webp', 0.8);
+    const dataUrl = canvasEl.toDataURL('image/webp', 0.8);
+    // "data:," (لوحة فارغة) قيمة نصية صحيحة لكنها ليست صورة — نرفضها صراحة
+    if (!/^data:image\/[a-z+]+;base64,.{100,}/i.test(dataUrl)) {
+      throw new Error('الصورة الملتقطة فارغة أو غير صالحة');
+    }
+    return dataUrl;
   }, []);
 
   return {

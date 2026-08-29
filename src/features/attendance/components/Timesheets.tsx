@@ -51,6 +51,28 @@ const pauseBackground = (ms: number): Promise<void> => {
   }
 };
 
+// ─── معرض لقطات البصمات المطوية (مقعد الخروج في جدول التقرير) ───
+// لا تُحذف أي صورة: مقعد الدخول حصري لأول بصمة، ومقعد الخروج حصري لما بعدها —
+// يعرض الأحدث دائماً والبقية مطوية في المعرض (بلا تكرار لصورة الدخول).
+interface PunchGalleryItem {
+  url: string;
+  time: string;
+}
+
+// استخراج لقطات اليوم من raw_punches (مجلوبة أصلاً مع select('*')):
+// إسقاط غير المصوّرة + فرز زمني تصاعدي + تنسيق الساعة HH:mm محلياً.
+// السجلات القديمة الخالية من raw_punches تُعيد قائمة فارغة → يبقى التكبير المباشر كما كان.
+const extractPunchSnapshots = (rec: any): PunchGalleryItem[] => {
+  const punches: any[] = Array.isArray(rec?.raw_punches) ? rec.raw_punches : [];
+  return punches
+    .filter((p) => p && typeof p.snapshot_url === 'string' && p.snapshot_url)
+    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+    .map((p) => {
+      let time = '--:--';
+      try { time = format(new Date(p.time), 'HH:mm'); } catch { /* وقت غير صالح */ }
+      return { url: p.snapshot_url, time };
+    });
+};
 
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -75,6 +97,8 @@ export default function Timesheets() {
     }
   }, [expandedEmp]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // معرض اللقطات المطوية: يفتح من مقعد الخروج عند تعدد لقطات اليوم (بدون أي حذف)
+  const [punchGallery, setPunchGallery] = useState<{ items: PunchGalleryItem[]; title: string } | null>(null);
 
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
   const [workSchedules, setWorkSchedules] = useState<any[]>([]);
@@ -773,28 +797,13 @@ export default function Timesheets() {
     }
   };
 
-  const exportSingleEmployeeWithImages = async (e: React.MouseEvent, targetGroup: any) => {
+  // تصدير PDF لموظف واحد — بدون أي صور (خصوصية التقارير الورقية بعد الطباعة):
+  // الصور تبقى حصرية لعرض الشاشة في واجهة المشرف (جدول التقارير المتقدمة + المعرض المطوي).
+  const exportSingleEmployee = async (e: React.MouseEvent, targetGroup: any) => {
     e.stopPropagation();
-    const toastId = toast.loading('جاري تجهيز التقرير مع الصور كـ PDF... يرجى الانتظار');
-    
-    try {
-      const urlToBase64Png = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'Anonymous';
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = () => reject(new Error('Failed to load image'));
-          img.src = url;
-        });
-      };
+    const toastId = toast.loading('جاري تجهيز التقرير كـ PDF... يرجى الانتظار');
 
+    try {
       const printDate = new Date().toLocaleDateString('en-GB');
 
       let html = `
@@ -816,8 +825,6 @@ export default function Timesheets() {
                 <th style="padding: 2px; border: 1px solid #d1d5db;">نوع اليوم</th>
                 <th style="padding: 2px; border: 1px solid #d1d5db;">التحقق</th>
                 <th style="padding: 2px; border: 1px solid #d1d5db;">الدوام</th>
-                <th style="padding: 2px; border: 1px solid #d1d5db;">ص. دخول</th>
-                <th style="padding: 2px; border: 1px solid #d1d5db;">ص. خروج</th>
                 <th style="padding: 2px; border: 1px solid #d1d5db;">دخول</th>
                 <th style="padding: 2px; border: 1px solid #d1d5db;">ب. راحة 1</th>
                 <th style="padding: 2px; border: 1px solid #d1d5db;">ع. راحة 1</th>
@@ -863,8 +870,6 @@ export default function Timesheets() {
             html += `<td style="${tdStyle}">${dayType}</td>`;
             html += `<td style="${tdStyle}">--</td>`;
             html += `<td style="${tdStyle}">${shiftInfo.label}</td>`;
-            html += `<td style="${tdStyle}">--</td>`;
-            html += `<td style="${tdStyle}">--</td>`;
             html += `<td style="${tdNumStyle} ${isWorking && !isLeaveDay ? 'color: #e11d48;' : isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
             html += `<td style="${tdNumStyle}">--:--</td>`;
@@ -907,26 +912,6 @@ export default function Timesheets() {
         else if (rec.check_in_location) verifyMethod = 'موقع';
         else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
 
-        let checkInImgHtml = '-';
-        if (rec.check_in_snapshot_url) {
-          try {
-             const b64 = await urlToBase64Png(rec.check_in_snapshot_url);
-             checkInImgHtml = `<img src="${b64}" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc; vertical-align: middle;" />`;
-          } catch (e) {
-             checkInImgHtml = `(صورة)`;
-          }
-        }
-
-        let checkOutImgHtml = '-';
-        if (rec.check_out_snapshot_url) {
-           try {
-             const b64 = await urlToBase64Png(rec.check_out_snapshot_url);
-             checkOutImgHtml = `<img src="${b64}" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover; border: 1px solid #ccc; vertical-align: middle;" />`;
-          } catch (e) {
-             checkOutImgHtml = `(صورة)`;
-          }
-        }
-
         const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
         const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
         const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
@@ -938,8 +923,6 @@ export default function Timesheets() {
             <td style="${tdStyle}">${dayType}</td>
             <td style="${tdStyle}">${verifyMethod}</td>
             <td style="${tdStyle}">${scheduleName}</td>
-            <td style="${tdStyle}">${checkInImgHtml}</td>
-            <td style="${tdStyle}">${checkOutImgHtml}</td>
             <td style="${tdNumStyle} ${inTimeColor}">${inTime}</td>
             <td style="${tdNumStyle}">${leaveOutStr}</td>
             <td style="${tdNumStyle}">${leaveReturnStr}</td>
@@ -957,7 +940,7 @@ export default function Timesheets() {
 
       html += `
               <tr style="background-color: #f8fafc; font-weight: bold;">
-                <td colspan="17" style="padding: 4px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
+                <td colspan="15" style="padding: 4px; border: 1px solid #d1d5db; text-align: left; color: #334155;">
                   إجمالي الصافي: ${formatDurationDot(group.totalWorkMins)} | 
                   إجمالي النقص: ${formatDurationDot(group.totalDeficit)} | 
                   إجمالي الإضافي: ${formatDurationDot(group.totalOvertime)} | 
@@ -1132,11 +1115,11 @@ export default function Timesheets() {
                   <div className="flex items-center gap-2">
                     {expandedEmp === group.employee.id && (
                        <button
-                         onClick={(e) => exportSingleEmployeeWithImages(e, group)}
+                         onClick={(e) => exportSingleEmployee(e, group)}
                          className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
                        >
                          <FileSpreadsheet className="w-3 h-3" />
-                         تصدير مع الصور
+                         تصدير PDF
                        </button>
                     )}
                     <div className="text-slate-400">
@@ -1245,6 +1228,32 @@ export default function Timesheets() {
                           // ─── تكامل الإجازات: يوم إجازة أدى فيه الموظف دواماً → عرض الأوقات بالبرتقالي ───
                           const isLeaveOvertimeDay = hasLeaveOvertimeNote(rec.notes);
 
+                          // ─── لقطات اليوم كاملة ───
+                          const daySnaps = extractPunchSnapshots(rec);
+                          // مقعد الخروج حصري للبصمات بعد الدخول: تُستثنى صورة الدخول
+                          // نفسها (حصرية للمقعد الأول) فلا تتكرر في المعرض أو العدّاد.
+                          // إن غابت صورة الدخول (فشل رفع سابق) تبقى كل اللقطات للخروج.
+                          const checkInUrl = rec.check_in_snapshot_url || '';
+                          const restSnaps = checkInUrl
+                            ? daySnaps.filter((s) => s.url !== checkInUrl)
+                            : daySnaps;
+                          // مقعد الخروج = آخر لقطة بعد الدخول دائماً (أي بصمة أخيرة):
+                          // check_out_snapshot_url يُملأ فقط عند اكتمال 2/4/6 بصمات، لذا
+                          // نعتمد آخر لقطة من raw_punches (سجلات قديمة كاحتياط).
+                          // بلقطة دخول فقط يبقى المقعد الثاني فارغاً — لا تكرار لصورة الدخول.
+                          const lastSnapUrl = restSnaps.length
+                            ? restSnaps[restSnaps.length - 1].url
+                            : rec.check_out_snapshot_url;
+                          // النقر يفتح القائمة المطوية عند توفر أكثر من لقطة بعد الدخول
+                          const openCheckoutSeat = () => {
+                            if (restSnaps.length > 1) {
+                              setPunchGallery({ items: restSnaps, title: `${group.employee.full_name} — ${dateStr}` });
+                            } else if (lastSnapUrl) {
+                              // سجل قديم بلا raw_punches: تكبير مباشر كما كان
+                              setSelectedImage(lastSnapUrl);
+                            }
+                          };
+
                           return (
                             <tr key={rec.id || i} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
@@ -1265,9 +1274,16 @@ export default function Timesheets() {
                                     <div className="w-10 h-10 shrink-0 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700" />
                                   )}
                                   
-                                  {rec.check_out_snapshot_url ? (
-                                    <div role="button" tabIndex={0} onClick={() => setSelectedImage(rec.check_out_snapshot_url!)} className="relative group overflow-hidden rounded-md border-2 border-teal-100 dark:border-teal-900/30 hover:border-teal-500 dark:hover:border-teal-500 transition-all w-10 h-10 shrink-0 bg-slate-100 dark:bg-slate-800 shadow-sm cursor-pointer block" title="تكبير صورة الخروج">
-                                      <img src={rec.check_out_snapshot_url} alt="خروج" className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-300 pointer-events-none block" loading="lazy" />
+                                  {lastSnapUrl ? (
+                                    <div className="relative shrink-0">
+                                      <div role="button" tabIndex={0} onClick={openCheckoutSeat} className="relative group overflow-hidden rounded-md border-2 border-teal-100 dark:border-teal-900/30 hover:border-teal-500 dark:hover:border-teal-500 transition-all w-10 h-10 bg-slate-100 dark:bg-slate-800 shadow-sm cursor-pointer block" title={restSnaps.length > 1 ? `لقطات ما بعد الدخول (${restSnaps.length}) — انقر لعرض القائمة` : 'تكبير صورة الخروج'}>
+                                        <img src={lastSnapUrl} alt="خروج" className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-300 pointer-events-none block" loading="lazy" />
+                                      </div>
+                                      {restSnaps.length > 1 && (
+                                        <span className="absolute -top-1.5 -left-1.5 z-10 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold shadow ring-2 ring-white dark:ring-slate-900" title={`${restSnaps.length} لقطات ما بعد الدخول لهذا اليوم`}>
+                                          {restSnaps.length}
+                                        </span>
+                                      )}
                                     </div>
                                   ) : (
                                     <div className="w-10 h-10 shrink-0 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700" />
@@ -1332,6 +1348,42 @@ export default function Timesheets() {
             </div>
             <div className="p-4 flex justify-center bg-slate-50 dark:bg-slate-900">
               <img src={selectedImage} alt="لقطة الحضور" className="max-w-full rounded-xl shadow-md border border-slate-200 dark:border-slate-700" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* معرض لقطات اليوم المطوية — يفتح من مقعد الخروج عند تعدد اللقطات (بلا أي حذف) */}
+      {punchGallery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setPunchGallery(null)}>
+          <div className="relative max-w-lg w-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-4 flex justify-between items-center border-b dark:border-slate-700">
+              <div className="min-w-0">
+                <h3 className="font-bold text-slate-800 dark:text-white">لقطات البصمات ({punchGallery.items.length})</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{punchGallery.title}</p>
+              </div>
+              <button onClick={() => setPunchGallery(null)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors shrink-0">
+                <X className="w-6 h-6 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 max-h-[65vh] overflow-y-auto">
+              <div className="flex flex-wrap gap-3 justify-center">
+                {punchGallery.items.map((snap, idx) => (
+                  <div
+                    key={`${snap.url}-${idx}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { setSelectedImage(snap.url); setPunchGallery(null); }}
+                    className="group cursor-pointer text-center"
+                    title={`تكبير لقطة ${snap.time}`}
+                  >
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-teal-100 dark:border-teal-900/30 group-hover:border-teal-500 dark:group-hover:border-teal-500 transition-all shadow-sm bg-slate-100 dark:bg-slate-800">
+                      <img src={snap.url} alt={`لقطة ${snap.time}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 pointer-events-none" loading="lazy" />
+                    </div>
+                    <span className="inline-block mt-1 text-[11px] font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{snap.time}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

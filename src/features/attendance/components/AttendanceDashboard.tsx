@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
+import { getLocalDateStr } from '../services/attendanceService';
 import { Fingerprint, Calendar, BarChart3, ShieldCheck } from 'lucide-react';
 
 const AttendanceCheckInOut = lazy(() => import('./AttendanceCheckInOut'));
@@ -18,10 +19,11 @@ type ActiveTab = 'check' | 'history' | 'stats' | 'settings';
 
 export default function AttendanceDashboard({ employeeId }: AttendanceDashboardProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('check');
+  // تاريخ اليوم لحظة العرض — يُراقَب باستمرار لكشف تحوّل منتصف الليل
+  const [viewedDate, setViewedDate] = useState(() => getLocalDateStr());
   const {
     todayAttendance,
     attendanceHistory,
-    exceptions,
     stats,
     loading,
     error,
@@ -34,13 +36,36 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
     loadTodayAttendance();
   }, [loadTodayAttendance]);
 
+  // ─── مراقب تحوّل التاريخ ───
+  // عند تحوّل التاريخ المحلي (منتصف الليل) تُعاد بيانات اليوم فتُعرض بطاقة يوم
+  // جديد فارغة فوراً بدلاً من بقائها على بصمات الأمس. الفحص كل 30 ثانية +
+  // عند عودة التبويب للواجهة (المتصفح يخنق المؤقتات في الخلفية).
+  useEffect(() => {
+    const checkDateChange = () => {
+      const now = getLocalDateStr();
+      if (now !== viewedDate) {
+        setViewedDate(now);
+        loadTodayAttendance(); // بطاقة يوم جديد فارغة دون تحديث يدوي للصفحة
+      }
+    };
+    const interval = window.setInterval(checkDateChange, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') checkDateChange(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [viewedDate, loadTodayAttendance]);
+
   useEffect(() => {
     if (activeTab === 'history') {
       loadAttendanceHistory();
     } else if (activeTab === 'stats') {
       const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+      const firstDay = getLocalDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+      const lastDay = getLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 0));
       loadStats(firstDay, lastDay);
     }
   }, [activeTab, loadAttendanceHistory, loadStats]);

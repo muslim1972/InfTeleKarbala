@@ -181,6 +181,25 @@ export const fingerprintTemplateService = {
 // Attendance Record Services
 // =============================================
 
+// ─── أدوات التاريخ المحلي لحدود يوم البصمة ───
+// toISOString() يرجع تاريخ UTC، وفي بغداد (UTC+3) يبقى «أمس» حتى الساعة 03:00
+// المحلية؛ اعتماده في «يوم البصمة» كان يُبقي بطاقة الأمس ظاهرة بعد منتصف الليل.
+/** تاريخ اليوم المحلي بصيغة YYYY-MM-DD وفق توقيت جهاز المستخدم */
+export function getLocalDateStr(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** حدود اليوم المحلي (00:00 و23:59:59 محلياً) محوّلة إلى UTC ISO للاستعلام من timestamptz */
+function localDayRangeUTC(dateStr: string): { start: string; end: string } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const end = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
 export const attendanceRecordService = {
   async create(record: Partial<AttendanceRecord>) {
     const { data, error } = await supabase
@@ -343,24 +362,27 @@ export const attendanceRecordService = {
   },
 
   async getByDate(date: string) {
+    // حدود اليوم المطلوب محلياً بصيغة UTC — نفس منطق بطاقة اليوم
+    const range = localDayRangeUTC(date);
     const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
-      .gte('created_at', `${date}T00:00:00`)
-      .lte('created_at', `${date}T23:59:59`)
+      .gte('created_at', range.start)
+      .lte('created_at', range.end)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data as AttendanceRecord[];
   },
 
   async getTodayByEmployeeId(employeeId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    // حدود اليوم المحلي بصيغة UTC — كانت UTC صرفة فتبقى سجلات الأمس ظاهرة حتى 03:00
+    const range = localDayRangeUTC(getLocalDateStr());
     const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('employee_id', employeeId)
-      .gte('created_at', `${today}T00:00:00`)
-      .lte('created_at', `${today}T23:59:59`)
+      .gte('created_at', range.start)
+      .lte('created_at', range.end)
       .order('created_at', { ascending: false })
       .limit(1);
     if (error) throw error;
@@ -391,8 +413,8 @@ export const attendanceRecordService = {
   async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) {
     const { categorizePunches } = await import('../utils/punchCategorizer');
 
-    // 1. Get today's record
-    const today = new Date().toISOString().split('T')[0];
+    // 1. Get today's record (تاريخ محلي — انظر getLocalDateStr)
+    const today = getLocalDateStr();
     let record = await this.getTodayByEmployeeId(employeeId);
 
     // ─── تكامل الإجازات (1): فحص إجازة اليوم قبل تثبيت أول بصمة حضور ───
@@ -413,14 +435,14 @@ export const attendanceRecordService = {
       verified_by_biometric: verifiedByBiometric
     };
 
-    // 2. Load yesterday's record for night-shift logic
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // 2. Load yesterday's record for night-shift logic (حدود يوم أمس المحلي بصيغة UTC)
+    const yesterdayRange = localDayRangeUTC(getLocalDateStr(new Date(Date.now() - 86400000)));
     const { data: yesterdayData } = await supabase
       .from('attendance_records')
       .select('check_in, check_out')
       .eq('employee_id', employeeId)
-      .gte('created_at', `${yesterday}T00:00:00`)
-      .lte('created_at', `${yesterday}T23:59:59`)
+      .gte('created_at', yesterdayRange.start)
+      .lte('created_at', yesterdayRange.end)
       .order('created_at', { ascending: false })
       .limit(1);
       
@@ -470,15 +492,15 @@ export const attendanceRecordService = {
     }
 
     if (!profile?.primary_device_id && deviceId) {
-      await supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId);
-      await notifyAdminsForDeviceChange(profile?.full_name || 'موظف');
+      supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId).then(() => {}).catch(console.warn);
+      notifyAdminsForDeviceChange(profile?.full_name || 'موظف').catch(console.warn);
       isDevicePending = false;
     } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
       // Current punch matches approved device!
       isDevicePending = false;
     } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
       isDevicePending = true;
-      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
+      notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId).catch(console.warn);
       
       const punchTypeLabel = record?.check_in ? 'خروج' : 'دخول';
       const mismatchNote = `(${punchTypeLabel}: جهاز غير معتمد)`;

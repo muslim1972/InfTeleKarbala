@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
+import { getLocalDateStr } from '../services/attendanceService';
 import { geofenceService } from '../services/geofenceService';
 import { geolocationManager } from '../../../utils/GeolocationManager';
-import { uploadSnapshotToR2 } from '../utils/r2Storage';
+import { uploadSnapshot } from '../utils/snapshotStorage';
 import {
   getLeaveContext,
   hasLeaveOvertimeNote,
@@ -16,7 +17,7 @@ import type { AttendanceRecord, WorkLocation } from '../types';
 import {
   LogIn, LogOut, MapPin, CheckCircle,
   AlertTriangle, RefreshCw, Camera,
-  ShieldCheck, X, User, Clock
+  ShieldCheck, X, User, Clock, XCircle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -69,7 +70,9 @@ export default function AttendanceCheckInOut({
   const [pendingLeavePunch, setPendingLeavePunch] = useState<{ snapshotResult: { url?: string; notes?: string } } | null>(null);
   const [confirmingPunch, setConfirmingPunch] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // تاريخ محلي — toISOString() يرجع UTC فيظل «أمس» حتى 03:00 صباحاً بغداد
+  // فتُعرض بانرات إجازات اليوم السابق خطأً بعد منتصف الليل
+  const todayStr = getLocalDateStr();
 
   const loadLeaveContext = useCallback(async () => {
     const ctx = await getLeaveContext(employeeId, todayStr);
@@ -207,16 +210,25 @@ export default function AttendanceCheckInOut({
   // ---- Capture Frame & Upload ----
   const captureAndUpload = useCallback(async (): Promise<{ url?: string; notes?: string }> => {
     try {
-      if (!canvasRef.current) return { notes: '(فشل تقني في التقاط الصورة)' };
+      if (!canvasRef.current) return { notes: '(فشل تقني في التقاط الصورة: لا توجد لوحة رسم)' };
 
       // Stop camera and close overlay immediately to avoid UI freezing
       setProcessing(true);
 
-      const base64Data = await captureFrame(canvasRef.current);
+      let base64Data: string;
+      try {
+        base64Data = await captureFrame(canvasRef.current);
+      } catch (capErr: any) {
+        console.error('captureFrame failed:', capErr);
+        handleStopCamera();
+        return { notes: `(فشل التقاط الصورة من الكاميرا: ${capErr?.message || capErr})` };
+      }
       handleStopCamera();
 
-      const url = await uploadSnapshotToR2(base64Data, 'snapshot');
-      return url ? { url } : { notes: '(فشل رفع الصورة للسحابة)' };
+      const upload = await uploadSnapshot(base64Data, 'snapshot');
+      return upload.url
+        ? { url: upload.url }
+        : { notes: `(فشل رفع الصورة للسحابة: ${upload.error || 'سبب غير معروف'})` };
     } catch (err: any) {
       console.error('Error inside captureAndUpload:', err);
       handleStopCamera();
@@ -224,7 +236,16 @@ export default function AttendanceCheckInOut({
     }
   }, [captureFrame, handleStopCamera]);
 
+  const cancelPunchProcess = useCallback(() => {
+    setProcessing(false);
+    setCapturingAction(null);
+    capturedRef.current = false;
+    handleStopCamera();
+    toast('تم إلغاء عملية تثبيت البصمة', { icon: '🛑' });
+  }, [handleStopCamera]);
+
   const completeAction = useCallback(async (currentAction: 'punch', snapshotResult: { url?: string; notes?: string }) => {
+    setProcessing(true);
     try {
       const deviceId = await getDeviceFingerprint();
 
@@ -238,7 +259,13 @@ export default function AttendanceCheckInOut({
         }
         throw err;
       }
-      toast.success('تم تثبيت البصمة بنجاح');
+      // تنبيه إن لم تُرفع الصورة — لا نجاح صامت يخفي الخلل عن الموظف
+      // (لا نطلب إعادة المحاولة لأنها ستحسب بصمة جديدة)
+      if (snapshotResult.url) {
+        toast.success('تم تثبيت البصمة بنجاح');
+      } else {
+        toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
+      }
 
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
@@ -248,6 +275,7 @@ export default function AttendanceCheckInOut({
     } finally {
       setProcessing(false);
       setCapturingAction(null);
+      capturedRef.current = false;
     }
   }, [locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext]);
 
@@ -265,7 +293,11 @@ export default function AttendanceCheckInOut({
         pendingLeavePunch.snapshotResult.notes,
         true // bypassLeaveWarning — الموظف أكّد الاستمرار رغم التنبيه
       );
-      toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً في يوم إجازتك');
+      if (pendingLeavePunch.snapshotResult.url) {
+        toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً في يوم إجازتك');
+      } else {
+        toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
+      }
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
       loadLeaveContext();
@@ -369,8 +401,16 @@ export default function AttendanceCheckInOut({
               setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
               showDebugAlert();
               
-              const result = await captureAndUpload();
-              await completeAction(action, result);
+              try {
+                const result = await captureAndUpload();
+                await completeAction(action, result);
+              } catch (actErr: any) {
+                console.error('Face verification action failed:', actErr);
+                toast.error(formatArabicErrorMessage(actErr, 'تعذر تثبيت البصمة'));
+                setProcessing(false);
+                setCapturingAction(null);
+                capturedRef.current = false;
+              }
               return; // Stop loop
             }
           } else {
@@ -928,11 +968,24 @@ export default function AttendanceCheckInOut({
       >
         {/* Processing Indicator */}
         {processing ? (
-          <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
-            <p className="font-bold text-slate-700 dark:text-slate-300">
-              جاري تثبيت البصمة...
+          <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+              <p className="font-bold text-base text-slate-800 dark:text-slate-200">
+                جاري تثبيت البصمة...
+              </p>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+              يرجى الانتظار ثوانٍ معدودة لحفظ وتوثيق الحركة
             </p>
+            <button
+              type="button"
+              onClick={cancelPunchProcess}
+              className="mt-1 px-5 py-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-sm font-bold rounded-xl border border-red-200 dark:border-red-800/50 transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>إلغاء ومقاطعة العملية</span>
+            </button>
           </div>
         ) : !isEnrolled ? (
           <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-center">
