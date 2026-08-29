@@ -21,6 +21,18 @@ const LiveTimer = ({ record }: { record: any }) => {
   return <span className="font-mono">{formatDurationArabic(mins)}</span>;
 };
 
+const formatDisplayTime = (isoString?: string | null) => {
+  if (!isoString) return '--:--';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('ar-IQ', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Baghdad'
+  });
+};
+
 export default function LiveAttendanceBoard() {
   const { records, loading, error } = useLiveAttendance();
   const [search, setSearch] = useState('');
@@ -218,7 +230,7 @@ export default function LiveAttendanceBoard() {
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-slate-500">وقت الدخول:</span>
                       <span className={`font-mono font-medium ${isDevicePending ? 'text-red-600 font-bold dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                        {record.check_in ? record.check_in.substring(11, 16) : '--:--'}
+                        {formatDisplayTime(record.check_in)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -238,12 +250,12 @@ export default function LiveAttendanceBoard() {
                     
                     {record.liveStatus === 'on_break' && record.time_leave_out && (
                       <span className="text-xs text-slate-500">
-                        منذ {record.time_leave_out.substring(11, 16)}
+                        منذ {formatDisplayTime(record.time_leave_out)}
                       </span>
                     )}
                     {record.liveStatus === 'checked_out' && record.check_out && (
                       <span className="text-xs text-slate-500">
-                        في {record.check_out.substring(11, 16)}
+                        في {formatDisplayTime(record.check_out)}
                       </span>
                     )}
                   </div>

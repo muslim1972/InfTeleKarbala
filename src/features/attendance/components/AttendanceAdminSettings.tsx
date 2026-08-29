@@ -6,7 +6,8 @@ import {
   MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
   Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
-  Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone
+  Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone,
+  RefreshCw, Clock, Laptop, ShieldAlert
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -106,6 +107,8 @@ export default function AttendanceAdminSettings() {
   // Device Logs State
   const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [deviceLogsSearch, setDeviceLogsSearch] = useState('');
+  const [deviceLogsStatusFilter, setDeviceLogsStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
 
   // Device Requests State
   const [deviceRequests, setDeviceRequests] = useState<any[]>([]);
@@ -212,24 +215,51 @@ export default function AttendanceAdminSettings() {
     return () => clearTimeout(delayDebounce);
   }, [employeeSearch, assignedEmployees]);
 
-  // Load Device Logs
+  // Helper to parse device info
+  const parseDeviceDetails = (deviceStr: string | null | undefined) => {
+    if (!deviceStr) return { label: 'جهاز غير محدد', hash: '', type: 'غير محدد', os: '' };
+    const hashMatch = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
+    const hash = hashMatch ? hashMatch[1] : '';
+    const label = deviceStr.replace(/\[[a-f0-9]{32,64}\]/gi, '').trim() || deviceStr;
+    
+    let type = 'كمبيوتر شخصي';
+    let os = 'Windows';
+    if (/android/i.test(label)) {
+      type = 'هاتف أندرويد';
+      os = 'Android';
+    } else if (/iphone|ipad|ios/i.test(label)) {
+      type = /ipad/i.test(label) ? 'جهاز iPad' : 'هاتف iPhone';
+      os = 'iOS';
+    } else if (/mac|macintosh/i.test(label)) {
+      type = 'كمبيوتر أبل (Mac)';
+      os = 'macOS';
+    } else if (/linux/i.test(label)) {
+      type = 'جهاز لينوكس';
+      os = 'Linux';
+    } else if (/windows/i.test(label)) {
+      type = 'كمبيوتر شخصي';
+      os = 'Windows';
+    }
+    
+    return { label, hash, type, os };
+  };
+
+  // Load Device Logs from device_change_requests
   const loadDeviceLogs = async () => {
     setLoadingLogs(true);
     try {
       const { data, error } = await supabase
-        .from('attendance_records')
+        .from('device_change_requests')
         .select(`
           id,
           employee_id,
-          check_in,
-          check_out,
-          check_in_device_id,
-          check_out_device_id,
-          is_device_pending,
-          notes,
+          old_device_id,
+          new_device_id,
+          status,
+          created_at,
+          updated_at,
           profiles:employee_id(full_name, job_number, primary_device_id)
         `)
-        .eq('is_device_pending', true)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -238,6 +268,52 @@ export default function AttendanceAdminSettings() {
       toast.error('فشل تحميل سجل الأجهزة: ' + err.message);
     } finally {
       setLoadingLogs(false);
+    }
+  };
+
+  const handleRevokeDevice = async (req: any) => {
+    const empName = req.profiles?.full_name || 'الموظف';
+    if (!window.confirm(`هل أنت متأكد من إلغاء توثيق هذا الجهاز للموظف (${empName})؟ سيتطلب منه ذلك طلب اعتماد جهازه مجدداً عند تسجيل البصمة القادمة.`)) {
+      return;
+    }
+    try {
+      // 1. Reset primary_device_id in profiles if it matches
+      const { data: prof } = await supabase.from('profiles').select('primary_device_id').eq('id', req.employee_id).single();
+      const currentReqHash = (req.new_device_id || '').match(/\[([a-f0-9]{32,64})\]/i)?.[1] || req.new_device_id;
+      const profHash = (prof?.primary_device_id || '').match(/\[([a-f0-9]{32,64})\]/i)?.[1] || prof?.primary_device_id;
+
+      if (!prof?.primary_device_id || (profHash && profHash === currentReqHash)) {
+        await supabase.from('profiles').update({ primary_device_id: null }).eq('id', req.employee_id);
+      }
+
+      // 2. Update device_change_requests status to rejected
+      await supabase.from('device_change_requests').update({ status: 'rejected' }).eq('id', req.id);
+
+      // 3. Mark today's attendance record as pending if exists
+      const { data: recs } = await supabase
+        .from('attendance_records')
+        .select('id, notes')
+        .eq('employee_id', req.employee_id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recs && recs.length > 0) {
+        await supabase.from('attendance_records').update({ is_device_pending: true }).eq('id', recs[0].id);
+      }
+
+      // 4. Send notification
+      await supabase.from('system_notifications').insert({
+        recipient_id: req.employee_id,
+        type: 'system',
+        title: 'تم إلغاء توثيق جهازك',
+        content: 'قام المشرف بإلغاء توثيق جهازك الحالي لتسجيل البصمة. يرجى توثيق الجهاز مجدداً عند الحضور القادم.',
+      });
+
+      toast.success(`تم إلغاء توثيق الجهاز للموظف (${empName}) بنجاح`);
+      loadDeviceLogs();
+      loadDeviceRequests();
+    } catch (err: any) {
+      toast.error('حدث خطأ أثناء إلغاء توثيق الجهاز: ' + err.message);
     }
   };
 
@@ -308,6 +384,7 @@ export default function AttendanceAdminSettings() {
       
       toast.success('تم اعتماد الجهاز بنجاح');
       loadDeviceRequests();
+      loadDeviceLogs();
     } catch (err: any) {
       toast.error('حدث خطأ أثناء اعتماد الجهاز: ' + err.message);
     }
@@ -332,6 +409,7 @@ export default function AttendanceAdminSettings() {
       
       toast.success('تم رفض الجهاز وحذف البصمة المعلقة');
       loadDeviceRequests();
+      loadDeviceLogs();
     } catch (err: any) {
       toast.error('حدث خطأ أثناء رفض الجهاز: ' + err.message);
     }
@@ -1531,73 +1609,241 @@ export default function AttendanceAdminSettings() {
         )}
 
         {/* DEVICE LOGS TAB */}
-        {activeTab === 'deviceLogs' && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">سجل توثيق أجهزة الحضور</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">يعرض هذا السجل عمليات ربط أو إلغاء ربط أجهزة الموظفين بالبصمة المشفرة</p>
-              </div>
-              <button onClick={loadDeviceLogs} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full" title="تحديث">
-                <svg className={`w-5 h-5 ${loadingLogs ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
+        {activeTab === 'deviceLogs' && (() => {
+          const filteredLogs = deviceLogs.filter((log) => {
+            const matchesSearch =
+              !deviceLogsSearch ||
+              log.profiles?.full_name?.toLowerCase().includes(deviceLogsSearch.toLowerCase()) ||
+              log.profiles?.job_number?.toLowerCase().includes(deviceLogsSearch.toLowerCase()) ||
+              log.new_device_id?.toLowerCase().includes(deviceLogsSearch.toLowerCase()) ||
+              log.old_device_id?.toLowerCase().includes(deviceLogsSearch.toLowerCase());
 
-            {loadingLogs ? (
-              <div className="flex justify-center p-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            const matchesStatus =
+              deviceLogsStatusFilter === 'all' || log.status === deviceLogsStatusFilter;
+
+            return matchesSearch && matchesStatus;
+          });
+
+          const totalCount = deviceLogs.length;
+          const approvedCount = deviceLogs.filter((l) => l.status === 'approved').length;
+          const pendingCount = deviceLogs.filter((l) => l.status === 'pending').length;
+          const rejectedCount = deviceLogs.filter((l) => l.status === 'rejected').length;
+
+          return (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    سجل توثيق أجهزة الحضور
+                  </h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                    يعرض هذا السجل كافة عمليات توثيق واعتماد أو إلغاء أجهزة الموظفين بالبصمة المشفرة
+                  </p>
+                </div>
+                <button
+                  onClick={loadDeviceLogs}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors self-start md:self-auto"
+                  title="تحديث السجل"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingLogs ? 'animate-spin' : ''}`} />
+                  تحديث البيانات
+                </button>
               </div>
-            ) : deviceLogs.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200">
-                لا توجد أي حركات في السجل حالياً
+
+              {/* Stats Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <span className="text-xs text-slate-500 font-medium block mb-1">إجمالي الحركات</span>
+                  <span className="text-xl font-bold text-slate-800 dark:text-white">{totalCount}</span>
+                </div>
+                <div className="p-3.5 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium block mb-1">أجهزة موثقة ومعتمدة</span>
+                  <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{approvedCount}</span>
+                </div>
+                <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/40">
+                  <span className="text-xs text-amber-600 dark:text-amber-400 font-medium block mb-1">طلبات قيد المراجعة</span>
+                  <span className="text-xl font-bold text-amber-700 dark:text-amber-300">{pendingCount}</span>
+                </div>
+                <div className="p-3.5 bg-rose-50/60 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/40">
+                  <span className="text-xs text-rose-600 dark:text-rose-400 font-medium block mb-1">أجهزة مرفوضة / ملغاة</span>
+                  <span className="text-xl font-bold text-rose-700 dark:text-rose-300">{rejectedCount}</span>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600">
-                    <tr>
-                      <th className="px-4 py-3 font-medium rounded-r-lg">الموظف</th>
-                      <th className="px-4 py-3 font-medium">نوع الحركة</th>
-                      <th className="px-4 py-3 font-medium">الجهاز</th>
-                      <th className="px-4 py-3 font-medium rounded-l-lg">التاريخ والوقت</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {deviceLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-slate-800 dark:text-slate-200">{log.profiles?.full_name || 'غير معروف'}</div>
-                          <div className="text-xs text-slate-500">{log.profiles?.job_number || 'بدون رقم وظيفي'}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                            log.action_type === 'ENROLL' 
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                              : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                          }`}>
-                            {log.action_type === 'ENROLL' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                            {log.action_type === 'ENROLL' ? 'توثيق جهاز' : 'إلغاء توثيق'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
-                          {log.device_name}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500" dir="ltr" style={{ textAlign: 'right' }}>
-                          {new Date(log.created_at).toLocaleString('ar-IQ', {
-                            year: 'numeric', month: '2-digit', day: '2-digit',
-                            hour: '2-digit', minute: '2-digit', second: '2-digit'
-                          })}
-                        </td>
+
+              {/* Search & Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={deviceLogsSearch}
+                    onChange={(e) => setDeviceLogsSearch(e.target.value)}
+                    placeholder="بحث باسم الموظف، الرقم الوظيفي، أو نوع الجهاز..."
+                    className="w-full pl-4 pr-10 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white"
+                  />
+                  {deviceLogsSearch && (
+                    <button
+                      onClick={() => setDeviceLogsSearch('')}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      مسح
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl shrink-0">
+                  {[
+                    { id: 'all', label: 'الكل' },
+                    { id: 'approved', label: 'المعتمدة' },
+                    { id: 'pending', label: 'المعلقة' },
+                    { id: 'rejected', label: 'المرفوضة' }
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setDeviceLogsStatusFilter(f.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        deviceLogsStatusFilter === f.id
+                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingLogs ? (
+                <div className="flex justify-center p-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : filteredLogs.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  لا توجد أي سجلات تطابق عوامل البحث المحددة حالياً
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-right">
+                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold rounded-r-lg">الموظف</th>
+                        <th className="px-4 py-3 font-semibold">حالة التوثيق</th>
+                        <th className="px-4 py-3 font-semibold">نوع ومعلومات الجهاز</th>
+                        <th className="px-4 py-3 font-semibold">تاريخ ووقت العملية</th>
+                        <th className="px-4 py-3 font-semibold rounded-l-lg text-center">الإجراءات</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                      {filteredLogs.map((log) => {
+                        const newDev = parseDeviceDetails(log.new_device_id);
+                        const oldDev = log.old_device_id ? parseDeviceDetails(log.old_device_id) : null;
+                        const dateObj = new Date(log.created_at || log.updated_at);
+                        const formattedDateTime = !isNaN(dateObj.getTime())
+                          ? dateObj.toLocaleString('ar-IQ', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                              timeZone: 'Asia/Baghdad'
+                            })
+                          : 'غير محدد';
+
+                        return (
+                          <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/20 transition-colors">
+                            {/* Employee */}
+                            <td className="px-4 py-3.5">
+                              <div className="font-bold text-slate-800 dark:text-slate-200">
+                                {log.profiles?.full_name || 'غير معروف'}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                الرقم الوظيفي: {log.profiles?.job_number || 'بدون رقم وظيفي'}
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3.5">
+                              {log.status === 'approved' ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50">
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  جهاز موثق معتمد
+                                </span>
+                              ) : log.status === 'pending' ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  طلب قيد المراجعة
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50">
+                                  <X className="w-3.5 h-3.5 text-rose-600" />
+                                  تم الرفض / ملغي
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Device details */}
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                  {newDev.type}
+                                </span>
+                                <span className="font-medium text-slate-800 dark:text-slate-200 text-xs">
+                                  {newDev.label}
+                                </span>
+                              </div>
+                              {newDev.hash && (
+                                <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-1 truncate max-w-[260px]" title={newDev.hash}>
+                                  رمز العتاد: [{newDev.hash.substring(0, 16)}...]
+                                </div>
+                              )}
+                              {oldDev && oldDev.label !== newDev.label && (
+                                <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                  بديل عن: {oldDev.label}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Date & Time */}
+                            <td className="px-4 py-3.5 font-medium text-slate-600 dark:text-slate-300 text-xs">
+                              {formattedDateTime}
+                            </td>
+
+                            {/* Action Buttons */}
+                            <td className="px-4 py-3.5 text-center">
+                              {log.status === 'approved' ? (
+                                <button
+                                  onClick={() => handleRevokeDevice(log)}
+                                  className="px-3 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors inline-flex items-center gap-1"
+                                  title="إلغاء توثيق هذا الجهاز وإعادة تعيينه"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  إلغاء التوثيق
+                                </button>
+                              ) : log.status === 'pending' ? (
+                                <button
+                                  onClick={() => setActiveTab('deviceRequests')}
+                                  className="px-3 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg transition-colors inline-flex items-center gap-1"
+                                  title="الانتقال إلى تبويبة طلبات تغيير الأجهزة لاتخاذ الإجراء"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  مراجعة الطلب
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400">لا يوجد إجراء</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {/* DEVICE REQUESTS TAB */}
         {activeTab === 'deviceRequests' && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">

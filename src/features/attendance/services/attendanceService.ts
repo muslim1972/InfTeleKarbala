@@ -514,13 +514,13 @@ export const attendanceRecordService = {
     function extractHash(deviceStr: string | null | undefined): string {
       if (!deviceStr) return '';
       const match = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
-      if (match) return match[1];
-      return deviceStr.trim();
+      if (match) return match[1].toLowerCase();
+      return deviceStr.trim().toLowerCase();
     }
 
     function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
       if (!stored || !current) return false;
-      if (stored === current) return true;
+      if (stored.trim() === current.trim()) return true;
       const hash1 = extractHash(stored);
       const hash2 = extractHash(current);
       return hash1 !== '' && hash1 === hash2;
@@ -531,9 +531,10 @@ export const attendanceRecordService = {
       notifyAdminsForDeviceChange(profile?.full_name || 'موظف').catch(console.warn);
       isDevicePending = false;
     } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
-      // Current punch matches approved device!
+      // Current punch matches the active approved device!
       isDevicePending = false;
     } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
+      // Device does not match current approved device -> flag as unapproved
       isDevicePending = true;
       notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId).catch(console.warn);
       
@@ -917,7 +918,20 @@ export const attendanceRecordService = {
       .eq('id', employeeId)
       .single();
 
-    let isDevicePending = false;
+    function extractHash(deviceStr: string | null | undefined): string {
+      if (!deviceStr) return '';
+      const match = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
+      if (match) return match[1].toLowerCase();
+      return deviceStr.trim().toLowerCase();
+    }
+
+    function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
+      if (!stored || !current) return false;
+      if (stored.trim() === current.trim()) return true;
+      const hash1 = extractHash(stored);
+      const hash2 = extractHash(current);
+      return hash1 !== '' && hash1 === hash2;
+    }
 
     if (!profile?.primary_device_id && deviceId) {
       await supabase
@@ -926,7 +940,9 @@ export const attendanceRecordService = {
         .eq('id', employeeId);
       const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
       await notifyAdminsForDeviceChange(userProfile?.full_name || 'موظف');
-    } else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+    } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
+      isDevicePending = false;
+    } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
       isDevicePending = true;
       await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
     }
