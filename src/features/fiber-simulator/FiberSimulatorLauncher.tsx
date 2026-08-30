@@ -3,29 +3,27 @@
  * بطاقة إطلاق محاكي FTTH — نقطة الدخول الوحيدة من التطبيق
  * ============================================================
  * البوابات الإلزامية قبل أي تشغيل:
- * 1) حساب المطور فقط (مسلم) — خلاف ذلك لا يُعرض شيء إطلاقاً.
+ * 1) صلاحية الوصول: السجل ftth_simulator في نافذة «صلاحيات الحقول»
+ *    (جدول field_permissions) — حساب المطور مسموح دائماً، وغير
+ *    المصرح له لا يُعرض له شيء إطلاقاً (fail-closed).
  * 2) شاشة حاسوب ≥ 7 بوصة — مع رسالة اعتراض واضحة.
  * مساحة العمل تُحمَّل كسولاً (React.lazy) فلا تدخل حزمة التطبيق الأساسي.
  */
 
 import { Suspense, lazy, useState } from 'react';
 import { Loader2, MonitorX, Network, Play } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import {
-  checkDesktopScreen,
-  isDeveloperAccount,
-  type ScreenCheck,
-} from './security/feature-gate';
+import { checkDesktopScreen, type ScreenCheck } from './security/feature-gate';
+import { useFtthSimulatorAccess } from './security/useFtthSimulatorAccess';
 
 const FiberSimulatorWorkspace = lazy(() => import('./FiberSimulatorWorkspace'));
 
 export default function FiberSimulatorLauncher(): React.ReactElement | null {
-  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [block, setBlock] = useState<ScreenCheck | null>(null);
+  const { allowed, checking } = useFtthSimulatorAccess();
 
-  /* البوابة 1: حساب المطور حصراً خلال فترة التطوير */
-  if (!isDeveloperAccount(user)) return null;
+  /* البوابة 1: صلاحية الوصول عبر «صلاحيات الحقول» (المطور مسموح دائماً) */
+  if (checking || !allowed) return null;
 
   const launch = () => {
     const check = checkDesktopScreen();
@@ -57,7 +55,7 @@ export default function FiberSimulatorLauncher(): React.ReactElement | null {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-bold text-slate-100">اختبر معلوماتك — محاكي بناء شبكة FTTH</h3>
               <span className="rounded-full border border-amber-700/60 bg-amber-950/50 px-2 py-0.5 text-[10px] text-amber-300">
-                قيد التطوير — خاص بحساب المطور
+                قيد التطوير — وفق صلاحية معتمدة
               </span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-slate-400">

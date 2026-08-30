@@ -22,7 +22,7 @@ export const KnowledgeTabContent = () => {
 
     return (
         <div className="w-full relative z-10 animate-fade-in-up">
-            {/* قسم «اختبر معلوماتك» — يظهر لحساب المطور فقط خلال فترة التطوير */}
+            {/* قسم «اختبر معلوماتك» — يظهر وفق صلاحية ftth_simulator في «صلاحيات الحقول» */}
             <Suspense fallback={null}>
                 <FiberSimulatorLauncher />
             </Suspense>

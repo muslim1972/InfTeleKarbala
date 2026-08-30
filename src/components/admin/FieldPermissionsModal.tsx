@@ -37,6 +37,8 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         { key: 'tab_training', label: 'تبويبة التدريب الصيفي' },
         { key: 'tab_requests', label: 'تبويبة الطلبات' },
         { key: 'tab_news', label: 'تبويبة الاعلام' },
+        // --- ميزات حصرية بالمنح ---
+        { key: 'ftth_simulator', label: 'تطوير محاكي بناء شبكة FTTH' },
         // --- البيانات المالية والوظيفية ---
         { key: 'job_title', label: 'العنوان الوظيفي' },
         { key: 'salary_grade', label: 'الدرجة في سلم الرواتب' },
@@ -66,6 +68,11 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         { key: 'net_salary', label: 'الراتب الصافي (مستحق الدفع)' }
     ];
 
+    // الافتراضي الآمن لكل حقل عند غياب سجلبه في قاعدة البيانات:
+    // الحقول المعتادة تُفتح للمستوى 4 (عام)، أما الميزات الحصرية بالمنح
+    // (ftth_simulator) فتبقى مخفية عن الجميع حتى يمنحها المطور صراحة.
+    const defaultLevelsFor = (key: string): number[] => (key === 'ftth_simulator' ? [] : [4]);
+
     const fetchPermissions = async () => {
         setLoading(true);
         try {
@@ -77,19 +84,21 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 // If table doesn't exist yet, we'll catch it here and just use defaults
                 console.error("Error fetching permissions (ensure SQL script is run):", error);
 
-                // Set default permissions (everyone level 4)
+                // Set default permissions (everyone level 4، والميزات
+                // الحصرية بالمنح مثل ftth_simulator تبقى مخفية)
                 const defaultPerms = allFields.map(f => ({
                     column_name: f.key,
-                    permission_levels: [4]
+                    permission_levels: defaultLevelsFor(f.key)
                 }));
                 setPermissions(defaultPerms);
                 return;
             }
 
-            // Merge fetched permissions with all fields list, defaulting missing to [4]
+            // Merge fetched permissions with all fields list, defaulting
+            // missing keys via defaultLevelsFor (ftth_simulator → مخفي [])
             const mergedPerms = allFields.map(field => {
                 const found = data?.find(p => p.column_name === field.key);
-                let levels = [4];
+                let levels = defaultLevelsFor(field.key);
                 if (found) {
                     if (Array.isArray(found.permission_levels)) {
                         levels = found.permission_levels;
@@ -208,7 +217,7 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
                             {allFields.map(field => {
-                                const perm = permissions.find(p => p.column_name === field.key) || { permission_levels: [4] };
+                                const perm = permissions.find(p => p.column_name === field.key) || { permission_levels: defaultLevelsFor(field.key) };
                                 return (
                                     <div key={field.key} className={`flex items-center justify-between p-3 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10'
                                         }`}>
