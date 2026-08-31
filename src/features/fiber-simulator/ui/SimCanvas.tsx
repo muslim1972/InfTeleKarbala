@@ -37,6 +37,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 const SNAP_LABEL: Record<SnapResult['kind'], string> = {
   node: 'عقدة',
+  path: 'مسار حفر',
   road: 'محور شارع',
   grid: 'شبكة',
   orthogonal: 'زاوية قياسية',
@@ -147,6 +148,8 @@ export default function SimCanvas(): React.ReactElement {
   const doSnap = (raw: Vec2): SnapResult =>
     computeSnap(raw, {
       roads: map?.roads ?? [],
+      /* مسارات الحفر القائمة: كي يلتصق FAT/FDC والمنشآت فوق المسار لا بجانبه */
+      paths: entities.trenches.map((t) => t.points),
       nodes: snapNodes,
       tolM: 12 / vp.scale,
       orthogonalFrom:
@@ -358,6 +361,35 @@ export default function SimCanvas(): React.ReactElement {
     st.setMeasure(null, null);
   };
 
+  /* ===================== سحب الكيانات الموضوعة (تحريك) ===================== */
+  /** أقرب نقطة على مسار حفر قائم ضمن السماحية — لالتصاق الصندوق بالمسار أثناء السحب */
+  const nearestTrenchPoint = (p: Vec2, tolM: number): Vec2 | null => {
+    let best: { point: Vec2; d: number } | null = null;
+    for (const t of entities.trenches) {
+      for (let i = 1; i < t.points.length; i++) {
+        const pr = projectOnSegment(p, t.points[i - 1], t.points[i]);
+        if (pr.dist <= tolM && (!best || pr.dist < best.d)) best = { point: pr.point, d: pr.dist };
+      }
+    }
+    return best ? best.point : null;
+  };
+
+  /** سماحية الالتصاق أثناء السحب: 12 بكسل مكافئة هندسياً بحد أدنى مترين */
+  const onEntityDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const tolM = Math.max(2, 12 / vp.scale);
+    const snapped = nearestTrenchPoint({ x: node.x(), y: node.y() }, tolM);
+    /* التقاط حي: السحب يلتصق بمسار الحفر فور اقترابه منه */
+    if (snapped) node.position({ x: snapped.x, y: snapped.y });
+  };
+
+  const onEntityDragEnd =
+    (kind: 'structure' | 'cabinet' | 'fat', id: string) =>
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      const node = e.target;
+      st.moveEntity(kind, id, node.x(), node.y());
+    };
+
   if (!map) return <div className="flex h-full items-center justify-center text-slate-400">الخريطة غير موجودة</div>;
 
   /* ===================== عناصر الشبكة ===================== */
@@ -553,7 +585,13 @@ export default function SimCanvas(): React.ReactElement {
           {entities.structures.map((s) => {
             const w = s.kind === 'manhole' ? 1.8 : 1.0;
             return (
-              <Group key={s.id} onClick={onEntityClick('structure', s.id)}>
+              <Group
+                key={s.id}
+                onClick={onEntityClick('structure', s.id)}
+                draggable={tool === 'select'}
+                onDragMove={onEntityDragMove}
+                onDragEnd={onEntityDragEnd('structure', s.id)}
+              >
                 <Rect
                   x={s.x - w / 2}
                   y={s.y - w / 2}
@@ -573,7 +611,13 @@ export default function SimCanvas(): React.ReactElement {
 
           {/* الكبائن FDC */}
           {entities.cabinets.map((c) => (
-            <Group key={c.id} onClick={onEntityClick('cabinet', c.id)}>
+            <Group
+              key={c.id}
+              onClick={onEntityClick('cabinet', c.id)}
+              draggable={tool === 'select'}
+              onDragMove={onEntityDragMove}
+              onDragEnd={onEntityDragEnd('cabinet', c.id)}
+            >
               <Rect
                 x={c.x - 1.3}
                 y={c.y - 1}
@@ -598,7 +642,13 @@ export default function SimCanvas(): React.ReactElement {
 
           {/* صناديق FAT */}
           {entities.fats.map((f) => (
-            <Group key={f.id} onClick={onEntityClick('fat', f.id)}>
+            <Group
+              key={f.id}
+              onClick={onEntityClick('fat', f.id)}
+              draggable={tool === 'select'}
+              onDragMove={onEntityDragMove}
+              onDragEnd={onEntityDragEnd('fat', f.id)}
+            >
               <Rect
                 x={f.x - 0.7}
                 y={f.y - 0.5}
@@ -714,7 +764,8 @@ export default function SimCanvas(): React.ReactElement {
           )}
 
           {/* مؤشر الالتقاط */}
-          {hover && (tool === 'trench' || tool === 'drop' || tool === 'measure') && (
+          {hover &&
+            (tool === 'trench' || tool === 'drop' || tool === 'measure' || tool === 'fat' || tool === 'fdc') && (
             <Group listening={false}>
               <Circle
                 x={hover.snap.point.x}
@@ -736,14 +787,14 @@ export default function SimCanvas(): React.ReactElement {
         dir="rtl"
       >
         <span>
-          س: {hover ? hover.world.x.toFixed(1) : '—'} / ص: {hover ? hover.world.y.toFixed(1) : '—'} م
+          x: {hover ? hover.world.x.toFixed(1) : '—'} / y: {hover ? hover.world.y.toFixed(1) : '—'} م
         </span>
         <span>الالتقاط: {hover ? SNAP_LABEL[hover.snap.kind] : '—'}</span>
         <span>التكبير: {(vp.scale * 100 / 4).toFixed(0)}%</span>
         {draftLen !== null && <span className="text-amber-300">طول المسار: {draftLen.toFixed(1)} م</span>}
         {dropDraftLen !== null && <span className="text-yellow-200">طول الإسقاط: {dropDraftLen.toFixed(1)} م</span>}
         <span className="mr-auto text-slate-500">
-          نقرة يسرى: إضافة · نقرة مزدوجة/Enter: إنهاء · يمين/Esc: إلغاء · مسافة+سحب: تحريك · عجلة: تكبير
+          نقرة يسرى: إضافة · نقرة مزدوجة/Enter: إنهاء · يمين/Esc: إلغاء · مسافة+سحب: تحريك الخريطة · سحب العناصر بأداة التحديد: تحريكها مع الالتصاق بالمسار · عجلة: تكبير
         </span>
       </div>
 

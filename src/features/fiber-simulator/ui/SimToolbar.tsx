@@ -2,6 +2,8 @@
  * شريط أدوات المحاكي — أدوات الرسم والتحكم بالعرض
  */
 
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Cable,
   CircleDot,
@@ -58,20 +60,64 @@ function ToolButton({
   disabled?: boolean;
   children: React.ReactNode;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [tipPos, setTipPos] = useState<{ right: number; top?: number; bottom?: number } | null>(null);
+
+  /* التلميحة عبر portal بـ position:fixed كي لا يقصّها overflow-y-auto في الشريط.
+     الهدف إلزامياً جذر المحاكي نفسه وليس document.body: المحاكي يدخل وضع
+     ملء الشاشة على حاويته (Fullscreen API) وخارجها لا يُصيَّر أي عنصر —
+     والـ fixed لا يقصّه overflow الأسلاف لأن سياقه الـ viewport */
+  const simRoot = () => document.getElementById('fiber-sim-root') ?? document.body;
+
+  const showTip = () => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const openUp = rect.top >= 110;
+    setTipPos({
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + 6 }
+        : { top: rect.bottom + 6 }),
+    });
+  };
+
   return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${
-        active
-          ? 'bg-indigo-500/25 text-indigo-300 ring-1 ring-indigo-400/60'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-      }`}
+    <div
+      ref={wrapRef}
+      className="relative"
+      onMouseEnter={showTip}
+      onMouseLeave={() => setTipPos(null)}
     >
-      {children}
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${
+          active
+            ? 'bg-indigo-500/25 text-indigo-300 ring-1 ring-indigo-400/60'
+            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+        }`}
+      >
+        {children}
+      </button>
+      {tipPos &&
+        createPortal(
+          <span
+            style={{
+              position: 'fixed',
+              right: tipPos.right,
+              top: tipPos.top,
+              bottom: tipPos.bottom,
+              maxWidth: 240,
+              zIndex: 100000,
+            }}
+            className="pointer-events-none block whitespace-normal rounded-md bg-slate-800 px-2 py-1 text-center text-[11px] leading-snug text-slate-100 shadow-lg ring-1 ring-slate-700"
+          >
+            {label}
+          </span>,
+          simRoot()
+        )}
+    </div>
   );
 }
 
@@ -91,10 +137,10 @@ export default function SimToolbar(): React.ReactElement {
   };
 
   return (
-    <div data-tour="toolbar" className="flex h-full w-16 flex-col items-center gap-1 overflow-y-auto border-slate-800 bg-slate-900/80 py-2">
+    <div data-tour="toolbar" className="flex h-full w-16 flex-col items-center gap-0.5 overflow-y-auto border-slate-800 bg-slate-900/80 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {TOOLS.map((t, i) => (
         <div key={t.id} className="flex flex-col items-center">
-          {(i === 3 || i === 10) && <div className="my-1 h-px w-8 bg-slate-800" />}
+          {(i === 3 || i === 10) && <div className="my-0.5 h-px w-8 bg-slate-800" />}
           <div data-tour={t.tourId}>
             <ToolButton
               active={st.tool === t.id}
@@ -134,7 +180,7 @@ export default function SimToolbar(): React.ReactElement {
         </div>
       )}
 
-      <div className="my-1 h-px w-8 bg-slate-800" />
+      <div className="my-0.5 h-px w-8 bg-slate-800" />
 
       <ToolButton label="تراجع (Ctrl+Z)" onClick={simUndo} disabled={!canUndo}>
         <Undo2 size={18} />
@@ -152,7 +198,7 @@ export default function SimToolbar(): React.ReactElement {
         <Maximize2 size={18} />
       </ToolButton>
 
-      <div className="my-1 h-px w-8 bg-slate-800" />
+      <div className="my-0.5 h-px w-8 bg-slate-800" />
 
       <ToolButton
         label="مسح المشروع بالكامل"

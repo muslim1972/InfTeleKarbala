@@ -113,6 +113,9 @@ export interface SimulatorState {
 
   removeEntity: (kind: EntityKind, id: string) => void;
 
+  /** تحريك كيان موضوع (منشأة/كبينة/FAT) إلى إحداثيات جديدة — مشمول بالتراجع */
+  moveEntity: (kind: 'structure' | 'cabinet' | 'fat', id: string, x: number, y: number) => void;
+
   setMeasure: (from: Vec2 | null, to: Vec2 | null) => void;
   setViewport: (v: SimulatorState['viewport']) => void;
   requestFit: () => void;
@@ -307,6 +310,21 @@ export const useSimulatorStore = create<SimulatorState>()(
                   : e.drops,
           };
           return { entities: next, selectedIds: s.selectedIds.filter((x) => x !== id) };
+        }),
+
+      moveEntity: (kind, id, x, y) =>
+        set((s) => {
+          const mv = <T extends { id: string; x: number; y: number }>(arr: T[]): T[] =>
+            arr.map((r) => (r.id === id ? { ...r, x, y } : r));
+          const e = s.entities;
+          return {
+            entities: {
+              ...e,
+              structures: kind === 'structure' ? mv(e.structures) : e.structures,
+              cabinets: kind === 'cabinet' ? mv(e.cabinets) : e.cabinets,
+              fats: kind === 'fat' ? mv(e.fats) : e.fats,
+            },
+          };
         }),
 
       setMeasure: (from, to) => set({ measureFrom: from, measureTo: to }),

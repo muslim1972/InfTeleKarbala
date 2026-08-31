@@ -3,7 +3,7 @@
  * محرك الهندسة — مسافات، إسقاط، والتقاط ذكي (Smart Snapping)
  * ============================================================
  * كل الوحدات بالمتر. الأولوية عند الالتقاط:
- * عقد قائمة (مناهيل/كبائن/FAT/نقاط دخول منازل) ← محاور شوارع ← شبكة.
+ * عقد قائمة (مناهيل/كبائن/FAT/نقاط دخول منازل) ← مسارات الحفر ← محاور شوارع ← شبكة.
  */
 
 import type { MapRoad, Vec2 } from '../types';
@@ -36,6 +36,9 @@ export interface NodeRef {
 
 export interface SnapOptions {
   roads: MapRoad[];
+  /** مسارات الحفر القائمة — تُلتقط بعد العقد وقبل الشوارع كي تلتصق
+      صناديق FAT/FDC والمنشآت فوق المسار لا بجانبه */
+  paths?: Vec2[][];
   nodes: NodeRef[];
   /** سماحية الالتقاط بالمتر (تُحسب عادة: 12 بكسل ÷ المقياس) */
   tolM: number;
@@ -46,7 +49,7 @@ export interface SnapOptions {
 
 export interface SnapResult {
   point: Vec2;
-  kind: 'node' | 'road' | 'grid' | 'orthogonal' | 'free';
+  kind: 'node' | 'path' | 'road' | 'grid' | 'orthogonal' | 'free';
   targetId?: string;
 }
 
@@ -74,7 +77,21 @@ export function computeSnap(raw: Vec2, opts: SnapOptions): SnapResult {
   }
   if (bestNode) return { point: { x: bestNode.x, y: bestNode.y }, kind: 'node', targetId: bestNode.id };
 
-  // 2) محاور الشوارع
+  // 2) مسارات الحفر القائمة (التصاق FAT/FDC والمنشآت فوق المسار)
+  if (opts.paths && opts.paths.length > 0) {
+    let bestPath: { point: Vec2; d: number } | null = null;
+    for (const pts of opts.paths) {
+      for (let i = 1; i < pts.length; i++) {
+        const pr = projectOnSegment(raw, pts[i - 1], pts[i]);
+        if (pr.dist <= opts.tolM && (!bestPath || pr.dist < bestPath.d)) {
+          bestPath = { point: pr.point, d: pr.dist };
+        }
+      }
+    }
+    if (bestPath) return { point: bestPath.point, kind: 'path' };
+  }
+
+  // 3) محاور الشوارع
   let bestRoad: { point: Vec2; id: string; d: number } | null = null;
   for (const road of opts.roads) {
     const cl = road.centerline;

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Loader2, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -155,18 +155,30 @@ export function EmployeeSearch({
             </div>
 
             {/* Suggestions Portal to avoid clipping issues */}
-            {showSuggestions && searchRef.current && createPortal(
+            {showSuggestions && searchRef.current && (() => {
+                // اتجاه فتح ذكي: لأسفل افتراضياً، ولأعلى إذا ضاقت المساحة تحته لتجنب حواف الشاشة/النوافذ
+                const rect = searchRef.current!.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const spaceAbove = rect.top;
+                const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+                const maxHeight = Math.max(140, Math.min(220, (openUp ? spaceAbove : spaceBelow) - 12));
+                const portalStyle: CSSProperties = {
+                    left: `${rect.left}px`,
+                    width: `${rect.width}px`,
+                    maxHeight: `${maxHeight}px`,
+                    ...(openUp
+                        ? { bottom: `${window.innerHeight - rect.top + 4}px` }
+                        : { top: `${rect.bottom + 4}px` })
+                };
+                return createPortal(
                 <div
                     className={cn(
-                        "employee-search-portal fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200",
+                        "employee-search-portal fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] overflow-y-auto animate-in fade-in duration-200",
+                        openUp ? "slide-in-from-bottom-2" : "slide-in-from-top-2",
                         theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10',
                         portalClassName
                     )}
-                    style={{
-                        top: `${searchRef.current.getBoundingClientRect().bottom + 4}px`,
-                        left: `${searchRef.current.getBoundingClientRect().left}px`,
-                        width: `${searchRef.current.getBoundingClientRect().width}px`
-                    }}
+                    style={portalStyle}
                 >
                     {suggestions.map((user, idx) => (
                         <button
@@ -190,7 +202,8 @@ export function EmployeeSearch({
                     ))}
                 </div>,
                 document.body
-            )}
+                );
+            })()}
         </div>
     );
 }

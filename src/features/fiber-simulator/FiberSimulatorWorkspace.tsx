@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, FolderOpen, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Save, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, FolderOpen, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Plus, Save, Trash2, TriangleAlert, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { simRedo, simUndo, useSimulatorStore } from './store/simulator.store';
 import { useEduStore } from './store/education.store';
@@ -295,6 +295,27 @@ export default function FiberSimulatorWorkspace({
     }
   };
 
+  /* ===== مشروع جديد: مساحة عمل فارغة تبدأ من الطور المدني =====
+     يفرّغ التصميم ويعيد الطور الأول ويصفّر الاسم والمعرّف —
+     والحفظ القادم ينشئ مشروعاً مستقلاً جديداً */
+  const newProject = () => {
+    if (
+      dirty &&
+      !window.confirm('لديك تغييرات غير محفوظة في المشروع الحالي وسيتم تجاهلها. متابعة؟')
+    ) {
+      return;
+    }
+    suppressDirty.current = 1;
+    st.clearAll();
+    st.setPhase('civil');
+    setProjectName('');
+    setProjectId(null);
+    setSavedName('');
+    setDirty(false);
+    setOpenDlg(false);
+    setToast('مشروع جديد — مساحة عمل فارغة، سمِّ المشروع ثم اضغط «حفظ»');
+  };
+
   /* ===== مسار الخروج مع تأكيد الحفظ ===== */
   const finalizeClose = () => {
     setConfirmExit(false);
@@ -379,7 +400,7 @@ export default function FiberSimulatorWorkspace({
   }, [st, confirmExit, projectName, projectId, savedName, openDlg]);
 
   return (
-    <div ref={rootRef} dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
+    <div ref={rootRef} id="fiber-sim-root" dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
       {/* الرأس */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-3">
         <button
@@ -675,6 +696,18 @@ export default function FiberSimulatorWorkspace({
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100"
               >
                 <X size={16} />
+              </button>
+            </div>
+
+            {/* خيار «مشروع جديد» — مساحة عمل فارغة دون الحاجة لحفظ سابق */}
+            <div className="border-b border-slate-800 px-3 pt-3 pb-3">
+              <button
+                type="button"
+                onClick={newProject}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900/40 px-3 py-2.5 text-[12.5px] font-bold text-slate-200 transition-colors hover:border-indigo-500 hover:bg-indigo-500/10 hover:text-indigo-200"
+              >
+                <Plus size={15} />
+                مشروع جديد — مساحة عمل فارغة
               </button>
             </div>
 
