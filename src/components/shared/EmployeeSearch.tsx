@@ -19,6 +19,8 @@ interface EmployeeSearchProps {
     onChange?: (val: string) => void; // When user types
     autoFocus?: boolean;
     showIcon?: boolean;
+    /** أصناف إضافية لمنفذ القائمة المنسدلة (مثلاً رفع z-index داخل نوافذ مودال أعلى) */
+    portalClassName?: string;
 }
 
 export function EmployeeSearch({
@@ -34,7 +36,8 @@ export function EmployeeSearch({
     value,
     onChange,
     autoFocus = false,
-    showIcon = true
+    showIcon = true,
+    portalClassName
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
     const searchRef = useRef<HTMLDivElement>(null);
@@ -156,7 +159,8 @@ export function EmployeeSearch({
                 <div
                     className={cn(
                         "employee-search-portal fixed backdrop-blur-xl border rounded-lg shadow-2xl overflow-hidden z-[9999] max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200",
-                        theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10'
+                        theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900/95 border-white/10',
+                        portalClassName
                     )}
                     style={{
                         top: `${searchRef.current.getBoundingClientRect().bottom + 4}px`,

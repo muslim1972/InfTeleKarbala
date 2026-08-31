@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
-import { X, Shield, Save, Loader2 } from "lucide-react";
+import { X, Shield, Save, Loader2, UserPlus } from "lucide-react";
+import { EmployeeSearch } from "../shared/EmployeeSearch";
 
 interface FieldPermissionsModalProps {
     onClose: () => void;
@@ -13,10 +15,21 @@ interface FieldPermission {
     permission_levels: number[];
 }
 
+/** مستخدم مَنُوح له فردياً على ميزة ftth_simulator */
+interface FtthGrantedUser {
+    user_id: string;
+    full_name: string;
+    job_number?: string | null;
+}
+
 export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalProps) => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [permissions, setPermissions] = useState<FieldPermission[]>([]);
+    // المنح الفردية لـ ftth_simulator — يُحفظ عند «حفظ» الفروقات فقط
+    const [ftthUsers, setFtthUsers] = useState<FtthGrantedUser[]>([]);
+    const [ftthSearchValue, setFtthSearchValue] = useState('');
+    const initialFtthUserIds = useRef<Set<string>>(new Set());
 
     // Define the static list of all fields
     const allFields = [
@@ -122,7 +135,46 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
 
     useEffect(() => {
         fetchPermissions();
+        fetchFtthGrants();
     }, []);
+
+    // جلب المنح الفردية الحالية لـ ftth_simulator (مع بيانات الموظف)
+    const fetchFtthGrants = async () => {
+        const { data, error } = await supabase
+            .from('field_user_permissions')
+            .select('user_id, profile:profiles!field_user_permissions_user_id_fkey(full_name, job_number)')
+            .eq('column_name', 'ftth_simulator');
+
+        if (error) {
+            // غياب الجدول (لم يُطبَّق SQL بعد) → قسم فارغ دون تعطيل النافذة
+            console.error("Error fetching FTTH individual grants:", error);
+            return;
+        }
+
+        const rows: FtthGrantedUser[] = (data || []).map((r: any) => ({
+            user_id: r.user_id,
+            full_name: r.profile?.full_name || 'مستخدم',
+            job_number: r.profile?.job_number ?? null
+        }));
+        setFtthUsers(rows);
+        initialFtthUserIds.current = new Set(rows.map(r => r.user_id));
+    };
+
+    const handleAddFtthUser = (user: any) => {
+        if (!user?.id) return;
+        setFtthUsers(prev => prev.some(u => u.user_id === user.id)
+            ? prev
+            : [...prev, {
+                user_id: user.id,
+                full_name: user.full_name || 'مستخدم',
+                job_number: user.job_number ?? null
+            }]);
+        setFtthSearchValue('');
+    };
+
+    const handleRemoveFtthUser = (userId: string) => {
+        setFtthUsers(prev => prev.filter(u => u.user_id !== userId));
+    };
 
     const handleLevelToggle = (columnName: string, level: number) => {
         setPermissions(prev => prev.map(p => {
@@ -152,6 +204,32 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                 );
 
             if (error) throw error;
+
+            // حفظ المنح الفردية لـ ftth_simulator: إضافة الجديد وحذف المسحوب فقط
+            const currentIds = new Set(ftthUsers.map(u => u.user_id));
+            const added = ftthUsers.filter(u => !initialFtthUserIds.current.has(u.user_id));
+            const removed = Array.from(initialFtthUserIds.current).filter(id => !currentIds.has(id));
+
+            if (added.length > 0) {
+                const { data: authData } = await supabase.auth.getUser();
+                const { error: addError } = await supabase
+                    .from('field_user_permissions')
+                    .insert(added.map(u => ({
+                        column_name: 'ftth_simulator',
+                        user_id: u.user_id,
+                        granted_by: authData?.user?.id ?? null
+                    })));
+                if (addError) throw addError;
+            }
+            if (removed.length > 0) {
+                const { error: delError } = await supabase
+                    .from('field_user_permissions')
+                    .delete()
+                    .eq('column_name', 'ftth_simulator')
+                    .in('user_id', removed);
+                if (delError) throw delError;
+            }
+
             toast.success("تم حفظ صلاحيات الحقول بنجاح");
             onClose();
         } catch (error: any) {
@@ -167,7 +245,9 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
         }
     };
 
-    return (
+    // التصيير عبر portal إلى document.body لتحرير النافذة من سياق التكديس
+    // لأي سلف (transform / backdrop-filter) يجعل fixed مرتبطاً به بدل الـ viewport
+    return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
             <div className={`relative w-full max-w-4xl max-h-[90vh] min-h-0 overflow-hidden rounded-2xl flex flex-col shadow-2xl border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/10'
@@ -215,7 +295,8 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                             <p className={theme === 'light' ? 'text-gray-500' : 'text-white/60'}>جاري تحميل الصلاحيات...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
+                        <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {allFields.map(field => {
                                 const perm = permissions.find(p => p.column_name === field.key) || { permission_levels: defaultLevelsFor(field.key) };
                                 return (
@@ -257,9 +338,63 @@ export const FieldPermissionsModal = ({ onClose, theme }: FieldPermissionsModalP
                                 );
                             })}
                         </div>
+
+                        {/* --- المنح الفردي: تطوير محاكي بناء شبكة FTTH --- */}
+                        <div className={`mt-2 mb-6 p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/10'}`}>
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                                    <UserPlus className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className={`font-bold text-sm ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                                        منح فردي — تطوير محاكي بناء شبكة FTTH
+                                    </p>
+                                    <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-white/60'}`}>
+                                        إضافة مستخدم محدد (ضمن المستويات أو خارجها) دون منح كامل مستواه
+                                    </p>
+                                </div>
+                            </div>
+
+                            <EmployeeSearch
+                                value={ftthSearchValue}
+                                onChange={setFtthSearchValue}
+                                onSelect={handleAddFtthUser}
+                                placeholder="ابحث بالاسم أو الرقم الوظيفي أو اسم المستخدم..."
+                                searchUsername
+                                includeRole
+                                portalClassName="z-[100000]"
+                            />
+
+                            {ftthUsers.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                    {ftthUsers.map(u => (
+                                        <span
+                                            key={u.user_id}
+                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${theme === 'light'
+                                                ? 'bg-brand-green/10 text-brand-green border-brand-green/20'
+                                                : 'bg-brand-green/15 text-emerald-300 border-brand-green/30'
+                                                }`}
+                                        >
+                                            {u.full_name}
+                                            {u.job_number && <span className="font-mono opacity-70">({u.job_number})</span>}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveFtthUser(u.user_id)}
+                                                className="hover:text-red-500 transition-colors"
+                                                title="إزالة المنح الفردي"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        </div>
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

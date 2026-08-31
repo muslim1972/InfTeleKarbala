@@ -3,11 +3,14 @@
  * خطاف الوصول إلى محاكي FTTH — قراءة صلاحية ftth_simulator
  * ============================================================
  * - المطور: مُسمّى فوراً دون أي نداء شبكي (حالة ابتدائية محسوبة).
- * - غير المطور: نداء واحد صغير على field_permissions (صف وحيد
- *   بمفتاحه الأساسي) مع كاش جلسة قصير (60 ثانية) كي لا يتكرر
- *   النداء عند كل فتح لتبويب «عزز معلوماتك»، ويُطبَّق أي منح جديد
- *   خلال دقيقة كحد أقصى.
- * - كل إخفاق شبكي أو غياب للسجل يعني الإخفاء (fail-closed).
+ * - غير المطور: نداء RPC واحد (get_ftth_simulator_access) يعيد
+ *   { permission_levels, user_granted } — مستويات صلاحيات الحقول
+ *   إضافة إلى المنح الفردية (جدول field_user_permissions)، مع كاش
+ *   جلسة قصير (60 ثانية) كي لا يتكرر النداء عند كل فتح لتبويب
+ *   «عزز معلوماتك»، ويُطبَّق أي منح جديد خلال دقيقة كحد أقصى.
+ * - الوصول: منح فردي صريح، أو انتماء المستخدم لأحد المستويات
+ *   المصرّح بها. كل إخفاق شبكي أو غياب للسجل يعني الإخفاء
+ *   (fail-closed).
  */
 
 import { useEffect, useState } from 'react';
@@ -69,22 +72,33 @@ export function useFtthSimulatorAccess(): FtthAccessState {
 
     (async () => {
       try {
-        /* القراءة عبر دالة RPC معزولة (SECURITY DEFINER): سياسات RLS على
-         * field_permissions صارمة (للمطور فقط)، فالقراءة المباشرة للجدول
-         * تعود فارغة لغير المطور حتى مع المنح. الدالة تُعيد مصفوفة
-         * المستويات لسجل ftth_simulator فقط وللمصادقين فقط. */
+        /* القراءة عبر دالة RPC معزولة (SECURITY DEFINER) تتجاوز RLS:
+         * سياسات field_permissions وfield_user_permissions صارمة
+         * (للمطور فقط)، فالقراءة المباشرة للجدولين تعود فارغة لغير
+         * المطور حتى مع المنح. الدالة تُعيد للمصادقين فقط:
+         * { permission_levels: number[], user_granted: boolean } */
         const { data, error } = await supabase.rpc(
-          'get_ftth_simulator_permission_levels'
+          'get_ftth_simulator_access'
         );
 
         if (cancelled) return;
-        /* أي خطأ شبكي/RLS أو نتيجة غير مصفوفة → evaluate يرفض (fail-closed) */
+
+        /* المنح الفردي صريح → مسموح؛ وإلا يُقيَّم انتماء المستخدم
+         * للمستويات المصرّح بها. أي خطأ شبكي/RLS → رفض (fail-closed). */
+        const payload =
+          data && typeof data === 'object'
+            ? (data as { permission_levels?: unknown; user_granted?: unknown })
+            : null;
+        const levels = Array.isArray(payload?.permission_levels)
+          ? (payload!.permission_levels as number[])
+          : null;
         const allowed =
           !error &&
-          evaluateFtthAccess(
-            user,
-            Array.isArray(data) ? { permission_levels: data } : null
-          );
+          (payload?.user_granted === true ||
+            evaluateFtthAccess(
+              user,
+              levels ? { permission_levels: levels } : null
+            ));
         accessCache.set(user.id, { allowed, fetchedAt: Date.now() });
         setState({ allowed, checking: false });
       } catch {
