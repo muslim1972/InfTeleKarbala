@@ -50,8 +50,10 @@ export const useLabStore = create<LabState>()((set) => ({
   finalScore: null,
 
   recordSplice: (r) => set((s) => ({ splices: { ...s.splices, [r.dropId]: r } })),
+  /* القياسات بمفتاح الدار (buildingId) — لوحات القراءة تبحث بها؛
+     تخزينها بمفتاح الإسقاط كان يجعل القراءة مكتوبة لا يجدها أحد */
   recordMeasurement: (m) =>
-    set((s) => ({ measurements: { ...s.measurements, [m.dropId]: m } })),
+    set((s) => ({ measurements: { ...s.measurements, [m.buildingId]: m } })),
   recordVfl: (dropId) => set((s) => ({ vfl: { ...s.vfl, [dropId]: true } })),
   setFinalScore: (finalScore) => set({ finalScore }),
   resetLab: () => set({ splices: {}, measurements: {}, vfl: {}, finalScore: null }),
