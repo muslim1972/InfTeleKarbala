@@ -17,7 +17,7 @@ import type {
   SplitterRatio,
   Vec2,
 } from '../types';
-import { dist, projectOnSegment } from './geometry';
+import { dist, projectOnSegment, segmentIntersection } from './geometry';
 import { computePowerBudget, type BudgetResult } from './physics';
 
 /* ===================== منافذ القواسم ===================== */
@@ -87,23 +87,72 @@ export function buildNetwork(entities: ProjectEntities, exchange: Vec2): Network
     }
   }
 
-  /* إدراج مرساة عبر أقرب إسقاط على المسارات */
+  /* ربط المسارات ببعضها عند التقاطع/التلامس:
+     كل مسار يُربط رؤوسه داخلياً فقط — بلا هذا الربط يبقى كل مسار
+     مكوّناً معزولاً في المخطط وإن قاطع غيره بصرياً، فتظهر FAT/كبينة
+     عليه «غير متصلة» رغم أنها على شبكة متصلة في الرسم */
+  const T = entities.trenches.map((t) => t.points);
+  /* (أ) تقاطع فعلي بين قطعتين من مسارين مختلفين — عقدة عند نقطة التقاطع */
+  for (let ti = 0; ti < T.length; ti++) {
+    for (let tj = ti + 1; tj < T.length; tj++) {
+      for (let i = 1; i < T[ti].length; i++) {
+        for (let j = 1; j < T[tj].length; j++) {
+          const x = segmentIntersection(T[ti][i - 1], T[ti][i], T[tj][j - 1], T[tj][j]);
+          if (!x) continue;
+          const xi = addNode(x);
+          link(xi, addNode(T[ti][i - 1]), dist(x, T[ti][i - 1]));
+          link(xi, addNode(T[ti][i]), dist(x, T[ti][i]));
+          link(xi, addNode(T[tj][j - 1]), dist(x, T[tj][j - 1]));
+          link(xi, addNode(T[tj][j]), dist(x, T[tj][j]));
+        }
+      }
+    }
+  }
+  /* (ب) تلامس قريب: رأس مسار يكاد يقع على قطعة من مسار آخر (فجوة رسم ≤ 0.5م) */
+  const JUNCTION_TOL_M = 0.5;
+  for (let ti = 0; ti < T.length; ti++) {
+    for (let tj = 0; tj < T.length; tj++) {
+      if (tj === ti) continue;
+      for (const v of T[ti]) {
+        for (let j = 1; j < T[tj].length; j++) {
+          const pr = projectOnSegment(v, T[tj][j - 1], T[tj][j]);
+          if (pr.dist > JUNCTION_TOL_M) continue;
+          const vi = addNode(v);
+          const pi = addNode(pr.point);
+          link(vi, pi, pr.dist);
+          link(pi, addNode(T[tj][j - 1]), dist(pr.point, T[tj][j - 1]));
+          link(pi, addNode(T[tj][j]), dist(pr.point, T[tj][j]));
+        }
+      }
+    }
+  }
+
+  /* إدراج مرساة عبر أقرب إسقاط على المسارات — مع تقسيم الحافة:
+     نقطة الإسقاط يجب أن تتصل بطرفَي الضلع الأقرب، وإلا بقيت معزولة
+     عن الشبكة كلما وقعت وسط ضلع لا على رأسه (وهو الحال المعتاد
+     بعد الالتصاق الحر بالمسار) فتظهر الكبينة/FAT «غير متصلة» ظلماً */
   const anchors = new Map<string, number>();
   const attachAnchor = (a: NetAnchor): number => {
     const anchorIdx = addNode(a.p);
     anchors.set(`${a.kind}:${a.id}`, anchorIdx);
     if (entities.trenches.length === 0) return anchorIdx;
 
-    let best: { proj: Vec2; d: number } | null = null;
+    let best: { proj: Vec2; d: number; a: number; b: number } | null = null;
     for (const t of entities.trenches) {
+      let prev = addNode(t.points[0]);
       for (let i = 1; i < t.points.length; i++) {
+        const cur = addNode(t.points[i]);
         const pr = projectOnSegment(a.p, t.points[i - 1], t.points[i]);
-        if (!best || pr.dist < best.d) best = { proj: pr.point, d: pr.dist };
+        if (!best || pr.dist < best.d) best = { proj: pr.point, d: pr.dist, a: prev, b: cur };
+        prev = cur;
       }
     }
     if (best) {
       const projIdx = addNode(best.proj);
       link(anchorIdx, projIdx, best.d);
+      /* وصلة الإسقاط بطرفَي الضلع = تقسيم الحافة فعلياً */
+      link(projIdx, best.a, dist(best.proj, nodes[best.a]));
+      link(projIdx, best.b, dist(best.proj, nodes[best.b]));
     }
     return anchorIdx;
   };

@@ -28,6 +28,23 @@ export function projectOnSegment(p: Vec2, a: Vec2, b: Vec2): { point: Vec2; t: n
   return { point, t, dist: dist(p, point) };
 }
 
+/** تقاطع قطعتين مستقيمتين — يعيد نقطة التقاطع إن وقعت ضمن كلتا القطعتين */
+export function segmentIntersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): Vec2 | null {
+  const d1x = a2.x - a1.x;
+  const d1y = a2.y - a1.y;
+  const d2x = b2.x - b1.x;
+  const d2y = b2.y - b1.y;
+  const denom = d1x * d2y - d1y * d2x;
+  if (denom === 0) return null; // متوازيان
+  const wx = b1.x - a1.x;
+  const wy = b1.y - a1.y;
+  const t = (wx * d2y - wy * d2x) / denom;
+  const u = (wx * d1y - wy * d1x) / denom;
+  const eps = 1e-9;
+  if (t < -eps || t > 1 + eps || u < -eps || u > 1 + eps) return null;
+  return { x: a1.x + t * d1x, y: a1.y + t * d1y };
+}
+
 export interface NodeRef {
   id: string;
   x: number;
