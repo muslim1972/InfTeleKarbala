@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { User, Power, Settings, Sun, Moon } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, Type } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { useTheme } from "../../context/ThemeContext";
+import { useAccessibility } from "../../context/AccessibilityContext";
 import { getRoleLabel } from "../../utils/formatRoles";
+import { toast } from "react-hot-toast";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
@@ -16,9 +18,17 @@ interface AppHeaderProps {
 export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
+    const { fontScale, setFontScale, currentOption } = useAccessibility();
     const [showSettings, setShowSettings] = useState(false);
 
     if (!user) return null;
+
+    const handleCycleFontScale = () => {
+        const nextScale = fontScale === 'normal' ? 'medium' : fontScale === 'medium' ? 'large' : fontScale === 'large' ? 'xlarge' : 'normal';
+        setFontScale(nextScale);
+        const label = nextScale === 'normal' ? 'افتراضي (100%)' : nextScale === 'medium' ? 'متوسط (112%)' : nextScale === 'large' ? 'كبير (125%)' : 'كبير جداً (138%)';
+        toast.success(`حجم الخط: ${label}`, { id: 'font-scale-toast', duration: 1500 });
+    };
 
     return (
         <>
@@ -61,8 +71,27 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                             </button>
                         </div>
 
-                        {/* Center: Theme Toggle */}
-                        <div className="absolute left-1/2 -translate-x-1/2 flex justify-center">
+                        {/* Center: Font Scale & Theme Toggles */}
+                        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center gap-2">
+                            {/* Font Zoom Quick Button */}
+                            <button
+                                onClick={handleCycleFontScale}
+                                className={`flex items-center justify-center h-8 px-2.5 rounded-full transition-all duration-300 group border text-xs font-bold font-tajawal gap-1 shadow-sm ${
+                                    fontScale !== 'normal'
+                                        ? 'bg-brand-green/20 text-brand-green border-brand-green/50 shadow-[0_0_12px_rgba(34,197,94,0.3)]'
+                                        : theme === 'light'
+                                        ? 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-100'
+                                        : 'bg-white/10 text-white/90 border-white/20 hover:bg-white/20'
+                                }`}
+                                title={`حجم الخط الحالي: ${currentOption.label} - انقر للتبديل والتكبير`}
+                            >
+                                <span className="text-[12px] font-black">A</span>
+                                <span className="text-[10px] opacity-75 font-mono">
+                                    {fontScale === 'normal' ? '100%' : fontScale === 'medium' ? '112%' : fontScale === 'large' ? '125%' : '138%'}
+                                </span>
+                            </button>
+
+                            {/* Theme Toggle */}
                             <button
                                 onClick={toggleTheme}
                                 className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 group border relative overflow-hidden ${theme === 'light'

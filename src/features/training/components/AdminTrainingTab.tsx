@@ -14,7 +14,6 @@ import type { TrainingResult, TrainingStudent } from '../types';
 import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
-import ExcelJS from 'exceljs';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
 import { EditStudentModal } from './EditStudentModal';
 import { TraineePollSettings } from './TraineePollSettings';
@@ -273,6 +272,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
             return;
         }
 
+        const ExcelJS = (await import('exceljs')).default;
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('نتائج المتدربين');
 

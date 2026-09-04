@@ -6,6 +6,7 @@ import App from './App.tsx';
 import { geolocationManager } from './utils/GeolocationManager';
 import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
+import { AccessibilityProvider } from './context/AccessibilityContext';
 import { ChatSettingsProvider } from './context/ChatSettingsContext';
 
 // 🛡️ تنظيف الكونسول: إخفاء رسائل الديباغ وإبقاء رسائل الخطأ فقط
@@ -28,25 +29,6 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// 🛡️ حماية Geolocation: مراقبة ومنع الطلبات المفرطة وغير المصرح بها
-if (typeof window !== 'undefined' && navigator.geolocation) {
-  const originalGetCurrentPosition = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
-  const originalWatchPosition = navigator.geolocation.watchPosition.bind(navigator.geolocation);
-
-  (navigator.geolocation as any).getCurrentPosition = (success: any, error: any, options: any) => {
-    console.warn('📍 Geolocation request detected: getCurrentPosition');
-    return originalGetCurrentPosition(success, error, options);
-  };
-
-  (navigator.geolocation as any).watchPosition = (success: any, error: any, options: any) => {
-    console.warn('📍 Geolocation request detected: watchPosition');
-    // نقوم بتسجيل المعرف في الـ manager لضمان إمكانية تنظيفه
-    const id = originalWatchPosition(success, error, options);
-    geolocationManager.registerWatchId(id); 
-    return id;
-  };
-}
-
 // إنشاء عميل react-query مع إعدادات محسنة
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,11 +45,13 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <ChatSettingsProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </ChatSettingsProvider>
+        <AccessibilityProvider>
+          <ChatSettingsProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </ChatSettingsProvider>
+        </AccessibilityProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

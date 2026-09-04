@@ -54,7 +54,7 @@ export default defineConfig({
           'vendor-utils': ['localforage', 'react-hot-toast', 'date-fns'],
           'vendor-pdf': ['pdf-lib', '@pdf-lib/fontkit'],
           'vendor-html2pdf': ['html2pdf.js', 'html2canvas', 'jspdf'],
-          'vendor-excel': ['exceljs', 'xlsx'],
+          'vendor-excel': ['exceljs'],
           'vendor-katex': ['katex', 'react-katex'],
           'vendor-face-api': ['@vladmandic/face-api'],
           'vendor-livekit': ['livekit-client', '@livekit/components-react'],

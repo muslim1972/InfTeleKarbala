@@ -13,7 +13,6 @@ import {
     Database,
     Loader2
 } from 'lucide-react';
-import ExcelJS from 'exceljs';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
@@ -190,6 +189,7 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
 
         try {
             const arrayBuffer = await file.arrayBuffer();
+            const ExcelJS = (await import('exceljs')).default;
             const workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(arrayBuffer);
             

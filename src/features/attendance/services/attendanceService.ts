@@ -203,25 +203,29 @@ function localDayRangeUTC(dateStr: string): { start: string; end: string } {
 }
 
 export const attendanceRecordService = {
-  async create(record: Partial<AttendanceRecord>) {
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .insert(record)
-      .select()
-      .single();
+  async saveSecure(employeeId: string, recordId?: string | null, updates: Partial<AttendanceRecord> = {}) {
+    const { data, error } = await supabase.rpc('submit_attendance_record_secure', {
+      p_employee_id: employeeId,
+      p_record_id: recordId || null,
+      p_updates: updates
+    });
     if (error) throw error;
     return data as AttendanceRecord;
   },
 
+  async create(record: Partial<AttendanceRecord>) {
+    if (!record.employee_id) throw new Error('employee_id is required');
+    return await this.saveSecure(record.employee_id, null, record);
+  },
+
   async update(id: string, updates: Partial<AttendanceRecord>) {
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as AttendanceRecord;
+    let empId = updates.employee_id;
+    if (!empId) {
+      const user = (await supabase.auth.getUser()).data.user;
+      empId = user?.id;
+    }
+    if (!empId) throw new Error('User not authenticated');
+    return await this.saveSecure(empId, id, updates);
   },
 
   async getByEmployeeId(employeeId: string, startDate?: string, endDate?: string) {
@@ -248,17 +252,9 @@ export const attendanceRecordService = {
     if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
 
     const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .update({
-        time_leave_out: now,
-      })
-      .eq('id', todayRecord.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as AttendanceRecord;
+    return await this.saveSecure(employeeId, todayRecord.id, {
+      time_leave_out: now,
+    });
   },
 
   async timeLeaveReturn(employeeId: string, _location?: string, _deviceId?: string, _verifiedByBiometric: boolean = false) {
@@ -270,17 +266,10 @@ export const attendanceRecordService = {
     const timeLeaveOutTime = new Date(todayRecord.time_leave_out);
     const actualMinutesSpent = Math.max(0, Math.floor((now.getTime() - timeLeaveOutTime.getTime()) / 60000));
 
-    // Record the return punch
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .update({
-        time_leave_return: now.toISOString(),
-      })
-      .eq('id', todayRecord.id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    // Record the return punch via secure RPC
+    return await this.saveSecure(employeeId, todayRecord.id, {
+      time_leave_return: now.toISOString(),
+    });
 
     // ----- Penalty Logic -----
     try {
@@ -400,12 +389,7 @@ export const attendanceRecordService = {
         record.time_leave_out !== recat.time_leave_out ||
         record.time_leave_return !== recat.time_leave_return
       ) {
-        const { data: updatedData } = await supabase
-          .from('attendance_records')
-          .update(recat)
-          .eq('id', record.id)
-          .select()
-          .single();
+        const updatedData = await this.saveSecure(employeeId, record.id, recat);
         if (updatedData) return updatedData as AttendanceRecord;
       }
     }
@@ -473,14 +457,10 @@ export const attendanceRecordService = {
     if (isFollowUpOvernight && yesterdayRecord && !yesterdayRecord.check_out) {
       const virtualOutTime = `${yesterdayDateStr}T23:59:00.000Z`;
       const updatedNotes = mergeNote(yesterdayRecord.notes, '(خروج نهائي افتراضي)');
-      await supabase
-        .from('attendance_records')
-        .update({
-          check_out: virtualOutTime,
-          notes: updatedNotes
-        })
-        .eq('id', yesterdayRecord.id)
-        .catch(console.warn);
+      await this.saveSecure(employeeId, yesterdayRecord.id, {
+        check_out: virtualOutTime,
+        notes: updatedNotes
+      }).catch(console.warn);
     }
 
     const newPunch = {
@@ -552,38 +532,26 @@ export const attendanceRecordService = {
     }
     updates.is_device_pending = isDevicePending;
 
+    let savedRecord: AttendanceRecord;
     if (record) {
-      // Update existing record
-      const { data, error } = await supabase.from('attendance_records').update(updates).eq('id', record.id).select().single();
-      if (error) throw error;
-
-      const savedRecord = data as AttendanceRecord;
-      try {
-        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
-      } catch (e) {
-        console.error('Error applying mandatory penalties:', e);
-      }
-      // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
-      return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
+      // Update existing record via secure RPC
+      savedRecord = await this.saveSecure(employeeId, record.id, updates);
     } else {
-      // Create new record
+      // Create new record via secure RPC
       updates.employee_id = employeeId;
       updates.department_id = profile?.department_id;
       updates.work_schedule_id = profile?.work_schedule_id;
       updates.status = 'present'; // Default
-
-      const { data, error } = await supabase.from('attendance_records').insert(updates).select().single();
-      if (error) throw error;
-
-      const savedRecord = data as AttendanceRecord;
-      try {
-        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
-      } catch (e) {
-        console.error('Error applying mandatory penalties:', e);
-      }
-      // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
-      return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
+      savedRecord = await this.saveSecure(employeeId, null, updates);
     }
+
+    try {
+      await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+    } catch (e) {
+      console.error('Error applying mandatory penalties:', e);
+    }
+    // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
+    return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
   },
 
   /**
@@ -599,14 +567,7 @@ export const attendanceRecordService = {
       if (!status?.message) return record;
       const newNotes = mergeNote(record.notes, status.message);
       if (newNotes === record.notes) return record;
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .update({ notes: newNotes })
-        .eq('id', record.id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as AttendanceRecord;
+      return await this.saveSecure(record.employee_id, record.id, { notes: newNotes });
     } catch (err) {
       console.error('[LeaveIntegration] فشل إضافة تحذير بصمات الإجازة الزمنية:', err);
       return record;

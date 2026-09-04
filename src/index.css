@@ -554,3 +554,50 @@ html.dark option,
   background-color: #1e293b;
   /* slate-800 */
 }
+
+/* ─────────────────────────────────────────────────────────
+   ♿ ACCESSIBILITY & DYNAMIC FONT SCALING (Root REM Scaling)
+   ───────────────────────────────────────────────────────── */
+html {
+  transition: font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-text-size-adjust: 100%;
+}
+
+html.font-scale-normal,
+html:not([class*="font-scale-"]) {
+  font-size: 100%; /* 16px Base */
+}
+
+html.font-scale-medium {
+  font-size: 112.5%; /* 18px Base (+12.5%) */
+}
+
+html.font-scale-large {
+  font-size: 125%; /* 20px Base (+25%) */
+}
+
+html.font-scale-xlarge {
+  font-size: 137.5%; /* 22px Base (+37.5%) */
+}
+
+/* 🛡️ Dynamic Layout Safeguards when font is enlarged */
+html[data-font-scale="large"] body,
+html[data-font-scale="xlarge"] body {
+  line-height: 1.6;
+}
+
+/* Ensure inputs, buttons, and badges have flexible vertical breathing room */
+html[data-font-scale="large"] input,
+html[data-font-scale="large"] select,
+html[data-font-scale="large"] textarea,
+html[data-font-scale="xlarge"] input,
+html[data-font-scale="xlarge"] select,
+html[data-font-scale="xlarge"] textarea {
+  min-height: 2.75rem;
+}
+
+/* Auto horizontal scroll containers for dense data grids */
+.table-responsive-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

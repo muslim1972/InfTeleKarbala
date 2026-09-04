@@ -6,6 +6,8 @@
  * ويوفر آلية موحدة لتنظيف جميع المستمعين (Watches) عند تسجيل الخروج أو تبديل التبويبة.
  */
 
+import { analyzeLocationTelemetry, type LocationTelemetryResult } from './antiSpoofing';
+
 class GeolocationManager {
     private static instance: GeolocationManager;
     private activeWatches: number[] = [];
@@ -40,11 +42,23 @@ class GeolocationManager {
                 (error) => reject(error),
                 {
                     enableHighAccuracy: true,
-                    timeout: 5000,
+                    timeout: 8000,
                     maximumAge: 0
                 }
             );
         });
+    }
+
+    /**
+     * الحصول على الموقع الحالي مع إجراء فحص التيليميتري ومكافحة التزييف
+     */
+    public async getCurrentPositionWithTelemetry(): Promise<{
+        position: GeolocationPosition;
+        telemetry: LocationTelemetryResult;
+    }> {
+        const position = await this.getCurrentPosition();
+        const telemetry = await analyzeLocationTelemetry(position);
+        return { position, telemetry };
     }
 
     /**

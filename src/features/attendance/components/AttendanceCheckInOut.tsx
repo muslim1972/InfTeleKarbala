@@ -17,9 +17,11 @@ import type { AttendanceRecord, WorkLocation } from '../types';
 import {
   LogIn, LogOut, MapPin, CheckCircle,
   AlertTriangle, RefreshCw, Camera,
-  ShieldCheck, X, User, Clock, XCircle
+  ShieldCheck, X, User, Clock, XCircle,
+  ChevronDown, ChevronUp, Radio, Laptop, Smartphone
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { type LocationTelemetryResult } from '../../../utils/antiSpoofing';
 import { useAuth } from '../../../context/AuthContext';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
@@ -116,6 +118,8 @@ export default function AttendanceCheckInOut({
   const [isAllowed, setIsAllowed] = useState(false);
   const [nearestLoc, setNearestLoc] = useState<WorkLocation | undefined>(undefined);
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
+  const [telemetry, setTelemetry] = useState<LocationTelemetryResult | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Camera & Face Detection
   const [capturingAction, setCapturingAction] = useState<'punch' | null>(null);
@@ -145,26 +149,49 @@ export default function AttendanceCheckInOut({
     });
   }, [loadModels]);
 
-  // ---- Geofence Logic ----
+  // ---- Geofence Logic with Anti-Spoofing & Telemetry ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
     setLoadingLocation(true);
     setGeofenceChecked(false);
     try {
-      if (showToast) toast.loading('جاري تحديد موقعك الجغرافي...', { id: 'geo-verify' });
-      const position = await geolocationManager.getCurrentPosition();
+      if (showToast) toast.loading('جاري فحص وتدقيق إحداثيات الموقع الجغرافي...', { id: 'geo-verify' });
+      const { position, telemetry: telResult } = await geolocationManager.getCurrentPositionWithTelemetry();
+      setTelemetry(telResult);
+
       const { latitude, longitude } = position.coords;
-      const geofenceResult = await geofenceService.checkEmployeeGeofence(employeeId, latitude, longitude);
+      const geofenceResult = await geofenceService.checkEmployeeGeofence(
+        employeeId,
+        latitude,
+        longitude,
+        telResult.accuracy
+      );
       
-      setIsAllowed(geofenceResult.allowed);
       setNearestLoc(geofenceResult.nearestLocation);
       setNearestDistance(geofenceResult.distance ?? null);
       
       const locName = geofenceResult.nearestLocation?.name || 'موقع غير محدد';
       
-      if (geofenceResult.allowed) {
-        setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - ${locName}`);
-        if (showToast) toast.success(`أنت الآن داخل النطاق المسموح لـ: ${locName}`, { id: 'geo-verify' });
+      // كشف التزييف البرمجي الصريح (Fake GPS / Tamper)
+      if (telResult.source === 'mock_suspected') {
+        setIsAllowed(false);
+        setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - اشتباه تزييف موقع (Fake GPS)`);
+        if (showToast) toast.error('تم رصد تزييف للموقع الجغرافي (Fake GPS)! البصمة مرفوضة.', { id: 'geo-verify' });
+      } else if (geofenceResult.allowed) {
+        setIsAllowed(true);
+        const deviceNote = telResult.isDesktop ? 'كمبيوتر' : 'هاتف';
+        setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - ${locName} (دقة: ±${telResult.accuracy}م, ${deviceNote})`);
+        
+        if (showToast) {
+          if (telResult.isDesktop) {
+            toast('أنت داخل النطاق، ولكن الإشارة تقديرية من كمبيوتر مكتبي — يرجى الانتباه', { icon: '⚠️', id: 'geo-verify' });
+          } else if (!telResult.isAccuracyValid) {
+            toast('أنت داخل النطاق، ولكن دقة الـ GPS ضعيفة — يرجى تفعيل الموقع الدقيق', { icon: '⚠️', id: 'geo-verify' });
+          } else {
+            toast.success(`أنت الآن داخل النطاق المسموح لـ: ${locName}`, { id: 'geo-verify' });
+          }
+        }
       } else {
+        setIsAllowed(false);
         setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - خارج النطاق المسموح`);
         if (showToast) toast.error('أنت خارج النطاق الجغرافي المسموح لتسجيل الحضور!', { id: 'geo-verify' });
       }
@@ -720,18 +747,22 @@ export default function AttendanceCheckInOut({
             <h3 className="font-bold text-lg leading-tight">
               {loadingLocation 
                 ? 'جاري التحقق من موقعك الحالي...' 
-                : isAllowed 
-                  ? `أنت متواجد داخل: ${nearestLoc?.name || 'موقع العمل'}` 
-                  : 'أنت خارج نطاق العمل المسموح'}
+                : telemetry?.source === 'mock_suspected'
+                  ? '⛔ تم رصد تزييف للموقع الجغرافي (Fake GPS)'
+                  : isAllowed 
+                    ? `أنت متواجد داخل: ${nearestLoc?.name || 'موقع العمل'}` 
+                    : 'أنت خارج نطاق العمل المسموح'}
             </h3>
             <p className="text-sm mt-1 text-slate-500 dark:text-slate-400">
               {loadingLocation 
                 ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
-                : isAllowed
-                  ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
-                  : nearestLoc
-                    ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : nearestDistance + ' متر'}. (النطاق المطلوب: 50 متر)`
-                    : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
+                : telemetry?.source === 'mock_suspected'
+                  ? 'تم رصد إحداثيات مصمتة غير طبيعية تشير إلى استخدام تطبيق Fake GPS. تم حظر تثبيت البصمة تلقائياً.'
+                  : isAllowed
+                    ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
+                    : nearestLoc
+                      ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : Math.round(nearestDistance || 0) + ' متر'}. (النطاق المطلوب: ${nearestLoc.radius_meters} متر)`
+                      : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
             </p>
           </div>
         </div>
@@ -745,6 +776,114 @@ export default function AttendanceCheckInOut({
           تحديث الموقع الجغرافي
         </button>
       </motion.div>
+
+      {/* ========== Telemetry & Anti-Spoofing Diagnostic Panel ========== */}
+      {telemetry && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur-sm p-4 text-xs text-slate-600 dark:text-slate-300 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+                <Radio className="w-4 h-4 text-indigo-500 animate-pulse" />
+                بيانات التتبع الجغرافي والأمان:
+              </span>
+              <span className="font-mono dir-ltr bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-semibold">
+                {telemetry.latitude.toFixed(6)}, {telemetry.longitude.toFixed(6)}
+              </span>
+              <a
+                href={`https://www.google.com/maps?q=${telemetry.latitude},${telemetry.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+              >
+                (عرض في الخريطة)
+              </a>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Badge: Accuracy */}
+              <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
+                telemetry.accuracy <= 30
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : telemetry.accuracy <= 65
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+              }`}>
+                <span>دقة الإشارة: ±{telemetry.accuracy} متر</span>
+                {telemetry.accuracy <= 30 ? ' (GPS عالي الدقة)' : ' (تقدير تقريبي)'}
+              </span>
+
+              {/* Badge: Device */}
+              <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
+                telemetry.isDesktop
+                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+              }`}>
+                {telemetry.isDesktop ? <Laptop className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+                <span>{telemetry.isDesktop ? 'كمبيوتر مكتبي (شبكي)' : 'هاتف ذكي'}</span>
+              </span>
+
+              {/* Toggle details */}
+              <button
+                type="button"
+                onClick={() => setShowDiagnostics(prev => !prev)}
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 p-1"
+                title="تفاصيل تقرير الأمان"
+              >
+                {showDiagnostics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Warning banner if desktop or weak accuracy */}
+          {(telemetry.isDesktop || !telemetry.isAccuracyValid) && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div className="leading-relaxed">
+                <p className="font-bold">تنبيه فني بشأن دقة ومصدر الموقع الجغرافي:</p>
+                <p className="text-xs mt-0.5 opacity-90">
+                  {telemetry.warningMessage || (
+                    telemetry.isDesktop
+                      ? 'أجهزة الحاسوب المكتبية لا تحتوي على شريحة أقمار صناعية حقيقية (GPS)، ويتم استنتاج الإحداثيات عبر راوتر الـ Wi-Fi أو مزود الإنترنت بهامش خطأ. لضمان التواجد الفعلي داخل الدائرة بدون أي التباس، يوصى بالبصمة من الهاتف الذكي.'
+                      : `هامش الخطأ في موقعك الحالي (±${telemetry.accuracy}م) أعلى من المعتاد. يرجى تفعيل الموقع الدقيق في هاتفك.`
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Collapsible details */}
+          {showDiagnostics && (
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+              <div>
+                <span className="text-slate-400 block">مصدر الإشارة:</span>
+                <span className="font-semibold">{telemetry.sourceLabelAr}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">مؤشر التذبذب الطبيعي:</span>
+                <span className={`font-semibold ${telemetry.isJitterValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {telemetry.isJitterValid ? 'طبيعي وموثوق' : 'غير طبيعي (اشتباه Fake GPS)'}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">سلامة بروتوكول المتصفح:</span>
+                <span className={`font-semibold ${!telemetry.isPrototypeTampered ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {!telemetry.isPrototypeTampered ? 'أصلي (Native)' : 'معدل (Tampered)'}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">المسافة لأقرب موقع:</span>
+                <span className="font-semibold font-mono">
+                  {nearestDistance !== null ? `${nearestDistance} متر` : 'غير محدد'}
+                </span>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* ========== تكامل الإجازات: بانرات حالة اليوم ========== */}
       {/* إجازة يوم كامل (اعتيادية/مرضية/واجب/إيفاد) قبل أول بصمة */}

@@ -52,14 +52,21 @@ export const geofenceService = {
   async checkEmployeeGeofence(
     employeeId: string,
     userLat: number,
-    userLon: number
-  ): Promise<{ allowed: boolean; nearestLocation?: WorkLocation; distance?: number }> {
+    userLon: number,
+    accuracy?: number
+  ): Promise<{
+    allowed: boolean;
+    nearestLocation?: WorkLocation;
+    distance?: number;
+    isAccuracyAcceptable?: boolean;
+    accuracyWarning?: string;
+  }> {
     try {
       const locations = await this.getEmployeeLocations(employeeId);
       
       if (locations.length === 0) {
         // If employee has no assigned locations, they are not allowed to check in anywhere
-        return { allowed: false };
+        return { allowed: false, isAccuracyAcceptable: true };
       }
 
       let nearestLocation: WorkLocation | undefined = undefined;
@@ -74,18 +81,30 @@ export const geofenceService = {
         
         // If user is within this location's radius, they are allowed
         if (distance <= loc.radius_meters) {
-          return { allowed: true, nearestLocation: loc, distance };
+          const isAccuracyAcceptable = accuracy === undefined || accuracy <= 65;
+          const accuracyWarning = !isAccuracyAcceptable
+            ? `دقة الموقع ضعيفة (±${Math.round(accuracy || 0)}م). قد تكون الإشارة تقديرية من شبكة الإنترنت.`
+            : undefined;
+
+          return {
+            allowed: true,
+            nearestLocation: loc,
+            distance,
+            isAccuracyAcceptable,
+            accuracyWarning
+          };
         }
       }
 
       return {
         allowed: false,
         nearestLocation,
-        distance: Math.round(minDistance)
+        distance: Math.round(minDistance),
+        isAccuracyAcceptable: accuracy === undefined || accuracy <= 65
       };
     } catch (error) {
       console.error('Error checking employee geofence:', error);
-      return { allowed: false };
+      return { allowed: false, isAccuracyAcceptable: false };
     }
   }
 };

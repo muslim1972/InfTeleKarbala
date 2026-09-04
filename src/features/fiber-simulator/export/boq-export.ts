@@ -6,7 +6,6 @@
  * التصدير بجهة RTL ليعرض العربية كما في التطبيق.
  */
 
-import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { SimMap } from '../types';
@@ -59,6 +58,7 @@ const downloadBlob = (blob: Blob, filename: string): void => {
  * ================================================================ */
 
 export async function exportProjectExcel(meta: ExportMeta): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'محاكي FTTH — الإدارة الموحدة';
   wb.created = new Date();

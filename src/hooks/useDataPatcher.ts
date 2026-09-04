@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import {
@@ -42,6 +42,7 @@ export function useDataPatcher() {
         setFileName(selectedFile.name);
         try {
             const arrayBuffer = await selectedFile.arrayBuffer();
+            const ExcelJS = (await import('exceljs')).default;
             const wb = new ExcelJS.Workbook();
             await wb.xlsx.load(arrayBuffer);
 

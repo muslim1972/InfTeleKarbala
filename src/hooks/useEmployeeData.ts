@@ -75,9 +75,9 @@ export function useEmployeeData(userId: string | undefined) {
         queryKey: ['employeeData', userId],
         queryFn: () => fetchEmployeeData(userId!),
         enabled: !!userId,
-        staleTime: 0, // Forced 0 to ensure financial data is ALWAYS fresh on remount/focus
+        staleTime: 30 * 1000, // 30 ثانية لتفادي إغراق الخادم بالطلبات المتطابقة
         gcTime: settings.gcTime,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         retry: 2,
     });
 

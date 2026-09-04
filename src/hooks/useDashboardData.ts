@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { smoothScrollToId } from "./useSmoothScroll";
 
 export const useDashboardData = (activeTab: string) => {
     const { user } = useAuth();
+    const loadedUserIdRef = useRef<string | null>(null);
     
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
@@ -98,139 +99,147 @@ export const useDashboardData = (activeTab: string) => {
     // Computed Yearly Data
     const currentYearRecord = yearlyData.find(r => r.year === selectedYear) || {};
 
-    // Fetch All Data in Parallel (محسّن للأداء)
+    // Fetch All Data in Parallel with Request Deduplication (محسّن للأداء وإلغاء تكرار الطلبات)
+    const fetchData = useCallback(async (force = false) => {
+        if (!user?.id) return;
+        // إذا كانت البيانات محملة بالفعل لنفس المستخدم ولم يكن هناك طلب تحديث إجباري، نتفادى إعادة الطلب
+        if (!force && loadedUserIdRef.current === user.id) return;
+
+        setLoading(true);
+        try {
+            // جلب كل البيانات بالتوازي (أسرع بكثير)
+            const [financialResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
+                supabase
+                    .from('financial_records')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle(),
+
+                supabase
+                    .from('administrative_summary')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .maybeSingle(),
+
+                supabase
+                    .from('yearly_records')
+                    .select('*')
+                    .eq('user_id', user.id),
+
+                supabase
+                    .rpc('get_departments_bypass_rls')
+                    .select('*')
+            ]);
+
+            // تعيين البيانات مع حساب الإجماليات للعرض
+            if (financialResult.data) {
+                const data = financialResult.data;
+
+                const parseMoney = (val: any) => {
+                    if (typeof val === 'number') return val;
+                    if (!val) return 0;
+                    const clean = String(val).replace(/,/g, '').replace(/[^\d.]/g, '');
+                    const num = parseFloat(clean);
+                    return isNaN(num) ? 0 : num;
+                };
+
+                const certAllow = parseMoney(data.certificate_allowance);
+                const posAllow = parseMoney(data.position_allowance);
+                const engAllow = parseMoney(data.engineering_allowance);
+                const riskAllow = parseMoney(data.risk_allowance);
+                const legalAllow = parseMoney(data.legal_allowance);
+                const add50Allow = parseMoney(data.additional_50_percent_allowance);
+                const transAllow = parseMoney(data.transport_allowance);
+                const maritalAllow = parseMoney(data.marital_allowance);
+                const childAllow = parseMoney(data.children_allowance);
+
+                const totalAllowances = certAllow + posAllow + engAllow + riskAllow + legalAllow + add50Allow + transAllow + maritalAllow + childAllow;
+
+                const taxDeduct = parseMoney(data.tax_deduction_amount);
+                const loanDeduct = parseMoney(data.loan_deduction);
+                const execDeduct = parseMoney(data.execution_deduction);
+                const retireDeduct = parseMoney(data.retirement_deduction);
+                const schoolDeduct = parseMoney(data.school_stamp_deduction);
+                const socialDeduct = parseMoney(data.social_security_deduction);
+                const otherDeduct = parseMoney(data.other_deductions);
+
+                const totalDeductions = taxDeduct + loanDeduct + execDeduct + retireDeduct + schoolDeduct + socialDeduct + otherDeduct;
+
+                const nominalSalary = parseMoney(data.nominal_salary);
+                const grossSalary = nominalSalary + totalAllowances;
+                const netSalary = grossSalary - totalDeductions;
+
+                setFinancialData({
+                    ...data,
+                    total_allowances: totalAllowances,
+                    gross_salary: grossSalary,
+                    total_deductions: totalDeductions,
+                    net_salary: netSalary
+                });
+            } else {
+                setFinancialData({
+                    user_id: user.id,
+                    nominal_salary: 0
+                } as any);
+            }
+
+            if (adminResult.data) setAdminData(adminResult.data);
+            if (yearlyResult.data) setYearlyData(yearlyResult.data);
+
+            // Compute Department & Manager Details
+            const deptData = deptsResult?.data || [];
+            if (user.department_id) {
+                let currentDept = deptData.find((d: any) => d.id === user.department_id);
+                const originDeptName = currentDept?.name || 'غير محدد';
+                let nearestManagerId = null;
+
+                let visitedDepts = new Set<string>();
+                while (currentDept && !visitedDepts.has(currentDept.id)) {
+                    visitedDepts.add(currentDept.id);
+                    if (currentDept.manager_id) {
+                        nearestManagerId = currentDept.manager_id;
+                        break;
+                    }
+                    currentDept = deptData.find((d: any) => d.id === currentDept.parent_id);
+                }
+
+                let managerName = 'لا يوجد مسؤول مباشر';
+                if (nearestManagerId) {
+                    if (nearestManagerId === user.id && currentDept?.parent_id) {
+                        const parentNode = deptData.find((d: any) => d.id === currentDept.parent_id);
+                        if (parentNode && parentNode.manager_id) {
+                            nearestManagerId = parentNode.manager_id;
+                        }
+                    }
+
+                    if (nearestManagerId !== user.id) { 
+                        // جلب اسم المدير المباشر لمعرفة مع من الإجازة معلقة
+                        const { data: mgrProfiles } = await supabase.rpc('get_available_profiles_by_ids', { profile_ids: [nearestManagerId] });
+                        if (mgrProfiles && mgrProfiles.length > 0) managerName = mgrProfiles[0].full_name;
+                    } else {
+                        managerName = 'الإدارة العليا';
+                    }
+                }
+
+                setDepartmentInfo({ name: originDeptName, managerName });
+            }
+
+            // تم تحميل البيانات بنجاح لهذا المستخدم
+            loadedUserIdRef.current = user.id;
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id, user?.department_id]);
+
     useEffect(() => {
         if (user?.id && (activeTab === 'financial' || activeTab === 'administrative')) {
-            const fetchData = async () => {
-                setLoading(true);
-                try {
-                    // جلب كل البيانات بالتوازي (أسرع بكثير)
-                    const [financialResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
-                        supabase
-                            .from('financial_records')
-                            .select('*')
-                            .eq('user_id', user.id)
-                            .order('updated_at', { ascending: false })
-                            .limit(1)
-                            .maybeSingle(),
-
-                        supabase
-                            .from('administrative_summary')
-                            .select('*')
-                            .eq('user_id', user.id)
-                            .maybeSingle(),
-
-                        supabase
-                            .from('yearly_records')
-                            .select('*')
-                            .eq('user_id', user.id),
-
-                        supabase
-                            .rpc('get_departments_bypass_rls')
-                            .select('*')
-                    ]);
-
-                    // تعيين البيانات مع حساب الإجماليات للعرض
-                    if (financialResult.data) {
-                        const data = financialResult.data;
-
-                        const parseMoney = (val: any) => {
-                            if (typeof val === 'number') return val;
-                            if (!val) return 0;
-                            const clean = String(val).replace(/,/g, '').replace(/[^\d.]/g, '');
-                            const num = parseFloat(clean);
-                            return isNaN(num) ? 0 : num;
-                        };
-
-                        const certAllow = parseMoney(data.certificate_allowance);
-                        const posAllow = parseMoney(data.position_allowance);
-                        const engAllow = parseMoney(data.engineering_allowance);
-                        const riskAllow = parseMoney(data.risk_allowance);
-                        const legalAllow = parseMoney(data.legal_allowance);
-                        const add50Allow = parseMoney(data.additional_50_percent_allowance);
-                        const transAllow = parseMoney(data.transport_allowance);
-                        const maritalAllow = parseMoney(data.marital_allowance);
-                        const childAllow = parseMoney(data.children_allowance);
-
-                        const totalAllowances = certAllow + posAllow + engAllow + riskAllow + legalAllow + add50Allow + transAllow + maritalAllow + childAllow;
-
-                        const taxDeduct = parseMoney(data.tax_deduction_amount);
-                        const loanDeduct = parseMoney(data.loan_deduction);
-                        const execDeduct = parseMoney(data.execution_deduction);
-                        const retireDeduct = parseMoney(data.retirement_deduction);
-                        const schoolDeduct = parseMoney(data.school_stamp_deduction);
-                        const socialDeduct = parseMoney(data.social_security_deduction);
-                        const otherDeduct = parseMoney(data.other_deductions);
-
-                        const totalDeductions = taxDeduct + loanDeduct + execDeduct + retireDeduct + schoolDeduct + socialDeduct + otherDeduct;
-
-                        const nominalSalary = parseMoney(data.nominal_salary);
-                        const grossSalary = nominalSalary + totalAllowances;
-                        const netSalary = grossSalary - totalDeductions;
-
-                        setFinancialData({
-                            ...data,
-                            total_allowances: totalAllowances,
-                            gross_salary: grossSalary,
-                            total_deductions: totalDeductions,
-                            net_salary: netSalary
-                        });
-                    } else {
-                        setFinancialData({
-                            user_id: user.id,
-                            nominal_salary: 0
-                        } as any);
-                    }
-
-                    if (adminResult.data) setAdminData(adminResult.data);
-                    if (yearlyResult.data) setYearlyData(yearlyResult.data);
-
-                    // Compute Department & Manager Details
-                    const deptData = deptsResult?.data || [];
-                    if (user.department_id) {
-                        let currentDept = deptData.find((d: any) => d.id === user.department_id);
-                        const originDeptName = currentDept?.name || 'غير محدد';
-                        let nearestManagerId = null;
-
-                        let visitedDepts = new Set<string>();
-                        while (currentDept && !visitedDepts.has(currentDept.id)) {
-                            visitedDepts.add(currentDept.id);
-                            if (currentDept.manager_id) {
-                                nearestManagerId = currentDept.manager_id;
-                                break;
-                            }
-                            currentDept = deptData.find((d: any) => d.id === currentDept.parent_id);
-                        }
-
-                        let managerName = 'لا يوجد مسؤول مباشر';
-                        if (nearestManagerId) {
-                            if (nearestManagerId === user.id && currentDept?.parent_id) {
-                                const parentNode = deptData.find((d: any) => d.id === currentDept.parent_id);
-                                if (parentNode && parentNode.manager_id) {
-                                    nearestManagerId = parentNode.manager_id;
-                                }
-                            }
-
-                            if (nearestManagerId !== user.id) { 
-                                // جلب اسم المدير المباشر لمعرفة مع من الإجازة معلقة
-                                const { data: mgrProfiles } = await supabase.rpc('get_available_profiles_by_ids', { profile_ids: [nearestManagerId] });
-                                if (mgrProfiles && mgrProfiles.length > 0) managerName = mgrProfiles[0].full_name;
-                            } else {
-                                managerName = 'الإدارة العليا';
-                            }
-                        }
-
-                        setDepartmentInfo({ name: originDeptName, managerName });
-                    }
-                } catch (error) {
-                    console.error("Error fetching data:", error);
-                } finally {
-                    setLoading(false);
-                }
-            };
             fetchData();
         }
-    }, [user?.id, activeTab]);
+    }, [user?.id, activeTab, fetchData]);
 
     // Reset details when year changes
     useEffect(() => {

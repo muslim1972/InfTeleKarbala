@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2, ShieldCheck, Bell, Mic, Volume2 } from 'lucide-react';
+import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2, ShieldCheck, Bell, Mic, Volume2, Type, ZoomIn, RotateCcw, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAccessibility, FONT_SCALE_OPTIONS, type FontScale } from '../../context/AccessibilityContext';
 import { toast } from 'react-hot-toast';
 import { requestNotificationPermission } from '../../services/notifications';
 
@@ -11,8 +12,9 @@ interface SettingsModalProps {
 
 export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     const { user, updateProfile, changePassword, uploadAvatar } = useAuth();
+    const { fontScale, setFontScale, increaseFontScale, decreaseFontScale, resetFontScale, currentOption } = useAccessibility();
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'permissions'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'permissions' | 'accessibility'>('profile');
 
     // Permissions State
     const [notifStatus, setNotifStatus] = useState<string>('default');
@@ -256,6 +258,20 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                         الأذونات
                         {activeTab === 'permissions' && (
                             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400 rounded-t-full shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('accessibility')}
+                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'accessibility'
+                            ? 'text-amber-400'
+                            : 'text-white/50 hover:text-white/80'
+                            }`}
+                    >
+                        <Type className="w-5 h-5" />
+                        حجم الخط والوصول
+                        {activeTab === 'accessibility' && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t-full shadow-[0_0_10px_rgba(251,191,36,0.8)]"></div>
                         )}
                     </button>
                 </div>
@@ -588,6 +604,156 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                                     </div>
                                 </div>
 
+                            </div>
+                        )}
+
+                        {/* Section 4: Accessibility & Font Scaling */}
+                        {activeTab === 'accessibility' && (
+                            <div className="space-y-8 animate-in slide-in-from-left-4 fade-in duration-500">
+                                {/* Header Card */}
+                                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-sm">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                                            <Type className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white font-tajawal">
+                                                التحكم في حجم الخط وإمكانية الوصول
+                                            </h3>
+                                            <p className="text-white/60 text-xs mt-1 leading-relaxed">
+                                                خصص حجم الخطوط في التطبيق بما يناسب مستوى راحتك البصرية. يتم حفظ هذا الإعداد لحسابك فوراً ويؤثر في كافة الصفحات والتقارير.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Step Selector with Controls */}
+                                <div className="space-y-4 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-amber-400" />
+                                            <span className="font-bold text-white text-base">مستوى التكبير المختار</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-xs font-bold font-mono">
+                                                {currentOption.percentage} ({currentOption.label})
+                                            </span>
+                                            {fontScale !== 'normal' && (
+                                                <button
+                                                    onClick={() => {
+                                                        resetFontScale();
+                                                        toast.success('تمت استعادة الحجم الافتراضي (100%)');
+                                                    }}
+                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                                    title="إعادة تعيين إلى الحجم الافتراضي"
+                                                >
+                                                    <RotateCcw className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 4 Scale Cards */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        {FONT_SCALE_OPTIONS.map((opt) => {
+                                            const isSelected = fontScale === opt.id;
+                                            return (
+                                                <button
+                                                    key={opt.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFontScale(opt.id);
+                                                        toast.success(`تم ضبط حجم الخط: ${opt.label} (${opt.percentage})`);
+                                                    }}
+                                                    className={`p-4 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 relative overflow-hidden group ${
+                                                        isSelected
+                                                            ? 'bg-amber-500/15 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.2)] scale-[1.02]'
+                                                            : 'bg-black/30 border-white/10 hover:border-white/20 hover:bg-white/5'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <span className={`font-bold text-sm ${isSelected ? 'text-amber-300' : 'text-white'}`}>
+                                                            {opt.label}
+                                                        </span>
+                                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${
+                                                            isSelected ? 'bg-amber-500/30 text-amber-200' : 'bg-white/10 text-white/60'
+                                                        }`}>
+                                                            {opt.percentage}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-white/50 text-[11px] leading-relaxed">
+                                                        {opt.description}
+                                                    </p>
+                                                    {isSelected && (
+                                                        <div className="absolute top-2 left-2">
+                                                            <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Quick Adjust Buttons */}
+                                    <div className="flex items-center justify-center gap-3 pt-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                decreaseFontScale();
+                                                toast.success('تم تصغير الخط درجة واحدة');
+                                            }}
+                                            disabled={fontScale === 'normal'}
+                                            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold transition-all border border-white/10 flex items-center gap-1.5"
+                                        >
+                                            <span className="text-base font-black">A⁻</span>
+                                            <span>تصغير الخط</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                increaseFontScale();
+                                                toast.success('تم تكبير الخط درجة واحدة');
+                                            }}
+                                            disabled={fontScale === 'xlarge'}
+                                            className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 text-xs font-bold transition-all border border-amber-500/30 flex items-center gap-1.5"
+                                        >
+                                            <span className="text-base font-black">A⁺</span>
+                                            <span>تكبير الخط</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Live Interactive Preview Box */}
+                                <div className="space-y-4 bg-white/5 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-sm shadow-inner">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                        <h4 className="text-sm font-bold text-white/80 flex items-center gap-2">
+                                            <ZoomIn className="w-4 h-4 text-amber-400" />
+                                            معاينة حية فورية للنصوص
+                                        </h4>
+                                        <span className="text-[11px] text-white/40">تتأثر كافة صفحات التطبيق بهذا الحجم</span>
+                                    </div>
+
+                                    <div className="bg-black/50 p-5 rounded-2xl border border-white/10 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-bold text-white">بطاقة الموظف الإدارية</span>
+                                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                حاضر اليوم
+                                            </span>
+                                        </div>
+                                        <p className="text-white/70 text-sm leading-relaxed">
+                                            نظام إدارة الموارد والمعلوماتية / مديرية اتصالات ومعلوماتية كربلاء المقدسة.
+                                        </p>
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <span className="px-3 py-1.5 bg-brand-green/20 text-brand-green rounded-xl text-xs font-bold border border-brand-green/30">
+                                                تسجيل البصمة
+                                            </span>
+                                            <span className="px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-xl text-xs font-bold border border-blue-500/30">
+                                                الطلبات الإدارية
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 

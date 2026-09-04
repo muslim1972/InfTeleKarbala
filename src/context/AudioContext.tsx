@@ -245,10 +245,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 };
 
+const fallbackAudioContext: AudioContextType = {
+    isPlaying: false,
+    currentTrack: null,
+    tracks: [],
+    currentTime: 0,
+    duration: 0,
+    volume: 1,
+    isMuted: false,
+    playTrack: () => {},
+    togglePlay: () => {},
+    playNext: () => {},
+    playPrevious: () => {},
+    seek: () => {},
+    setVolume: () => {},
+    toggleMute: () => {},
+    addTrack: () => {},
+    removeTrack: () => {},
+    formatTime: () => '0:00'
+};
+
 export const useAudio = () => {
     const context = useContext(AudioContext);
     if (!context) {
-        throw new Error('useAudio must be used within an AudioProvider');
+        console.warn('[AudioContext] useAudio was called outside of an AudioProvider. Using safe fallback.');
+        return fallbackAudioContext;
     }
     return context;
 };

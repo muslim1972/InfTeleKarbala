@@ -29,13 +29,15 @@ import {
 } from "../../ui/Select";
 import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
-import { ProfileDataUpdater } from '../ProfileDataUpdater';
-import { FinancialDataUpdater } from '../FinancialDataUpdater';
-import { UniversalPatcher } from '../UniversalPatcher';
-import { FixLeaveBalanceModal } from '../FixLeaveBalanceModal';
 import { cleanText } from '../../../utils/profileUtils';
-import { FieldPermissionsModal } from '../FieldPermissionsModal';
-import { RequestsTabPermissionsModal } from '../RequestsTabPermissionsModal';
+
+// Lazy load heavy admin modals
+const ProfileDataUpdater = React.lazy(() => import('../ProfileDataUpdater').then(m => ({ default: m.ProfileDataUpdater })));
+const FinancialDataUpdater = React.lazy(() => import('../FinancialDataUpdater').then(m => ({ default: m.FinancialDataUpdater })));
+const UniversalPatcher = React.lazy(() => import('../UniversalPatcher').then(m => ({ default: m.UniversalPatcher })));
+const FixLeaveBalanceModal = React.lazy(() => import('../FixLeaveBalanceModal').then(m => ({ default: m.FixLeaveBalanceModal })));
+const FieldPermissionsModal = React.lazy(() => import('../FieldPermissionsModal').then(m => ({ default: m.FieldPermissionsModal })));
+const RequestsTabPermissionsModal = React.lazy(() => import('../RequestsTabPermissionsModal').then(m => ({ default: m.RequestsTabPermissionsModal })));
 import { supabase } from "../../../lib/supabase";
 import { toast } from "react-hot-toast";
 
@@ -756,42 +758,51 @@ export const TabManageEmployees = ({
                                     </>
                                 )}
                             </div>
-                            {showRequestsPermissionsModal && (
-                                <RequestsTabPermissionsModal
-                                    onClose={() => setShowRequestsPermissionsModal(false)}
-                                    theme={theme}
-                                />
-                            )}
-                            {showFinancialUpdater && (
-                                <FinancialDataUpdater 
-                                    onClose={() => setShowFinancialUpdater(false)} 
-                                    theme={theme}
-                                />
-                            )}
-                            {showProfileUpdater && (
-                                <ProfileDataUpdater 
-                                    onClose={() => setShowProfileUpdater(false)} 
-                                    theme={theme}
-                                />
-                            )}
-                            {showFixBalanceModal && (
-                                <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} type="regular" />
-                            )}
-                            {showFixSickBalanceModal && (
-                                <FixLeaveBalanceModal onClose={() => setShowFixSickBalanceModal(false)} type="sick" />
-                            )}
-                            {showSmartUpdater && (
-                                <UniversalPatcher onClose={() => setShowSmartUpdater(false)} />
-                            )}
-                            {showFieldPermissionsModal && (
-                                <FieldPermissionsModal
-                                    onClose={() => {
-                                        setShowFieldPermissionsModal(false);
-                                        fetchFieldPermissions();
-                                    }}
-                                    theme={theme}
-                                />
-                            )}
+                            <React.Suspense fallback={
+                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center animate-in fade-in duration-200">
+                                    <div className="bg-card p-5 rounded-2xl border shadow-2xl flex items-center gap-3 text-foreground">
+                                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                        <span className="font-semibold text-sm">جاري تحميل الأداة...</span>
+                                    </div>
+                                </div>
+                            }>
+                                {showRequestsPermissionsModal && (
+                                    <RequestsTabPermissionsModal
+                                        onClose={() => setShowRequestsPermissionsModal(false)}
+                                        theme={theme}
+                                    />
+                                )}
+                                {showFinancialUpdater && (
+                                    <FinancialDataUpdater 
+                                        onClose={() => setShowFinancialUpdater(false)} 
+                                        theme={theme}
+                                    />
+                                )}
+                                {showProfileUpdater && (
+                                    <ProfileDataUpdater 
+                                        onClose={() => setShowProfileUpdater(false)} 
+                                        theme={theme}
+                                    />
+                                )}
+                                {showFixBalanceModal && (
+                                    <FixLeaveBalanceModal onClose={() => setShowFixBalanceModal(false)} type="regular" />
+                                )}
+                                {showFixSickBalanceModal && (
+                                    <FixLeaveBalanceModal onClose={() => setShowFixSickBalanceModal(false)} type="sick" />
+                                )}
+                                {showSmartUpdater && (
+                                    <UniversalPatcher onClose={() => setShowSmartUpdater(false)} />
+                                )}
+                                {showFieldPermissionsModal && (
+                                    <FieldPermissionsModal
+                                        onClose={() => {
+                                            setShowFieldPermissionsModal(false);
+                                            fetchFieldPermissions();
+                                        }}
+                                        theme={theme}
+                                    />
+                                )}
+                            </React.Suspense>
                         </>
                     )}
                 </div>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
-import ExcelJS from 'exceljs';
 import type { CourseType, MCQQuestion, PromotionSettings, PromotionResult } from '../types';
 
 /**
@@ -167,6 +166,7 @@ export function usePromotionData() {
             if (error) throw error;
 
             const arrayBuffer = await data.arrayBuffer();
+            const ExcelJS = (await import('exceljs')).default;
             const workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(arrayBuffer);
             const worksheet = workbook.worksheets[0];

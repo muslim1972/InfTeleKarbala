@@ -271,39 +271,43 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 import { initializeOneSignal } from './services/notifications';
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
 function App() {
   useEffect(() => {
     initializeOneSignal();
   }, []);
 
   return (
-    <div dir="rtl">
-      <AuthProvider>
-        <AudioProvider>
-          <ChatProvider>
-            <CallProvider> {/* ✨ نظام المكالمات أصبح نشطاً الآن */}
-              <KnowledgeProvider>
-                <Toaster position="top-center" reverseOrder={false} />
-                <Suspense fallback={<LoadingScreen />}>
-                  <Routes>
-                    <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
-                      <Route path=":conversationId" element={null} />
-                    </Route>
-                    <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
-                    <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
-                    <Route path="/" element={<AppContent />} />
-                    <Route path="/login" element={<AppContent />} />
-                    <Route path="/*" element={<NotFound />} />
-                  </Routes>
-                  <FloatingAudioPlayer />
-                  <GlobalElements />
-                </Suspense>
-              </KnowledgeProvider>
-            </CallProvider>
-          </ChatProvider>
-        </AudioProvider>
-      </AuthProvider>
-    </div>
+    <ErrorBoundary>
+      <div dir="rtl">
+        <AuthProvider>
+          <AudioProvider>
+            <ChatProvider>
+              <CallProvider> {/* ✨ نظام المكالمات أصبح نشطاً الآن */}
+                <KnowledgeProvider>
+                  <Toaster position="top-center" reverseOrder={false} />
+                  <Suspense fallback={<LoadingScreen />}>
+                    <Routes>
+                      <Route path="/chat" element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
+                        <Route path=":conversationId" element={null} />
+                      </Route>
+                      <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
+                      <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
+                      <Route path="/" element={<AppContent />} />
+                      <Route path="/login" element={<AppContent />} />
+                      <Route path="/*" element={<NotFound />} />
+                    </Routes>
+                    <FloatingAudioPlayer />
+                    <GlobalElements />
+                  </Suspense>
+                </KnowledgeProvider>
+              </CallProvider>
+            </ChatProvider>
+          </AudioProvider>
+        </AuthProvider>
+      </div>
+    </ErrorBoundary>
   );
 }
 

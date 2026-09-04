@@ -5,7 +5,7 @@
  * يدير تدفق: رفع Excel → اختيار جدول → ربط أعمدة → معاينة → تنفيذ
  */
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import {
@@ -82,6 +82,7 @@ export function useUniversalPatcher() {
         setFileName(file.name);
         try {
             const arrayBuffer = await file.arrayBuffer();
+            const ExcelJS = (await import('exceljs')).default;
             const wb = new ExcelJS.Workbook();
             await wb.xlsx.load(arrayBuffer);
             
