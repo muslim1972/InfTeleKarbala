@@ -2,11 +2,15 @@
     "name": "مديرية الاتصالات ومعلوماتية كربلاء",
     "short_name": "اتصالات كربلاء",
     "description": "نظام ادارة الموظفين - مديرية الاتصالات ومعلوماتية كربلاء",
-    "start_url": ".",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#0f172a",
     "theme_color": "#0f172a",
     "orientation": "portrait",
+    "scope_extensions": [
+        { "origin": "https://band.khr-itpc.egov.iq" }
+    ],
     "icons": [
         {
             "src": "/icon-192.png?v=2",

@@ -152,24 +152,6 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }
-                                if (card.id === 'capacities') {
-                                    try {
-                                        for (let i = 0; i < localStorage.length; i++) {
-                                            const key = localStorage.key(i);
-                                            if (key && (key.includes('auth-token') || key.startsWith('sb-'))) {
-                                                const item = JSON.parse(localStorage.getItem(key) || '{}');
-                                                if (item?.access_token && item?.refresh_token) {
-                                                    window.location.assign(`https://band.khr-itpc.egov.iq/#access_token=${item.access_token}&refresh_token=${item.refresh_token}`);
-                                                    return;
-                                                }
-                                            }
-                                        }
-                                    } catch (e) {
-                                        console.error('Redirect token error:', e);
-                                    }
-                                    window.location.assign('https://band.khr-itpc.egov.iq');
-                                    return;
-                                }
                                 onSelect(card.id);
                             }}
                             className={`group relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
