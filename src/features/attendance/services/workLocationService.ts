@@ -83,7 +83,14 @@ export const workLocationService = {
           full_name,
           job_number,
           role,
-          work_schedule_id
+          work_schedule_id,
+          work_schedule:work_schedules (
+            id,
+            name,
+            type,
+            valid_from,
+            valid_until
+          )
         )
       `)
       .eq('location_id', locationId);

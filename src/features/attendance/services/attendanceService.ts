@@ -53,6 +53,74 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
   }
 }
 
+async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: string, leaveLabel: string) {
+  try {
+    const supervisorIdsSet = new Set<string>();
+    try {
+      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
+      if (rpcProfiles && Array.isArray(rpcProfiles)) {
+        rpcProfiles.forEach((p: any) => {
+          if (
+            p.admin_role === 'general' ||
+            p.admin_role === 'developer' ||
+            p.role === 'admin'
+          ) {
+            if (p.id) supervisorIdsSet.add(p.id);
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching via get_available_profiles:', e);
+    }
+
+    // Also get the immediate department manager of the employee
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('department_id')
+        .eq('id', employeeId)
+        .single();
+      if (profile?.department_id) {
+        const { data: dept } = await supabase
+          .from('departments')
+          .select('manager_id')
+          .eq('id', profile.department_id)
+          .single();
+        if (dept?.manager_id && dept.manager_id !== employeeId) {
+          supervisorIdsSet.add(dept.manager_id);
+        }
+      }
+    } catch (deptErr) {
+      console.error('Error finding department manager:', deptErr);
+    }
+
+    const supervisorIds = Array.from(supervisorIdsSet);
+    if (supervisorIds.length > 0) {
+      const title = '⚠️ تنبيه ذكي: بصمة أثناء إجازة رسمية';
+      const content = `الموظف (${employeeName}) قام بتسجيل بصمة حضور بتاريخ اليوم على الرغم من تمتعه بـ (${leaveLabel}) معتمدة.`;
+
+      // 1. Insert in system_notifications
+      const notifRows = supervisorIds.map(supId => ({
+        recipient_id: supId,
+        type: 'system',
+        title,
+        content,
+        is_read: false,
+        metadata: { employee_id: employeeId, leave_label: leaveLabel, type: 'leave_punch_alert' }
+      }));
+      await supabase.from('system_notifications').insert(notifRows).catch(console.warn);
+
+      // 2. Send Push Notifications
+      const pushPromises = supervisorIds.map(supId =>
+        sendPushNotification(supId, content, { title })
+      );
+      await Promise.allSettled(pushPromises);
+    }
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfLeavePunch:', err);
+  }
+}
+
 async function notifySupervisorsOfDeviceMismatch(
   employeeId: string,
   oldDeviceId: string,
@@ -483,10 +551,14 @@ export const attendanceRecordService = {
     const updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false);
     updates.raw_punches = rawPunches;
 
-    // ─── تكامل الإجازات (2): بصمة في يوم إجازة → ملاحظة دوام إضافي ───
+    // ─── تكامل الإجازات (2): بصمة في يوم إجازة → ملاحظة دوام إضافي + إشعار ذكي للمشرفين ───
     if (leaveCtx.dayLeave) {
       const baseNotes = record?.notes || updates.notes || notes;
       updates.notes = mergeNote(baseNotes, buildLeaveDayOvertimeNote(leaveCtx.dayLeave.label));
+      
+      // إشعار المشرفين والمدير فوراً بتسجيل بصمة أثناء إجازة رسمية
+      const empName = profile?.full_name || 'موظف';
+      notifySupervisorsOfLeavePunch(employeeId, empName, leaveCtx.dayLeave.label).catch(console.warn);
     }
 
     let isDevicePending = false;

@@ -192,8 +192,10 @@ export default function Timesheets() {
     let label = 'صباحي';
     if (isRoster) {
       if (!hasShifts) label = 'تعويضية';
+      else if (isMorning && isEvening && isNight) label = 'صباحي + مسائي + خفر (24س)';
       else if (isEvening && isNight) label = 'مسائي + خفر';
       else if (isMorning && isEvening) label = 'صباحي + مسائي';
+      else if (isMorning && isNight) label = 'صباحي + خفر';
       else if (isMorning) label = 'صباحي';
       else if (isEvening) label = 'مسائي';
       else if (isNight) label = 'خفر';
@@ -210,15 +212,24 @@ export default function Timesheets() {
     let expectedOut = '15:00';
 
     if (isRoster) {
-      if (isMorning) {
+      if (isMorning && isEvening && isNight) {
         expectedIn = '08:00';
-        if (isNight) expectedOut = '08:00';
-        else if (isEvening) expectedOut = '20:00';
-        else expectedOut = '15:00';
+        expectedOut = '08:00'; // 24 continuous hours until 8:00 AM next day
+      } else if (isMorning && isNight) {
+        expectedIn = '08:00';
+        expectedOut = '08:00';
+      } else if (isMorning && isEvening) {
+        expectedIn = '08:00';
+        expectedOut = '20:00';
+      } else if (isEvening && isNight) {
+        expectedIn = '14:30';
+        expectedOut = '08:00';
+      } else if (isMorning) {
+        expectedIn = '08:00';
+        expectedOut = '15:00';
       } else if (isEvening) {
         expectedIn = '14:30';
-        if (isNight) expectedOut = '08:00';
-        else expectedOut = '20:00';
+        expectedOut = '20:00';
       } else if (isNight) {
         expectedIn = '20:00';
         expectedOut = '08:00';

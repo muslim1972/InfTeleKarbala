@@ -19,6 +19,8 @@ interface EmployeeSearchProps {
     onChange?: (val: string) => void; // When user types
     autoFocus?: boolean;
     showIcon?: boolean;
+    /** مسح حقل البحث وإغلاقه فور اختيار الموظف */
+    clearOnSelect?: boolean;
     /** أصناف إضافية لمنفذ القائمة المنسدلة (مثلاً رفع z-index داخل نوافذ مودال أعلى) */
     portalClassName?: string;
 }
@@ -37,6 +39,7 @@ export function EmployeeSearch({
     onChange,
     autoFocus = false,
     showIcon = true,
+    clearOnSelect = false,
     portalClassName
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
@@ -99,8 +102,13 @@ export function EmployeeSearch({
     }, [onChange, setInternalQuery]);
 
     const handleSelect = (user: any) => {
-        if (onChange) onChange(user.full_name);
-        else setInternalQuery(user.full_name);
+        if (clearOnSelect) {
+            setInternalQuery('');
+            if (onChange) onChange('');
+        } else {
+            if (onChange) onChange(user.full_name);
+            else setInternalQuery(user.full_name);
+        }
 
         setShow(false);
         onSelect(user);

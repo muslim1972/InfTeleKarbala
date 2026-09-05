@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, ChevronUp, Printer, List, Network, UserCheck } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, ChevronUp, Printer, List, Network, UserCheck, Info } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
@@ -85,6 +85,66 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   const [managerInfo, setManagerInfo] = useState<{ id: string, name: string, names?: string[], isTopManagerSelf?: boolean } | null>(null);
   const [loadingManager, setLoadingManager] = useState(true);
+
+  // Roster Smart Schedule State
+  const [userSchedule, setUserSchedule] = useState<any>(null);
+  const [rosterNotice, setRosterNotice] = useState<{ type: 'warning' | 'info'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('work_schedule_id')
+      .eq('id', user.id)
+      .single()
+      .then(async ({ data: prof }) => {
+        if (prof?.work_schedule_id) {
+          const { data: sch } = await supabase
+            .from('work_schedules')
+            .select('*, days:work_schedule_days(*)')
+            .eq('id', prof.work_schedule_id)
+            .single();
+          if (sch) setUserSchedule(sch);
+        }
+      });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!userSchedule || userSchedule.type !== 'roster' || !formData.startDate) {
+      setRosterNotice(null);
+      return;
+    }
+
+    const dateObj = new Date(formData.startDate);
+    const dayOfWeek = dateObj.getDay();
+    const daySchedule = userSchedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
+
+    const isMorning = daySchedule?.is_morning ?? false;
+    const isEvening = daySchedule?.is_evening ?? false;
+    const isNight = daySchedule?.is_night ?? false;
+    const hasShifts = isMorning || isEvening || isNight;
+    const isRest = daySchedule?.is_rest_day ?? !hasShifts;
+
+    if (isRest) {
+      setRosterNotice({
+        type: 'warning',
+        text: '⚠️ هذا اليوم هو يوم استراحة تعويضية في جدول مناوبتك ولا يتطلب تقديم إجازة اعتيادية.'
+      });
+    } else if ((isEvening && isNight) || (isMorning && isEvening && isNight)) {
+      setRosterNotice({
+        type: 'info',
+        text: 'ℹ️ هذا اليوم يتضمن نوبة ممتدة (مسائي + خفر = 17 ساعة متواصلة) وتعادل 3 أيام دوام قانوني (7س/يوم). سيتم احتساب وخصم 3 أيام إجازة لإعفائك من كامل النوبة.'
+      });
+      setFormData(prev => {
+        if (prev.daysCount === 1) {
+          return { ...prev, daysCount: 3 };
+        }
+        return prev;
+      });
+    } else {
+      setRosterNotice(null);
+    }
+  }, [formData.startDate, userSchedule]);
 
   // Latest request logic
   const [latestRequest, setLatestRequest] = useState<any>(null);
@@ -707,6 +767,16 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                       min={today}
                       required
                     />
+                    {rosterNotice && (
+                      <div className={`mt-2.5 p-3 rounded-xl border text-xs leading-relaxed font-bold flex items-start gap-2 animate-in fade-in duration-200 ${
+                        rosterNotice.type === 'warning'
+                          ? 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800'
+                          : 'bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800'
+                      }`}>
+                        <Info className="w-4 h-4 shrink-0 text-current mt-0.5" />
+                        <span>{rosterNotice.text}</span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

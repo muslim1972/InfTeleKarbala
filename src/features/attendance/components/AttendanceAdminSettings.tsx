@@ -18,6 +18,7 @@ import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
+import { rosterReminderService } from '../services/rosterReminderService';
 
 type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
@@ -121,6 +122,7 @@ export default function AttendanceAdminSettings() {
   useEffect(() => {
     loadLocations();
     loadWorkSchedules();
+    rosterReminderService.checkAndSendRosterReminders().catch(console.error);
 
     const handleSwitchSubtab = (e: any) => {
       if (e.detail?.subTab) {
@@ -133,7 +135,10 @@ export default function AttendanceAdminSettings() {
 
   const loadWorkSchedules = async () => {
     try {
-      const { data } = await supabase.from('work_schedules').select('id, name').order('is_default', { ascending: false });
+      const { data } = await supabase
+        .from('work_schedules')
+        .select('id, name, type, is_default, valid_from, valid_until')
+        .order('is_default', { ascending: false });
       setWorkSchedules(data || []);
     } catch (err) {
       console.error(err);
@@ -148,17 +153,47 @@ export default function AttendanceAdminSettings() {
 
   // Inline Editing State
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [editDutyType, setEditDutyType] = useState<'morning' | 'roster'>('morning');
   const [editScheduleId, setEditScheduleId] = useState<string>('');
 
   const handleUpdateShift = async (employeeId: string) => {
     if (!selectedLocId) return;
     try {
-      await workLocationService.updateEmployeeSchedule(employeeId, editScheduleId || null);
-      toast.success('تم تحديث جدول دوام الموظف بنجاح');
+      let targetScheduleId: string | null = null;
+      if (editDutyType === 'morning') {
+        const defaultSch = workSchedules.find(s => s.is_default) || workSchedules.find(s => s.name?.includes('صباحي'));
+        targetScheduleId = defaultSch?.id || null;
+      } else {
+        // Duty type is 'roster' - find current employee & roster schedule
+        const currentEmp = assignedEmployees.find(ae => ae.employee_id === employeeId);
+        const currentSchedId = editScheduleId || currentEmp?.employee?.work_schedule_id;
+        const currentSched = currentEmp?.employee?.work_schedule || workSchedules.find(s => s.id === currentSchedId);
+
+        if (currentSched?.type === 'roster' || currentSchedId) {
+          targetScheduleId = currentSchedId;
+        } else {
+          // Look for an existing roster schedule by employee name
+          const existingRoster = workSchedules.find(s => s.type === 'roster' && s.name?.includes(currentEmp?.employee?.full_name));
+          if (existingRoster) {
+            targetScheduleId = existingRoster.id;
+          } else {
+            toast.error('يرجى تحديد جدول المناوبة للموظف أولاً');
+            setRosterEmployee({
+              ...(currentEmp?.employee || {}),
+              id: employeeId
+            });
+            return;
+          }
+        }
+      }
+
+      await workLocationService.updateEmployeeSchedule(employeeId, targetScheduleId);
+      toast.success('تم تحديث نوع دوام الموظف بنجاح');
       setEditingEmployeeId(null);
-      loadAssignments(selectedLocId);
+      await loadWorkSchedules();
+      await loadAssignments(selectedLocId);
     } catch (err: any) {
-      toast.error('فشل تحديث الجدول: ' + err.message);
+      toast.error('فشل تحديث الدوام: ' + err.message);
     }
   };
 
@@ -1251,31 +1286,36 @@ export default function AttendanceAdminSettings() {
                           {assignedEmployees.map((ae) => {
                             const isEditing = editingEmployeeId === ae.employee_id;
                             const isHighlighted = highlightedEmpId === ae.employee_id;
-                            const empSchedule = workSchedules.find(s => s.id === ae.employee?.work_schedule_id);
+                            const empSchedule = ae.employee?.work_schedule || workSchedules.find(s => s.id === ae.employee?.work_schedule_id);
+                            const isRoster = empSchedule?.type === 'roster';
 
                             let scheduleBadge = (
                               <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
-                                صباحي (08:00 - 15:00)
+                                دوام صباحي (08:00 - 15:00)
                               </span>
                             );
 
-                            if (empSchedule?.type === 'roster') {
+                            if (isRoster) {
                               scheduleBadge = (
-                                <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
-                                  مناوب (شفتات أسبوعية)
-                                </span>
-                              );
-                            } else if (empSchedule?.name?.includes('مسائي')) {
-                              scheduleBadge = (
-                                <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
-                                  مسائي (14:30 - 20:00)
-                                </span>
-                              );
-                            } else if (empSchedule?.name?.includes('خفر')) {
-                              scheduleBadge = (
-                                <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
-                                  خفر (20:00 - 08:00ص)
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 text-[11px] px-2.5 py-1 rounded-md font-bold">
+                                    دوام مناوب (شفتات أسبوعية)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRosterEmployee({
+                                        ...ae.employee,
+                                        work_schedule_id: ae.employee?.work_schedule_id
+                                      });
+                                    }}
+                                    className="text-[11px] bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2.5 py-0.5 rounded-lg font-bold transition-colors flex items-center gap-1 border border-purple-200 dark:border-purple-800 shadow-2xs"
+                                    title="تعديل جدول شفتات المناوبة لهذا الموظف"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                                    تعديل الجدول
+                                  </button>
+                                </div>
                               );
                             }
 
@@ -1296,33 +1336,33 @@ export default function AttendanceAdminSettings() {
                                   {isEditing ? (
                                     <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
                                       <select
-                                        value={editScheduleId}
-                                        onChange={e => setEditScheduleId(e.target.value)}
+                                        value={editDutyType}
+                                        onChange={e => setEditDutyType(e.target.value as 'morning' | 'roster')}
                                         className="text-xs bg-slate-50 border rounded-lg px-2.5 py-1.5 dark:bg-slate-900 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200 outline-none"
                                       >
-                                        <option value="">صباحي (الافتراضي)</option>
-                                        {workSchedules.filter(s => s.type !== 'roster').map(sch => (
-                                          <option key={sch.id} value={sch.id}>{sch.name}</option>
-                                        ))}
+                                        <option value="morning">دوام صباحي (08:00 - 15:00)</option>
+                                        <option value="roster">دوام مناوب (شفتات متغيرة)</option>
                                       </select>
 
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setRosterEmployee({
-                                            ...ae.employee,
-                                            work_schedule_id: ae.employee?.work_schedule_id
-                                          });
-                                        }}
-                                        className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1"
-                                      >
-                                        <ShieldCheck className="w-3.5 h-3.5" />
-                                        تخصيص جدول المناوبة (شفتات)
-                                      </button>
+                                      {editDutyType === 'roster' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setRosterEmployee({
+                                              ...ae.employee,
+                                              work_schedule_id: ae.employee?.work_schedule_id
+                                            });
+                                          }}
+                                          className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1 shadow-2xs"
+                                        >
+                                          <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                                          تخصيص جدول المناوبة (شفتات)
+                                        </button>
+                                      )}
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-xs text-slate-400">الدوام:</span>
+                                      <span className="text-xs text-slate-400">نوع الدوام:</span>
                                       {scheduleBadge}
                                     </div>
                                   )}
@@ -1352,10 +1392,12 @@ export default function AttendanceAdminSettings() {
                                     <button
                                       onClick={() => {
                                         setEditingEmployeeId(ae.employee_id);
+                                        const isRost = (ae.employee?.work_schedule?.type === 'roster') || (empSchedule?.type === 'roster');
+                                        setEditDutyType(isRost ? 'roster' : 'morning');
                                         setEditScheduleId(ae.employee?.work_schedule_id || '');
                                       }}
                                       className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 p-2 rounded-xl transition-all flex items-center gap-1 text-xs font-bold"
-                                      title="تعديل جدول الدوام"
+                                      title="تعديل نوع الدوام"
                                     >
                                       <Edit2 className="w-3.5 h-3.5" />
                                       تعديل
@@ -1988,9 +2030,11 @@ export default function AttendanceAdminSettings() {
           employee={rosterEmployee}
           locationName={locations.find(l => l.id === selectedLocId)?.name}
           onClose={() => setRosterEmployee(null)}
-          onSave={() => {
+          onSave={async () => {
             setRosterEmployee(null);
-            if (selectedLocId) loadAssignments(selectedLocId);
+            setEditingEmployeeId(null);
+            await loadWorkSchedules();
+            if (selectedLocId) await loadAssignments(selectedLocId);
           }}
         />
       )}
