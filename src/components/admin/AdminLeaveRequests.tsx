@@ -467,7 +467,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
 
             {/* Modal for PDF Generation overlay */}
             {isPrintingPdf && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center flex flex-col items-center justify-center p-8">
                         <div className="w-16 h-16 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin mb-6"></div>
                         <h3 className="text-xl font-bold text-slate-800 mb-2">جاري تحضير الاستمارة...</h3>

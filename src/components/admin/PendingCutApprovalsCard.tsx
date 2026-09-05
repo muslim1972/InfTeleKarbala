@@ -203,16 +203,16 @@ export function PendingCutApprovalsCard({
 
             {/* Custom Modal for HR Cut Approval */}
             {selectedRequest && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setSelectedRequest(null); }}>
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="bg-amber-500 p-4 text-white flex justify-between items-center">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setSelectedRequest(null); }}>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[calc(100vh-9rem)] flex flex-col">
+                        <div className="bg-amber-500 p-4 text-white flex justify-between items-center shrink-0">
                             <h3 className="font-bold text-lg">تأكيد اعتماد قطع الإجازة</h3>
                             <button onClick={() => setSelectedRequest(null)} className="hover:bg-white/20 p-1 rounded-xl transition">
                                 <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-6 space-y-5">
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
                             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{selectedRequest.employee_name}</h4>
                                 <p className="text-sm text-slate-600 dark:text-slate-400">الإجازة الأصلية: {selectedRequest.days_count} يوم</p>

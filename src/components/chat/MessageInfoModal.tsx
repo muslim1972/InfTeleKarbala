@@ -40,11 +40,11 @@ export function MessageInfoModal({ isOpen, onClose, message, currentUserId, memb
     return (
         <>
             <div 
-                className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm transition-opacity"
+                className="fixed inset-0 z-[1000] bg-black/20 backdrop-blur-sm transition-opacity"
                 onClick={onClose}
             />
             
-            <div className="fixed inset-x-0 bottom-0 z-[110] bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom-full duration-300 md:max-w-md md:mx-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:rounded-3xl md:slide-in-from-bottom-10 md:fade-in">
+            <div className="fixed inset-x-0 bottom-0 z-[1010] bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom-full duration-300 pb-28 md:pb-0 md:max-w-md md:mx-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:rounded-3xl md:slide-in-from-bottom-10 md:fade-in">
                 {/* Header */}
                 <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 p-4 border-b flex items-center justify-between rounded-t-3xl">
                     <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">

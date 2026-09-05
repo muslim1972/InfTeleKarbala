@@ -7,7 +7,7 @@ interface AppFooterProps {
 
 export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
     return (
-        <footer className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col">
+        <footer className="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col">
 
             {/* Line 1: News Ticker */}
             <TipsMarquee appName="InfTeleKarbala" />
@@ -44,7 +44,7 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                         {/* Center: Signature Image - Lifted slightly to prevent cutoff */}
                         <div
                             onClick={onDeveloperClick}
-                            className="flex items-center justify-center w-14 h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[60] -mt-6 -mb-2"
+                            className="flex items-center justify-center w-14 h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[35] -mt-6 -mb-2"
                         >
                             {/* Halo Effect - Sun Rays */}
                             <div className="absolute w-12 h-12 md:w-16 md:h-16 bg-yellow-500/30 rounded-full blur-[4px] animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />

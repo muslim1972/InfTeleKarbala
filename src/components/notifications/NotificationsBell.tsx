@@ -183,12 +183,12 @@ export default function NotificationsBell({ userId }: NotificationsBellProps) {
       {/* مودال الإشعارات */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm font-arabic" dir="rtl">
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/60 backdrop-blur-sm font-arabic" dir="rtl">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-slate-700"
+              className="bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-9rem)] border border-slate-700"
             >
               {/* Header */}
               <div className="bg-blue-600 p-4 text-white flex justify-between items-center">

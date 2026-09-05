@@ -24,7 +24,7 @@ export const GlobalElements = () => {
             {/* Global Chat FAB */}
             <button
                 onClick={() => navigate('/chat')}
-                className="fixed bottom-3 left-3 md:bottom-4 md:left-4 z-[100] w-12 h-12 md:w-14 md:h-14 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
+                className="fixed bottom-3 left-3 md:bottom-4 md:left-4 z-40 w-12 h-12 md:w-14 md:h-14 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
             >
                 <div className="relative w-full h-full">
                     <img

@@ -94,10 +94,10 @@ export const RequestsTabPermissionsModal: React.FC<RequestsTabPermissionsModalPr
     };
 
     return (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 overflow-y-auto">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
             <div className={cn(
-                "relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+                "relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 flex flex-col max-h-[calc(100vh-9rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
                 theme === 'light' ? 'bg-white text-gray-900 border border-gray-200' : 'bg-zinc-900 text-white border border-white/10'
             )}>
                 <button onClick={onClose} className="absolute left-6 top-6 p-2 rounded-full transition-colors hover:bg-black/10 dark:hover:bg-white/10">

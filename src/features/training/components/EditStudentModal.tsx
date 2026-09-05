@@ -83,10 +83,10 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
     };
 
     return (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 overflow-y-auto">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
             <div className={cn(
-                "relative w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+                "relative w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-9rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
                 isDark ? 'bg-zinc-900 text-white border border-white/10' : 'bg-white text-slate-900 border border-slate-200'
             )}>
                 {/* Header */}

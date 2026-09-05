@@ -83,11 +83,11 @@ export default function FiberSimulatorLauncher(): React.ReactElement | null {
       {block && !block.ok && (
         <div
           dir="rtl"
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-6"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6 pb-28 md:pb-32 overflow-y-auto"
           onClick={() => setBlock(null)}
         >
           <div
-            className="max-w-md rounded-2xl border border-red-900/60 bg-slate-900 p-6 text-center"
+            className="max-w-md rounded-2xl border border-red-900/60 bg-slate-900 p-6 text-center max-h-[calc(100vh-9rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <MonitorX size={40} className="mx-auto text-red-400" />
@@ -111,7 +111,7 @@ export default function FiberSimulatorLauncher(): React.ReactElement | null {
       {open && (
         <Suspense
           fallback={
-            <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-3 bg-[#070d18] text-slate-300">
+            <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center gap-3 bg-[#070d18] text-slate-300 pb-28 md:pb-32">
               <Loader2 size={32} className="animate-spin text-indigo-400" />
               <p className="text-sm">جارٍ تحميل مساحة عمل المحاكي…</p>
             </div>

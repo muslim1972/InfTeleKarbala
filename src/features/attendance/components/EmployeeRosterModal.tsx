@@ -407,8 +407,8 @@ export default function EmployeeRosterModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[99999] flex items-center justify-center p-3 sm:p-6 pb-24 pt-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[82vh] mb-12 sm:mb-8 flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden my-auto">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[99999] flex items-center justify-center p-3 sm:p-6 pb-28 md:pb-32 pt-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[calc(100vh-9rem)] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
           <div>

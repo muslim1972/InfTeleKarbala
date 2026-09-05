@@ -144,8 +144,8 @@ export const EmployeeNotifications = () => {
             </button>
 
             {showModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 bg-black/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-9rem)]">
                         {/* Header */}
                         <div className="bg-blue-600 p-4 text-white flex justify-between items-center">
                             <h3 className="font-bold text-lg flex items-center gap-2">

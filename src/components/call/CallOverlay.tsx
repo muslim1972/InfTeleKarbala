@@ -146,7 +146,7 @@ const ActiveCallUI = () => {
       )}
 
       {/* أزرار التحكم السفلية */}
-      <div className="relative z-10 w-full max-w-lg flex items-center justify-around pb-10 mt-auto bg-gradient-to-t from-black/80 to-transparent pt-12">
+      <div className="relative z-10 w-full max-w-lg flex items-center justify-around pb-24 md:pb-28 mt-auto bg-gradient-to-t from-black/80 to-transparent pt-12">
         {!isVideoCall && (
             <button
               onClick={toggleSpeaker}
@@ -242,7 +242,7 @@ const RingingCallUI = () => {
         </motion.p>
       </div>
 
-      <div className="relative z-10 w-full max-w-sm flex items-center justify-around pb-10">
+      <div className="relative z-10 w-full max-w-sm flex items-center justify-around pb-24 md:pb-28">
         {isIncoming && (
           <motion.button
             whileHover={{ scale: 1.1 }}

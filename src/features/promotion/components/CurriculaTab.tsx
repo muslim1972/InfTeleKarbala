@@ -51,7 +51,7 @@ export const CurriculaTab = () => {
 
     if (viewingPdfUrl) {
         return (
-            <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 animate-in fade-in zoom-in-95 duration-200">
+            <div className="fixed inset-0 z-[1000] flex flex-col bg-slate-900 pb-24 md:pb-28 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center p-4 bg-slate-900 border-b border-white/10 shrink-0">
                     <button
                         onClick={() => setViewingPdfUrl(null)}

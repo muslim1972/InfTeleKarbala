@@ -32,7 +32,7 @@ export function DirectivesModal({ type, content, isOpen, onClose, onAcknowledge 
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto">
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-auto p-4 pb-28 md:pb-32 overflow-y-auto">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -51,7 +51,7 @@ export function DirectivesModal({ type, content, isOpen, onClose, onAcknowledge 
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
                         className={cn(
-                            "relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden m-4 z-10",
+                            "relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden z-10 max-h-[calc(100vh-9rem)] flex flex-col",
                             type === 'directive'
                                 ? "bg-slate-900 border-red-500/50 shadow-red-500/20"
                                 : "bg-slate-900 border-green-500/50 shadow-green-500/20"

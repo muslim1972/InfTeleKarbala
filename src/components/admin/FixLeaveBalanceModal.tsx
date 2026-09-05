@@ -146,9 +146,9 @@ export function FixLeaveBalanceModal({ onClose, type = 'regular' }: FixLeaveBala
     };
 
     const modalContent = (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className={`p-4 text-white flex justify-between items-center ${type === 'sick' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 pb-28 md:pb-32 overflow-y-auto">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[calc(100vh-9rem)] flex flex-col">
+                <div className={`p-4 text-white flex justify-between items-center shrink-0 ${type === 'sick' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         <ShieldAlert size={20} />
                         أداة إصلاح {balanceTitle}
@@ -158,7 +158,7 @@ export function FixLeaveBalanceModal({ onClose, type = 'regular' }: FixLeaveBala
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                <div className="p-6 space-y-6 overflow-y-auto flex-1">
                     <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 flex gap-3 text-sm">
                         <AlertCircle className="shrink-0 mt-0.5" size={18} />
                         <p>

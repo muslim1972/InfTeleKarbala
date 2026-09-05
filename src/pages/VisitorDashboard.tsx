@@ -102,9 +102,9 @@ const OnboardingStory = ({ onComplete }: { onComplete: () => void }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 pb-28 md:pb-32 overflow-y-auto"
         >
-            <GlassCard className="max-w-md w-full p-8 relative overflow-hidden border-white/20 shadow-2xl">
+            <GlassCard className="max-w-md w-full p-8 relative overflow-hidden border-white/20 shadow-2xl max-h-[calc(100vh-9rem)] overflow-y-auto">
                 {/* Progress Bar */}
                 <div className="flex gap-2 mb-8 absolute top-0 left-0 right-0 p-4 z-20">
                     {stories.map((_, idx) => (

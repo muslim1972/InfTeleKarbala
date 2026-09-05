@@ -188,9 +188,9 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
             {/* Main Modal Container */}
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-3xl bg-zinc-950/80 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl relative">
+            <div className="w-full max-w-2xl max-h-[calc(100vh-9rem)] overflow-hidden flex flex-col rounded-3xl bg-zinc-950/80 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl relative">
 
                 {/* Decorative Background Elements */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/10 rounded-full blur-[100px] pointer-events-none"></div>

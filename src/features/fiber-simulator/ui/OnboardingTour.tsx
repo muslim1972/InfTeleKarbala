@@ -251,7 +251,7 @@ export default function OnboardingTour(): React.ReactElement | null {
     (rect.width > vw * 0.55 && rect.height > vh * 0.35)
   ) {
     cardStyle = {
-      top: Math.max(8, vh - cardH - 20),
+      top: Math.max(8, vh - cardH - 96),
       left: (vw - cardW) / 2,
       width: cardW,
     };
@@ -270,20 +270,20 @@ export default function OnboardingTour(): React.ReactElement | null {
     }
     /* عمودياً: تحت الهدف إن اتسع، وإلا فوقه، وإلا توسّط مقيَّد بحدود الشاشة */
     let top: number;
-    if (rect.top + rect.height + cardH + 16 < vh) {
+    if (rect.top + rect.height + cardH + 16 < vh - 80) {
       top = rect.top + rect.height + 16;
       if (!pointerClass) pointerClass = 'tour-pointer-top';
     } else if (rect.top - cardH - 16 > 8) {
       top = rect.top - cardH - 16;
       if (!pointerClass) pointerClass = 'tour-pointer-bottom';
     } else {
-      top = Math.max(8, Math.min(rect.top + rect.height / 2 - cardH / 2, vh - cardH - 8));
+      top = Math.max(8, Math.min(rect.top + rect.height / 2 - cardH / 2, vh - cardH - 88));
     }
     cardStyle = { top, left, width: cardW };
   }
 
   return (
-    <div dir="rtl" className="fixed inset-0 z-[140]" role="dialog" aria-modal="true">
+    <div dir="rtl" className="fixed inset-0 z-[1050]" role="dialog" aria-modal="true">
       {/* العتمة مع ثقب الإبراز — box-shadow ضخم خارج مستطيل الهدف */}
       {rect && (
         <div

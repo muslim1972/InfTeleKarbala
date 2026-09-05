@@ -435,8 +435,8 @@ const DutyRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       {/* ── Confirm Modal ─────────────────────────────────────────────────────── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 pb-8 w-full max-w-sm shadow-2xl mb-16 sm:mb-0">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl max-h-[calc(100vh-9rem)] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">تأكيد إرسال الطلب</h3>
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">

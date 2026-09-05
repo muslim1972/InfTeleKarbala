@@ -906,8 +906,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl scale-100">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl scale-100 max-h-[calc(100vh-9rem)] overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">تأكيد إرسال الطلب</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               هل أنت متأكد من صحة المعلومات المدخلة؟
@@ -947,8 +947,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
       {/* Balance Error Modal */}
       {showBalanceError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border-2 border-red-500/20">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border-2 border-red-500/20 max-h-[calc(100vh-9rem)] overflow-y-auto">
             <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle size={28} className="text-red-500" />
             </div>

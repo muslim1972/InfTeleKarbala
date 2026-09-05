@@ -599,13 +599,13 @@ export default function FiberSimulatorWorkspace({
       {/* رسالة تأكيد الخروج — هل تريد حفظ التغييرات؟ */}
       {confirmExit && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-6"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6 pb-28 md:pb-32 overflow-y-auto"
           onClick={() => setConfirmExit(false)}
         >
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl max-h-[calc(100vh-9rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-slate-100">هل تريد حفظ التغييرات؟</h3>
@@ -678,13 +678,13 @@ export default function FiberSimulatorWorkspace({
       {openDlg && (
         <div
           dir="rtl"
-          className="fixed inset-0 z-[126] flex items-center justify-center bg-black/70 p-6"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6 pb-28 md:pb-32 overflow-y-auto"
           onClick={() => setOpenDlg(false)}
         >
           <div
             role="dialog"
             aria-modal="true"
-            className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-2xl border border-slate-700 bg-[#0b1322] shadow-2xl"
+            className="flex max-h-[calc(100vh-9rem)] w-full max-w-lg flex-col rounded-2xl border border-slate-700 bg-[#0b1322] shadow-2xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5">

@@ -88,13 +88,13 @@ export const HistoryViewer = ({ tableName, recordId, fieldName, label, className
 
             <AnimatePresence>
                 {isOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
                         <motion.div
                             ref={modalRef}
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+                            className="bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-9rem)] flex flex-col overflow-hidden"
                             dir="rtl"
                         >
                             {/* Header */}

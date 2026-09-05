@@ -35,8 +35,8 @@ export function UniversalPatcher({ onClose }: UniversalPatcherProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-[98vw] max-w-screen-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 flex flex-col h-[92vh]">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 pb-28 md:pb-32 overflow-y-auto animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-[98vw] max-w-screen-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 flex flex-col h-[calc(100vh-9rem)]">
 
                 {/* Header */}
                 <div className="shrink-0 p-4 border-b border-zinc-100 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950 flex justify-between items-center relative">

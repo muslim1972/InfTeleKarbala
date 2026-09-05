@@ -226,8 +226,8 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl scale-100 overflow-hidden relative mt-10">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 bg-black/50 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl scale-100 overflow-hidden relative max-h-[calc(100vh-9rem)] flex flex-col">
 
                 {/* Modification Type Banner */}
                 {request.modification_type === 'edited' && (
@@ -276,7 +276,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 </div>
 
                 {/* Content */}
-                <div className="space-y-4 mb-8">
+                <div className="space-y-4 mb-4 overflow-y-auto flex-1 custom-scrollbar">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
                             <p className="text-xs text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
@@ -390,7 +390,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3">
+                <div className="flex gap-3 shrink-0 pt-3 border-t border-gray-100 dark:border-slate-700">
                     <button
                         onClick={() => handleAction('rejected')}
                         disabled={isProcessing}

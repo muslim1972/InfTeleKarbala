@@ -75,7 +75,7 @@ export const ImageMessage: React.FC<ImageMessageProps> = ({ message, onImageLoad
                     />
                     
                     {/* Bottom hint to close */}
-                    <div className="absolute bottom-10 left-0 right-0 text-center pointer-events-none">
+                    <div className="absolute bottom-24 md:bottom-28 left-0 right-0 text-center pointer-events-none">
                         <span className="bg-white/10 text-white/90 px-6 py-2.5 rounded-full text-sm font-medium backdrop-blur-md border border-white/20 shadow-lg">
                             اضغط في أي مكان للخروج من العارض
                         </span>

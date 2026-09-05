@@ -634,7 +634,7 @@ export default function AttendanceCheckInOut({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-4"
+            className="fixed inset-0 z-[1000] bg-black/80 flex flex-col items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto"
           >
             {/* Close Button */}
             <button
@@ -1207,12 +1207,12 @@ export default function AttendanceCheckInOut({
       {/* ========== Custom Alert Modal (Unverified Registration) ========== */}
       <AnimatePresence>
         {alertInfo.show && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100 dark:border-slate-700"
+              className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100 dark:border-slate-700 max-h-[calc(100vh-9rem)] overflow-y-auto"
             >
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 rounded-full flex items-center justify-center mb-6 text-amber-500">
                 <AlertTriangle className="w-8 h-8" />
@@ -1237,12 +1237,12 @@ export default function AttendanceCheckInOut({
       {/* ========== مودال تأكيد البصمة في يوم الإجازة (تكامل الإجازات) ========== */}
       <AnimatePresence>
         {pendingLeavePunch && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-orange-200 dark:border-orange-900/40"
+              className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-orange-200 dark:border-orange-900/40 max-h-[calc(100vh-9rem)] overflow-y-auto"
             >
               <div className="mx-auto w-16 h-16 bg-orange-50 dark:bg-orange-950/30 rounded-full flex items-center justify-center mb-6 text-orange-500">
                 <Clock className="w-8 h-8" />

@@ -241,7 +241,7 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 bg-black/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-300">
             {/* CSS to fix select arrow position in RTL */}
             <style dangerouslySetInnerHTML={{ __html: `
                 .rtl-select {
@@ -254,7 +254,7 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
                 }
             `}} />
             <div className={cn(
-                "w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden transition-all duration-500 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
+                "w-full max-w-4xl max-h-[calc(100vh-9rem)] flex flex-col rounded-2xl shadow-2xl border overflow-hidden transition-all duration-500 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
                 theme === 'dark' ? 'dark' : ''
             )}>
                 {/* Header */}

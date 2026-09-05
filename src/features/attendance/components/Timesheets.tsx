@@ -1356,7 +1356,7 @@ export default function Timesheets() {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedImage(null)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto" onClick={() => setSelectedImage(null)}>
           <div className="relative max-w-lg w-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-4 flex justify-between items-center border-b dark:border-slate-700">
               <h3 className="font-bold text-slate-800 dark:text-white">صورة الحضور</h3>
@@ -1373,7 +1373,7 @@ export default function Timesheets() {
 
       {/* معرض لقطات اليوم المطوية — يفتح من مقعد الخروج عند تعدد اللقطات (بلا أي حذف) */}
       {punchGallery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setPunchGallery(null)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto" onClick={() => setPunchGallery(null)}>
           <div className="relative max-w-lg w-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-4 flex justify-between items-center border-b dark:border-slate-700">
               <div className="min-w-0">

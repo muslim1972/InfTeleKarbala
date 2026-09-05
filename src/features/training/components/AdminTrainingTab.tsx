@@ -965,10 +965,10 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
             {/* ── Supervisor Search Modal (Admin View) ── */}
             {showSupervisorModal && (
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSupervisorModal(false)} />
                     <div className={cn(
-                        "relative w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+                        "relative w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-9rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
                         isDark ? 'bg-zinc-900 text-white border border-white/10' : 'bg-white text-slate-900 border border-slate-200'
                     )}>
                         {/* Header */}
@@ -1306,10 +1306,10 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
 
             {/* Modal for viewing exam details */}
             {selectedStudentResults && selectedStudentResults.length > 0 && (
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 pt-4 overflow-y-auto">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudentResults(null)} />
                     <div className={cn(
-                        "relative w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+                        "relative w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-9rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-200",
                         isDark ? 'bg-zinc-900 text-white border border-white/10' : 'bg-white text-slate-900 border border-slate-200'
                     )}>
                         <div className={cn("p-4 border-b flex items-center justify-between", isDark ? "border-white/10" : "border-slate-100")}>

@@ -34,7 +34,7 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                 />
             </div>
 
-            <div className="relative z-10 flex flex-col h-full min-h-screen">
+            <div className="relative flex flex-col h-full min-h-screen">
                 <AppHeader bottomContent={headerContent} title={headerTitle} showUserName={showUserName} onBack={onBack} />
 
                 <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-32", className)}>

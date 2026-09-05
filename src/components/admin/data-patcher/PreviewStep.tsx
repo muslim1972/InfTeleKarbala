@@ -117,8 +117,8 @@ export function PreviewStep({ patcher }: { patcher: UseDataPatcherReturn }) {
 
             {/* Missing Records Modal */}
             {showMissingModal && (
-                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto">
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[calc(100vh-9rem)] flex flex-col border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200 overflow-hidden">
                         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-t-xl">
                             <h3 className="font-bold text-lg flex items-center gap-2 text-zinc-900 dark:text-white">
                                 <AlertTriangle className="w-5 h-5 text-amber-500" />

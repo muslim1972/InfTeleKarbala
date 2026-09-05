@@ -341,8 +341,8 @@ export default function HolidaysTab() {
 
       {/* Holiday Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 animate-scale-up shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md max-h-[calc(100vh-9rem)] p-6 animate-scale-up shadow-2xl overflow-y-auto">
             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-6">
               {editingId ? 'تعديل العطلة' : 'إضافة عطلة جديدة'}
             </h3>

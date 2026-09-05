@@ -2041,8 +2041,8 @@ export default function AttendanceAdminSettings() {
 
       {/* Processing Modal */}
       {processingRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-700">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700">
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">معالجة السجل التلقائي</h3>
               <p className="text-sm text-slate-500 mt-1">للموظف: {processingRecord.employeeName}</p>

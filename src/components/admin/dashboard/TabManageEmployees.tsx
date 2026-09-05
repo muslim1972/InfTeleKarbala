@@ -759,7 +759,7 @@ export const TabManageEmployees = ({
                                 )}
                             </div>
                             <React.Suspense fallback={
-                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center animate-in fade-in duration-200">
+                                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto animate-in fade-in duration-200">
                                     <div className="bg-card p-5 rounded-2xl border shadow-2xl flex items-center gap-3 text-foreground">
                                         <Loader2 className="w-6 h-6 animate-spin text-primary" />
                                         <span className="font-semibold text-sm">جاري تحميل الأداة...</span>

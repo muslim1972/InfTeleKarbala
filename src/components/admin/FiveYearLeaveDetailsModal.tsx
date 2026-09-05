@@ -182,8 +182,8 @@ export const FiveYearLeaveDetailsModal: React.FC<FiveYearLeaveDetailsModalProps>
     const isLeaveStarted = new Date(leave.start_date) <= new Date();
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden">
-            <div className="bg-white dark:bg-zinc-900 border border-border dark:border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl mt-10">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
+            <div className="bg-white dark:bg-zinc-900 border border-border dark:border-white/10 rounded-2xl w-full max-w-lg max-h-[calc(100vh-9rem)] flex flex-col shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-border dark:border-white/10 flex items-center justify-between bg-muted/50 dark:bg-white/5">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-foreground dark:text-white">

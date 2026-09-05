@@ -788,8 +788,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       {/* ── نافذة التأكيد ──────────────────────────────────────────────────── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm max-h-[calc(100vh-9rem)] shadow-2xl overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">تأكيد إرسال الطلب</h3>
             <div className="space-y-2 text-sm mb-5">
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
@@ -890,7 +890,7 @@ const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
           </div>
 
           {isOpen && (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pb-28 md:pb-32 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in">
                <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-2xl rounded-2xl p-5 w-full max-w-xs z-10 animate-in zoom-in-95">
                   <div className="flex justify-between items-center mb-5 border-b border-gray-100 dark:border-slate-700 pb-3">
                      <span className="font-bold text-gray-800 dark:text-gray-200">

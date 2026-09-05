@@ -283,8 +283,8 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 text-right">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 text-right max-h-[calc(100vh-9rem)] overflow-y-auto">
             {!forgotResult ? (
               <>
                 <h3 className="text-2xl font-bold text-white mb-4 font-tajawal">نسيت كلمة المرور؟</h3>
