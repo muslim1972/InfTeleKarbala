@@ -74,28 +74,14 @@ export function determineShiftType(
 
 /**
  * فحص منع البصمة المبكرة قبل الساعة 6:30 ص
- * 6:30 ص = 6 * 60 + 30 = 390 دقيقة من بداية اليوم
+ * (تم تعطيل الشرط مؤقتاً لتسهيل الفحص التجريبي والتطوير بناءً على توجيه الإدارة)
  */
 export function validateEarlyCheckIn(
   shiftType: ShiftType,
   d: Date = new Date(),
   isFollowUpOvernight: boolean = false
 ): { allowed: boolean; message?: string } {
-  // إذا كان الموظف يكمل خفر الأمس (بصمة خروج صباحية 8:00 ص مثلاً)، يُسمح له
-  if (isFollowUpOvernight) {
-    return { allowed: true };
-  }
-
-  const { totalMinutes } = getBaghdadTimeMinutes(d);
-  const EARLIEST_ALLOWED_MINUTES = 6 * 60 + 30; // 06:30 AM = 390 دقيقة
-
-  if (totalMinutes < EARLIEST_ALLOWED_MINUTES) {
-    return {
-      allowed: false,
-      message: 'لا يسمح بتثبيت الحضور قبل 6:30ص'
-    };
-  }
-
+  // تم إزالة القيد مؤقتاً لتسهيل الفحص والتطوير في أي وقت
   return { allowed: true };
 }
 
