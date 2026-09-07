@@ -36,27 +36,32 @@ export const uploadSnapshot = async (base64Data: string, prefix: string = 'snaps
     if (!match) return { url: null, error: 'صيغة الصورة غير صالحة' };
     if (match[2].length < 64) return { url: null, error: 'بيانات الصورة فارغة' };
 
-    const contentType = match[1];
+    const contentType = match[1].toLowerCase();
     const raw = window.atob(match[2]);
-    if (raw.length < 32) return { url: null, error: 'محتوى الصورة فارغة' };
+    if (raw.length < 32) return { url: null, error: 'محتوى الصورة فارغ' };
 
     const uInt8Array = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
-    const blob = new Blob([uInt8Array], { type: contentType });
+
+    // تحديد الامتداد المناسب
+    let ext = 'webp';
+    if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
+    else if (contentType.includes('png')) ext = 'png';
 
     // أرقام فقط: أي رمز بين قوسين مربعين يحوي نقطتين (صنف اعتباطي) يولّد قاعدة
     // CSS تالفة لدى ماسح Tailwind (تحذير esbuild css minify) — لذا نتجنبها هنا
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const fileName = `${prefix}_${timestamp}_${randomStr}.webp`;
+    const fileName = `${prefix}_${timestamp}_${randomStr}.${ext}`;
 
     // 3 محاولات تلقائية قبل تثبيت البصمة (إعادة المحاولة اليدوية تحسب بصمة جديدة)
+    // نمرر ArrayBuffer مباشرة لتفادي تحويل Blob إلى FormData في supabase-js (الذي يُرفض بخطأ 500)
     const MAX_ATTEMPTS = 3;
     let lastError: unknown = 'سبب غير معروف';
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const { data, error } = await storageClient.storage
         .from('attendance-snapshots')
-        .upload(fileName, blob, { contentType: 'image/webp', upsert: true });
+        .upload(fileName, uInt8Array.buffer, { contentType, upsert: true });
 
       if (!error) {
         const { data: publicUrlData } = storageClient.storage

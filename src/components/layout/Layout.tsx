@@ -28,8 +28,8 @@ export const Layout = ({ children, className, headerContent, headerTitle, showUs
                         backgroundImage: 'url(/icon-512.png)',
                         backgroundRepeat: 'no-repeat',
                         backgroundPosition: 'center',
-                        backgroundSize: '420px',
-                        opacity: 0.1,
+                        backgroundSize: 'min(80vw, 420px)',
+                        opacity: 0.06,
                     }}
                 />
             </div>

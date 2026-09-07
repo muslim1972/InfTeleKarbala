@@ -53,20 +53,16 @@ export function MessageList({
     };
 
     const renderBackground = () => (
-        <>
-            {/* Watermark Base */}
-            <div 
-                className="absolute inset-0 z-0"
-                style={{
-                    backgroundImage: 'url(/watermark-512.png)',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    backgroundSize: 'min(80%, 420px)',
-                }}
-            />
-            {/* Smooth Overlay for Watermark effect (low opacity) */}
-            <div className="absolute inset-0 bg-gray-50/90 z-[1] pointer-events-none" />
-        </>
+        <div 
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+                backgroundImage: 'url(/watermark-512.png)',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                backgroundSize: 'min(80%, 380px)',
+                opacity: 0.06,
+            }}
+        />
     );
 
     if (loading && messages.length === 0) {

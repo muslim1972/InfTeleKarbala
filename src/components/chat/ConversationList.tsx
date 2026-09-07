@@ -147,36 +147,40 @@ export const ConversationList = () => {
                 )}
             </div>
 
-            <div
-                className="flex-1 overflow-y-auto relative"
-                style={{
-                    backgroundImage: 'url(/icon-512.png)',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    backgroundSize: '420px',
-                }}
-            >
-                <div className="absolute inset-0 bg-white/90 pointer-events-none" />
-                <div className="relative z-[1]">
-                {loading ? (
-                    <div className="p-4 text-center text-gray-400">جاري التحميل...</div>
-                ) : filteredConversations.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-sm">
-                        لا توجد محادثات.
-                        <br />
-                        ابدأ تواصل جديد!
-                    </div>
-                ) : (
-                    filteredConversations.map((conv: any) => (
-                        <ConversationItem
-                            key={conv.id}
-                            conv={conv}
-                            isSelected={selectedIds.includes(conv.id)}
-                            hasSelection={selectedIds.length > 0}
-                            onToggle={toggleSelection}
-                        />
-                    ))
-                )}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
+                {/* Watermark Base - ثابت في الخلفية ولا يتأثر بالسكرول نهائياً وبشفافية راقية وموحدة */}
+                <div
+                    className="absolute inset-0 pointer-events-none z-0"
+                    style={{
+                        backgroundImage: 'url(/icon-512.png)',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center',
+                        backgroundSize: 'min(75%, 380px)',
+                        opacity: 0.06,
+                    }}
+                />
+
+                {/* قائمة المحادثات القابلة للتمرير */}
+                <div className="flex-1 overflow-y-auto relative z-[1]">
+                    {loading ? (
+                        <div className="p-4 text-center text-gray-400">جاري التحميل...</div>
+                    ) : filteredConversations.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400 text-sm">
+                            لا توجد محادثات.
+                            <br />
+                            ابدأ تواصل جديد!
+                        </div>
+                    ) : (
+                        filteredConversations.map((conv: any) => (
+                            <ConversationItem
+                                key={conv.id}
+                                conv={conv}
+                                isSelected={selectedIds.includes(conv.id)}
+                                hasSelection={selectedIds.length > 0}
+                                onToggle={toggleSelection}
+                            />
+                        ))
+                    )}
                 </div>
             </div>
 

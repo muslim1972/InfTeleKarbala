@@ -199,6 +199,78 @@ async function notifySupervisorsOfDeviceMismatch(
   }
 }
 
+export function extractDeviceHash(deviceStr: string | null | undefined): string {
+  if (!deviceStr) return '';
+  const match = deviceStr.match(/\[([a-f0-9\-]{16,64})\]/i);
+  if (match) return match[1].toLowerCase();
+  return deviceStr.trim().toLowerCase();
+}
+
+export function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
+  if (!stored || !current) return false;
+  if (stored.trim().toLowerCase() === current.trim().toLowerCase()) return true;
+  const hash1 = extractDeviceHash(stored);
+  const hash2 = extractDeviceHash(current);
+  return hash1 !== '' && hash1 === hash2;
+}
+
+export async function verifyAndAuthorizeDevice(
+  employeeId: string,
+  deviceId: string | undefined,
+  profile: { primary_device_id?: string | null; trusted_devices?: string[] | null; full_name?: string | null } | null
+): Promise<boolean> {
+  if (!deviceId) return true;
+
+  // 1. First device enrollment
+  if (!profile?.primary_device_id) {
+    supabase.from('profiles').update({ 
+      primary_device_id: deviceId,
+      trusted_devices: [deviceId]
+    }).eq('id', employeeId).then(() => {}).catch(console.warn);
+    notifyAdminsForDeviceChange(profile?.full_name || 'موظف').catch(console.warn);
+    return true;
+  }
+
+  // 2. Matches primary device
+  if (isSameDevice(profile.primary_device_id, deviceId)) {
+    return true;
+  }
+
+  // 3. Matches any device in trusted_devices array
+  if (Array.isArray(profile.trusted_devices)) {
+    for (const td of profile.trusted_devices) {
+      if (isSameDevice(td, deviceId)) {
+        return true;
+      }
+    }
+  }
+
+  // 4. Fallback: check historical approved requests in device_change_requests
+  try {
+    const { data: approvedReqs } = await supabase
+      .from('device_change_requests')
+      .select('new_device_id, old_device_id')
+      .eq('employee_id', employeeId)
+      .eq('status', 'approved');
+
+    if (approvedReqs && approvedReqs.length > 0) {
+      for (const req of approvedReqs) {
+        if (isSameDevice(req.new_device_id, deviceId) || isSameDevice(req.old_device_id, deviceId)) {
+          // Self-heal: append to profile trusted_devices so future checks are instant
+          const currentList = Array.isArray(profile.trusted_devices) ? profile.trusted_devices : [];
+          const updated = Array.from(new Set([...currentList, deviceId]));
+          supabase.from('profiles').update({ trusted_devices: updated }).eq('id', employeeId).then(() => {}).catch(console.warn);
+          return true;
+        }
+      }
+    }
+  } catch (dcrErr) {
+    console.warn('Error checking device_change_requests fallback:', dcrErr);
+  }
+
+  return false;
+}
+
 // =============================================
 // Fingerprint Template Services
 // =============================================
@@ -480,7 +552,7 @@ export const attendanceRecordService = {
     // 2. Fetch profile & schedule to determine shift type
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name')
+      .select('department_id, primary_device_id, trusted_devices, work_schedule_id, full_name')
       .eq('id', employeeId)
       .single();
 
@@ -562,33 +634,11 @@ export const attendanceRecordService = {
     }
 
     let isDevicePending = false;
-
-    function extractHash(deviceStr: string | null | undefined): string {
-      if (!deviceStr) return '';
-      const match = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
-      if (match) return match[1].toLowerCase();
-      return deviceStr.trim().toLowerCase();
-    }
-
-    function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
-      if (!stored || !current) return false;
-      if (stored.trim() === current.trim()) return true;
-      const hash1 = extractHash(stored);
-      const hash2 = extractHash(current);
-      return hash1 !== '' && hash1 === hash2;
-    }
-
-    if (!profile?.primary_device_id && deviceId) {
-      supabase.from('profiles').update({ primary_device_id: deviceId }).eq('id', employeeId).then(() => {}).catch(console.warn);
-      notifyAdminsForDeviceChange(profile?.full_name || 'موظف').catch(console.warn);
-      isDevicePending = false;
-    } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
-      // Current punch matches the active approved device!
-      isDevicePending = false;
-    } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
-      // Device does not match current approved device -> flag as unapproved
+    const isAuthorized = await verifyAndAuthorizeDevice(employeeId, deviceId, profile);
+    if (!isAuthorized) {
+      // Device does not match approved devices -> flag as unapproved
       isDevicePending = true;
-      notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId).catch(console.warn);
+      notifySupervisorsOfDeviceMismatch(employeeId, profile?.primary_device_id || 'unknown', deviceId).catch(console.warn);
       
       const punchTypeLabel = record?.check_in ? 'خروج' : 'دخول';
       const mismatchNote = `(${punchTypeLabel}: جهاز غير معتمد)`;
@@ -601,6 +651,8 @@ export const attendanceRecordService = {
       } else {
         updates.notes = mismatchNote;
       }
+    } else {
+      isDevicePending = false;
     }
     updates.is_device_pending = isDevicePending;
 
@@ -852,24 +904,17 @@ export const attendanceRecordService = {
     // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id')
+      .select('department_id, primary_device_id, trusted_devices, work_schedule_id, full_name')
       .eq('id', employeeId)
       .single();
 
     let isDevicePending = false;
-
-    // 1. If primary_device_id is null, set it to the current deviceId
-    if (!profile?.primary_device_id && deviceId) {
-      await supabase
-        .from('profiles')
-        .update({ primary_device_id: deviceId })
-        .eq('id', employeeId);
-      const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-      await notifyAdminsForDeviceChange(userProfile?.full_name || 'موظف');
-    } 
-    else if (profile?.primary_device_id && profile.primary_device_id !== deviceId) {
+    const isAuthorized = await verifyAndAuthorizeDevice(employeeId, deviceId, profile);
+    if (!isAuthorized) {
       isDevicePending = true;
-      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
+      await notifySupervisorsOfDeviceMismatch(employeeId, profile?.primary_device_id || 'unknown', deviceId);
+    } else {
+      isDevicePending = false;
     }
 
     // --- Calculate Lateness Based on Work Schedule ---
@@ -947,37 +992,17 @@ export const attendanceRecordService = {
     // Check device match
     const { data: profile } = await supabase
       .from('profiles')
-      .select('primary_device_id')
+      .select('primary_device_id, trusted_devices, full_name')
       .eq('id', employeeId)
       .single();
 
-    function extractHash(deviceStr: string | null | undefined): string {
-      if (!deviceStr) return '';
-      const match = deviceStr.match(/\[([a-f0-9]{32,64})\]/i);
-      if (match) return match[1].toLowerCase();
-      return deviceStr.trim().toLowerCase();
-    }
-
-    function isSameDevice(stored: string | null | undefined, current: string | null | undefined): boolean {
-      if (!stored || !current) return false;
-      if (stored.trim() === current.trim()) return true;
-      const hash1 = extractHash(stored);
-      const hash2 = extractHash(current);
-      return hash1 !== '' && hash1 === hash2;
-    }
-
-    if (!profile?.primary_device_id && deviceId) {
-      await supabase
-        .from('profiles')
-        .update({ primary_device_id: deviceId })
-        .eq('id', employeeId);
-      const { data: userProfile } = await supabase.from('profiles').select('full_name').eq('id', employeeId).single();
-      await notifyAdminsForDeviceChange(userProfile?.full_name || 'موظف');
-    } else if (profile?.primary_device_id && isSameDevice(profile.primary_device_id, deviceId)) {
-      isDevicePending = false;
-    } else if (profile?.primary_device_id && !isSameDevice(profile.primary_device_id, deviceId)) {
+    let isDevicePending = false;
+    const isAuthorized = await verifyAndAuthorizeDevice(employeeId, deviceId, profile);
+    if (!isAuthorized) {
       isDevicePending = true;
-      await notifySupervisorsOfDeviceMismatch(employeeId, profile.primary_device_id, deviceId);
+      await notifySupervisorsOfDeviceMismatch(employeeId, profile?.primary_device_id || 'unknown', deviceId);
+    } else {
+      isDevicePending = false;
     }
 
     const now = new Date().toISOString();
