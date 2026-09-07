@@ -217,57 +217,25 @@ export function isSameDevice(stored: string | null | undefined, current: string 
 export async function verifyAndAuthorizeDevice(
   employeeId: string,
   deviceId: string | undefined,
-  profile: { primary_device_id?: string | null; trusted_devices?: string[] | null; full_name?: string | null } | null
+  profile: { primary_device_id?: string | null; full_name?: string | null } | null
 ): Promise<boolean> {
   if (!deviceId) return true;
 
-  // 1. First device enrollment
+  // 1. أول تسجيل لجهاز الموظف (إذا لم يكن لديه أي جهاز معتمد مسبقاً)
   if (!profile?.primary_device_id) {
     supabase.from('profiles').update({ 
-      primary_device_id: deviceId,
-      trusted_devices: [deviceId]
+      primary_device_id: deviceId 
     }).eq('id', employeeId).then(() => {}).catch(console.warn);
     notifyAdminsForDeviceChange(profile?.full_name || 'موظف').catch(console.warn);
     return true;
   }
 
-  // 2. Matches primary device
+  // 2. مطابقة صارمة مع الجهاز الأساسي المعتمد فقط (جهاز واحد فقط لا غير)
   if (isSameDevice(profile.primary_device_id, deviceId)) {
     return true;
   }
 
-  // 3. Matches any device in trusted_devices array
-  if (Array.isArray(profile.trusted_devices)) {
-    for (const td of profile.trusted_devices) {
-      if (isSameDevice(td, deviceId)) {
-        return true;
-      }
-    }
-  }
-
-  // 4. Fallback: check historical approved requests in device_change_requests
-  try {
-    const { data: approvedReqs } = await supabase
-      .from('device_change_requests')
-      .select('new_device_id, old_device_id')
-      .eq('employee_id', employeeId)
-      .eq('status', 'approved');
-
-    if (approvedReqs && approvedReqs.length > 0) {
-      for (const req of approvedReqs) {
-        if (isSameDevice(req.new_device_id, deviceId) || isSameDevice(req.old_device_id, deviceId)) {
-          // Self-heal: append to profile trusted_devices so future checks are instant
-          const currentList = Array.isArray(profile.trusted_devices) ? profile.trusted_devices : [];
-          const updated = Array.from(new Set([...currentList, deviceId]));
-          supabase.from('profiles').update({ trusted_devices: updated }).eq('id', employeeId).then(() => {}).catch(console.warn);
-          return true;
-        }
-      }
-    }
-  } catch (dcrErr) {
-    console.warn('Error checking device_change_requests fallback:', dcrErr);
-  }
-
+  // 3. أي جهاز آخر يُعتبر غير معتمد لمنع استخدام أكثر من جهاز للبصمة
   return false;
 }
 
@@ -552,7 +520,7 @@ export const attendanceRecordService = {
     // 2. Fetch profile & schedule to determine shift type
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, trusted_devices, work_schedule_id, full_name')
+      .select('department_id, primary_device_id, work_schedule_id, full_name')
       .eq('id', employeeId)
       .single();
 
@@ -904,7 +872,7 @@ export const attendanceRecordService = {
     // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, trusted_devices, work_schedule_id, full_name')
+      .select('department_id, primary_device_id, work_schedule_id, full_name')
       .eq('id', employeeId)
       .single();
 
@@ -992,7 +960,7 @@ export const attendanceRecordService = {
     // Check device match
     const { data: profile } = await supabase
       .from('profiles')
-      .select('primary_device_id, trusted_devices, full_name')
+      .select('primary_device_id, full_name')
       .eq('id', employeeId)
       .single();
 

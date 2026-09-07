@@ -312,24 +312,14 @@ export default function AttendanceAdminSettings() {
       return;
     }
     try {
-      // 1. Reset primary_device_id in profiles if it matches, and remove from trusted_devices
-      const { data: prof } = await supabase.from('profiles').select('primary_device_id, trusted_devices').eq('id', req.employee_id).single();
+      // 1. Reset primary_device_id in profiles if it matches
+      const { data: prof } = await supabase.from('profiles').select('primary_device_id').eq('id', req.employee_id).single();
       const currentReqHash = (req.new_device_id || '').match(/\[([a-f0-9\-]{16,64})\]/i)?.[1] || req.new_device_id;
       const profHash = (prof?.primary_device_id || '').match(/\[([a-f0-9\-]{16,64})\]/i)?.[1] || prof?.primary_device_id;
 
-      const newTrusted = (prof?.trusted_devices || []).filter((td: string) => {
-        const h = td.match(/\[([a-f0-9\-]{16,64})\]/i)?.[1] || td;
-        return h.toLowerCase() !== currentReqHash.toLowerCase();
-      });
-
-      const newPrimary = (profHash && profHash.toLowerCase() === currentReqHash.toLowerCase())
-        ? (newTrusted[0] || null)
-        : prof?.primary_device_id;
-
-      await supabase.from('profiles').update({ 
-        primary_device_id: newPrimary,
-        trusted_devices: newTrusted
-      }).eq('id', req.employee_id);
+      if (!prof?.primary_device_id || (profHash && profHash.toLowerCase() === currentReqHash.toLowerCase())) {
+        await supabase.from('profiles').update({ primary_device_id: null }).eq('id', req.employee_id);
+      }
 
       // 2. Update device_change_requests status to rejected
       await supabase.from('device_change_requests').update({ status: 'rejected' }).eq('id', req.id);
@@ -391,13 +381,10 @@ export default function AttendanceAdminSettings() {
 
   const handleApproveDevice = async (req: any) => {
     try {
-      const { data: prof } = await supabase.from('profiles').select('trusted_devices').eq('id', req.employee_id).single();
-      const updatedTrusted = Array.from(new Set([...(prof?.trusted_devices || []), req.new_device_id]));
-
-      const { error: pErr } = await supabase.from('profiles').update({ 
-        primary_device_id: req.new_device_id,
-        trusted_devices: updatedTrusted
-      }).eq('id', req.employee_id);
+      const { error: pErr } = await supabase
+        .from('profiles')
+        .update({ primary_device_id: req.new_device_id })
+        .eq('id', req.employee_id);
       if (pErr) throw pErr;
       
       const { data: empRecs } = await supabase

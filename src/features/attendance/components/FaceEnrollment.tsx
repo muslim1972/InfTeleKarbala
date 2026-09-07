@@ -103,8 +103,6 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                 const updatePayload: any = { face_descriptor: newDescriptors };
                 if (deviceId) {
                     updatePayload.primary_device_id = deviceId;
-                    const { data: prof } = await supabase.from('profiles').select('trusted_devices').eq('id', employeeId).single();
-                    updatePayload.trusted_devices = Array.from(new Set([...(prof?.trusted_devices || []), deviceId]));
                 }
 
                 const { error } = await supabase
