@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2, Network, Check } from "lucide-react";
+import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2, Network, Check, Fingerprint } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../../lib/utils";
@@ -16,7 +16,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
     // البحث العالمي للموظفين
     const { query: searchQuery, setQuery: setSearchQuery, results: rawSuggestions } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access',
+        selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access',
         limit: 50,
         debounceMs: 300,
         usePublicView: true
@@ -40,6 +40,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const [managerName, setManagerName] = useState("غير محدد");
     const [selectedRoleLabel, setSelectedRoleLabel] = useState("موظف");
     const [hasCapacitiesAccess, setHasCapacitiesAccess] = useState(false);
+    const [hasAttendanceAccess, setHasAttendanceAccess] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -61,20 +62,38 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
     // Load employee details (department, manager)
     const loadEmployeeDetails = async (employee: any) => {
-        setSelectedEmployee(employee);
         setSearchQuery("");
         setShowSuggestions(false);
 
-        // Set current role label
-        setSelectedRoleLabel(getRoleLabel(employee));
-        setHasCapacitiesAccess(employee.has_capacities_access || false);
+        // Fetch fresh employee profile to ensure latest values of permissions
+        let emp = employee;
+        try {
+            const { data: freshProfile } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access')
+                .eq('id', employee.id)
+                .maybeSingle();
+
+            if (freshProfile) {
+                emp = { ...employee, ...freshProfile };
+            }
+        } catch (e) {
+            console.warn("Could not fetch fresh profile:", e);
+        }
+
+        setSelectedEmployee(emp);
+
+        // Set current role label & access flags
+        setSelectedRoleLabel(getRoleLabel(emp));
+        setHasCapacitiesAccess(emp.has_capacities_access || false);
+        setHasAttendanceAccess(emp.has_attendance_access || false);
 
         // Fetch department info
-        if (employee.department_id) {
+        if (emp.department_id) {
             try {
                 const { data: depts } = await supabase.rpc('get_departments_bypass_rls').select('*');
                 if (depts) {
-                    let currentDept = depts.find((d: any) => d.id === employee.department_id);
+                    let currentDept = depts.find((d: any) => d.id === emp.department_id);
                     setDepartmentName(currentDept?.name || 'غير محدد');
 
                     // Find nearest manager
@@ -90,14 +109,14 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
                     if (nearestManagerId) {
                         // If the employee IS the manager, check parent
-                        if (nearestManagerId === employee.id && walkDept?.parent_id) {
+                        if (nearestManagerId === emp.id && walkDept?.parent_id) {
                             const parentNode = depts.find((d: any) => d.id === walkDept.parent_id);
                             if (parentNode?.manager_id) {
                                 nearestManagerId = parentNode.manager_id;
                             }
                         }
 
-                        if (nearestManagerId === employee.id) {
+                        if (nearestManagerId === emp.id) {
                             setManagerName('مدير المديرية');
                         } else {
                             const { data: mgrProfile } = await supabase
@@ -142,6 +161,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         setManagerName("غير محدد");
         setSelectedRoleLabel("موظف");
         setHasCapacitiesAccess(false);
+        setHasAttendanceAccess(false);
         setShowDropdown(false);
     };
 
@@ -155,12 +175,17 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
             const { error } = await supabase
                 .from('profiles')
-                .update({ role, admin_role, has_capacities_access: hasCapacitiesAccess })
+                .update({ 
+                    role, 
+                    admin_role, 
+                    has_capacities_access: hasCapacitiesAccess,
+                    has_attendance_access: hasAttendanceAccess
+                })
                 .eq('id', selectedEmployee.id);
 
             if (error) throw error;
 
-            toast.success(`تم تحديث صلاحية "${selectedEmployee.full_name}" إلى "${selectedRoleLabel}" بنجاح`);
+            toast.success(`تم تحديث صلاحية "${selectedEmployee.full_name}" بنجاح`);
             clearFields();
         } catch (err: any) {
             console.error("Save error:", err);
@@ -373,7 +398,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                             className={cn(
                                 "flex items-center gap-3 rounded-lg px-4 py-3 border cursor-pointer transition-all",
                                 hasCapacitiesAccess
-                                    ? "bg-purple-50 border-purple-200 hover:border-purple-300"
+                                    ? "bg-purple-50 border-purple-200 hover:border-purple-300 dark:bg-purple-950/20 dark:border-purple-800"
                                     : isLight
                                         ? "bg-gray-50 border-gray-100 hover:border-gray-200"
                                         : "bg-white/5 border-white/5 hover:border-white/10"
@@ -381,7 +406,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                             <Network className={cn("w-4 h-4 shrink-0 transition-colors", hasCapacitiesAccess ? "text-purple-600" : isLight ? "text-gray-400" : "text-white/30")} />
                             <div className="flex-1">
                                 <p className={cn("text-[10px] font-bold transition-colors", hasCapacitiesAccess ? "text-purple-600/70" : isLight ? "text-gray-400" : "text-white/30")}>صلاحية وصول إضافية</p>
-                                <p className={cn("text-sm font-bold transition-colors", hasCapacitiesAccess ? "text-purple-800" : isLight ? "text-gray-900" : "text-white")}>
+                                <p className={cn("text-sm font-bold transition-colors", hasCapacitiesAccess ? "text-purple-800 dark:text-purple-300" : isLight ? "text-gray-900" : "text-white")}>
                                 نظام قسم تجهيز خدمات المعلوماتية
                                 </p>
                             </div>
@@ -392,6 +417,34 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                                     : isLight ? "bg-white border-gray-300" : "bg-white/5 border-white/20"
                             )}>
                                 {hasCapacitiesAccess && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                            </div>
+                        </div>
+
+                        {/* Attendance Boolean Toggle (مجموعة اختبار التطبيق) */}
+                        <div 
+                            onClick={() => setHasAttendanceAccess(!hasAttendanceAccess)}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-4 py-3 border cursor-pointer transition-all",
+                                hasAttendanceAccess
+                                    ? "bg-cyan-50 border-cyan-200 hover:border-cyan-300 dark:bg-cyan-950/20 dark:border-cyan-800"
+                                    : isLight
+                                        ? "bg-gray-50 border-gray-100 hover:border-gray-200"
+                                        : "bg-white/5 border-white/5 hover:border-white/10"
+                            )}>
+                            <Fingerprint className={cn("w-4 h-4 shrink-0 transition-colors", hasAttendanceAccess ? "text-cyan-600" : isLight ? "text-gray-400" : "text-white/30")} />
+                            <div className="flex-1">
+                                <p className={cn("text-[10px] font-bold transition-colors", hasAttendanceAccess ? "text-cyan-600/70" : isLight ? "text-gray-400" : "text-white/30")}>صلاحية وصول إضافية</p>
+                                <p className={cn("text-sm font-bold transition-colors", hasAttendanceAccess ? "text-cyan-800 dark:text-cyan-300" : isLight ? "text-gray-900" : "text-white")}>
+                                نظام الحضور والانصراف
+                                </p>
+                            </div>
+                            <div className={cn(
+                                "w-5 h-5 rounded flex items-center justify-center transition-colors border",
+                                hasAttendanceAccess 
+                                    ? "bg-cyan-600 border-cyan-600 shadow-sm" 
+                                    : isLight ? "bg-white border-gray-300" : "bg-white/5 border-white/20"
+                            )}>
+                                {hasAttendanceAccess && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </div>
                         </div>
 

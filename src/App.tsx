@@ -147,9 +147,9 @@ const AppContent = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Persist view mode choice (لا نحفظ capacities/promotion/training/user_incentives لأنهما وضع مؤقت)
+  // Persist view mode choice (لا نحفظ capacities/promotion/training/user_incentives/attendance لأنهما وضع مؤقت)
   useEffect(() => {
-    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training' && adminViewMode !== 'user_incentives') {
+    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training' && adminViewMode !== 'user_incentives' && adminViewMode !== 'attendance') {
       localStorage.setItem('adminViewMode', adminViewMode);
     }
   }, [adminViewMode]);

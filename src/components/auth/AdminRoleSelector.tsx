@@ -148,7 +148,17 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                                     user?.full_name?.includes('مسلم عقيل') ||
                                     user?.full_name?.includes('مسلم قيل');
 
-                                if (!isSupervisorOrDeveloper && !isSpecialAccount && ['promotion', 'user_incentives', 'attendance'].includes(card.id)) {
+                                if (card.id === 'attendance') {
+                                    const hasAttendance = user?.has_attendance_access === true || isSupervisorOrDeveloper || isSpecialAccount;
+                                    if (!hasAttendance) {
+                                        toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
+                                        return;
+                                    }
+                                    onSelect(card.id);
+                                    return;
+                                }
+
+                                if (!isSupervisorOrDeveloper && !isSpecialAccount && ['promotion', 'user_incentives'].includes(card.id)) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }
