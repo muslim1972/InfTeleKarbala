@@ -21,6 +21,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { cleanText } from '../../utils/profileUtils';
 import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../../utils/snapshots';
+import { SnapshotNamePicker } from '../snapshots/SnapshotNamePicker';
 
 interface ProfileDataUpdaterProps {
     onClose: () => void;
@@ -557,16 +558,9 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
                                     اسم النسخة الشهرية <span className="text-red-500">*</span>
                                 </label>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-                                    ستُحفظ المعلومات الأساسية بعد الحقن كنسخة بهذا الاسم يمكن الرجوع إليها لاحقاً من أي مكان في التطبيق.
+                                    اختر الشهر والسنة ليُبنى اسم النسخة تلقائياً، وستُحفظ المعلومات الأساسية بعد الحقن كنسخة يمكن الرجوع إليها لاحقاً.
                                 </p>
-                                <input
-                                    type="text"
-                                    value={snapshotName}
-                                    onChange={e => setSnapshotName(e.target.value)}
-                                    placeholder="مثال: شهر آب الثامن 2026"
-                                    disabled={isProcessing}
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 font-tajawal"
-                                />
+                                <SnapshotNamePicker value={snapshotName} onChange={setSnapshotName} disabled={isProcessing} accent="teal" />
                             </div>
 
                             <div className="flex justify-between pt-4 border-t dark:border-slate-800">

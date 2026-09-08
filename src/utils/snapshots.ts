@@ -22,11 +22,11 @@ export interface MonthlySnapshot {
 
 // الأشهر العراقية مع صيغة الترتيب المعتمدة من المستخدم
 // (حزيران = الشهر السادس، آب = الثامن، تموز = السابع ...)
-const IRAQI_MONTHS = [
+export const IRAQI_MONTHS = [
     'كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران',
     'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول'
 ];
-const IRAQI_MONTH_ORDINALS = [
+export const IRAQI_MONTH_ORDINALS = [
     'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس',
     'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'
 ];
@@ -34,7 +34,23 @@ const IRAQI_MONTH_ORDINALS = [
 /** اقتراح اسم النسخة الحالي بصيغة «شهر آب الثامن 2026» */
 export function suggestSnapshotName(date: Date = new Date()): string {
     const m = date.getMonth();
-    return `شهر ${IRAQI_MONTHS[m]} ${IRAQI_MONTH_ORDINALS[m]} ${date.getFullYear()}`;
+    return snapshotNameFromMonth(m, date.getFullYear());
+}
+
+/** بناء اسم النسخة من رقم الشهر (0-11) والسنة */
+export function snapshotNameFromMonth(monthIndex: number, year: number): string {
+    return `شهر ${IRAQI_MONTHS[monthIndex]} ${IRAQI_MONTH_ORDINALS[monthIndex]} ${year}`;
+}
+
+/** تحليل اسم نسخة «شهر آب الثامن 2026» إلى {month, year} — null إن لم يطابق الصيغة */
+export function parseSnapshotName(name: string): { month: number; year: number } | null {
+    const trimmed = (name || '').trim();
+    for (let m = 0; m < IRAQI_MONTHS.length; m++) {
+        const pattern = `شهر ${IRAQI_MONTHS[m]} ${IRAQI_MONTH_ORDINALS[m]} (\\d{4})`;
+        const match = trimmed.match(new RegExp(`^${pattern}$`));
+        if (match) return { month: m, year: parseInt(match[1], 10) };
+    }
+    return null;
 }
 
 /** جلب كل النسخ (الأحدث أولاً) */

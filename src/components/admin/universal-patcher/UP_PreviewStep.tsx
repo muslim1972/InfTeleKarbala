@@ -3,6 +3,7 @@
  */
 import { Save } from 'lucide-react';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
+import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
 
 export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
     const {
@@ -57,15 +58,9 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                         📅 اسم النسخة الشهرية <span className="text-red-500">*</span>
                     </label>
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-2">
-                        ستُحفظ البيانات بعد التنفيذ كنسخة بهذا الاسم يمكن لأي مستخدم الرجوع إليها.
+                        اختر الشهر والسنة ليُبنى اسم النسخة تلقائياً، وستُحفظ البيانات بعد التنفيذ كنسخة يمكن لأي مستخدم الرجوع إليها.
                     </p>
-                    <input
-                        type="text"
-                        value={snapshotName}
-                        onChange={e => setSnapshotName(e.target.value)}
-                        placeholder="مثال: شهر آب الثامن 2026"
-                        className="w-full bg-white dark:bg-zinc-800 border-2 border-green-200 dark:border-green-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50 font-tajawal text-zinc-900 dark:text-white"
-                    />
+                    <SnapshotNamePicker value={snapshotName} onChange={setSnapshotName} accent="green" />
                 </div>
             )}
 
