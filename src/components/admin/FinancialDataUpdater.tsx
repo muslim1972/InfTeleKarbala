@@ -22,6 +22,7 @@ import { cn } from '../../lib/utils';
 import { cleanCertificate, cleanFinancialAmount, normalizeForComparison } from '../../utils/profileUtils';
 import { CERTIFICATES } from '../../constants/certificates';
 import { useAuth } from '../../context/AuthContext';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../../utils/snapshots';
 
 interface FinancialDataUpdaterProps {
     onClose: () => void;
@@ -100,6 +101,8 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     const [processedCount, setProcessedCount] = useState(0);
     const [processingMessage, setProcessingMessage] = useState<string>('');
     const [isImporting, setIsImporting] = useState(false);
+    // 📅 اسم النسخة الشهرية (إلزامي) - يقترح اسم الشهر الحالي بصيغة «شهر آب الثامن 2026»
+    const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
     const { currentUser } = useAuth();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -426,8 +429,15 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     };
 
     const handleInjectData = async () => {
+        // 📅 اسم النسخة إلزامي
+        const trimmedName = snapshotName.trim();
+        if (trimmedName.length < 2) {
+            toast.error('يرجى إدخال اسم للنسخة الشهرية قبل التحديث');
+            return;
+        }
+
         setIsProcessing(true);
-        setProcessingMessage('جاري حقن البيانات...');
+        setProcessingMessage('مزامنة النسخة المعروضة حالياً...');
         setProgress(0);
         let successCount = 0;
         let failCount = 0;
@@ -435,6 +445,10 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
         const BATCH_SIZE = 50;
 
         try {
+            // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
+            await syncActiveSnapshot();
+
+            setProcessingMessage('جاري حقن البيانات...');
             for (let i = 0; i < total; i += BATCH_SIZE) {
                 const batch = previewData.slice(i, i + BATCH_SIZE);
                 const dataToSaveList = batch.map(row => {
@@ -473,6 +487,22 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 setProcessedCount(i + batch.length);
                 const currentProgress = Math.min(100, Math.round(((i + batch.length) / total) * 100));
                 setProgress(currentProgress);
+            }
+
+            if (successCount > 0) {
+                // 📅 التزام النسخة الجديدة المسماة (يلتقط الحالة الجديدة كاملة)
+                setProcessingMessage('جاري تسمية واعتماد النسخة الشهرية...');
+                try {
+                    await commitMonthlySnapshot(
+                        trimmedName,
+                        'excel',
+                        (currentUser as any)?.full_name || null
+                    );
+                    toast.success(`تم إنشاء نسخة «${trimmedName}» واعتمادها`);
+                } catch (commitErr: any) {
+                    console.error(commitErr);
+                    toast.error('تم تحديث البيانات لكن فشل اعتماد النسخة: ' + (commitErr.message || ''), { duration: 8000 });
+                }
             }
 
             toast.success(`تم تحديث ${successCount} سجل مالي بنجاح${failCount > 0 ? `، وفشل ${failCount}` : ''}`);
@@ -751,6 +781,24 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+
+                            {/* 📅 تسمية النسخة الشهرية (إلزامية) */}
+                            <div className="bg-brand-green/5 dark:bg-brand-green/10 border border-brand-green/30 dark:border-brand-green/20 rounded-xl p-4">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                                    اسم النسخة الشهرية <span className="text-red-500">*</span>
+                                </label>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                                    ستُحفظ البيانات بعد التحديث كنسخة بهذا الاسم يمكن الرجوع إليها لاحقاً من أي مكان في التطبيق.
+                                </p>
+                                <input
+                                    type="text"
+                                    value={snapshotName}
+                                    onChange={e => setSnapshotName(e.target.value)}
+                                    placeholder="مثال: شهر آب الثامن 2026"
+                                    disabled={isProcessing}
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/50 font-tajawal"
+                                />
                             </div>
 
                             <div className="flex justify-between pt-4 border-t dark:border-slate-800">

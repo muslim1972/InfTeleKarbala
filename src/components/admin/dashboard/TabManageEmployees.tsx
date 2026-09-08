@@ -13,7 +13,8 @@ import {
     Coins,
     Loader2,
     Check,
-    X
+    X,
+    History
 } from "lucide-react";
 import { AccordionSection } from "../../ui/AccordionSection";
 import { HistoryViewer } from "../HistoryViewer";
@@ -38,6 +39,7 @@ const UniversalPatcher = React.lazy(() => import('../UniversalPatcher').then(m =
 const FixLeaveBalanceModal = React.lazy(() => import('../FixLeaveBalanceModal').then(m => ({ default: m.FixLeaveBalanceModal })));
 const FieldPermissionsModal = React.lazy(() => import('../FieldPermissionsModal').then(m => ({ default: m.FieldPermissionsModal })));
 const RequestsTabPermissionsModal = React.lazy(() => import('../RequestsTabPermissionsModal').then(m => ({ default: m.RequestsTabPermissionsModal })));
+const SnapshotBrowser = React.lazy(() => import('../../snapshots/SnapshotBrowser').then(m => ({ default: m.SnapshotBrowser })));
 import { supabase } from "../../../lib/supabase";
 import { toast } from "react-hot-toast";
 
@@ -103,6 +105,7 @@ export const TabManageEmployees = ({
     const [pointMonth, setPointMonth] = React.useState(() => new Date().getMonth() + 1);
     const [pointVal, setPointVal] = React.useState<number | "">("");
     const [showFixSickBalanceModal, setShowFixSickBalanceModal] = React.useState(false);
+    const [showSnapshots, setShowSnapshots] = React.useState(false);
     const [savingPoint, setSavingPoint] = React.useState(false);
     const [loadingPoint, setLoadingPoint] = React.useState(false);
 
@@ -721,6 +724,15 @@ export const TabManageEmployees = ({
 
                                 <Button
                                     variant="outline"
+                                    onClick={() => setShowSnapshots(true)}
+                                    className="gap-2 border-border/50 hover:bg-muted/20 hover:border-indigo-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
+                                >
+                                    <History className="w-4 h-4 text-indigo-500" />
+                                    النسخ الشهرية 📅
+                                </Button>
+
+                                <Button
+                                    variant="outline"
                                     onClick={() => setShowFieldPermissionsModal(true)}
                                     className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50"
                                 >
@@ -792,6 +804,9 @@ export const TabManageEmployees = ({
                                 )}
                                 {showSmartUpdater && (
                                     <UniversalPatcher onClose={() => setShowSmartUpdater(false)} />
+                                )}
+                                {showSnapshots && (
+                                    <SnapshotBrowser isOpen={showSnapshots} onClose={() => setShowSnapshots(false)} />
                                 )}
                                 {showFieldPermissionsModal && (
                                     <FieldPermissionsModal

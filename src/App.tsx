@@ -12,6 +12,7 @@ import { AudioProvider } from "./context/AudioContext";
 import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
+import { SnapshotProvider } from "./context/SnapshotContext"; // 📅 نظام النسخ الشهرية
 import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
@@ -282,6 +283,7 @@ function App() {
     <ErrorBoundary>
       <div dir="rtl">
         <AuthProvider>
+          <SnapshotProvider>
           <AudioProvider>
             <ChatProvider>
               <CallProvider> {/* ✨ نظام المكالمات أصبح نشطاً الآن */}
@@ -305,6 +307,7 @@ function App() {
               </CallProvider>
             </ChatProvider>
           </AudioProvider>
+          </SnapshotProvider>
         </AuthProvider>
       </div>
     </ErrorBoundary>

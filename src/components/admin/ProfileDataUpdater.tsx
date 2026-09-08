@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { cleanText } from '../../utils/profileUtils';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../../utils/snapshots';
 
 interface ProfileDataUpdaterProps {
     onClose: () => void;
@@ -47,6 +48,8 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
     const [previewData, setPreviewData] = useState<any[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
+    // 📅 اسم النسخة الشهرية (إلزامي)
+    const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { query: searchQuery, setQuery: setSearchQuery, results, isSearching } = useEmployeeSearch();
@@ -199,12 +202,22 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
     };
 
     const handleInjectData = async () => {
+        // 📅 اسم النسخة إلزامي
+        const trimmedName = snapshotName.trim();
+        if (trimmedName.length < 2) {
+            toast.error('يرجى إدخال اسم للنسخة الشهرية قبل الحقن');
+            return;
+        }
+
         setIsProcessing(true);
         setProgress(0);
         let successCount = 0;
         let failCount = 0;
 
         try {
+            // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
+            await syncActiveSnapshot();
+
             for (let i = 0; i < previewData.length; i++) {
                 const row = previewData[i];
                 const updates: any = {};
@@ -228,6 +241,17 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
                 }
                 
                 setProgress(Math.round(((i + 1) / previewData.length) * 100));
+            }
+
+            if (successCount > 0) {
+                // 📅 التزام النسخة الجديدة المسماة (يلتقط الحالة الجديدة كاملة)
+                try {
+                    await commitMonthlySnapshot(trimmedName, 'excel', null);
+                    toast.success(`تم إنشاء نسخة «${trimmedName}» واعتمادها`);
+                } catch (commitErr: any) {
+                    console.error(commitErr);
+                    toast.error('تم تحديث البيانات لكن فشل اعتماد النسخة: ' + (commitErr.message || ''), { duration: 8000 });
+                }
             }
 
             toast.success(`تم تحديث ${successCount} سجل بنجاح${failCount > 0 ? `، وفشل ${failCount}` : ''}`);
@@ -525,6 +549,24 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+
+                            {/* 📅 تسمية النسخة الشهرية (إلزامية) */}
+                            <div className="bg-teal-50 dark:bg-teal-900/10 border border-teal-300/50 dark:border-teal-700/40 rounded-xl p-4">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                                    اسم النسخة الشهرية <span className="text-red-500">*</span>
+                                </label>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                                    ستُحفظ المعلومات الأساسية بعد الحقن كنسخة بهذا الاسم يمكن الرجوع إليها لاحقاً من أي مكان في التطبيق.
+                                </p>
+                                <input
+                                    type="text"
+                                    value={snapshotName}
+                                    onChange={e => setSnapshotName(e.target.value)}
+                                    placeholder="مثال: شهر آب الثامن 2026"
+                                    disabled={isProcessing}
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 font-tajawal"
+                                />
                             </div>
 
                             <div className="flex justify-between pt-4 border-t dark:border-slate-800">

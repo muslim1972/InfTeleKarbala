@@ -10,12 +10,15 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
         previewFilter, setPreviewFilter,
         allowMissingSkip, setAllowMissingSkip,
         executeUpdate, setStep,
-        targetYear, setTargetYear, analyzeData
+        targetYear, setTargetYear, analyzeData,
+        snapshotName, setSnapshotName
     } = patcher;
 
     if (!tableDef) return null;
 
     const needsYear = tableDef.type === 'yearly' || tableDef.type === 'detail';
+    // 📅 الجداول المُدارة بنظام النسخ الشهرية تتطلب تسمية النسخة
+    const needsSnapshotName = tableDef.tableName === 'financial_records' || tableDef.tableName === 'profiles';
 
     // البحث عن labels للحقول المربوطة
     const getFieldLabel = (fieldValue: string): string => {
@@ -44,6 +47,25 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     >
                         🔄 إعادة تحليل
                     </button>
+                </div>
+            )}
+
+            {/* 📅 تسمية النسخة الشهرية — إلزامية للجداول المُدارة */}
+            {needsSnapshotName && (
+                <div className="mx-4 mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border-2 border-green-300 dark:border-green-800 shrink-0">
+                    <label className="block text-sm font-bold text-green-800 dark:text-green-300 mb-1">
+                        📅 اسم النسخة الشهرية <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-2">
+                        ستُحفظ البيانات بعد التنفيذ كنسخة بهذا الاسم يمكن لأي مستخدم الرجوع إليها.
+                    </p>
+                    <input
+                        type="text"
+                        value={snapshotName}
+                        onChange={e => setSnapshotName(e.target.value)}
+                        placeholder="مثال: شهر آب الثامن 2026"
+                        className="w-full bg-white dark:bg-zinc-800 border-2 border-green-200 dark:border-green-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50 font-tajawal text-zinc-900 dark:text-white"
+                    />
                 </div>
             )}
 

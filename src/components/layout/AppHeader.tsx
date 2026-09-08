@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { User, Power, Settings, Sun, Moon, Type } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, Type, History } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { SettingsModal } from "../features/SettingsModal";
+import { SnapshotBrowser } from "../snapshots/SnapshotBrowser";
 import { useTheme } from "../../context/ThemeContext";
 import { useAccessibility } from "../../context/AccessibilityContext";
 import { getRoleLabel } from "../../utils/formatRoles";
@@ -20,6 +21,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
     const { theme, toggleTheme } = useTheme();
     const { fontScale, setFontScale, currentOption } = useAccessibility();
     const [showSettings, setShowSettings] = useState(false);
+    const [showSnapshots, setShowSnapshots] = useState(false);
 
     if (!user) return null;
 
@@ -91,6 +93,19 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                                 </span>
                             </button>
 
+                            {/* Monthly Snapshots Browser */}
+                            <button
+                                onClick={() => setShowSnapshots(true)}
+                                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 border ${
+                                    theme === 'light'
+                                    ? 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-100'
+                                    : 'bg-white/10 text-white/90 border-white/20 hover:bg-white/20'
+                                }`}
+                                title="النسخ الشهرية - عرض بيانات نسخة سابقة"
+                            >
+                                <History className="w-4 h-4" />
+                            </button>
+
                             {/* Theme Toggle */}
                             <button
                                 onClick={toggleTheme}
@@ -149,6 +164,7 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
             </header >
 
             <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+            <SnapshotBrowser isOpen={showSnapshots} onClose={() => setShowSnapshots(false)} />
         </>
     );
 };

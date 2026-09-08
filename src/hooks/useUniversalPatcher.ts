@@ -8,6 +8,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../utils/snapshots';
 import {
     TABLE_DEFINITIONS,
     normalizeArabicText,
@@ -346,12 +347,27 @@ export function useUniversalPatcher() {
 
     // ─── Execute Update ─────────────────────────
 
+    // 📅 اسم النسخة الشهرية (إلزامي للجداول المُدارة: financial_records / profiles)
+    const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
+
     const executeUpdate = useCallback(async () => {
         if (!tableDef) return;
+
+        const isSnapshotManaged = tableDef.tableName === 'financial_records' || tableDef.tableName === 'profiles';
+        const trimmedSnapshotName = snapshotName.trim();
+        if (isSnapshotManaged && trimmedSnapshotName.length < 2) {
+            toast.error('يرجى إدخال اسم للنسخة الشهرية قبل التنفيذ');
+            return;
+        }
 
         try {
             setStep('executing');
             let successCount = 0;
+
+            // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
+            if (isSnapshotManaged) {
+                await syncActiveSnapshot();
+            }
 
             const tasks = matches.filter(m => m.status === 'match' || m.status === 'new_record');
             const CHUNK_SIZE = 50;
@@ -406,6 +422,16 @@ export function useUniversalPatcher() {
             }
 
             if (successCount > 0) {
+                // 📅 التزام النسخة الجديدة المسماة للجداول المُدارة
+                if (isSnapshotManaged) {
+                    try {
+                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null);
+                        toast.success(`تم إنشاء نسخة «${trimmedSnapshotName}» واعتمادها`, { duration: 6000 });
+                    } catch (commitErr: any) {
+                        console.error(commitErr);
+                        toast.error('تم تحديث البيانات لكن فشل اعتماد النسخة: ' + (commitErr.message || ''), { duration: 8000 });
+                    }
+                }
                 toast.success(`تم معالجة ${successCount} سجل بنجاح في ${tableDef.label}`);
                 setStep('done');
             } else {
@@ -417,7 +443,7 @@ export function useUniversalPatcher() {
             toast.error('حدث خطأ غير متوقع');
             setStep('preview');
         }
-    }, [tableDef, matches, targetYear]);
+    }, [tableDef, matches, targetYear, snapshotName]);
 
     // ─── Stats ──────────────────────────────────
 
@@ -457,6 +483,7 @@ export function useUniversalPatcher() {
         headers, rows,
         selectedTable, setSelectedTable, tableDef,
         targetYear, setTargetYear,
+        snapshotName, setSnapshotName,
         columnMapping, setColumnMapping,
         matchColumn, setMatchColumn,
         matchBy, setMatchBy,
