@@ -1,7 +1,8 @@
 /**
  * خطوة معاينة النتائج والتنفيذ
  */
-import { Save } from 'lucide-react';
+import { Save, AlertTriangle, UserPlus, Loader2 } from 'lucide-react';
+import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
 
@@ -12,7 +13,9 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
         allowMissingSkip, setAllowMissingSkip,
         executeUpdate, setStep,
         targetYear, setTargetYear, analyzeData,
-        snapshotName, setSnapshotName
+        snapshotName, setSnapshotName,
+        gov, noProfilesGov, creatingAccounts,
+        rowsNeedingAccounts, handleCreateAccounts
     } = patcher;
 
     if (!tableDef) return null;
@@ -29,6 +32,31 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
 
     return (
         <div className="animate-in slide-in-from-right-8 duration-500 flex flex-col h-full">
+
+            {/* 🧠 شريط المحافظة بلا مستخدمين / صفوف بلا حسابات */}
+            {(noProfilesGov || rowsNeedingAccounts.length > 0) && (
+                <div className="mx-4 mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border-2 border-orange-300 dark:border-orange-800 flex gap-2.5 shrink-0">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-orange-600 dark:text-orange-400 mt-0.5" />
+                    <div className="text-xs space-y-1 text-orange-700 dark:text-orange-400 flex-1">
+                        <p className="font-bold">
+                            {noProfilesGov
+                                ? `لم نجد أي مستخدمين لـ ${noProfilesGov}`
+                                : `${rowsNeedingAccounts.length} موظفاً بلا حساب في ${governorateName(gov)}`}
+                        </p>
+                        <p>سيتم تجاهل صفوفهم بأمان عند التنفيذ. أنشئ حساباتهم من الملف ليُربط كل صف بحسابه.</p>
+                        {rowsNeedingAccounts.length > 0 && (
+                            <button
+                                onClick={handleCreateAccounts}
+                                disabled={creatingAccounts}
+                                className="mt-1 inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-50"
+                            >
+                                {creatingAccounts ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                                إنشاء الحسابات تلقائياً من الملف ({rowsNeedingAccounts.length}) — كلمة المرور 123456
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* تنبيه السنة — قابل للتعديل */}
             {needsYear && (
@@ -152,7 +180,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                             <p className="text-xs text-amber-500 mt-1.5 mr-1">الموظف موجود — سيتم إنشاء سجل جديد له في الجدول</p>
                         )}
                         {m.status === 'missing' && (
-                            <p className="text-xs text-red-400 mt-1.5 mr-1">الاسم غير مطابق لأي موظف في النظام</p>
+                            <p className="text-xs text-red-400 mt-1.5 mr-1">غير موجود في محافظة الهدف — لن يُحقن إلا بعد إنشاء حسابه</p>
                         )}
                     </div>
                 ))}

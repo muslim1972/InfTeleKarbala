@@ -41,6 +41,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'full_name', label: 'الاسم الكامل', type: 'text' },
             { value: 'job_number', label: 'الرقم الوظيفي', type: 'text' },
             { value: 'username', label: 'اسم المستخدم', type: 'text' },
+            { value: 'governorate', label: 'المحافظة', type: 'text' },
             { value: 'password', label: 'كلمة المرور', type: 'text' },
             { value: 'card_number', label: 'رقم البطاقة', type: 'text' },
             { value: 'graduation_year', label: 'سنة التخرج', type: 'text' },

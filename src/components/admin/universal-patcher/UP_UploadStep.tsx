@@ -4,14 +4,30 @@
 import { Upload, FileSpreadsheet } from 'lucide-react';
 import { useRef } from 'react';
 import { TABLE_DEFINITIONS } from '../../../utils/universalPatcherConfig';
+import { GOVERNORATES } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 
 export function UP_UploadStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { fileName, selectedTable, setSelectedTable, handleFileSelect, headers, goToConfig, sheetNames, selectedSheet, setSelectedSheet, headerRowIndex, setHeaderRowIndex } = patcher;
+    const { fileName, selectedTable, setSelectedTable, handleFileSelect, headers, goToConfig, sheetNames, selectedSheet, setSelectedSheet, headerRowIndex, setHeaderRowIndex, gov, setGov } = patcher;
 
     return (
         <div className="p-4 md:p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+            {/* 🗺️ المحافظة المستهدفة — تُحدد تبعية كل المطابقات والحقن */}
+            <div className="p-3.5 rounded-xl border-2 border-blue-500/20 bg-blue-500/5 flex items-center gap-3">
+                <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap">المحافظة المستهدفة</label>
+                <select
+                    value={gov}
+                    onChange={(e) => setGov(e.target.value)}
+                    className="flex-1 p-2 text-sm font-bold rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 ring-blue-500 outline-none"
+                >
+                    {GOVERNORATES.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 hidden md:block max-w-[220px]">
+                    تُطابق البيانات وتُحقن لموظفي هذه المحافظة فقط.
+                </p>
+            </div>
 
             {/* اختيار الجدول المستهدف */}
             <div className="space-y-3">

@@ -9,6 +9,7 @@ import {
     AlertTriangle,
     Search,
     User,
+    UserPlus,
     ArrowRightLeft,
     Database,
     Loader2

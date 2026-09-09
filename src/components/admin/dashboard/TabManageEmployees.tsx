@@ -697,6 +697,15 @@ export const TabManageEmployees = ({
                             <div className="mt-8 flex flex-wrap justify-center gap-4">
                                 <Button
                                     variant="outline"
+                                    onClick={() => setShowSmartUpdater(true)}
+                                    className="gap-2 border-blue-500/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-black shadow-sm transition-all"
+                                >
+                                    <DatabaseZap className="w-4 h-4 text-blue-500" />
+                                    المحدث العام ⚡ — الأداة الأساسية
+                                </Button>
+
+                                <Button
+                                    variant="outline"
                                     onClick={() => setShowFinancialUpdater(true)}
                                     className="gap-2 border-border/50 hover:bg-muted/20 text-foreground bg-white/50 border-green-500/30 font-bold"
                                 >
@@ -711,15 +720,6 @@ export const TabManageEmployees = ({
                                 >
                                     <FileSpreadsheet className="w-4 h-4 text-teal-500" />
                                     تحديث المعلومات الأساسية
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowSmartUpdater(true)}
-                                    className="gap-2 border-border/50 hover:bg-muted/20 hover:border-blue-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
-                                >
-                                    <DatabaseZap className="w-4 h-4 text-blue-500" />
-                                    المحدث العام ⚡
                                 </Button>
 
                                 <Button

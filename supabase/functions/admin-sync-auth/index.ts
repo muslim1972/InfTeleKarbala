@@ -1,4 +1,5 @@
 
+// @ts-nocheck — ملف Deno Edge Function (لا يُفحص بمكتبة TypeScript الخاصة بالويب)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
