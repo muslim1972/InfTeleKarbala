@@ -13,6 +13,8 @@ export const getRoleLabel = (user: any): string => {
         switch (user.admin_role) {
             case 'developer':
                 return 'مطور';
+            case 'it_supervisor':
+                return 'مشرف IT';
             case 'general':
                 return 'مشرف عام';
             case 'finance':
@@ -51,6 +53,8 @@ export const roleLabelToDb = (label: string): { role: string; admin_role: string
             return { role: 'admin', admin_role: 'biometric' };
         case 'مشرف السعات':
             return { role: 'admin', admin_role: 'capacities' };
+        case 'مشرف IT':
+            return { role: 'admin', admin_role: 'it_supervisor' };
         case 'موظف':
         default:
             return { role: 'user', admin_role: null };
@@ -65,4 +69,5 @@ export const ROLE_OPTIONS = [
     'مشرف ادارة',
     'مشرف اعلام',
     'مشرف بصمة',
+    'مشرف IT',
 ] as const;

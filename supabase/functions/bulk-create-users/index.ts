@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     })
     const profArr = await profRes.json()
     const prof = Array.isArray(profArr) ? profArr[0] : null
-    const isDeveloper = prof?.role === 'admin' && prof?.admin_role === 'developer'
+    const isDeveloper = prof?.role === 'admin' && (prof?.admin_role === 'developer' || prof?.admin_role === 'it_supervisor')
     if (!isDeveloper) throw new Error(`Access denied. role=${prof?.role}, admin_role=${prof?.admin_role}`)
 
     // 3. البيانات المُرسلة — username وكلمة المرور لكل مستخدم من ملف Excel

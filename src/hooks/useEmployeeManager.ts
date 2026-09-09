@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
 import { cleanText } from "../utils/profileUtils";
+import { isDeveloperLevel } from "../utils/permissions";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
     // 1. Loading State
@@ -745,7 +746,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     const isFieldReadOnly = (columnName: string) => {
-        if (currentUser?.admin_role === 'developer') return false;
+        if (isDeveloperLevel(currentUser?.admin_role)) return false;
 
         if (columnName === 'tab_requests') {
             const hasExplicitPermission = Boolean(currentUser?.can_view_requests);

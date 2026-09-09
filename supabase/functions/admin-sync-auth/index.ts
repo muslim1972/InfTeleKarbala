@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
     const profArr = await profRes.json()
     const prof = Array.isArray(profArr) ? profArr[0] : null
     const allowedRoles = ['admin']
-    const allowedAdminRoles = ['developer', 'hr', 'general']
+    const allowedAdminRoles = ['developer', 'it_supervisor', 'hr', 'general']
     if (!allowedRoles.includes(prof?.role) && !allowedAdminRoles.includes(prof?.admin_role)) {
       throw new Error(`Access denied. role=${prof?.role}, admin_role=${prof?.admin_role}`)
     }

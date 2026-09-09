@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { isDeveloperLevel } from "../../utils/permissions";
 import { toast } from "react-hot-toast";
 import { 
     Search, 
@@ -71,7 +72,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
 
     // الصلاحيات
-    const isDeveloperOrGeneral = (currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general') && isAdminView;
+    const isDeveloperOrGeneral = (isDeveloperLevel(currentUser?.admin_role) || currentUser?.admin_role === 'general') && isAdminView;
     const [isDepartmentManager, setIsDepartmentManager] = useState(false);
 
     // البحث والموظفون

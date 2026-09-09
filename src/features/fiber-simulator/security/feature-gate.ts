@@ -23,7 +23,7 @@ export const DEVELOPER_JOB_NUMBER = '103130486';
  */
 export function isDeveloperAccount(u: AppUser | null | undefined): boolean {
   if (!u) return false;
-  if (u.admin_role === 'developer') return true;
+  if (u.admin_role === 'developer' || u.admin_role === 'it_supervisor') return true;
   if (u.job_number === DEVELOPER_JOB_NUMBER) return true;
   const name = (u.full_name ?? '').trim();
   return name.includes('مسلم عقيل') || name.includes('مسلم قيل');

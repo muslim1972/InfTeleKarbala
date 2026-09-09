@@ -5,6 +5,7 @@ import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
 import { EmployeeSearch } from "../../shared/EmployeeSearch";
+import { isDeveloperLevel } from "../../../utils/permissions";
 
 interface DashboardHeaderProps {
     activeTab: string;
@@ -73,7 +74,7 @@ export const DashboardHeader = ({
             ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
             { id: 'admin_audio', label: 'القرآن الكريم' },
             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-            ...((currentUser?.admin_role === 'general' || currentUser?.admin_role === 'developer') ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),
+            ...((currentUser?.admin_role === 'general' || isDeveloperLevel(currentUser?.admin_role)) ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),
             ...(isRoleEditable ? [{ id: 'admin_attendance', label: 'إعداد البصمة' }] : [])
         ];
 

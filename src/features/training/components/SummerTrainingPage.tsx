@@ -2,6 +2,7 @@ import { ArrowRight, ShieldAlert, BookOpen } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
+import { isDeveloperLevel } from '../../../utils/permissions';
 import { TrainingTabContent } from '../../../components/features/TrainingTabContent';
 
 interface SummerTrainingPageProps {
@@ -12,7 +13,7 @@ export const SummerTrainingPage = ({ onBack }: SummerTrainingPageProps) => {
     const { theme } = useTheme();
     const { user } = useAuth();
     const isDark = theme === 'dark';
-    const isDeveloperOrGeneral = user?.admin_role === 'developer' || user?.admin_role === 'general';
+    const isDeveloperOrGeneral = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
     const isSupervisor = user?.is_training_supervisor === true || user?.role === 'admin' || isDeveloperOrGeneral;
 
     return (

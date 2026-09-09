@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, X, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { isDeveloperLevel } from '../../utils/permissions';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 
 const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean) => {
@@ -153,7 +154,7 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = user.admin_role === 'developer' || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
+        const isAllowedRole = isDeveloperLevel(user.admin_role) || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
 
         if (!isAllowedRole) return;
 

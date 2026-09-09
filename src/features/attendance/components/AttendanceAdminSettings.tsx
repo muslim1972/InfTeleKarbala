@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
+import { isDeveloperLevel } from '../../../utils/permissions';
 
 import WorkSchedulesTab from './WorkSchedulesTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
@@ -24,7 +25,7 @@ type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceReque
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
-  const isHighAdmin = user?.admin_role === 'developer' || user?.admin_role === 'general';
+  const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
   
   const [activeTab, setActiveTab] = useState<Tab>(isHighAdmin ? 'liveBoard' : 'locations');
   const [locations, setLocations] = useState<WorkLocation[]>([]);

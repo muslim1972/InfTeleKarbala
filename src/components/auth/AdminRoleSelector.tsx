@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
 import toast from 'react-hot-toast';
+import { isDeveloperLevel } from "../../utils/permissions";
 
 interface AdminRoleSelectorProps {
     onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance') => void;
@@ -137,7 +138,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                         <button
                             key={card.id}
                             onClick={() => {
-                                const isSupervisorOrDeveloper = isAdmin || user?.admin_role === 'developer';
+                                const isSupervisorOrDeveloper = isAdmin || isDeveloperLevel(user?.admin_role);
                                 const isSpecialAccount =
                                     user?.full_name?.includes('تجريبي 2') ||
                                     user?.full_name?.includes('مستخدم تجريبي') ||

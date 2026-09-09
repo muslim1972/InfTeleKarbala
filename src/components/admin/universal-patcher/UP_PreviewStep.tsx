@@ -5,6 +5,7 @@ import { Save, UserPlus } from 'lucide-react';
 import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
+import { UP_ItSupervisorField } from './UP_ItSupervisorField';
 
 export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
     const {
@@ -14,7 +15,8 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
         executeUpdate, setStep,
         targetYear, setTargetYear, analyzeData,
         snapshotName, setSnapshotName,
-        gov, govOpening
+        gov, govOpening,
+        itSupervisorId, setItSupervisorId
     } = patcher;
 
     if (!tableDef) return null;
@@ -177,6 +179,14 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                         +{filteredMatches.length - 500} سجل إضافي (سيتم معالجتهم جميعاً)
                     </div>
                 )}
+            </div>
+
+            {/* 🛡️ تحديد مشرف IT — اختياري قبل إتمام عملية الحقن */}
+            <div className="mx-4 mt-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0">
+                <UP_ItSupervisorField
+                    onSelect={setItSupervisorId}
+                    selectedSupervisorId={itSupervisorId}
+                />
             </div>
 
             {/* Footer Controls */}

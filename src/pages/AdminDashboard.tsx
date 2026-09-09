@@ -10,6 +10,7 @@ import { DashboardHeader } from "../components/admin/dashboard/DashboardHeader";
 import { useAuth } from "../context/AuthContext";
 import { lazy, Suspense } from "react";
 import { useTheme } from "../context/ThemeContext";
+import { isDeveloperLevel } from "../utils/permissions";
 
 const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
 
@@ -39,7 +40,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     const location = useLocation();
 
     // Strict helper just for account types (Role / Admin Role)
-    const isRoleEditable = Boolean(currentUser?.admin_role === 'developer' || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل'));
+    const isRoleEditable = Boolean(isDeveloperLevel(currentUser?.admin_role) || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل'));
     const canAddEmployee = isRoleEditable || currentUser?.admin_role === 'hr';
 
     // Determine default tab based on role or navigation state

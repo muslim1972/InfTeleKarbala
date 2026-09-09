@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import { isDeveloperLevel } from "../../utils/permissions";
 
 interface TabSystemProps {
     activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge';
@@ -16,7 +17,7 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const [showRightArrow, setShowRightArrow] = useState(false);
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
-    const isDeveloper = user?.admin_role === 'developer';
+    const isDeveloper = isDeveloperLevel(user?.admin_role);
     const isRequestsAllowed =
         isAdmin ||
         isDeveloper ||

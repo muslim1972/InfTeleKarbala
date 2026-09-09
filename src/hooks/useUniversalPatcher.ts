@@ -9,7 +9,7 @@ import type ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { governorateName } from '../constants/governorates';
-import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../utils/snapshots';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot, enableGovernorateCard } from '../utils/snapshots';
 import {
     TABLE_DEFINITIONS,
     normalizeArabicText,
@@ -88,6 +88,9 @@ export function useUniversalPatcher() {
     }, []);
     // 🆕 وضع افتتاح محافظة جديدة: لا مستخدمين → إنشاء الحسابات من عمودي الملف ثم الحقن
     const [govOpening, setGovOpening] = useState(false);
+
+    // 🛡️ مشرف IT (اختياري): يُرفع لصلاحياته بعد نجاح الحقن
+    const [itSupervisorId, setItSupervisorId] = useState<string | null>(null);
 
     // ─── File Upload Handler ────────────────────
 
@@ -533,6 +536,28 @@ export function useUniversalPatcher() {
             }
 
             if (successCount > 0) {
+                // 🛡️ تفعيل بطاقة المحافظة تلقائياً بعد أول حقن ناجح (يعمل لجميع المحافظات)
+                try {
+                    await enableGovernorateCard(gov);
+                } catch (cardErr) {
+                    console.warn('تعذر تفعيل بطاقة المحافظة:', cardErr);
+                }
+
+                // 🛡️ رفع صلاحيات مشرف IT المحدد (اختياري — قبل إتمام العملية)
+                if (itSupervisorId) {
+                    try {
+                        const { error: supErr } = await supabase
+                            .from('profiles')
+                            .update({ role: 'admin', admin_role: 'it_supervisor' })
+                            .eq('id', itSupervisorId);
+                        if (supErr) throw supErr;
+                        toast.success('تم رفع صلاحيات مشرف IT المحدد بنجاح', { duration: 5000 });
+                    } catch (supErr: any) {
+                        console.error(supErr);
+                        toast.error('تعذر رفع صلاحيات مشرف IT: ' + (supErr.message || ''), { duration: 8000 });
+                    }
+                }
+
                 // 📅 التزام النسخة الجديدة المسماة للجداول المُدارة
                 if (isSnapshotManaged) {
                     try {
@@ -554,7 +579,7 @@ export function useUniversalPatcher() {
             toast.error('حدث خطأ غير متوقع');
             setStep('preview');
         }
-    }, [tableDef, matches, targetYear, snapshotName, govOpening, matchBy, gov]);
+    }, [tableDef, matches, targetYear, snapshotName, govOpening, matchBy, gov, itSupervisorId]);
 
     // ─── Stats ──────────────────────────────────
 
@@ -584,6 +609,7 @@ export function useUniversalPatcher() {
         setColumnMapping({});
         setMatchColumn('');
         setMatches([]);
+        setItSupervisorId(null);
     }, []);
 
     return {
@@ -604,6 +630,7 @@ export function useUniversalPatcher() {
         stats,
         gov, setGov,
         govOpening,
+        itSupervisorId, setItSupervisorId,
 
         // Actions
         handleFileSelect,

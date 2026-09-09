@@ -16,6 +16,7 @@ import { SnapshotProvider } from "./context/SnapshotContext"; // 📅 نظام �
 import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
+import { isDeveloperLevel } from "./utils/permissions";
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -75,7 +76,7 @@ const AppContent = () => {
     if (
       user.admin_role === 'capacities' || // للاحتياط في حال وجود بيانات قديمة
       user.has_capacities_access || 
-      user.admin_role === 'developer' || 
+      isDeveloperLevel(user.admin_role) || // مطور / مشرف IT
       user.admin_role === 'general'
     ) {
       setHasCapacities(true);
@@ -200,7 +201,7 @@ const AppContent = () => {
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──
   const isAdmin = user.role === 'admin';
   const hasPromotion = user.can_access_promotion === true;
-  const hasTraining = user.is_training_supervisor === true || isAdmin || user.admin_role === 'developer' || user.admin_role === 'general';
+  const hasTraining = user.is_training_supervisor === true || isAdmin || isDeveloperLevel(user.admin_role) || user.admin_role === 'general';
   const needsRoleSelection = true; // All users now see the Welcome Dashboard
 
   if (user.role === 'visitor') {

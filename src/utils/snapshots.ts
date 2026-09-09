@@ -136,5 +136,5 @@ export async function deleteMonthlySnapshot(snapshotId: string): Promise<void> {
 
 /** هل المستخدم مطور؟ (صلاحية الحذف والأدوات) */
 export function isDeveloper(user: { admin_role?: string } | null | undefined): boolean {
-    return user?.admin_role === 'developer';
+    return user?.admin_role === 'developer' || user?.admin_role === 'it_supervisor';
 }

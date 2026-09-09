@@ -93,6 +93,17 @@ export const TabAddEmployee = ({
                                     </Button>
                                     <Button
                                         type="button"
+                                        variant={formData.admin_role === 'it_supervisor' ? 'default' : 'outline'}
+                                        onClick={() => setFormData({ ...formData, admin_role: 'it_supervisor' })}
+                                        className="flex-1 min-w-[140px] gap-2"
+                                    >
+                                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", formData.admin_role === 'it_supervisor' ? "border-white" : "border-muted-foreground")}>
+                                            {formData.admin_role === 'it_supervisor' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        </div>
+                                        مشرف IT (كامل)
+                                    </Button>
+                                    <Button
+                                        type="button"
                                         variant={formData.admin_role === 'finance' ? 'default' : 'outline'}
                                         onClick={() => setFormData({ ...formData, admin_role: 'finance' })}
                                         className="flex-1 min-w-[140px] gap-2"
