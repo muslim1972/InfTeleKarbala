@@ -1,5 +1,7 @@
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
+import { supabase } from "../lib/supabase";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 interface Governorate {
@@ -37,9 +39,20 @@ interface GovernorateSelectionProps {
 export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    // البطاقات المفعلة تُجلب من قاعدة البيانات (تُفعل تلقائياً بعد أول رفع ناجح للمحافظة)
+    const [activeCards, setActiveCards] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        supabase.from('governorate_cards').select('id, is_active')
+            .then(({ data }) => {
+                if (data) {
+                    setActiveCards(Object.fromEntries(data.map(c => [c.id, c.is_active])));
+                }
+            });
+    }, []);
 
     const handleSelect = (gov: Governorate) => {
-        if (gov.isActive) {
+        if (gov.isActive || activeCards[gov.id]) {
             sessionStorage.setItem('selectedGovernorate', gov.id);
             onSelect();
         } else {
@@ -103,45 +116,48 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
             {/* Governorate Grid */}
             <div className="relative z-10 w-full max-w-5xl mx-auto px-4 pb-48">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {governorates.map((gov, idx) => (
+                    {governorates.map((gov, idx) => {
+                        const govActive = gov.isActive || !!activeCards[gov.id];
+                        return (
                         <button
                             key={gov.id}
                             onClick={() => handleSelect(gov)}
                             className={`group relative flex flex-col p-0 rounded-2xl border transition-all duration-300 overflow-hidden min-h-[120px] shadow-sm hover:shadow-md animate-in fade-in slide-in-from-bottom-4
-                                ${gov.isActive 
-                                    ? 'border-brand-green hover:ring-2 hover:ring-brand-green/30' 
+                                ${govActive
+                                    ? 'border-brand-green hover:ring-2 hover:ring-brand-green/30'
                                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:scale-[1.02]'
                                 }
                             `}
-                            style={{ 
+                            style={{
                                 animationDelay: `${idx * 50}ms`,
                                 backgroundColor: isDark ? '#1e293b' : '#ffffff'
                             }}
                         >
                             {/* Background Image - Using object-contain so no parts are cropped */}
-                            <img 
-                                src={`/govs/${gov.imageName || gov.name}.jpeg`} 
-                                alt={gov.name} 
-                                onError={(e) => { 
-                                    e.currentTarget.style.display = 'none'; 
-                                }} 
-                                className="absolute inset-0 w-full h-full object-contain z-0 transition-transform duration-700 group-hover:scale-105" 
+                            <img
+                                src={`/govs/${gov.imageName || gov.name}.jpeg`}
+                                alt={gov.name}
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                                className="absolute inset-0 w-full h-full object-contain z-0 transition-transform duration-700 group-hover:scale-105"
                             />
-                            
+
                             {/* Text Content - Aligned to bottom without background */}
                             <div className="absolute bottom-2 inset-x-0 z-20">
                                 <span className="font-bold text-sm text-center block text-white drop-shadow-[0_2px_4px_rgba(0,0,0,1)]" style={{ textShadow: '0px 2px 8px rgba(0,0,0,0.9), 0px 0px 4px rgba(0,0,0,0.8)' }}>
                                     {gov.name}
                                 </span>
                             </div>
-                            
-                            {gov.isActive && (
+
+                            {govActive && (
                                 <div className="absolute top-0 right-0 bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-20 shadow-md">
                                     متاح
                                 </div>
                             )}
                         </button>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

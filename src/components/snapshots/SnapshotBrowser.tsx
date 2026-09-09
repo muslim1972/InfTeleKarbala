@@ -75,7 +75,10 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
         const toastId = toast.loading(`جاري عرض نسخة «${snap.name}»...`, { duration: 60000 });
         try {
             const res = await activate(snap.id);
-            toast.success(`تم عرض نسخة «${res.name}» — تحديث ${res.restored} سجلاً`, { id: toastId, duration: 5000 });
+            toast.success(`تم عرض نسخة «${res.name}» — جاري تحديث البيانات...`, { id: toastId, duration: 2000 });
+            // تحديث قوي: إعادة تحميل الصفحة كاملة لضمان ظهور بيانات النسخة الجديدة في كل التطبيق فوراً
+            setTimeout(() => { window.location.reload(); }, 1500);
+            return; // الصفحة ستُعاد تحميلها
         } catch (err: any) {
             toast.error('فشل التفعيل: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
         } finally {

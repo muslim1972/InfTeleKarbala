@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     X, 
     Upload, 
@@ -22,8 +22,9 @@ import { cn } from '../../lib/utils';
 import { cleanCertificate, cleanFinancialAmount, normalizeForComparison } from '../../utils/profileUtils';
 import { CERTIFICATES } from '../../constants/certificates';
 import { useAuth } from '../../context/AuthContext';
-import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../../utils/snapshots';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot, listMonthlySnapshots, enableGovernorateCard, type MonthlySnapshot } from '../../utils/snapshots';
 import { SnapshotNamePicker } from '../snapshots/SnapshotNamePicker';
+import { GOVERNORATES, governorateName } from '../../constants/governorates';
 
 interface FinancialDataUpdaterProps {
     onClose: () => void;
@@ -104,7 +105,61 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     const [isImporting, setIsImporting] = useState(false);
     // 📅 اسم النسخة الشهرية (إلزامي) - يقترح اسم الشهر الحالي بصيغة «شهر آب الثامن 2026»
     const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
-    const { currentUser } = useAuth();
+    const [existingSnapshots, setExistingSnapshots] = useState<MonthlySnapshot[]>([]);
+    // 🗺️ المحافظة المستهدفة (كربلاء افتراضياً) + المشرف العام (اختياري)
+    const [gov, setGov] = useState(() => sessionStorage.getItem('selectedGovernorate') || 'karbala');
+    const [supervisorQuery, setSupervisorQuery] = useState('');
+    const [supervisor, setSupervisor] = useState<any>(null);
+    // ⚠️ محافظة بلا مستخدمين (يُعرض شريط تحذيري برتقالي بدل الانهيار)
+    const [noProfilesGov, setNoProfilesGov] = useState<string | null>(null);
+    const [creatingAccounts, setCreatingAccounts] = useState(false);
+    const { user } = useAuth();
+
+    // 📅 جلب النسخ الموجودة لنفس المحافظة لكشف حالة الاستبدال (Replacement)
+    useEffect(() => {
+        listMonthlySnapshots(gov).then(setExistingSnapshots).catch(() => {});
+    }, [gov]);
+
+    // إذا كان الاسم المختار مطابقاً لنسخة موجودة في نفس المحافظة → العملية استبدال
+    const replacingSnapshot = existingSnapshots.find(s => s.name === snapshotName.trim()) || null;
+
+    // بيانات المشرف العام المختار (اسم + رقم وظيفي من عمودي الإكسل)
+    const supervisorInfo = React.useMemo(() => {
+        if (!supervisor) return null;
+        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+        return {
+            job_number: String(supervisor[jobIdCol] || '').trim(),
+            full_name: String(supervisor[nameCol] || '').trim()
+        };
+    }, [supervisor, headers, mapping]);
+
+    // نتائج بحث المشرف العام من داخل ملف الإكسل
+    const supervisorMatches = React.useMemo(() => {
+        const trimmed = supervisorQuery.trim();
+        if (trimmed.length < 2 || excelData.length === 0) return [];
+        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+        return excelData.filter(row => {
+            const jobStr = String(row[jobIdCol] || '');
+            const nameStr = String(row[nameCol] || '');
+            return jobStr.includes(trimmed) || nameStr.includes(trimmed);
+        }).slice(0, 5);
+    }, [supervisorQuery, excelData, headers, mapping]);
+
+    // 🧠 الصفوف التي تحتاج إنشاء حسابات (بلا userId) — تُحتسب مرة واحدة لكل معاينة
+    const rowsNeedingAccounts = React.useMemo(() => {
+        if (step !== 3) return [];
+        const seen = new Set<string>();
+        const list: { job_number: string, full_name: string }[] = [];
+        previewData.forEach(r => {
+            const jn = String(r.job_number || '').trim();
+            if (r.userId || !jn || seen.has(jn)) return;
+            seen.add(jn);
+            list.push({ job_number: jn, full_name: String(r.displayName || '').trim() });
+        });
+        return list;
+    }, [step, previewData]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { query: searchQuery, setQuery: setSearchQuery, results, isSearching } = useEmployeeSearch();
@@ -162,7 +217,7 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
             }
 
             const actualUserId = syncData?.user_id || newUserId;
-            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            const finalGovernorate = gov;
 
             const { error: insertError } = await supabase.from('profiles').insert([{
                 id: actualUserId,
@@ -305,6 +360,7 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 const { data: batchProfiles, error: pError } = await supabase
                     .from('profiles')
                     .select('id, job_number, full_name')
+                    .eq('governorate', gov)
                     .in('job_number', batchJobNums);
                 
                 if (pError) throw pError;
@@ -314,10 +370,12 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 setProgress(currentP);
             }
 
+            // 🧠 ذكاء تعدد المحافظات: لا نهارض إن لم نجد مستخدمين — نتجاوز بتحذير برتقالي
             if (profiles.length === 0) {
-                toast.error('لم يتم العثور على موظفين مطابقين في قاعدة البيانات');
-                setIsProcessing(false);
-                return;
+                setNoProfilesGov(governorateName(gov));
+                toast(`لم نجد أي مستخدمين لـ ${governorateName(gov)} — سيتم عرض الصفوف كبيانات جديدة`, { icon: '⚠️', duration: 5000 });
+            } else {
+                setNoProfilesGov(null);
             }
 
             // 2. Get current financial records (BATCHED - smaller size for large data)
@@ -348,13 +406,20 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
             setProgress(0);
             setProcessedCount(0);
 
+            const nameColForRows = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
             rowsToProcess.forEach(row => {
                 const jobNum = String(row[mapping['job_number']]);
                 const profile = profiles.find(p => String(p.job_number) === jobNum);
-                
-                if (profile) {
-                    const existing = currentFinancials?.find(f => f.user_id === profile.id);
-                    const updates: any = { job_number: jobNum, userId: profile.id, displayName: profile.full_name, existingId: existing?.id };
+
+                // مع حساب موجود أو بدونه (محافظة جديدة) — نبني الصف دائماً ونعرضه كبيانات جديدة عند غياب الحساب
+                {
+                    const existing = profile ? currentFinancials?.find(f => f.user_id === profile.id) : undefined;
+                    const updates: any = {
+                        job_number: jobNum,
+                        userId: profile?.id || null,
+                        displayName: profile?.full_name || String(row[nameColForRows] || '').trim(),
+                        existingId: existing?.id
+                    };
                     let hasChanges = false;
                     
                     // 1. Regular mapped fields
@@ -429,6 +494,81 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
         }
     };
 
+    /** 🧠 إنشاء حسابات جماعية من الملف للمحافظة الهدف (يتخطى الموجودين) ثم إعادة المعاينة تلقائياً */
+    const handleCreateAccounts = async () => {
+        if (rowsNeedingAccounts.length === 0) return;
+        setIsProcessing(true);
+        setCreatingAccounts(true);
+        try {
+            let created = 0, skipped = 0;
+            const failed: any[] = [];
+            const CHUNK = 100; // مهلة الدالة دقيقة واحدة — نحافظ على دفعات آمنة
+            for (let i = 0; i < rowsNeedingAccounts.length; i += CHUNK) {
+                const chunk = rowsNeedingAccounts.slice(i, i + CHUNK);
+                setProcessingMessage(`جاري إنشاء الحسابات... (${Math.min(i + CHUNK, rowsNeedingAccounts.length)}/${rowsNeedingAccounts.length})`);
+                const { data, error } = await supabase.functions.invoke('bulk-create-users', {
+                    body: { users: chunk, governorate: gov, password: '123456' }
+                });
+                if (error) throw new Error(error.message);
+                if (data?.error) throw new Error(data.error);
+                created += data.created || 0;
+                skipped += data.skipped || 0;
+                if (Array.isArray(data.failed)) failed.push(...data.failed);
+            }
+            toast.success(`تم إنشاء ${created} حساباً بكلمة مرور 123456${skipped ? ` (تجاوز ${skipped} موجودين)` : ''}${failed.length ? ` وفشل ${failed.length}` : ''}`, { duration: 6000 });
+            // إعادة المعاينة تلقائياً لربط الصفوف الجديدة بالحسابات
+            await handleStartPreview();
+        } catch (e: any) {
+            console.error(e);
+            toast.error('فشل إنشاء الحسابات: ' + (e.message || ''), { duration: 8000 });
+        } finally {
+            setCreatingAccounts(false);
+            setIsProcessing(false);
+        }
+    };
+
+    /** ترقية الموظف المختار من الإكسل إلى مشرف عام على محافظته (إنشاء حساب إن لم يوجد) */
+    const promoteSupervisor = async (row: any) => {
+        const jobIdCol = mapping['job_number'] || headers.find(h => h.includes('رقم') || h.includes('ID')) || headers[0];
+        const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+        const job_number = String(row[jobIdCol] || '').trim();
+        const full_name = String(row[nameCol] || '').trim();
+        if (!job_number) return;
+
+        const { data: existing } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('job_number', job_number)
+            .eq('governorate', gov)
+            .maybeSingle();
+
+        if (existing?.id) {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ role: 'admin', admin_role: 'general' })
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const newUserId = crypto.randomUUID();
+            const password = '123456';
+            const { data: syncData, error: syncError } = await supabase.functions.invoke('admin-sync-auth', {
+                body: { user_id: newUserId, email: `${job_number}@inftele.com`, password }
+            });
+            if (syncError) throw new Error('فشل إنشاء حساب المشرف');
+            const { error: insertError } = await supabase.from('profiles').insert([{
+                id: syncData?.user_id || newUserId,
+                full_name,
+                job_number,
+                username: job_number,
+                role: 'admin',
+                admin_role: 'general',
+                governorate: gov,
+                password
+            }]);
+            if (insertError) throw insertError;
+        }
+    };
+
     const handleInjectData = async () => {
         // 📅 اسم النسخة إلزامي
         const trimmedName = snapshotName.trim();
@@ -442,21 +582,30 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
         setProgress(0);
         let successCount = 0;
         let failCount = 0;
+        let skippedNoUser = 0;
         const total = previewData.length;
         const BATCH_SIZE = 50;
 
         try {
-            // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
-            await syncActiveSnapshot();
+            // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة للمحافظة قبل الحقن
+            await syncActiveSnapshot(gov);
 
             setProcessingMessage('جاري حقن البيانات...');
             for (let i = 0; i < total; i += BATCH_SIZE) {
                 const batch = previewData.slice(i, i + BATCH_SIZE);
-                const dataToSaveList = batch.map(row => {
-                    const dataToSave: any = { 
-                        user_id: row.userId, 
+                // 🧠 تجاهل الصفوف بلا حساب (محافظة لم يُنشأ مستخدموها بعد) بأمان بدل فشل الدفعة كاملة
+                const injectable = batch.filter(r => r.userId);
+                skippedNoUser += batch.length - injectable.length;
+                if (injectable.length === 0) {
+                    setProcessedCount(i + batch.length);
+                    continue;
+                }
+                const dataToSaveList = injectable.map(row => {
+                    const dataToSave: any = {
+                        user_id: row.userId,
+                        governorate: gov,
                         updated_at: new Date().toISOString(),
-                        last_modified_by_name: 'System/Batch Update' 
+                        last_modified_by_name: 'System/Batch Update'
                     };
                     
                     TARGET_FIELDS.forEach(field => {
@@ -491,22 +640,46 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
             }
 
             if (successCount > 0) {
-                // 📅 التزام النسخة الجديدة المسماة (يلتقط الحالة الجديدة كاملة)
+                // 📅 التزام النسخة الجديدة المسماة للمحافظة (يلتقط الحالة الجديدة كاملة)
                 setProcessingMessage('جاري تسمية واعتماد النسخة الشهرية...');
                 try {
                     await commitMonthlySnapshot(
                         trimmedName,
                         'excel',
-                        (currentUser as any)?.full_name || null
+                        user?.full_name || null,
+                        gov
                     );
-                    toast.success(`تم إنشاء نسخة «${trimmedName}» واعتمادها`);
+                    toast.success(`تم حفظ نسخة «${trimmedName}» واعتمادها`, { duration: 6000 });
                 } catch (commitErr: any) {
                     console.error(commitErr);
                     toast.error('تم تحديث البيانات لكن فشل اعتماد النسخة: ' + (commitErr.message || ''), { duration: 8000 });
                 }
+
+                // 🗺️ تدقيق بطاقة المحافظة: تفعيلها تلقائياً إن لم تكن مفعلة
+                try {
+                    await enableGovernorateCard(gov);
+                } catch (cardErr) {
+                    console.warn('تعذر تفعيل بطاقة المحافظة:', cardErr);
+                }
+
+                // 👤 ترقية المشرف العام (اختياري)
+                if (supervisor) {
+                    setProcessingMessage('جاري تعيين المشرف العام...');
+                    try {
+                        await promoteSupervisor(supervisor);
+                        toast.success(`تم تعيين «${supervisorInfo?.full_name || ''}» مشرفاً عاماً على ${governorateName(gov)}`, { duration: 6000 });
+                    } catch (supErr: any) {
+                        console.error(supErr);
+                        toast.error('تم التحديث لكن فشل تعيين المشرف: ' + (supErr.message || ''), { duration: 8000 });
+                    }
+                }
             }
 
-            toast.success(`تم تحديث ${successCount} سجل مالي بنجاح${failCount > 0 ? `، وفشل ${failCount}` : ''}`);
+            if (successCount === 0 && skippedNoUser > 0) {
+                toast.error(`لم يُحقن أي سجل — ${skippedNoUser} موظفاً بلا حساب في قاعدة البيانات. يجب إنشاء مستخدمي ${governorateName(gov)} أولاً`, { duration: 8000 });
+            } else {
+                toast.success(`تم تحديث ${successCount} سجل مالي بنجاح${failCount > 0 ? `، وفشل ${failCount}` : ''}${skippedNoUser > 0 ? `، وتجاوز ${skippedNoUser} بلا حساب` : ''}`, { duration: 6000 });
+            }
             onClose();
         } catch (error) {
             console.error(error);
@@ -584,6 +757,17 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
 
                     {step === 1 && (
                         <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-500">
+                            {/* 🗺️ المحافظة المستهدفة — تُحدد تبعية كل بيانات الملف */}
+                            <div className="p-4 rounded-xl border-2 border-blue-500/20 bg-blue-500/5 flex items-center gap-4">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">المحافظة المستهدفة</label>
+                                <select value={gov} onChange={(e) => setGov(e.target.value)} disabled={isProcessing} className="rtl-select flex-1 p-2.5 text-sm font-bold rounded-lg bg-white dark:bg-slate-800 border dark:border-slate-700 focus:ring-2 ring-blue-500 outline-none">
+                                    {GOVERNORATES.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 hidden md:block max-w-[220px]">
+                                    ستُحفظ بيانات الملف بتابعية هذه المحافظة، وتُبنى نسخها الشهرية وتُفعَّل بطاقتها تلقائياً بعد أول رفع ناجح.
+                                </p>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">نطاق التحديث</label>
@@ -742,6 +926,25 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
 
                     {step === 3 && (
                         <div className="space-y-6 animate-in zoom-in-95 fade-in duration-500">
+                            {noProfilesGov && (
+                                <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-800 rounded-xl p-3 flex gap-2.5">
+                                    <AlertTriangle className="w-5 h-5 shrink-0 text-orange-600 dark:text-orange-400 mt-0.5" />
+                                    <div className="text-xs space-y-1 text-orange-700 dark:text-orange-400 flex-1">
+                                        <p className="font-bold">لم نجد أي مستخدمين لـ {noProfilesGov}</p>
+                                        <p>ستُعرض جميع الصفوف كبيانات جديدة. عند التأكيد سيتم تجاهل الصفوف بلا حسابات بأمان — يجب إنشاء مستخدمي المحافظة أولاً ليتم الحقن فعلياً.</p>
+                                        {rowsNeedingAccounts.length > 0 && (
+                                            <Button
+                                                onClick={handleCreateAccounts}
+                                                disabled={isProcessing}
+                                                className="mt-1 gap-2 bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                                            >
+                                                {creatingAccounts ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                                                إنشاء الحسابات تلقائياً من الملف ({rowsNeedingAccounts.length}) — كلمة المرور 123456
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">سجلات الراتب المقترحة ({previewData.length})</h3>
                                 <div className="text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">التغييرات فقط</div>
@@ -793,13 +996,80 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                                     اختر الشهر والسنة ليُبنى اسم النسخة تلقائياً، وستُحفظ البيانات بعد التحديث كنسخة يمكن الرجوع إليها لاحقاً.
                                 </p>
                                 <SnapshotNamePicker value={snapshotName} onChange={setSnapshotName} disabled={isProcessing} accent="green" />
+                                {replacingSnapshot && (
+                                    <div className="mt-3 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800 rounded-lg p-3 flex gap-2.5">
+                                        <AlertTriangle className="w-5 h-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+                                        <div className="text-xs space-y-1 text-red-700 dark:text-red-400">
+                                            <p className="font-bold">تحذير: هذه العملية استبدال (Replacement)!</p>
+                                            <p>النسخة «{replacingSnapshot.name}» موجودة مسبقاً — سيتم حفظ بيانات الملف الجديد{' '}
+                                            <strong>بدلاً من</strong> بياناتها القديمة ({replacingSnapshot.financial_count} سجلاً مالياً)،
+                                            وستصبح النسخة المعروضة في التطبيق. لا يمكن التراجع إلا برفع الملف القديم مجدداً.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 👤 تحديد مشرف عام (اختياري) */}
+                            <div className="bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/30 dark:border-blue-500/20 rounded-xl p-4">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                                    تحديد مشرف عام (اختياري)
+                                </label>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                                    ابحث واختر موظفاً من ملف الإكسل ليُرقَّى إلى مشرف عام على {governorateName(gov)} — اتركه فارغاً إن لم ترغب بالتعيين الآن.
+                                </p>
+                                {supervisor ? (
+                                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 border-2 border-blue-500 rounded-lg px-3 py-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <User className="w-4 h-4 text-blue-500 shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{supervisorInfo?.full_name || '—'}</p>
+                                                <p className="text-[10px] text-slate-500">رقم وظيفي: {supervisorInfo?.job_number || '—'}</p>
+                                            </div>
+                                        </div>
+                                        <Button variant="ghost" onClick={() => { setSupervisor(null); setSupervisorQuery(''); }} disabled={isProcessing} className="gap-1 text-red-500 hover:text-red-600 shrink-0">
+                                            <X className="w-4 h-4" />إزالة
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Input
+                                            value={supervisorQuery}
+                                            onChange={(e) => setSupervisorQuery(e.target.value)}
+                                            placeholder="ابحث بالاسم أو الرقم الوظيفي من داخل الملف..."
+                                            disabled={isProcessing || excelData.length === 0}
+                                            className="bg-white dark:bg-slate-800"
+                                        />
+                                        {supervisorMatches.length > 0 && (
+                                            <div className="mt-2 space-y-1.5">
+                                                {supervisorMatches.map((row, i) => {
+                                                    const nameCol = headers.find(h => h.includes('اسم') || h.includes('Name')) || headers[1] || headers[0];
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            type="button"
+                                                            onClick={() => { setSupervisor(row); setSupervisorQuery(''); }}
+                                                            disabled={isProcessing}
+                                                            className="w-full flex items-center justify-between bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg px-3 py-2 text-right hover:border-blue-500 transition-colors"
+                                                        >
+                                                            <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{String(row[nameCol] || '—')}</span>
+                                                            <span className="flex items-center gap-1.5 text-[11px] text-blue-600 dark:text-blue-400 font-bold">تعيين <Check className="w-3.5 h-3.5" /></span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {supervisorQuery.trim().length >= 2 && supervisorMatches.length === 0 && (
+                                            <p className="mt-2 text-[11px] text-slate-400">لا توجد نتائج مطابقة داخل الملف.</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-between pt-4 border-t dark:border-slate-800">
                                 <Button variant="ghost" onClick={() => setStep(2)} disabled={isProcessing} className="gap-2"><ChevronRight className="w-4 h-4" />رجوع</Button>
-                                <Button onClick={handleInjectData} disabled={isProcessing || previewData.length === 0} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                                <Button onClick={handleInjectData} disabled={isProcessing || previewData.length === 0} className={cn("gap-2 text-white", replacingSnapshot ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700")}>
                                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                    تأكيد تحديث الرواتب
+                                    {replacingSnapshot ? 'تأكيد الاستبدال وتحديث الرواتب' : 'تأكيد تحديث الرواتب'}
                                 </Button>
                             </div>
                         </div>

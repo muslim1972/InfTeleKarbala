@@ -27,14 +27,18 @@ export const SnapshotProvider = ({ children }: { children: React.ReactNode }) =>
     const refresh = useCallback(async () => {
         setLoading(true);
         try {
-            const snap = await fetchActiveSnapshot();
+            // النسخة المعروضة تخص محافظة المستخدم (من بياناته أو من اختياره بالواجهة)
+            const gov = user?.governorate
+                || sessionStorage.getItem('selectedGovernorate')
+                || 'karbala';
+            const snap = await fetchActiveSnapshot(gov);
             setActiveSnapshot(snap);
         } catch (err) {
             console.error('فشل جلب النسخة المعروضة:', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user?.governorate]);
 
     useEffect(() => {
         if (user) {

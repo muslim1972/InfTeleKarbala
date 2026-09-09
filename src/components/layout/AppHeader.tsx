@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { User, Power, Settings, Sun, Moon, Type, History } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, History } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
+import { useSnapshots } from "../../context/SnapshotContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { SnapshotBrowser } from "../snapshots/SnapshotBrowser";
 import { useTheme } from "../../context/ThemeContext";
@@ -18,6 +19,7 @@ interface AppHeaderProps {
 
 export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
+    const { activeSnapshot } = useSnapshots();
     const { theme, toggleTheme } = useTheme();
     const { fontScale, setFontScale, currentOption } = useAccessibility();
     const [showSettings, setShowSettings] = useState(false);
@@ -93,17 +95,24 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                                 </span>
                             </button>
 
-                            {/* Monthly Snapshots Browser */}
+                            {/* Monthly Snapshots Browser + اسم النسخة المعروضة */}
                             <button
                                 onClick={() => setShowSnapshots(true)}
-                                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 border ${
+                                className={`flex items-center justify-center gap-1.5 h-8 rounded-full transition-all duration-300 border ${
+                                    activeSnapshot ? 'w-auto px-3' : 'w-8'
+                                } ${
                                     theme === 'light'
                                     ? 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-100'
                                     : 'bg-white/10 text-white/90 border-white/20 hover:bg-white/20'
                                 }`}
-                                title="النسخ الشهرية - عرض بيانات نسخة سابقة"
+                                title={activeSnapshot ? `النسخة المعروضة حالياً: ${activeSnapshot.name} — انقر لتغيير النسخة` : 'النسخ الشهرية - عرض بيانات نسخة سابقة'}
                             >
-                                <History className="w-4 h-4" />
+                                <History className="w-4 h-4 shrink-0" />
+                                {activeSnapshot && (
+                                    <span className={`text-[11px] font-bold font-tajawal max-w-[90px] sm:max-w-[150px] truncate ${theme === 'light' ? 'text-brand-green' : 'text-brand-yellow'}`}>
+                                        {activeSnapshot.name}
+                                    </span>
+                                )}
                             </button>
 
                             {/* Theme Toggle */}

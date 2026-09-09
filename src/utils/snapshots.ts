@@ -18,6 +18,7 @@ export interface MonthlySnapshot {
     profile_count: number;
     is_active: boolean;
     created_at: string;
+    governorate?: string;
 }
 
 // الأشهر العراقية مع صيغة الترتيب المعتمدة من المستخدم
@@ -53,51 +54,65 @@ export function parseSnapshotName(name: string): { month: number; year: number }
     return null;
 }
 
-/** جلب كل النسخ (الأحدث أولاً) */
-export async function listMonthlySnapshots(): Promise<MonthlySnapshot[]> {
-    const { data, error } = await supabase
+/** جلب كل النسخ (الأحدث أولاً) — لمحافظة محددة أو الكل */
+export async function listMonthlySnapshots(governorate?: string): Promise<MonthlySnapshot[]> {
+    let query = supabase
         .from('monthly_snapshots')
         .select('*')
         .order('created_at', { ascending: false });
+    if (governorate) query = query.eq('governorate', governorate);
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []) as MonthlySnapshot[];
 }
 
-/** جلب النسخة المعروضة حالياً */
-export async function fetchActiveSnapshot(): Promise<MonthlySnapshot | null> {
+/** جلب النسخة المعروضة حالياً لمحافظة محددة */
+export async function fetchActiveSnapshot(governorate: string = 'karbala'): Promise<MonthlySnapshot | null> {
     const { data, error } = await supabase
         .from('monthly_snapshots')
         .select('*')
         .eq('is_active', true)
+        .eq('governorate', governorate)
         .maybeSingle();
     if (error) throw error;
     return (data as MonthlySnapshot) || null;
 }
 
 /** مزامنة النسخة المعروضة مع الحالة الحالية (يُستدعى قبل أي حقن بيانات جديد) */
-export async function syncActiveSnapshot(): Promise<void> {
-    const { error } = await supabase.rpc('sync_active_monthly_snapshot');
+export async function syncActiveSnapshot(governorate: string = 'karbala'): Promise<void> {
+    const { error } = await supabase.rpc('sync_active_monthly_snapshot', { p_governorate: governorate });
     if (error) throw error;
 }
 
 /**
- * إنشاء نسخة جديدة مسماة من الحالة الحالية بعد الحقن.
+ * اعتماد نسخة بالاسم المحدد من الحالة الحالية.
+ * إن كان الاسم موجوداً مسبقاً → استبدال (Replacement): يُحذف محتوى النسخة القديم
+ * ويُحفظ المحتوى الحالي مكانها وتصبح النسخة المعروضة. وإلا → إنشاء نسخة جديدة معروضة.
  * ملاحظة: p_sync_current = false لأن العميل زامن النسخة المعروضة *قبل* الحقن،
  * والمزامنة هنا بعد الحقن ستلتقط البيانات الجديدة في النسخة القديمة (تدمير).
  */
 export async function commitMonthlySnapshot(
     name: string,
     source: string = 'excel',
-    creatorName?: string | null
+    creatorName?: string | null,
+    governorate: string = 'karbala'
 ): Promise<string> {
     const { data, error } = await supabase.rpc('commit_monthly_snapshot', {
         p_name: name,
         p_source: source,
         p_creator_name: creatorName ?? null,
+        p_governorate: governorate,
         p_sync_current: false
     });
     if (error) throw error;
     return data as string;
+}
+
+/** تفعيل بطاقة محافظة (يُستدعى تلقائياً بعد أول رفع ناجح لها) */
+export async function enableGovernorateCard(governorate: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('enable_governorate_card', { p_governorate: governorate });
+    if (error) throw error;
+    return Boolean(data);
 }
 
 /** تفعيل نسخة تاريخية (تستبدل المعروضة في كل التطبيق) */

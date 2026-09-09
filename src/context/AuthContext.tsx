@@ -11,6 +11,7 @@ export interface AppUser {
   job_number?: string;
   role: string;
   admin_role?: string; // developer, media, etc.
+  governorate?: string;
   avatar_url?: string | null;
   department_id?: string | null;
   can_view_requests?: boolean;
