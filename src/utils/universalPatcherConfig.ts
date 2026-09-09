@@ -28,6 +28,13 @@ const SYSTEM_COLUMNS = [
     'last_modified_by', 'last_modified_by_name', 'last_modified_at'
 ];
 
+// ─── أعمدة الحساب: مطلوبة في ملفات المحافظات لإنشاء المستخدمين عند افتتاح محافظة جديدة ─────────
+// تُربط من Excel في أي جدول، لكنها لا تُحقن في الجدول نفسه (تُستهلك عند إنشاء الحسابات)
+const ACCOUNT_FIELDS: FieldDef[] = [
+    { value: 'username', label: 'اسم المستخدم (لإنشاء الحساب)', type: 'text' },
+    { value: 'password', label: 'كلمة المرور (لإنشاء الحساب)', type: 'text' },
+];
+
 // ─── تعريف الجداول ─────────────────────────────────────
 
 export const TABLE_DEFINITIONS: TableDef[] = [
@@ -89,6 +96,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'full_name', label: 'الاسم في السجل المالي', type: 'text' },
             { value: 'remaining_leaves_balance', label: 'رصيد الإجازات', type: 'integer' },
             { value: 'leaves_balance_expiry_date', label: 'تاريخ انتهاء رصيد الإجازات', type: 'text' },
+            ...ACCOUNT_FIELDS,
         ],
     },
     {
@@ -104,6 +112,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'leaves_taken', label: 'الإجازات المستخدمة', type: 'integer' },
             { value: 'sick_leaves', label: 'الإجازات المرضية', type: 'integer' },
             { value: 'unpaid_leaves', label: 'الإجازات بدون راتب', type: 'integer' },
+            ...ACCOUNT_FIELDS,
         ],
     },
     {
@@ -117,6 +126,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'book_date', label: 'تاريخ الكتاب', type: 'date' },
             { value: 'reason', label: 'السبب', type: 'text' },
             { value: 'issuer', label: 'الجهة المانحة', type: 'text' },
+            ...ACCOUNT_FIELDS,
         ],
     },
     {
@@ -129,6 +139,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'committee_name', label: 'اسم اللجنة', type: 'text' },
             { value: 'role', label: 'الدور', type: 'text' },
             { value: 'start_date', label: 'تاريخ البدء', type: 'date' },
+            ...ACCOUNT_FIELDS,
         ],
     },
     {
@@ -142,6 +153,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'reason', label: 'السبب', type: 'text' },
             { value: 'penalty_date', label: 'تاريخ العقوبة', type: 'date' },
             { value: 'effect', label: 'الأثر', type: 'text' },
+            ...ACCOUNT_FIELDS,
         ],
     },
     {
@@ -155,6 +167,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'start_date', label: 'تاريخ البدء', type: 'date' },
             { value: 'end_date', label: 'تاريخ الانتهاء', type: 'date' },
             { value: 'duration', label: 'المدة (أيام)', type: 'integer' },
+            ...ACCOUNT_FIELDS,
         ],
     },
 ];
@@ -196,6 +209,13 @@ export function cleanFieldValue(val: any, tableName: string, fieldValue: string)
     }
     if (val === null || val === undefined || val === '') return null;
     return String(val).trim();
+}
+
+/** إزالة أعمدة الحساب من حمولة الحقن — كلمة المرور لا تُحقن أبداً، واسم المستخدم يُحقن في profiles فقط */
+export function stripAccountFields(payload: Record<string, any>, tableName: string): Record<string, any> {
+    const { password: _pw, ...rest } = payload;
+    if (tableName !== 'profiles') delete rest.username;
+    return rest;
 }
 
 export { SYSTEM_COLUMNS };

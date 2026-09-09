@@ -1,7 +1,7 @@
 /**
  * خطوة معاينة النتائج والتنفيذ
  */
-import { Save, AlertTriangle, UserPlus, Loader2 } from 'lucide-react';
+import { Save, UserPlus } from 'lucide-react';
 import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
@@ -14,8 +14,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
         executeUpdate, setStep,
         targetYear, setTargetYear, analyzeData,
         snapshotName, setSnapshotName,
-        gov, noProfilesGov, creatingAccounts,
-        rowsNeedingAccounts, handleCreateAccounts
+        gov, govOpening
     } = patcher;
 
     if (!tableDef) return null;
@@ -33,27 +32,13 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
     return (
         <div className="animate-in slide-in-from-right-8 duration-500 flex flex-col h-full">
 
-            {/* 🧠 شريط المحافظة بلا مستخدمين / صفوف بلا حسابات */}
-            {(noProfilesGov || rowsNeedingAccounts.length > 0) && (
-                <div className="mx-4 mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border-2 border-orange-300 dark:border-orange-800 flex gap-2.5 shrink-0">
-                    <AlertTriangle className="w-5 h-5 shrink-0 text-orange-600 dark:text-orange-400 mt-0.5" />
-                    <div className="text-xs space-y-1 text-orange-700 dark:text-orange-400 flex-1">
-                        <p className="font-bold">
-                            {noProfilesGov
-                                ? `لم نجد أي مستخدمين لـ ${noProfilesGov}`
-                                : `${rowsNeedingAccounts.length} موظفاً بلا حساب في ${governorateName(gov)}`}
-                        </p>
-                        <p>سيتم تجاهل صفوفهم بأمان عند التنفيذ. أنشئ حساباتهم من الملف ليُربط كل صف بحسابه.</p>
-                        {rowsNeedingAccounts.length > 0 && (
-                            <button
-                                onClick={handleCreateAccounts}
-                                disabled={creatingAccounts}
-                                className="mt-1 inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-50"
-                            >
-                                {creatingAccounts ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                                إنشاء الحسابات تلقائياً من الملف ({rowsNeedingAccounts.length}) — كلمة المرور 123456
-                            </button>
-                        )}
+            {/* 🆕 وضع افتتاح محافظة جديدة */}
+            {govOpening && (
+                <div className="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border-2 border-blue-300 dark:border-blue-800 flex gap-2.5 shrink-0">
+                    <UserPlus className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="text-xs space-y-1 text-blue-700 dark:text-blue-400 flex-1">
+                        <p className="font-bold">🆕 افتتاح محافظة جديدة — {governorateName(gov)}</p>
+                        <p>عند التنفيذ ستُنشأ حسابات الموظفين تلقائياً من عمودي «اسم المستخدم» و«كلمة المرور» في الملف، ثم تُحقن السجلات وتُربط حسب عمود المطابقة المختار.</p>
                     </div>
                 </div>
             )}

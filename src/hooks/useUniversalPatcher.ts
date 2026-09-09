@@ -14,6 +14,7 @@ import {
     TABLE_DEFINITIONS,
     normalizeArabicText,
     cleanFieldValue,
+    stripAccountFields,
 } from '../utils/universalPatcherConfig';
 
 // ─── Types ──────────────────────────────────────
@@ -85,8 +86,8 @@ export function useUniversalPatcher() {
         setGovState(g);
         sessionStorage.setItem('selectedGovernorate', g);
     }, []);
-    const [noProfilesGov, setNoProfilesGov] = useState<string | null>(null);
-    const [creatingAccounts, setCreatingAccounts] = useState(false);
+    // 🆕 وضع افتتاح محافظة جديدة: لا مستخدمين → إنشاء الحسابات من عمودي الملف ثم الحقن
+    const [govOpening, setGovOpening] = useState(false);
 
     // ─── File Upload Handler ────────────────────
 
@@ -199,12 +200,12 @@ export function useUniversalPatcher() {
 
             const profiles = profilesRaw || [];
 
-            // 🧠 ذكاء التجاوز: محافظة بلا مستخدمين لا تُوقف المعالجة
-            if (profiles.length === 0) {
-                setNoProfilesGov(governorateName(gov));
-                toast(`لم نجد أي مستخدمين لـ ${governorateName(gov)} — أنشئ الحسابات من الشريط البرتقالي`, { icon: '⚠️', duration: 5000 });
-            } else {
-                setNoProfilesGov(null);
+            // 🧠 ذكاء الافتتاح: لا مستخدمين = افتتاح محافظة جديدة — لا مطابقة،
+            // ستُنشأ الحسابات عند التنفيذ من عمودي «اسم المستخدم» و«كلمة المرور» في الملف
+            const opening = profiles.length === 0;
+            setGovOpening(opening);
+            if (opening) {
+                toast(`🆕 افتتاح محافظة جديدة (${governorateName(gov)}) — ستُنشأ الحسابات من الملف عند التنفيذ`, { icon: 'ℹ️', duration: 5000 });
             }
 
             // 2. بناء خرائط المطابقة
@@ -256,9 +257,11 @@ export function useUniversalPatcher() {
                 const matchValue = String(row[matchColIdx] || '').trim();
                 if (!matchValue) continue;
 
-                // المطابقة
+                // المطابقة (في وضع الافتتاح لا توجد حسابات لمطابقتها)
                 let matched: { profileId: string; full_name: string; job_number: string } | undefined;
-                if (matchBy === 'full_name') {
+                if (opening) {
+                    matched = undefined;
+                } else if (matchBy === 'full_name') {
                     matched = nameMap.get(normalizeArabicText(matchValue));
                 } else {
                     matched = jobMap.get(matchValue);
@@ -277,8 +280,9 @@ export function useUniversalPatcher() {
                 const displayName = String(newValues.full_name ?? (matchBy === 'full_name' ? matchValue : '')).trim();
 
                 if (!matched) {
+                    // 🆕 في وضع الافتتاح: كل صف سجل جديد سيُربط بالحساب المنشأ عند التنفيذ
                     results.push({
-                        status: 'missing',
+                        status: opening ? 'new_record' : 'missing',
                         excelName: matchValue,
                         jobNumber: jobNumber || undefined,
                         displayName: displayName || undefined,
@@ -402,7 +406,81 @@ export function useUniversalPatcher() {
                 await syncActiveSnapshot();
             }
 
-            const tasks = matches.filter(m => m.status === 'match' || m.status === 'new_record');
+            let effectiveMatches = matches;
+
+            // 🆕 افتتاح محافظة جديدة: إنشاء الحسابات من عمودي «اسم المستخدم» و«كلمة المرور» ثم الربط والحقن
+            if (govOpening) {
+                const seenUsernames = new Set<string>();
+                const usersToCreate: { job_number?: string; full_name: string; username: string; password: string }[] = [];
+                for (const m of matches) {
+                    const username = String(m.newValues.username || '').trim();
+                    if (!username || seenUsernames.has(username)) continue;
+                    seenUsernames.add(username);
+                    usersToCreate.push({
+                        username,
+                        password: String(m.newValues.password || '').trim() || '123456',
+                        job_number: String(m.newValues.job_number ?? m.jobNumber ?? '').trim() || undefined,
+                        full_name: m.displayName || m.excelName,
+                    });
+                }
+                if (usersToCreate.length === 0) {
+                    toast.error('اربط عمودي «اسم المستخدم» و«كلمة المرور» من الملف في خطوة الربط أولاً');
+                    setStep('preview');
+                    return;
+                }
+
+                let createdAcc = 0, skippedAcc = 0;
+                const failedAcc: any[] = [];
+                const CHUNK = 100; // مهلة الدالة الجانبية دقيقة واحدة
+                for (let i = 0; i < usersToCreate.length; i += CHUNK) {
+                    const chunk = usersToCreate.slice(i, i + CHUNK);
+                    const { data, error } = await supabase.functions.invoke('bulk-create-users', {
+                        body: { users: chunk, governorate: gov },
+                    });
+                    if (error) throw new Error(error.message);
+                    if (data?.error) throw new Error(data.error);
+                    createdAcc += data.created || 0;
+                    skippedAcc += data.skipped || 0;
+                    if (Array.isArray(data.failed)) failedAcc.push(...data.failed);
+                }
+                toast.success(`🆕 تم إنشاء ${createdAcc} حساباً${skippedAcc ? ` (تجاوز ${skippedAcc} موجودين)` : ''}${failedAcc.length ? ` وفشل ${failedAcc.length}` : ''}`, { duration: 6000 });
+
+                // إعادة جلب ملفات المحافظة وربط الصفوف حسب عمود المطابقة الذي اختاره المطور
+                const { data: freshProfiles, error: freshErr } = await supabase
+                    .from('profiles')
+                    .select('id, username, full_name, job_number')
+                    .eq('governorate', gov);
+                if (freshErr) throw freshErr;
+
+                const fNameMap = new Map<string, string>();
+                const fJobMap = new Map<string, string>();
+                for (const p of freshProfiles || []) {
+                    if (p.full_name) fNameMap.set(normalizeArabicText(p.full_name), p.id);
+                    if (p.job_number) fJobMap.set(String(p.job_number).trim(), p.id);
+                }
+
+                effectiveMatches = [];
+                let unresolved = 0;
+                for (const m of matches) {
+                    const key = matchBy === 'job_number'
+                        ? String(m.newValues.job_number ?? m.jobNumber ?? '').trim()
+                        : normalizeArabicText(m.displayName || m.excelName);
+                    const pid = matchBy === 'job_number' ? fJobMap.get(key) : fNameMap.get(key);
+                    if (!pid) { unresolved++; continue; }
+                    effectiveMatches.push({
+                        ...m,
+                        profileId: pid,
+                        ...(tableDef.tableName === 'profiles' ? { recordId: pid } : {}),
+                    });
+                }
+                if (effectiveMatches.length === 0) {
+                    toast.error(`لم يُربط أي صف بالحسابات الجديدة${unresolved ? ` (${unresolved} صفاً بلا مطابقة)` : ''}`, { duration: 8000 });
+                    setStep('done');
+                    return;
+                }
+            }
+
+            const tasks = effectiveMatches.filter(m => m.status === 'match' || m.status === 'new_record');
             const CHUNK_SIZE = 50;
 
             for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
@@ -410,7 +488,7 @@ export function useUniversalPatcher() {
 
                 const promises = chunk.map(async (item) => {
                     try {
-                        const payload: any = { ...item.newValues };
+                        const payload: any = stripAccountFields({ ...item.newValues }, tableDef.tableName);
 
                         if (tableDef.tableName === 'profiles') {
                             // تحديث profiles مباشرة
@@ -476,7 +554,7 @@ export function useUniversalPatcher() {
             toast.error('حدث خطأ غير متوقع');
             setStep('preview');
         }
-    }, [tableDef, matches, targetYear, snapshotName]);
+    }, [tableDef, matches, targetYear, snapshotName, govOpening, matchBy, gov]);
 
     // ─── Stats ──────────────────────────────────
 
@@ -486,45 +564,6 @@ export function useUniversalPatcher() {
         newRecords: matches.filter(m => m.status === 'new_record').length,
         missing: matches.filter(m => m.status === 'missing').length,
     }), [matches]);
-
-    // 👥 الصفوف بلا حسابات في المحافظة — مرشحة للإنشاء التلقائي
-    const rowsNeedingAccounts = useMemo(() => {
-        const seen = new Set<string>();
-        const list: { job_number: string; full_name: string }[] = [];
-        matches.forEach(m => {
-            if (m.status !== 'missing' || !m.jobNumber || seen.has(m.jobNumber)) return;
-            seen.add(m.jobNumber);
-            list.push({ job_number: m.jobNumber, full_name: m.displayName || m.excelName });
-        });
-        return list;
-    }, [matches]);
-
-    const handleCreateAccounts = useCallback(async () => {
-        if (rowsNeedingAccounts.length === 0) return;
-        setCreatingAccounts(true);
-        try {
-            let created = 0, skipped = 0;
-            const failed: any[] = [];
-            const CHUNK = 100; // مهلة الدالة الجانبية دقيقة واحدة
-            for (let i = 0; i < rowsNeedingAccounts.length; i += CHUNK) {
-                const chunk = rowsNeedingAccounts.slice(i, i + CHUNK);
-                const { data, error } = await supabase.functions.invoke('bulk-create-users', {
-                    body: { users: chunk, governorate: gov, password: '123456' },
-                });
-                if (error) throw new Error(error.message);
-                if (data?.error) throw new Error(data.error);
-                created += data.created || 0;
-                skipped += data.skipped || 0;
-                if (Array.isArray(data.failed)) failed.push(...data.failed);
-            }
-            toast.success(`تم إنشاء ${created} حساباً بكلمة مرور 123456${skipped ? ` (تجاوز ${skipped} موجودين)` : ''}${failed.length ? ` وفشل ${failed.length}` : ''}`, { duration: 6000 });
-            await analyzeData(); // إعادة التحليل لربط الصفوف بالحسابات الجديدة
-        } catch (e: any) {
-            toast.error('فشل إنشاء الحسابات: ' + (e.message || ''), { duration: 8000 });
-        } finally {
-            setCreatingAccounts(false);
-        }
-    }, [rowsNeedingAccounts, gov, analyzeData]);
 
     const filteredMatches = useMemo(() => {
         if (previewFilter === 'all') return matches;
@@ -564,14 +603,13 @@ export function useUniversalPatcher() {
         previewFilter, setPreviewFilter,
         stats,
         gov, setGov,
-        noProfilesGov, creatingAccounts, rowsNeedingAccounts,
+        govOpening,
 
         // Actions
         handleFileSelect,
         goToConfig,
         analyzeData,
         executeUpdate,
-        handleCreateAccounts,
         reset,
     };
 }
