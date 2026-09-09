@@ -9,6 +9,7 @@ import { X, Search, History, Check, Trash2, Loader2, Database, AlertTriangle, Fi
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useSnapshots } from '../../context/SnapshotContext';
+import { governorateName, GOVERNORATES } from '../../constants/governorates';
 import {
     listMonthlySnapshots,
     deleteMonthlySnapshot,
@@ -23,7 +24,7 @@ interface SnapshotBrowserProps {
 
 export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const { user } = useAuth();
-    const { activeSnapshot, activate } = useSnapshots();
+    const { activeSnapshot, activate, refresh } = useSnapshots();
     const [snapshots, setSnapshots] = useState<MonthlySnapshot[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -33,11 +34,13 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const [busy, setBusy] = useState(false);
 
     const developer = isDeveloper(user as any);
+    const currentGov = user?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
+    const [selectedGov, setSelectedGov] = useState<string>(currentGov);
 
-    const loadSnapshots = useCallback(async () => {
+    const loadSnapshots = useCallback(async (gov: string) => {
         setLoading(true);
         try {
-            const list = await listMonthlySnapshots();
+            const list = await listMonthlySnapshots(gov);
             setSnapshots(list);
         } catch (err: any) {
             toast.error('تعذر جلب النسخ: ' + (err.message || 'خطأ غير معروف'));
@@ -48,11 +51,20 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
 
     useEffect(() => {
         if (isOpen) {
-            loadSnapshots();
+            const gov = user?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            setSelectedGov(gov);
+            loadSnapshots(gov);
+            refresh(gov);
             setConfirmingId(null);
             setDeletingId(null);
         }
-    }, [isOpen, loadSnapshots]);
+    }, [isOpen, user?.governorate, loadSnapshots, refresh]);
+
+    const handleGovChange = (newGov: string) => {
+        setSelectedGov(newGov);
+        loadSnapshots(newGov);
+        refresh(newGov);
+    };
 
     const filtered = useMemo(() => {
         const q = search.trim();
@@ -76,9 +88,9 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
         try {
             const res = await activate(snap.id);
             toast.success(`تم عرض نسخة «${res.name}» — جاري تحديث البيانات...`, { id: toastId, duration: 2000 });
-            // تحديث قوي: إعادة تحميل الصفحة كاملة لضمان ظهور بيانات النسخة الجديدة في كل التطبيق فوراً
-            setTimeout(() => { window.location.reload(); }, 1500);
-            return; // الصفحة ستُعاد تحميلها
+            onClose();
+            window.location.reload();
+            return;
         } catch (err: any) {
             toast.error('فشل التفعيل: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
         } finally {
@@ -123,9 +135,14 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                             <History className="w-6 h-6 text-brand-green drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold font-tajawal text-white">النسخ الشهرية</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold font-tajawal text-white">النسخ الشهرية</h2>
+                                <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green border border-brand-green/30 font-bold font-tajawal">
+                                    {governorateName(selectedGov)}
+                                </span>
+                            </div>
                             <p className="text-xs text-white/50 font-tajawal">
-                                اختر نسخة لعرض بياناتها في كل التطبيق
+                                اختر نسخة لعرض بياناتها في كل التطبيق لـ {governorateName(selectedGov)}
                             </p>
                         </div>
                     </div>
@@ -138,14 +155,34 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                     </button>
                 </div>
 
-                {/* شريط النسخة المعروضة + البحث */}
+                {/* شريط النسخة المعروضة + المحافظة للمطور + البحث */}
                 <div className="p-4 border-b border-white/5 space-y-3 relative z-10">
-                    {activeSnapshot && (
+                    {developer && (
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-tajawal">
+                            <span className="text-white/40 shrink-0 text-[11px]">المحافظة:</span>
+                            {GOVERNORATES.filter(g => ['karbala', 'babil', 'najaf', 'baghdad_karkh', 'basra'].includes(g.id) || g.id === selectedGov).map(g => (
+                                <button
+                                    key={g.id}
+                                    type="button"
+                                    onClick={() => handleGovChange(g.id)}
+                                    className={`px-2.5 py-1 rounded-lg transition-colors shrink-0 text-xs font-medium ${
+                                        selectedGov === g.id
+                                            ? 'bg-brand-green text-black font-bold shadow'
+                                            : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                >
+                                    {g.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {activeSnapshot && (activeSnapshot.governorate === selectedGov || (!activeSnapshot.governorate && selectedGov === 'karbala')) && (
                         <div className="flex items-center gap-2 text-sm font-tajawal bg-brand-green/10 border border-brand-green/30 text-brand-green rounded-xl px-3 py-2">
                             <Database className="w-4 h-4 shrink-0" />
                             <span>
-                                النسخة المعروضة حالياً: <span className="font-bold">{activeSnapshot.name}</span>
-                                <span className="text-white/40 mr-2">({activeSnapshot.financial_count} سجلاً مالياً)</span>
+                                النسخة المعروضة حالياً ({governorateName(selectedGov)}): <span className="font-bold">{activeSnapshot.name}</span>
+                                <span className="text-white/40 mr-2">({activeSnapshot.financial_count} سجلاً مالياً • {activeSnapshot.profile_count} موظفاً)</span>
                             </span>
                         </div>
                     )}
@@ -155,7 +192,7 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder="ابحث بالاسم أو منشئ النسخة..."
+                            placeholder={`ابحث في نسخ ${governorateName(selectedGov)} بالاسم أو المنشئ...`}
                             className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pr-10 pl-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-green/50 font-tajawal"
                         />
                     </div>
@@ -168,7 +205,16 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                             <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <p className="text-center text-white/40 py-10 text-sm font-tajawal">لا توجد نسخ مطابقة</p>
+                        <div className="text-center text-white/40 py-10 space-y-2 font-tajawal">
+                            <p className="text-sm font-bold text-white/60">
+                                {search.trim() ? 'لا توجد نسخ مطابقة للبحث' : `لا توجد نسخ شهرية محفوظة لـ ${governorateName(selectedGov)}`}
+                            </p>
+                            {!search.trim() && (
+                                <p className="text-xs text-white/30">
+                                    يتم اعتماد نسخة شهرية تلقائياً عند رفع ملف رواتب المحافظة عبر المحدث العام
+                                </p>
+                            )}
+                        </div>
                     ) : (
                         filtered.map(snap => {
                             const isActive = snap.is_active;

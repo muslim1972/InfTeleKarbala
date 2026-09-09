@@ -283,8 +283,8 @@ export function useUniversalPatcher() {
                     newValues[dbField] = cleanFieldValue(rawVal, tableDef.tableName, dbField);
                 }
 
-                // ضمان تثبيت المحافظة المستهدفة في جدول profiles
-                if (tableDef.tableName === 'profiles' && !newValues.governorate) {
+                // ضمان تثبيت المحافظة المستهدفة في الجداول التي تدعمها
+                if ((tableDef.tableName === 'profiles' || tableDef.tableName === 'financial_records') && !newValues.governorate) {
                     newValues.governorate = gov;
                 }
 
@@ -415,7 +415,7 @@ export function useUniversalPatcher() {
 
             // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
             if (isSnapshotManaged) {
-                await syncActiveSnapshot();
+                await syncActiveSnapshot(gov);
             }
 
             let effectiveMatches = matches;
@@ -505,6 +505,7 @@ export function useUniversalPatcher() {
                         if (tableDef.tableName === 'profiles') {
                             // تحديث profiles مباشرة
                             if (item.recordId) {
+                                payload.governorate = gov;
                                 if (item.newValues.password) {
                                     const pwd = String(item.newValues.password).trim();
                                     if (pwd) {
@@ -531,6 +532,9 @@ export function useUniversalPatcher() {
                             }
                         } else if (item.status === 'match' && item.recordId) {
                             // تحديث سجل موجود
+                            if (tableDef.tableName === 'financial_records') {
+                                payload.governorate = gov;
+                            }
                             const { error } = await supabase
                                 .from(tableDef.tableName)
                                 .update({ ...payload, updated_at: new Date().toISOString() })
@@ -542,6 +546,9 @@ export function useUniversalPatcher() {
                                 ...payload,
                                 user_id: item.profileId,
                             };
+                            if (tableDef.tableName === 'financial_records') {
+                                insertPayload.governorate = gov;
+                            }
                             // إضافة السنة للجداول السنوية/التفصيلية
                             if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
                                 insertPayload.year = targetYear;
@@ -595,7 +602,7 @@ export function useUniversalPatcher() {
                 // 📅 التزام النسخة الجديدة المسماة للجداول المُدارة
                 if (isSnapshotManaged) {
                     try {
-                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null);
+                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null, gov);
                         toast.success(`تم إنشاء نسخة «${trimmedSnapshotName}» واعتمادها`, { duration: 6000 });
                     } catch (commitErr: any) {
                         console.error(commitErr);

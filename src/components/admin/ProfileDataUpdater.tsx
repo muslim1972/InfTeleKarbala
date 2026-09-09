@@ -216,8 +216,9 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
         let failCount = 0;
 
         try {
+            const gov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
             // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
-            await syncActiveSnapshot();
+            await syncActiveSnapshot(gov);
 
             for (let i = 0; i < previewData.length; i++) {
                 const row = previewData[i];
@@ -247,7 +248,7 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
             if (successCount > 0) {
                 // 📅 التزام النسخة الجديدة المسماة (يلتقط الحالة الجديدة كاملة)
                 try {
-                    await commitMonthlySnapshot(trimmedName, 'excel', null);
+                    await commitMonthlySnapshot(trimmedName, 'excel', null, gov);
                     toast.success(`تم إنشاء نسخة «${trimmedName}» واعتمادها`);
                 } catch (commitErr: any) {
                     console.error(commitErr);

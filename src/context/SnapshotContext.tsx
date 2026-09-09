@@ -13,7 +13,7 @@ import {
 interface SnapshotContextValue {
     activeSnapshot: MonthlySnapshot | null;
     loading: boolean;
-    refresh: () => Promise<void>;
+    refresh: (targetGov?: string) => Promise<void>;
     activate: (id: string) => Promise<{ restored: number; name: string }>;
 }
 
@@ -24,11 +24,12 @@ export const SnapshotProvider = ({ children }: { children: React.ReactNode }) =>
     const [activeSnapshot, setActiveSnapshot] = useState<MonthlySnapshot | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const refresh = useCallback(async () => {
+    const refresh = useCallback(async (targetGov?: string) => {
         setLoading(true);
         try {
             // النسخة المعروضة تخص محافظة المستخدم (من بياناته أو من اختياره بالواجهة)
-            const gov = user?.governorate
+            const gov = targetGov
+                || user?.governorate
                 || sessionStorage.getItem('selectedGovernorate')
                 || 'karbala';
             const snap = await fetchActiveSnapshot(gov);
@@ -41,12 +42,12 @@ export const SnapshotProvider = ({ children }: { children: React.ReactNode }) =>
     }, [user?.governorate]);
 
     useEffect(() => {
-        if (user) {
+        if (user || sessionStorage.getItem('selectedGovernorate')) {
             refresh();
         } else {
             setActiveSnapshot(null);
         }
-    }, [user?.id, refresh]);
+    }, [user?.id, user?.governorate, refresh]);
 
     const activate = useCallback(async (id: string) => {
         const result = await activateMonthlySnapshot(id);
