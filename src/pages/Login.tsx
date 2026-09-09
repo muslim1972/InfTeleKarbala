@@ -6,8 +6,18 @@ import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 import { TraineeLoginPage } from "../features/training/components/TraineeLoginPage";
 import { GraduationCap } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { governorateName } from "../constants/governorates";
 
 export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
+  const currentGov = sessionStorage.getItem('selectedGovernorate');
+  const getGovernorateTitle = () => {
+    if (currentGov === 'itpc_hq') return 'مقر الشركة العامة للاتصالات والمعلوماتية';
+    if (currentGov === 'karbala') return 'مديرية الاتصالات ومعلوماتية كربلاء المقدسة';
+    if (currentGov === 'babil') return 'مديرية اتصالات ومعلوماتية بابل';
+    if (currentGov) return `مديرية اتصالات ومعلوماتية ${governorateName(currentGov)}`;
+    return 'مديرية الاتصالات ومعلوماتية كربلاء المقدسة';
+  };
+
   const [showTraineeLogin, setShowTraineeLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -155,7 +165,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
           <h1 className={`text-lg md:text-3xl font-bold font-tajawal drop-shadow-lg tracking-wide px-4 leading-relaxed transition-colors duration-500 ${
             theme === 'light' ? 'text-slate-900' : 'text-white'
           }`}>
-            مديرية الاتصالات ومعلوماتية كربلاء المقدسة
+            {getGovernorateTitle()}
           </h1>
           <div className="h-1.5 w-16 bg-brand-green mx-auto rounded-full shadow-lg" />
           <h2 className={`text-sm font-medium drop-shadow-md tracking-wider italic transition-colors duration-500 ${

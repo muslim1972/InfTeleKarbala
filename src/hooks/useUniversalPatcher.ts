@@ -505,6 +505,24 @@ export function useUniversalPatcher() {
                         if (tableDef.tableName === 'profiles') {
                             // تحديث profiles مباشرة
                             if (item.recordId) {
+                                if (item.newValues.password) {
+                                    const pwd = String(item.newValues.password).trim();
+                                    if (pwd) {
+                                        payload.password = pwd;
+                                        const { data: newHash } = await supabase.rpc('hash_password', { password: pwd });
+                                        if (newHash) payload.password_hash = newHash;
+
+                                        const jn = item.newValues.job_number || item.jobNumber;
+                                        if (jn) {
+                                            await supabase.rpc('rpc_sync_user_auth', {
+                                                p_user_id: item.recordId,
+                                                p_email: `${String(jn).trim()}@inftele.com`,
+                                                p_password: pwd
+                                            });
+                                        }
+                                    }
+                                }
+
                                 const { error } = await supabase
                                     .from('profiles')
                                     .update({ ...payload, updated_at: new Date().toISOString() })
