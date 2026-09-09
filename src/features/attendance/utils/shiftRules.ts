@@ -3,21 +3,23 @@
  * قواعد وضوابط أنواع الدوام (صباحي / مناوب)، والتحقق من التوقيتات وفق توقيت بغداد (UTC+3)
  */
 
+import { getServerNow } from '../services/serverTimeService';
+
 export type ShiftType = 'morning' | 'shift';
 
 /**
- * إرجاع كائن الوقت الحالي بتوقيت بغداد (Asia/Baghdad / UTC+3)
+ * إرجاع كائن الوقت الحالي بتوقيت بغداد (Asia/Baghdad / UTC+3) استناداً لوقت السيرفر المعتمد
  */
-export function getBaghdadDate(d: Date = new Date()): Date {
+export function getBaghdadDate(d: Date = getServerNow()): Date {
   // Use Intl or timezone offset to get Baghdad time
   const baghdadStr = d.toLocaleString('en-US', { timeZone: 'Asia/Baghdad' });
   return new Date(baghdadStr);
 }
 
 /**
- * إرجاع تاريخ اليوم بصيغة YYYY-MM-DD بتوقيت بغداد
+ * إرجاع تاريخ اليوم بصيغة YYYY-MM-DD بتوقيت بغداد استناداً لوقت السيرفر المعتمد
  */
-export function getBaghdadDateStr(d: Date = new Date()): string {
+export function getBaghdadDateStr(d: Date = getServerNow()): string {
   const bDate = getBaghdadDate(d);
   const y = bDate.getFullYear();
   const m = String(bDate.getMonth() + 1).padStart(2, '0');
@@ -26,9 +28,9 @@ export function getBaghdadDateStr(d: Date = new Date()): string {
 }
 
 /**
- * إرجاع الوقت الحالي بالساعات والدقائق بتوقيت بغداد
+ * إرجاع الوقت الحالي بالساعات والدقائق بتوقيت بغداد استناداً لوقت السيرفر المعتمد
  */
-export function getBaghdadTimeMinutes(d: Date = new Date()): { hours: number; minutes: number; totalMinutes: number } {
+export function getBaghdadTimeMinutes(d: Date = getServerNow()): { hours: number; minutes: number; totalMinutes: number } {
   const bDate = getBaghdadDate(d);
   const hours = bDate.getHours();
   const minutes = bDate.getMinutes();
@@ -78,7 +80,7 @@ export function determineShiftType(
  */
 export function validateEarlyCheckIn(
   shiftType: ShiftType,
-  d: Date = new Date(),
+  d: Date = getServerNow(),
   isFollowUpOvernight: boolean = false
 ): { allowed: boolean; message?: string } {
   // تم إزالة القيد مؤقتاً لتسهيل الفحص والتطوير في أي وقت

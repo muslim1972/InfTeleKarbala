@@ -296,9 +296,15 @@ import {
   getBaghdadDateStr, 
   countRealPunches 
 } from '../utils/shiftRules';
+import { 
+  getServerNow, 
+  getServerLocalDateStr, 
+  checkClockTampering, 
+  syncServerTime 
+} from './serverTimeService';
 
-/** تاريخ اليوم المحلي بصيغة YYYY-MM-DD وفق توقيت بغداد */
-export function getLocalDateStr(d: Date = new Date()): string {
+/** تاريخ اليوم المحلي بصيغة YYYY-MM-DD وفق توقيت بغداد المعتمد على السيرفر */
+export function getLocalDateStr(d: Date = getServerNow()): string {
   return getBaghdadDateStr(d);
 }
 
@@ -356,21 +362,23 @@ export const attendanceRecordService = {
   },
 
   async timeLeaveOut(employeeId: string, _location?: string, _deviceId?: string, _verifiedByBiometric: boolean = false) {
+    await syncServerTime();
     const todayRecord = await this.getTodayByEmployeeId(employeeId);
     if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
 
-    const now = new Date().toISOString();
+    const now = getServerNow().toISOString();
     return await this.saveSecure(employeeId, todayRecord.id, {
       time_leave_out: now,
     });
   },
 
   async timeLeaveReturn(employeeId: string, _location?: string, _deviceId?: string, _verifiedByBiometric: boolean = false) {
+    await syncServerTime();
     const todayRecord = await this.getTodayByEmployeeId(employeeId);
     if (!todayRecord) throw new Error('لم يتم تسجيل الحضور اليوم');
     if (!todayRecord.time_leave_out) throw new Error('لم يتم تسجيل خروج زمني مسبقاً');
 
-    const now = new Date();
+    const now = getServerNow();
     const timeLeaveOutTime = new Date(todayRecord.time_leave_out);
     const actualMinutesSpent = Math.max(0, Math.floor((now.getTime() - timeLeaveOutTime.getTime()) / 60000));
 
@@ -507,7 +515,15 @@ export const attendanceRecordService = {
   async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) {
     const { categorizePunches } = await import('../utils/punchCategorizer');
 
-    // 1. Get today's record (تاريخ محلي وفق توقيت بغداد)
+    // مزامنة التوقيت الرسمي مع الخادم وفحص سلامة ساعة الجهاز ضد أي تلاعب يدوي
+    await syncServerTime();
+    const tamper = checkClockTampering();
+    if (tamper.isTampered) {
+      const tamperNote = `(تنبيه أمني: ساعة الجهاز غير متطابقة مع السيرفر بفارق ${tamper.diffSeconds} ثانية)`;
+      notes = notes ? `${notes} - ${tamperNote}` : tamperNote;
+    }
+
+    // 1. Get today's record (تاريخ محلي وفق توقيت بغداد المعتمد على السيرفر)
     const today = getLocalDateStr();
     let record = await this.getTodayByEmployeeId(employeeId);
 
@@ -536,8 +552,8 @@ export const attendanceRecordService = {
 
     const shiftType = determineShiftType(profile, workSchedule);
 
-    // 3. Load yesterday's record for night-shift logic (حدود يوم أمس المحلي بتوقيت بغداد)
-    const yesterdayDateStr = getBaghdadDateStr(new Date(Date.now() - 86400000));
+    // 3. Load yesterday's record for night-shift logic (حدود يوم أمس المحلي بتوقيت بغداد المعتمد على السيرفر)
+    const yesterdayDateStr = getBaghdadDateStr(new Date(getServerNow().getTime() - 86400000));
     const yesterdayRange = localDayRangeUTC(yesterdayDateStr);
     const { data: yesterdayData } = await supabase
       .from('attendance_records')
@@ -555,8 +571,8 @@ export const attendanceRecordService = {
     // فحص ما إذا كانت البصمة الحالية هي استكمال لخفر/مناوبة الأمس
     const isFollowUpOvernight = shiftType === 'shift' && Boolean(yesterdayWasOdd) && (!record || !record.raw_punches || record.raw_punches.length === 0);
 
-    // 4. قيد الحضور المبكر (قبل 6:30 ص)
-    const earlyCheck = validateEarlyCheckIn(shiftType, new Date(), isFollowUpOvernight);
+    // 4. قيد الحضور المبكر (قبل 6:30 ص) استناداً لوقت السيرفر
+    const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow(), isFollowUpOvernight);
     if (!earlyCheck.allowed && !record) {
       throw new Error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
     }
@@ -571,8 +587,9 @@ export const attendanceRecordService = {
       }).catch(console.warn);
     }
 
+    // 6. وقت البصمة يُستخرج حصرياً من توقيت السيرفر المحصن getServerNow() لمنع أي تلاعب
     const newPunch = {
-      time: new Date().toISOString(),
+      time: getServerNow().toISOString(),
       location,
       device_id: deviceId,
       snapshot_url: snapshotUrl,
@@ -675,7 +692,7 @@ export const attendanceRecordService = {
     const { data: schedule } = await scheduleQuery.limit(1).single();
     if (!schedule || !schedule.start_time || !schedule.end_time) return;
 
-    const today = new Date(record.created_at || new Date().toISOString());
+    const today = new Date(record.created_at || getServerNow().toISOString());
     const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
     if (schedule.weekend_days?.includes(dayName)) return;
 
@@ -867,7 +884,8 @@ export const attendanceRecordService = {
   },
 
   async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
-    const now = new Date().toISOString();
+    await syncServerTime();
+    const now = getServerNow().toISOString();
     
     // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
@@ -899,7 +917,7 @@ export const attendanceRecordService = {
     const { data: scheduleData } = await scheduleQuery.limit(1).single();
     
     if (scheduleData) {
-      const today = new Date();
+      const today = getServerNow();
       // Check if weekend (0 = Sunday, 1 = Monday... 5 = Friday, 6 = Saturday in JS, but depends on array in DB)
       // scheduleData.weekend_days usually contains ['Friday', 'Saturday']
       const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
@@ -926,12 +944,13 @@ export const attendanceRecordService = {
       .insert({
         employee_id: employeeId,
         department_id: profile?.department_id,
-        work_schedule_id: scheduleData?.id,
+        work_schedule_id: profile?.work_schedule_id,
         check_in: now,
         check_in_location: location,
         check_in_device_id: deviceId,
+        check_in_verified_by_biometric: verifiedByBiometric,
         check_in_snapshot_url: snapshotUrl,
-        notes: isDevicePending ? (notes ? notes + ' - (تم التسجيل من جهاز غير معتمد)' : '(تم التسجيل من جهاز غير معتمد)') : notes,
+        notes: isDevicePending ? (notes ? `${notes} - (تم التسجيل من جهاز غير معتمد)` : '(تم التسجيل من جهاز غير معتمد)') : notes,
         status: initialStatus,
         is_device_pending: isDevicePending
       })
@@ -942,7 +961,7 @@ export const attendanceRecordService = {
     
     const savedRecord = data as AttendanceRecord;
     try {
-      const todayStr = now.split('T')[0];
+      const todayStr = getServerLocalDateStr();
       await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
     } catch (e) {
       console.error('Error applying mandatory penalties in checkIn:', e);
@@ -952,6 +971,7 @@ export const attendanceRecordService = {
   },
 
   async checkOut(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, additionalNotes?: string) {
+    await syncServerTime();
     const todayRecord = await this.getTodayByEmployeeId(employeeId);
     if (!todayRecord) {
       throw new Error('لم يتم تسجيل الحضور اليوم');
@@ -973,7 +993,7 @@ export const attendanceRecordService = {
       isDevicePending = false;
     }
 
-    const now = new Date().toISOString();
+    const now = getServerNow().toISOString();
     
     // We only update is_device_pending to true if it is true now, we don't clear it if it was true in check-in
     const updatedStatus = isDevicePending || todayRecord.is_device_pending;

@@ -30,6 +30,8 @@ import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancem
 import { formatArabicErrorMessage } from '../../../utils/errorMessageFormatter';
 import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
 import { determineShiftType, validateEarlyCheckIn } from '../utils/shiftRules';
+import { getServerNow } from '../services/serverTimeService';
+import { useServerTime } from '../hooks/useServerTime';
 
 // ============================================
 // Manual Capture Variables
@@ -61,6 +63,7 @@ export default function AttendanceCheckInOut({
 }: AttendanceCheckInOutProps) {
   const { registerPunch, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
   const { user } = useAuth();
+  const { isTampered, tamperInfo, forceSync } = useServerTime();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
 
@@ -475,10 +478,14 @@ export default function AttendanceCheckInOut({
       return;
     }
 
+    if (isTampered) {
+      toast(tamperInfo.message, { icon: '⚠️', duration: 5000 });
+    }
+
     const shiftType = determineShiftType(user, null);
     const hasExistingPunch = Boolean(todayAttendance?.check_in);
     if (!hasExistingPunch) {
-      const earlyCheck = validateEarlyCheckIn(shiftType, new Date());
+      const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow());
       if (!earlyCheck.allowed) {
         toast.error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
         return;
@@ -714,6 +721,40 @@ export default function AttendanceCheckInOut({
 
       {/* Hidden canvas for frame capture */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* ========== Clock Tampering Security Alert ========== */}
+      {isTampered && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl shadow-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-red-800 dark:text-red-300 text-base">
+                تنبيه أمني: عدم تطابق ساعة الجهاز مع التوقيت الرسمي للشبكة
+              </h4>
+              <p className="text-sm mt-1 text-red-700/90 dark:text-red-400/90 leading-relaxed">
+                {tamperInfo.message}
+              </p>
+              <p className="text-xs mt-1.5 text-slate-600 dark:text-slate-400">
+                لحماية دقة سجلاتك ومنع التلاعب، يتم تسجيل البصمة بالتوقيت المعتمد الرسمي حصراً.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => forceSync()}
+            className="text-xs bg-white dark:bg-slate-800 border border-red-300 dark:border-red-700 px-3.5 py-2 rounded-xl font-bold text-red-700 dark:text-red-300 hover:bg-red-50 transition-all shadow-sm shrink-0 flex items-center gap-1.5 active:scale-95"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            إعادة مزامنة التوقيت
+          </button>
+        </motion.div>
+      )}
 
       {/* ========== Geofence Status Header Card ========== */}
       <motion.div

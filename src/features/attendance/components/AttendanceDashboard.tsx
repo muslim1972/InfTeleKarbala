@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
 import { getLocalDateStr } from '../services/attendanceService';
+import { getServerNow } from '../services/serverTimeService';
 import { Fingerprint, Calendar, BarChart3, ShieldCheck } from 'lucide-react';
 
 const AttendanceCheckInOut = lazy(() => import('./AttendanceCheckInOut'));
@@ -63,7 +64,7 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
     if (activeTab === 'history') {
       loadAttendanceHistory();
     } else if (activeTab === 'stats') {
-      const today = new Date();
+      const today = getServerNow();
       const firstDay = getLocalDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
       const lastDay = getLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 0));
       loadStats(firstDay, lastDay);
