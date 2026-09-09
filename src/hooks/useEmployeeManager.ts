@@ -234,16 +234,34 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         if (!trimmedSearch) return;
         setLoading(true);
         try {
-            const { data: userData, error: userError } = await supabase
+            const currentGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            let query = supabase
                 .from('profiles')
-                .select('id')
-                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`)
-                .maybeSingle();
+                .select('id, governorate')
+                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`);
+
+            if (currentGov && currentGov !== 'all') {
+                query = query.eq('governorate', currentGov);
+            }
+
+            const { data: userData, error: userError } = await query.maybeSingle();
 
             if (userError) throw userError;
 
             if (!userData) {
-                toast.error("الموظف غير موجود برقم: " + trimmedSearch);
+                // فحص إذا كان الموظف مسجلاً في محافظة أخرى لتوضيح ذلك للمشرف
+                const { data: otherGovUser } = await supabase
+                    .from('profiles')
+                    .select('id, governorate')
+                    .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`)
+                    .maybeSingle();
+
+                if (otherGovUser) {
+                    const govName = otherGovUser.governorate === 'babil' ? 'بابل' : otherGovUser.governorate === 'karbala' ? 'كربلاء' : otherGovUser.governorate;
+                    toast.error(`الموظف مسجل في محافظة (${govName}) وليس في المحافظة الحالية`, { duration: 6000 });
+                } else {
+                    toast.error("الموظف غير موجود برقم: " + trimmedSearch);
+                }
                 setSelectedEmployee(null);
                 setFinancialData(null);
                 setLoading(false);
@@ -641,11 +659,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     // Auto-search Suggestions (powered by global useEmployeeSearch hook)
+    const activeGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
     const _empSearch = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, username, role',
         limit: 50,
         debounceMs: 300,
-        enabled: searchExpanded
+        enabled: searchExpanded,
+        governorate: activeGov
     });
 
     // مزامنة searchJobNumber مع الخطاف العالمي

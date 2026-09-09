@@ -2,6 +2,7 @@
  * خطوة إعداد الربط بين أعمدة Excel وأعمدة DB
  */
 import { ArrowRight, FileSpreadsheet, Calendar } from 'lucide-react';
+import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 
 export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
@@ -12,6 +13,7 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
         columnMapping, setColumnMapping,
         targetYear, setTargetYear,
         analyzeData,
+        gov,
     } = patcher;
 
     if (!tableDef) return null;
@@ -112,18 +114,39 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {tableDef.fields.map(field => (
+                        {tableDef.fields.map(field => {
+                            const isGovField = field.value === 'governorate';
+                            const currentValue = columnMapping[field.value] !== undefined 
+                                ? columnMapping[field.value] 
+                                : (isGovField ? '__target_gov__' : '');
+                            const isLockedGov = isGovField && (currentValue === '__target_gov__' || currentValue === '');
+
+                            return (
                             <div key={field.value} className="space-y-1">
                                 <label className="text-xs font-bold text-zinc-500 flex items-center gap-1">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${columnMapping[field.value] ? 'bg-green-500' : 'bg-zinc-300'}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${currentValue ? 'bg-green-500' : 'bg-zinc-300'}`} />
                                     {field.label}
                                     <span className="text-[9px] text-zinc-400 font-mono">({field.type})</span>
+                                    {isLockedGov && (
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.2 rounded mr-auto">
+                                            تثبيت تلقائي
+                                        </span>
+                                    )}
                                 </label>
                                 <select
-                                    value={columnMapping[field.value] || ''}
+                                    value={currentValue}
                                     onChange={e => setColumnMapping(prev => ({ ...prev, [field.value]: e.target.value }))}
-                                    className="w-full p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm"
+                                    className={`w-full p-2 rounded-lg text-sm border transition-colors ${
+                                        isLockedGov
+                                            ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200 font-bold'
+                                            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200'
+                                    }`}
                                 >
+                                    {isGovField && (
+                                        <option value="__target_gov__">
+                                            🔒 تثبيت تلقائي: {governorateName(gov)}
+                                        </option>
+                                    )}
                                     <option value="">(تجاهل)</option>
                                     {headers.map((h, i) => (
                                         <option key={i} value={String(i)}>
@@ -132,7 +155,8 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                                     ))}
                                 </select>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 

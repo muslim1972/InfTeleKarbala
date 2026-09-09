@@ -171,7 +171,7 @@ export function useUniversalPatcher() {
             toast.error('لم يتم العثور على أعمدة في الملف');
             return;
         }
-        setColumnMapping({});
+        setColumnMapping(selectedTable === 'profiles' ? { governorate: '__target_gov__' } : {});
         setStep('config');
     }, [selectedTable, headers]);
 
@@ -274,9 +274,18 @@ export function useUniversalPatcher() {
                 const newValues: Record<string, any> = {};
                 for (const [dbField, colIdxStr] of Object.entries(columnMapping)) {
                     if (!colIdxStr) continue;
+                    if (colIdxStr === '__target_gov__') {
+                        newValues[dbField] = gov;
+                        continue;
+                    }
                     const colIdx = parseInt(colIdxStr);
                     const rawVal = row[colIdx];
                     newValues[dbField] = cleanFieldValue(rawVal, tableDef.tableName, dbField);
+                }
+
+                // ضمان تثبيت المحافظة المستهدفة في جدول profiles
+                if (tableDef.tableName === 'profiles' && !newValues.governorate) {
+                    newValues.governorate = gov;
                 }
 
                 const jobNumber = String(newValues.job_number ?? (matchBy === 'job_number' ? matchValue : '')).trim();
@@ -540,7 +549,14 @@ export function useUniversalPatcher() {
                 try {
                     await enableGovernorateCard(gov);
                 } catch (cardErr) {
-                    console.warn('تعذر تفعيل بطاقة المحافظة:', cardErr);
+                    console.warn('تعذر تفعيل بطاقة المحافظة عبر RPC:', cardErr);
+                    try {
+                        await supabase
+                            .from('governorate_cards')
+                            .upsert({ id: gov, is_active: true, activated_at: new Date().toISOString() });
+                    } catch (directErr) {
+                        console.error('فشل التحديث المباشر لبطاقة المحافظة:', directErr);
+                    }
                 }
 
                 // 🛡️ رفع صلاحيات مشرف IT المحدد (اختياري — قبل إتمام العملية)
@@ -548,7 +564,7 @@ export function useUniversalPatcher() {
                     try {
                         const { error: supErr } = await supabase
                             .from('profiles')
-                            .update({ role: 'admin', admin_role: 'it_supervisor' })
+                            .update({ role: 'admin', admin_role: 'it_supervisor', governorate: gov })
                             .eq('id', itSupervisorId);
                         if (supErr) throw supErr;
                         toast.success('تم رفع صلاحيات مشرف IT المحدد بنجاح', { duration: 5000 });

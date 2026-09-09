@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, User, X, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useEmployeeSearch } from '../../../hooks/useEmployeeSearch';
+import { governorateName } from '../../../constants/governorates';
 
 interface Profile {
     id: string;
@@ -13,24 +14,29 @@ interface Profile {
 interface UP_ItSupervisorFieldProps {
     onSelect: (supervisorId: string | null) => void;
     selectedSupervisorId: string | null;
+    governorate?: string;
 }
 
 /**
  * حقل «تحديد مشرف IT» (معزول - المحدث العام)
- * حقل اختياري: بحث عالمي عن مستخدم لرفع صلاحياته إلى مشرف IT بعد الحقن.
+ * حقل اختياري: بحث عن مستخدم لرفع صلاحياته إلى مشرف IT بعد الحقن.
  */
-export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSupervisorFieldProps) => {
-    // البحث العالمي للموظفين
+export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governorate }: UP_ItSupervisorFieldProps) => {
+    const [globalSearch, setGlobalSearch] = useState(false);
+
+    // البحث للموظفين
     const { query, setQuery, results: rawResults } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, avatar_url',
+        selectFields: 'id, full_name, job_number, avatar_url, governorate',
         limit: 10,
-        debounceMs: 300
+        debounceMs: 300,
+        governorate: globalSearch ? undefined : governorate
     });
     const results: Profile[] = rawResults.map((d: any) => ({
         id: d.id,
         full_name: d.full_name || 'مستخدم',
         job_number: d.job_number,
-        avatar_url: d.avatar_url
+        avatar_url: d.avatar_url,
+        governorate: d.governorate
     }));
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -84,11 +90,26 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
 
     return (
         <div className="relative" ref={wrapperRef}>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400" />
-                تحديد مشرف IT
-                <span className="text-xs text-gray-400 font-normal">(اختياري)</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400" />
+                    تحديد مشرف IT
+                    <span className="text-xs text-gray-400 font-normal">(اختياري)</span>
+                </label>
+                {governorate && (
+                    <button
+                        type="button"
+                        onClick={() => setGlobalSearch(prev => !prev)}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                            globalSearch
+                                ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700'
+                                : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
+                        }`}
+                    >
+                        {globalSearch ? '🌐 بحث شامل (كل المحافظات)' : `📍 البحث في: ${governorateName(governorate)}`}
+                    </button>
+                )}
+            </div>
 
             {selectedProfile ? (
                 <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
@@ -119,7 +140,7 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                     <input
                         type="text"
                         className="w-full px-4 py-3 pl-10 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                        placeholder="ابحث عن مستخدم لرفع صلاحياته إلى مشرف IT..."
+                        placeholder={globalSearch ? "ابحث بالاسم أو الرقم الوظيفي في كل المحافظات..." : `ابحث بالاسم أو الرقم الوظيفي في ${governorateName(governorate)}...`}
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
@@ -136,19 +157,26 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                                     <button
                                         key={profile.id}
                                         onClick={() => handleSelect(profile)}
-                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-right border-b border-gray-50 dark:border-slate-700 last:border-0"
+                                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-right border-b border-gray-50 dark:border-slate-700 last:border-0"
                                     >
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
-                                            {profile.avatar_url ? (
-                                                <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover rounded-full" />
-                                            ) : (
-                                                <User size={14} className="text-gray-500 dark:text-gray-300" />
-                                            )}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                                {profile.avatar_url ? (
+                                                    <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover rounded-full" />
+                                                ) : (
+                                                    <User size={14} className="text-gray-500 dark:text-gray-300" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{profile.full_name}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{profile.job_number}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{profile.full_name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">{profile.job_number}</p>
-                                        </div>
+                                        {profile.governorate && (
+                                            <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                                                {governorateName(profile.governorate)}
+                                            </span>
+                                        )}
                                     </button>
                                 ))
                             ) : (

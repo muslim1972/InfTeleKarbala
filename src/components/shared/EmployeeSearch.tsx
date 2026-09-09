@@ -23,6 +23,8 @@ interface EmployeeSearchProps {
     clearOnSelect?: boolean;
     /** أصناف إضافية لمنفذ القائمة المنسدلة (مثلاً رفع z-index داخل نوافذ مودال أعلى) */
     portalClassName?: string;
+    /** تحديد المحافظة (افتراضياً تؤخذ من الجلسة النشطة) */
+    governorate?: string;
 }
 
 export function EmployeeSearch({
@@ -40,11 +42,14 @@ export function EmployeeSearch({
     autoFocus = false,
     showIcon = true,
     clearOnSelect = false,
-    portalClassName
+    portalClassName,
+    governorate
 }: EmployeeSearchProps) {
     const { theme } = useTheme();
     const searchRef = useRef<HTMLDivElement>(null);
     const [show, setShow] = useState(false);
+
+    const activeGov = governorate !== undefined ? governorate : (sessionStorage.getItem('selectedGovernorate') || undefined);
 
     const {
         query: internalQuery,
@@ -56,7 +61,8 @@ export function EmployeeSearch({
         includeRole,
         searchUsername,
         limit,
-        enabled: !disabled
+        enabled: !disabled,
+        governorate: activeGov
     });
 
     // Controlled vs uncontrolled query

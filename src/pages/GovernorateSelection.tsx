@@ -20,7 +20,7 @@ const governorates: Governorate[] = [
     { id: 'najaf', name: 'النجف الأشرف', isActive: false },
     { id: 'basra', name: 'البصرة', isActive: false },
     { id: 'nineveh', name: 'نينوى', isActive: false },
-    { id: 'babil', name: 'بابل', isActive: false },
+    { id: 'babil', name: 'بابل', isActive: true },
     { id: 'dhi_qar', name: 'ذي قار', isActive: false },
     { id: 'maysan', name: 'ميسان', isActive: false },
     { id: 'wasit', name: 'واسط', isActive: false },
@@ -43,12 +43,20 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
     const [activeCards, setActiveCards] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
+        let isMounted = true;
         supabase.from('governorate_cards').select('id, is_active')
             .then(({ data }) => {
-                if (data) {
+                if (isMounted && data) {
                     setActiveCards(Object.fromEntries(data.map(c => [c.id, c.is_active])));
                 }
+            })
+            .catch(err => {
+                console.warn("Could not fetch governorate_cards:", err);
             });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleSelect = (gov: Governorate) => {

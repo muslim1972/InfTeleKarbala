@@ -38,6 +38,8 @@ export interface UseEmployeeSearchOptions {
     enabled?: boolean;
     /** استخدام النافذة العامة (available_profiles) بدلاً من الجدول الأصلي - للمحادثات */
     usePublicView?: boolean;
+    /** تحديد المحافظة لتصفية نتائج البحث */
+    governorate?: string;
 }
 
 export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
@@ -50,7 +52,8 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
         debounceMs = 300,
         excludeUserId,
         enabled = true,
-        usePublicView = true
+        usePublicView = true,
+        governorate
     } = options;
 
     const [query, setQuery] = useState('');
@@ -90,15 +93,23 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
 
                 let queryBuilder;
                 if (usePublicView) {
-                    queryBuilder = supabase.rpc('search_available_profiles', {
+                    const rpcArgs: any = {
                         search_term: trimmed,
                         limit_count: limit
-                    }).abortSignal(controller.signal);
+                    };
+                    if (governorate && governorate !== 'all') {
+                        rpcArgs.p_governorate = governorate;
+                    }
+                    queryBuilder = supabase.rpc('search_available_profiles', rpcArgs).abortSignal(controller.signal);
                 } else {
-                    queryBuilder = supabase
+                    let q = supabase
                         .from('profiles')
                         .select(select)
-                        .or(orClause)
+                        .or(orClause);
+                    if (governorate && governorate !== 'all') {
+                        q = q.eq('governorate', governorate);
+                    }
+                    queryBuilder = q
                         .order('full_name')
                         .limit(limit * 2) // Fetch more to allow local sorting
                         .abortSignal(controller.signal);
@@ -149,7 +160,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
         return () => {
             clearTimeout(timer);
         };
-    }, [query, enabled, selectFields, includeFinancialRecords, includeRole, searchUsername, limit, debounceMs, excludeUserId]);
+    }, [query, enabled, selectFields, includeFinancialRecords, includeRole, searchUsername, limit, debounceMs, excludeUserId, governorate]);
 
     const clearSearch = () => {
         setQuery('');

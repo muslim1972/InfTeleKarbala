@@ -186,6 +186,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                 <UP_ItSupervisorField
                     onSelect={setItSupervisorId}
                     selectedSupervisorId={itSupervisorId}
+                    governorate={gov}
                 />
             </div>
 
