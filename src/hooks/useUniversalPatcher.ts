@@ -162,6 +162,88 @@ export function useUniversalPatcher() {
 
     // ─── Proceed to Config ──────────────────────
 
+    const autoMapColumns = useCallback((silent = false) => {
+        if (!tableDef || headers.length === 0) return;
+        const mapping: Record<string, string> = selectedTable === 'profiles' ? { governorate: '__target_gov__' } : {};
+        
+        // Custom aliases for better mapping accuracy (based on specific user feedback)
+        const customAliases: Record<string, string[]> = {
+            'certificate_text': ['الشهادة'],
+            'tax_status': ['حالة الموظف في الاستقطاع الضريبي', 'حالة الاستقطاع الضريبي'],
+            'certificate_percentage': ['ignore_this_field_completely'], // Ignore specifically requested by user
+            'full_name': ['ignore_this_field_completely'], // 🛑 User asked to ignore this so it doesn't wrongly map to الراتب الاسمي
+            'leaves_balance_expiry_date': ['ignore_this_field_completely'], // 🛑 User asked to ignore this so it doesn't wrongly map to تاريخ الاستحقاق
+            'position_allowance': ['مخصصات المنصب'],
+            'extra_allowance_50': ['المخصصات الإضافية 50', 'المخصصات الاضافية 50'],
+            'children_allowance': ['مخصصات الأطفال', 'مخصصات الاطفال'],
+            'gross_salary': ['الراتب الإجمالي (الايرادات)', 'الراتب الاجمالي الايرادات', 'الراتب الإجمالي'],
+            'loan_deduction': ['استقطاع مبلغ القرض', 'استقطاع القرض'],
+            'other_deductions': ['طرح مبلغ', 'استقطاعات أخرى', 'استقطاعات اخرى']
+        };
+
+        const cleanStr = (s: string) => String(s).replace(/[^\w\u0600-\u06FF]+/g, ' ').trim();
+
+        tableDef.fields.forEach(field => {
+            if (field.value === 'governorate') {
+                mapping[field.value] = '__target_gov__';
+                return;
+            }
+            if (customAliases[field.value]?.includes('ignore_this_field_completely')) {
+                return; // Leave as ignore
+            }
+
+            const fieldLabel = cleanStr(field.label);
+            const fieldLabelTokens = fieldLabel.split(' ').filter(Boolean);
+            const aliases = (customAliases[field.value] || []).map(cleanStr);
+            
+            let bestIdx = -1;
+            let maxScore = 0;
+            
+            headers.forEach((h, idx) => {
+                const headerText = cleanStr(h);
+                if (!headerText) return;
+                
+                // 1. Check Exact Alias Match
+                if (aliases.includes(headerText)) {
+                    if (maxScore < 200) { bestIdx = idx; maxScore = 200; }
+                    return;
+                }
+                
+                // 2. Check Exact Label Match
+                if (headerText === fieldLabel) {
+                    if (maxScore < 100) { bestIdx = idx; maxScore = 100; }
+                    return;
+                }
+                
+                // 3. Check Includes Match
+                if (headerText.includes(fieldLabel) || fieldLabel.includes(headerText)) {
+                    if (maxScore < 80) { bestIdx = idx; maxScore = 80; }
+                    return;
+                }
+                
+                // 4. Partial match of tokens
+                let tokensMatched = 0;
+                for (const token of fieldLabelTokens) {
+                    if (token.length > 2 && headerText.includes(token)) tokensMatched++;
+                }
+                if (tokensMatched > 0 && fieldLabelTokens.length > 0) {
+                    const score = (tokensMatched / fieldLabelTokens.length) * 50;
+                    if (score > maxScore) {
+                        bestIdx = idx;
+                        maxScore = score;
+                    }
+                }
+            });
+            
+            if (bestIdx !== -1) {
+                mapping[field.value] = String(bestIdx);
+            }
+        });
+        
+        setColumnMapping(mapping);
+        if (!silent) toast.success('تمت محاولة مطابقة الحقول تلقائياً بناءً على الأسماء', { icon: '🤖' });
+    }, [tableDef, headers, selectedTable]);
+
     const goToConfig = useCallback(() => {
         if (!selectedTable) {
             toast.error('يرجى اختيار الجدول المستهدف');
@@ -171,9 +253,11 @@ export function useUniversalPatcher() {
             toast.error('لم يتم العثور على أعمدة في الملف');
             return;
         }
-        setColumnMapping(selectedTable === 'profiles' ? { governorate: '__target_gov__' } : {});
+        
+        // محاولة التطابق التلقائي الأولية بصمت
+        autoMapColumns(true);
         setStep('config');
-    }, [selectedTable, headers]);
+    }, [selectedTable, headers, autoMapColumns]);
 
     // ─── Analyze & Match Data ───────────────────
 
@@ -198,7 +282,8 @@ export function useUniversalPatcher() {
             const { data: profilesRaw, error } = await supabase
                 .from('profiles')
                 .select('id, username, full_name, job_number')
-                .eq('governorate', gov);
+                .eq('governorate', gov)
+                .limit(10000);
             if (error) throw error;
 
             const profiles = profilesRaw || [];
@@ -228,20 +313,28 @@ export function useUniversalPatcher() {
 
             if (tableDef.tableName === 'profiles') {
                 existingRecords = profiles.map((p: any) => ({ ...p, _userId: p.id }));
-            } else if (govProfileIds.length === 0) {
-                existingRecords = [];
-            } else if (tableDef.type === 'single') {
-                // financial_records: سجل واحد لكل موظف
-                const { data } = await supabase.from(tableDef.tableName).select('*').in('user_id', govProfileIds);
-                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
-            } else {
-                // yearly / detail: نحتاج السنة
-                const { data } = await supabase
-                    .from(tableDef.tableName)
-                    .select('*')
-                    .eq('year', targetYear)
-                    .in('user_id', govProfileIds);
-                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
+            } else if (govProfileIds.length > 0) {
+                // تقسيم الطلبات لتجنب مشكلة URL Too Long (414)
+                const CHUNK_SIZE = 100;
+                for (let i = 0; i < govProfileIds.length; i += CHUNK_SIZE) {
+                    const chunk = govProfileIds.slice(i, i + CHUNK_SIZE);
+                    
+                    let query = supabase.from(tableDef.tableName).select('*').in('user_id', chunk);
+                    
+                    // إضافة تصفية السنة للجداول السنوية والتفصيلية
+                    if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
+                        query = query.eq('year', targetYear);
+                    }
+                    
+                    const { data, error } = await query;
+                    if (error) {
+                        console.error(`Error fetching chunk ${i} for ${tableDef.tableName}:`, error);
+                    }
+                    
+                    if (data) {
+                        existingRecords.push(...data.map((r: any) => ({ ...r, _userId: r.user_id })));
+                    }
+                }
             }
 
             // بناء خريطة السجلات الحالية (user_id → record(s))
@@ -679,6 +772,7 @@ export function useUniversalPatcher() {
         analyzeData,
         executeUpdate,
         reset,
+        autoMapColumns,
     };
 }
 

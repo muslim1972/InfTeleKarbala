@@ -105,9 +105,17 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                 {/* ربط الحقول */}
                 <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700 space-y-3">
                     <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
-                            ربط الأعمدة ↔ الحقول
-                        </h4>
+                        <div className="flex items-center gap-3">
+                            <h4 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">
+                                ربط الأعمدة ↔ الحقول
+                            </h4>
+                            <button
+                                onClick={patcher.autoMapColumns}
+                                className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1"
+                            >
+                                🤖 مطابقة ذكية
+                            </button>
+                        </div>
                         <span className="text-[10px] text-zinc-400 bg-zinc-200 dark:bg-zinc-700 px-2 py-0.5 rounded">
                             {tableDef.fields.length} حقل متاح
                         </span>

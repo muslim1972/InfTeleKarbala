@@ -19,18 +19,21 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
         // Skip fetching if manualTips are provided
         if (manualTips) return;
 
+        const activeGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+
         const fetchTips = async () => {
             try {
                 const { data } = await supabase
                     .from('admin_tips')
                     .select('content')
                     .eq('app_name', appName)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+                    .eq('governorate', activeGov)
+                    .order('created_at', { ascending: false });
 
-                if (data?.content) {
-                    const tipsArray = data.content
+                const tipRecord = data && data.length > 0 ? data[0] : null;
+
+                if (tipRecord?.content) {
+                    const tipsArray = tipRecord.content
                         .split('\n')
                         .map((t: string) => t.trim())
                         .filter(Boolean);
@@ -49,10 +52,16 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
 
         // Realtime subscription
         const channel = supabase
-            .channel('admin-tips-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_tips', filter: `app_name=eq.${appName}` }, (payload) => {
-                if (payload.new && (payload.new as any).content) {
-                    const tipsArray = (payload.new as any).content.split('\n').map((t: string) => t.trim()).filter(Boolean);
+            .channel(`admin-tips-realtime-${activeGov}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'admin_tips', 
+                filter: `app_name=eq.${appName}` // We will filter by governorate client-side to ensure we don't miss events if realtime filters are limited
+            }, (payload) => {
+                const newRec = payload.new as any;
+                if (newRec && newRec.governorate === activeGov && newRec.content) {
+                    const tipsArray = newRec.content.split('\n').map((t: string) => t.trim()).filter(Boolean);
                     setFetchedTips(tipsArray);
                 }
             })

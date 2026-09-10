@@ -20,6 +20,8 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
+        const activeGov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
+
         const fetchTip = async () => {
             setLoading(true);
             try {
@@ -27,6 +29,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                     .from('admin_tips')
                     .select('*')
                     .eq('app_name', appName)
+                    .eq('governorate', activeGov)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
@@ -37,6 +40,10 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                     setContent(data.content);
                     setOriginalContent(data.content);
                     setTipId(data.id);
+                } else {
+                    setContent('');
+                    setOriginalContent('');
+                    setTipId(null);
                 }
             } catch (err) {
                 console.error('Exception fetching tip:', err);
@@ -46,13 +53,15 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
         };
 
         fetchTip();
-    }, [appName]);
+    }, [appName, user?.governorate]);
 
     const handleSave = async () => {
         if (!user?.id || content === originalContent) return;
 
         setSaving(true);
         setSaveStatus('idle');
+
+        const activeGov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
 
         try {
             if (tipId) {
@@ -77,6 +86,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
                     .insert({
                         app_name: appName,
                         content,
+                        governorate: activeGov,
                         created_by: user.id
                     })
                     .select()
