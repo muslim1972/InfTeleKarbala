@@ -2,6 +2,9 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
+  onReset?: () => void;
+  resetText?: string;
+  fallbackTitle?: string;
 }
 
 interface State {
@@ -23,8 +26,13 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
   }
 
-  private handleReload = () => {
-    window.location.reload();
+  private handleAction = () => {
+    if (this.props.onReset) {
+      this.setState({ hasError: false, error: null });
+      this.props.onReset();
+    } else {
+      window.location.reload();
+    }
   };
 
   public render() {
@@ -38,9 +46,11 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
               ⚠️
             </div>
-            <h2 className="text-xl font-bold text-white">حدث خطأ أثناء تحميل الصفحة</h2>
+            <h2 className="text-xl font-bold text-white">
+              {this.props.fallbackTitle || 'حدث خطأ أثناء تحميل الصفحة'}
+            </h2>
             <p className="text-sm text-slate-300">
-              تم رصد خطأ غير متوقع في واجهة المستخدم، يمكنك إعادة تحميل الصفحة للمتابعة.
+              تم رصد خطأ غير متوقع في واجهة المستخدم، يمكنك المتابعة بالضغط على الزر أدناه.
             </p>
             {this.state.error && (
               <div className="bg-slate-950/60 rounded-lg p-3 text-xs text-rose-300 font-mono text-left overflow-auto max-h-24">
@@ -48,10 +58,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
             )}
             <button
-              onClick={this.handleReload}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg cursor-pointer"
+              onClick={this.handleAction}
+              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg cursor-pointer"
             >
-              🔄 إعادة تحميل التطبيق
+              {this.props.resetText || '🔄 إعادة تحميل التطبيق'}
             </button>
           </div>
         </div>

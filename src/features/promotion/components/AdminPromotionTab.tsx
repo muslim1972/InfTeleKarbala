@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 import type { CourseType, PromotionResult } from '../types';
 import { COURSE_TYPE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
-import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
+import { smoothScrollToId, smoothScrollToTop } from '../../../hooks/useSmoothScroll';
 import { PromotionPermissionsModal } from './PromotionPermissionsModal';
 
 interface AdminPromotionTabProps {

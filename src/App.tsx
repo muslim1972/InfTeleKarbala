@@ -17,6 +17,8 @@ import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
 import { isDeveloperLevel } from "./utils/permissions";
+import { initializeOneSignal } from './services/notifications';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -219,11 +221,19 @@ const AppContent = () => {
     }
     // عرض واجهة دورات الترفيع
     if (adminViewMode === 'promotion') {
-      return <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />;
+      return (
+        <ErrorBoundary onReset={() => setAdminViewMode(null)} resetText="العودة للصفحة الرئيسية" fallbackTitle="حدث خطأ في واجهة دورات الترفيع">
+          <PromotionCoursesPage onBack={() => setAdminViewMode(null)} />
+        </ErrorBoundary>
+      );
     }
     // عرض واجهة التدريب الصيفي
     if (adminViewMode === 'training') {
-       return <SummerTrainingPage onBack={() => setAdminViewMode(null)} />;
+       return (
+         <ErrorBoundary onReset={() => setAdminViewMode(null)} resetText="العودة للصفحة الرئيسية" fallbackTitle="حدث خطأ في واجهة التدريب الصيفي">
+           <SummerTrainingPage onBack={() => setAdminViewMode(null)} />
+         </ErrorBoundary>
+       );
     }
     // عرض الحوافز المستقلة لجميع المستخدمين
     if (adminViewMode === 'user_incentives') {
@@ -270,10 +280,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!user) return <Login />;
   return <>{children}</>;
 };
-
-import { initializeOneSignal } from './services/notifications';
-
-import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function App() {
   useEffect(() => {

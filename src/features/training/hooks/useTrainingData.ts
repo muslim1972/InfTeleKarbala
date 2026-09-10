@@ -52,25 +52,16 @@ export function useTrainingData() {
 
     // ── فحص وجود ملف Excel في Storage ──
     const checkFileExists = useCallback(async (folder: string, subject: string, ext: string): Promise<boolean> => {
-        const path = `${folder}/training/${subject}.${ext}`;
+        const fileName = `${subject}.${ext}`;
         try {
-            const { data } = supabase.storage.from('Lectures').getPublicUrl(path);
-            if (!data?.publicUrl) return false;
-            const res = await fetch(data.publicUrl, { method: 'HEAD' });
-            if (res.status === 200) return true;
-            const getRes = await fetch(data.publicUrl, {
-                method: 'GET',
-                headers: { 'Range': 'bytes=0-0' }
+            const { data, error } = await supabase.storage.from('Lectures').list(`${folder}/training`, {
+                limit: 10,
+                search: fileName,
             });
-            return getRes.status === 200 || getRes.status === 206;
+            if (error) return false;
+            return !!data && data.some(item => item.name === fileName);
         } catch {
-            try {
-                const { data, error } = await supabase.storage.from('Lectures').download(path);
-                if (error) return false;
-                return !!data;
-            } catch {
-                return false;
-            }
+            return false;
         }
     }, []);
 

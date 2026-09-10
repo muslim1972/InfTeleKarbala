@@ -13,7 +13,7 @@ import { toast } from 'react-hot-toast';
 import type { TrainingResult, TrainingStudent } from '../types';
 import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
-import { smoothScrollToId } from '../../../hooks/useSmoothScroll';
+import { smoothScrollToId, smoothScrollToTop } from '../../../hooks/useSmoothScroll';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
 import { EditStudentModal } from './EditStudentModal';
 import { TraineePollSettings } from './TraineePollSettings';
@@ -1106,7 +1106,6 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                         setShowStudentsModal(false);
                         loadResults();
                     }}
-                    onRefresh={loadResults}
                     theme={theme}
                 />
             )}
@@ -1272,7 +1271,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                             <div className="min-w-0 ml-36">
                                                                 <p className={cn("text-base font-black truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
                                                                 <p className={cn("text-sm mt-1.5 font-bold", isDark ? "text-white/70" : "text-slate-600")}>
-                                                                    {student.institution_name} — {student.department}
+                                                                    {student.institution_name}{student.training_location ? ` — ${student.training_location}` : ''}
                                                                 </p>
                                                 <p className={cn("text-xs mt-1", isDark ? "text-white/50" : "text-slate-500")}>
                                                                     الوقت الاجمالي للاختبار <span className="font-mono" dir="ltr">{result.duration_seconds ? `${Math.floor(result.duration_seconds / 60)}:${(result.duration_seconds % 60).toFixed(2).padStart(5, '0')}` : 'غير متوفر'}</span> — الدرجة = <span className="font-mono" dir="ltr">{finalScore} / 100</span> — النتيجة: {isPassed ? 'ناجح' : 'محاولة غير موفقة'}
@@ -1289,7 +1288,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                             <div className="min-w-0 flex-1 text-right">
                                                                 <p className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-800")}>{student.full_name}</p>
                                                                 <p className={cn("text-[10px]", isDark ? "text-white/40" : "text-slate-400")}>
-                                                                    {student.institution_name} — {student.department} — قيد الانتظار ولم يكمل الاختبار
+                                                                    {student.institution_name}{student.training_location ? ` — ${student.training_location}` : ''} — قيد الانتظار ولم يكمل الاختبار
                                                                 </p>
                                                             </div>
                                                         </div>
