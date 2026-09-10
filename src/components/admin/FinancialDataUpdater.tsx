@@ -18,6 +18,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
 import { supabase } from '../../lib/supabase';
+import { useGovernorate } from '../../context/GovernorateContext';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { cleanCertificate, cleanFinancialAmount, normalizeForComparison } from '../../utils/profileUtils';
@@ -108,7 +109,8 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
     const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
     const [existingSnapshots, setExistingSnapshots] = useState<MonthlySnapshot[]>([]);
     // 🗺️ المحافظة المستهدفة (كربلاء افتراضياً) + المشرف العام (اختياري)
-    const [gov, setGov] = useState(() => sessionStorage.getItem('selectedGovernorate') || 'karbala');
+    const { activeGovernorate } = useGovernorate();
+    const [gov, setGov] = useState(activeGovernorate || 'karbala');
     const [supervisorQuery, setSupervisorQuery] = useState('');
     const [supervisor, setSupervisor] = useState<any>(null);
     // ⚠️ محافظة بلا مستخدمين (يُعرض شريط تحذيري برتقالي بدل الانهيار)

@@ -4,6 +4,7 @@ import { Login } from "./Login";
 import { GovernorateSelection } from "./GovernorateSelection";
 import { Smartphone, MonitorPlay, Download } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useGovernorate } from "../context/GovernorateContext";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 
@@ -15,11 +16,11 @@ interface LauncherPageProps {
 export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPageProps) => {
     const { } = useAuth();
     const { theme } = useTheme();
+    const { activeGovernorate } = useGovernorate();
     
     // modes: 'launcher' (choose platform) -> 'governorate' (choose city) -> 'login'
     const [mode, setMode] = useState<'launcher' | 'governorate' | 'login'>(() => {
-        const gov = sessionStorage.getItem('selectedGovernorate');
-        return gov ? 'login' : 'governorate';
+        return activeGovernorate ? 'login' : 'governorate';
     });
     const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
 
@@ -34,8 +35,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
 
     const handleWebProceed = () => {
         if (onProceed) onProceed();
-        const gov = sessionStorage.getItem('selectedGovernorate');
-        if (gov) {
+        if (activeGovernorate) {
             setMode('login');
         } else {
             setMode('governorate');

@@ -5,6 +5,7 @@ import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
 import { EmployeeSearch } from "../../shared/EmployeeSearch";
+import { useGovernorate } from "../../../context/GovernorateContext";
 import { isDeveloperLevel } from "../../../utils/permissions";
 
 interface DashboardHeaderProps {
@@ -81,8 +82,24 @@ export const DashboardHeader = ({
         return allTabs;
     })();
 
+    const { activeGovernorate, setActiveGovernorate, canChangeGovernorate, availableGovernorates } = useGovernorate();
+
     return (
         <div className="space-y-3">
+            {canChangeGovernorate && (
+                <div className="flex items-center gap-2 mb-2">
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400">محافظة الإدارة:</label>
+                    <select 
+                        value={activeGovernorate}
+                        onChange={(e) => setActiveGovernorate(e.target.value)}
+                        className="text-xs font-bold p-1 rounded border bg-white dark:bg-slate-800 dark:border-slate-700 outline-none cursor-pointer"
+                    >
+                        {availableGovernorates.map(g => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
             {/* Tabs */}
             <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
                 ? 'bg-white border-gray-100'

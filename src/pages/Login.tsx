@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useGovernorate } from "../context/GovernorateContext";
 import { Loader2, LogIn, User, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
@@ -9,7 +10,9 @@ import { supabase } from "../lib/supabase";
 import { governorateName } from "../constants/governorates";
 
 export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
-  const currentGov = sessionStorage.getItem('selectedGovernorate');
+  const { activeGovernorate, setActiveGovernorate } = useGovernorate();
+  const currentGov = activeGovernorate;
+  
   const getGovernorateTitle = () => {
     if (currentGov === 'itpc_hq') return 'مقر الشركة العامة للاتصالات والمعلوماتية';
     if (currentGov === 'karbala') return 'مديرية الاتصالات ومعلوماتية كربلاء المقدسة';
@@ -44,7 +47,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     setLoading(true);
     setError(null);
 
-    const gov = sessionStorage.getItem('selectedGovernorate');
+    const gov = currentGov;
     if (gov) {
       const trimmedUsernameForCheck = username.trim();
       const { data: userExists, error: checkErr } = await supabase
@@ -146,6 +149,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
           {onBack && (
             <button
               onClick={() => {
+                  setActiveGovernorate('');
                   sessionStorage.removeItem('selectedGovernorate');
                   onBack();
               }}

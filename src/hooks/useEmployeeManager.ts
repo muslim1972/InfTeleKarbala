@@ -4,8 +4,11 @@ import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
 import { cleanText } from "../utils/profileUtils";
 import { isDeveloperLevel } from "../utils/permissions";
+import { useGovernorate } from "../context/GovernorateContext";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
+    const { activeGovernorate } = useGovernorate();
+    
     // 1. Loading State
     const [loading, setLoading] = useState(false);
 
@@ -234,7 +237,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         if (!trimmedSearch) return;
         setLoading(true);
         try {
-            const currentGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            const currentGov = activeGovernorate || 'karbala';
             let query = supabase
                 .from('profiles')
                 .select('id, governorate')
@@ -455,7 +458,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
             // Use the ID returned by the edge function (may differ if email already existed)
             const actualUserId = syncData?.user_id || newUserId;
-            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate');
+            const finalGovernorate = currentUser?.governorate || activeGovernorate;
 
             if (!finalGovernorate) {
                 toast.error("لم يتم العثور على المحافظة. يرجى تسجيل الخروج والدخول مرة أخرى لتحديث جلستك.");
@@ -659,7 +662,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     // Auto-search Suggestions (powered by global useEmployeeSearch hook)
-    const activeGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+    const activeGov = activeGovernorate || 'karbala';
     const _empSearch = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, username, role',
         limit: 50,

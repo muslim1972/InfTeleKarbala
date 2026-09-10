@@ -4,6 +4,7 @@
  */
 import { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { useGovernorate } from './GovernorateContext';
 import {
     fetchActiveSnapshot,
     activateMonthlySnapshot,
@@ -21,6 +22,7 @@ const SnapshotContext = createContext<SnapshotContextValue | undefined>(undefine
 
 export const SnapshotProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
+    const { activeGovernorate } = useGovernorate();
     const [activeSnapshot, setActiveSnapshot] = useState<MonthlySnapshot | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -28,10 +30,7 @@ export const SnapshotProvider = ({ children }: { children: React.ReactNode }) =>
         setLoading(true);
         try {
             // النسخة المعروضة تخص محافظة المستخدم (من بياناته أو من اختياره بالواجهة)
-            const gov = targetGov
-                || user?.governorate
-                || sessionStorage.getItem('selectedGovernorate')
-                || 'karbala';
+            const gov = targetGov || activeGovernorate || 'karbala';
             const snap = await fetchActiveSnapshot(gov);
             setActiveSnapshot(snap);
         } catch (err) {
@@ -39,15 +38,15 @@ export const SnapshotProvider = ({ children }: { children: React.ReactNode }) =>
         } finally {
             setLoading(false);
         }
-    }, [user?.governorate]);
+    }, [activeGovernorate]);
 
     useEffect(() => {
-        if (user || sessionStorage.getItem('selectedGovernorate')) {
+        if (user || activeGovernorate) {
             refresh();
         } else {
             setActiveSnapshot(null);
         }
-    }, [user?.id, user?.governorate, refresh]);
+    }, [user?.id, activeGovernorate, refresh]);
 
     const activate = useCallback(async (id: string) => {
         const result = await activateMonthlySnapshot(id);

@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 import { Loader2, Plus, Edit, Trash2, Save, Network, Check, X, Edit2, Search } from "lucide-react";
 import { normalizeForComparison } from "../../utils/profileUtils";
 import { smoothScrollToId } from "../../hooks/useSmoothScroll";
+import { useGovernorate } from "../../context/GovernorateContext";
 
 interface Department {
     id: string;
@@ -33,6 +34,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     const [employeesByDept, setEmployeesByDept] = useState<Record<string, UserProfile[]>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const { activeGovernorate } = useGovernorate();
 
     // Inline Manager Editing State
     const [editingManagerNodeId, setEditingManagerNodeId] = useState<string | null>(null);

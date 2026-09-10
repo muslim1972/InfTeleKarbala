@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
+import { useGovernorate } from '../../context/GovernorateContext';
 
 interface TipsMarqueeProps {
     appName?: string;
@@ -12,6 +13,7 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
     const [fetchedTips, setFetchedTips] = useState<string[]>([]);
     const [loading, setLoading] = useState(!manualTips);
     const [isPaused, setIsPaused] = useState(false);
+    const { activeGovernorate } = useGovernorate();
 
 
 
@@ -19,7 +21,7 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
         // Skip fetching if manualTips are provided
         if (manualTips) return;
 
-        const activeGov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+        const activeGov = activeGovernorate || 'karbala';
 
         const fetchTips = async () => {
             try {
@@ -70,7 +72,7 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
         return () => {
             channel.unsubscribe();
         };
-    }, [appName, !!manualTips]); // Only change fetch behavior if manualTips existence toggles
+    }, [appName, !!manualTips, activeGovernorate]); // Only change fetch behavior if manualTips existence toggles
 
     // Don't render until loaded (for fetch mode)
     if (loading && !manualTips) return null;

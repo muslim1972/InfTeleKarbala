@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import TipsMarquee from '../ui/TipsMarquee';
 import { useAuth } from '../../context/AuthContext';
+import { useGovernorate } from '../../context/GovernorateContext';
 
 interface TipsEditorProps {
     appName: string;
@@ -11,6 +12,7 @@ interface TipsEditorProps {
 
 const TipsEditor = ({ appName }: TipsEditorProps) => {
     const { user } = useAuth();
+    const { activeGovernorate } = useGovernorate();
     const [content, setContent] = useState('');
     const [originalContent, setOriginalContent] = useState('');
     const [loading, setLoading] = useState(true);
@@ -20,7 +22,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        const activeGov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
+        const activeGov = activeGovernorate || user?.governorate || 'karbala';
 
         const fetchTip = async () => {
             setLoading(true);
@@ -61,7 +63,7 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
         setSaving(true);
         setSaveStatus('idle');
 
-        const activeGov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
+        const activeGov = activeGovernorate || user?.governorate || 'karbala';
 
         try {
             if (tipId) {

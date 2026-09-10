@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { cleanText } from '../../utils/profileUtils';
+import { useGovernorate } from '../../context/GovernorateContext';
 import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot } from '../../utils/snapshots';
 import { SnapshotNamePicker } from '../snapshots/SnapshotNamePicker';
 
@@ -51,6 +52,7 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
     const [progress, setProgress] = useState(0);
     // 📅 اسم النسخة الشهرية (إلزامي)
     const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
+    const { activeGovernorate } = useGovernorate();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { query: searchQuery, setQuery: setSearchQuery, results, isSearching } = useEmployeeSearch();
@@ -216,7 +218,7 @@ export const ProfileDataUpdater: React.FC<ProfileDataUpdaterProps> = ({ onClose,
         let failCount = 0;
 
         try {
-            const gov = sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            const gov = activeGovernorate || 'karbala';
             // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
             await syncActiveSnapshot(gov);
 

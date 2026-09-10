@@ -4,6 +4,7 @@ import { Search, Loader2, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
+import { useGovernorate } from '../../context/GovernorateContext';
 
 interface EmployeeSearchProps {
     onSelect: (employee: any) => void;
@@ -48,8 +49,9 @@ export function EmployeeSearch({
     const { theme } = useTheme();
     const searchRef = useRef<HTMLDivElement>(null);
     const [show, setShow] = useState(false);
+    const { activeGovernorate } = useGovernorate();
 
-    const activeGov = governorate !== undefined ? governorate : (sessionStorage.getItem('selectedGovernorate') || undefined);
+    const activeGov = governorate !== undefined ? governorate : (activeGovernorate || undefined);
 
     const {
         query: internalQuery,

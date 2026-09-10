@@ -16,6 +16,7 @@ import {
     cleanFieldValue,
     stripAccountFields,
 } from '../utils/universalPatcherConfig';
+import { useGovernorate } from '../context/GovernorateContext';
 
 // ─── Types ──────────────────────────────────────
 
@@ -81,11 +82,8 @@ export function useUniversalPatcher() {
     const [previewFilter, setPreviewFilter] = useState<'all' | 'match' | 'new_record' | 'missing'>('all');
 
     // 🗺️ المحافظة المستهدفة — تُحدد تبعية كل المطابقات والحقن
-    const [gov, setGovState] = useState(() => sessionStorage.getItem('selectedGovernorate') || 'karbala');
-    const setGov = useCallback((g: string) => {
-        setGovState(g);
-        sessionStorage.setItem('selectedGovernorate', g);
-    }, []);
+    const { activeGovernorate: gov, setActiveGovernorate: setGov } = useGovernorate();
+    
     // 🆕 وضع افتتاح محافظة جديدة: لا مستخدمين → إنشاء الحسابات من عمودي الملف ثم الحقن
     const [govOpening, setGovOpening] = useState(false);
 

@@ -13,6 +13,7 @@ import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 import { SnapshotProvider } from "./context/SnapshotContext"; // 📅 نظام النسخ الشهرية
+import { GovernorateProvider } from "./context/GovernorateContext"; // 🌍 نظام المحافظات
 import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
@@ -290,6 +291,7 @@ function App() {
     <ErrorBoundary>
       <div dir="rtl">
         <AuthProvider>
+          <GovernorateProvider>
           <SnapshotProvider>
           <AudioProvider>
             <ChatProvider>
@@ -315,6 +317,7 @@ function App() {
             </ChatProvider>
           </AudioProvider>
           </SnapshotProvider>
+          </GovernorateProvider>
         </AuthProvider>
       </div>
     </ErrorBoundary>

@@ -16,6 +16,7 @@ import {
     isDeveloper,
     type MonthlySnapshot
 } from '../../utils/snapshots';
+import { useGovernorate } from '../../context/GovernorateContext';
 
 interface SnapshotBrowserProps {
     isOpen: boolean;
@@ -34,7 +35,8 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const [busy, setBusy] = useState(false);
 
     const developer = isDeveloper(user as any);
-    const sessionGov = sessionStorage.getItem('selectedGovernorate');
+    const { activeGovernorate } = useGovernorate();
+    const sessionGov = activeGovernorate;
     const currentGov = sessionGov || user?.governorate || 'karbala';
     const [selectedGov, setSelectedGov] = useState<string>(currentGov);
 
@@ -52,7 +54,7 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
 
     useEffect(() => {
         if (isOpen) {
-            const gov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
+            const gov = activeGovernorate || user?.governorate || 'karbala';
             setSelectedGov(gov);
             loadSnapshots(gov);
             refresh(gov);

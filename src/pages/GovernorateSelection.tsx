@@ -1,4 +1,5 @@
 import { useTheme } from "../context/ThemeContext";
+import { useGovernorate } from "../context/GovernorateContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 import { supabase } from "../lib/supabase";
 import { useEffect, useState } from "react";
@@ -39,6 +40,8 @@ interface GovernorateSelectionProps {
 export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const { setActiveGovernorate, canChangeGovernorate } = useGovernorate();
+    
     // البطاقات المفعلة تُجلب من قاعدة البيانات (تُفعل تلقائياً بعد أول رفع ناجح للمحافظة)
     const [activeCards, setActiveCards] = useState<Record<string, boolean>>({});
 
@@ -61,6 +64,9 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
 
     const handleSelect = (gov: Governorate) => {
         if (gov.isActive || activeCards[gov.id]) {
+            // For login selection, anyone can select their gov. The context will overwrite if they login as a locked user.
+            setActiveGovernorate(gov.id);
+            // also set session storage directly here since setActiveGovernorate might be blocked if they are logged in but shouldn't be on this screen
             sessionStorage.setItem('selectedGovernorate', gov.id);
             onSelect();
         } else {
