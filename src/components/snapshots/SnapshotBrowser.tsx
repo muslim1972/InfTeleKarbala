@@ -34,7 +34,8 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const [busy, setBusy] = useState(false);
 
     const developer = isDeveloper(user as any);
-    const currentGov = user?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
+    const sessionGov = sessionStorage.getItem('selectedGovernorate');
+    const currentGov = sessionGov || user?.governorate || 'karbala';
     const [selectedGov, setSelectedGov] = useState<string>(currentGov);
 
     const loadSnapshots = useCallback(async (gov: string) => {
@@ -51,7 +52,7 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
 
     useEffect(() => {
         if (isOpen) {
-            const gov = user?.governorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
+            const gov = sessionStorage.getItem('selectedGovernorate') || user?.governorate || 'karbala';
             setSelectedGov(gov);
             loadSnapshots(gov);
             refresh(gov);
