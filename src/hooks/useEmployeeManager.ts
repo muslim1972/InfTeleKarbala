@@ -19,7 +19,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         full_name: "",
         job_number: "",
         role: "user",
-        admin_role: "developer",
+        admin_role: null as string | null,
         department_id: null as string | null
     });
 
@@ -329,9 +329,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             else if (normalizedCert.includes('متوسطة') || normalizedCert.includes('ابتدائية') || normalizedCert.includes('يقرأ ويكتب') || normalizedCert.includes('امي')) expectedPerc = 15;
 
             if (certPerc !== expectedPerc && certText) {
-                toast.error(`خطأ: شهادة "${certText}" نسبةها يجب أن تكون ${expectedPerc}%`);
-                setLoading(false);
-                return;
+                toast.error(`تم تصحيح مخصص الشهادة لـ "${certText}" تلقائياً لتكون ${expectedPerc}%`);
+                financialData.certificate_percentage = expectedPerc;
             }
 
             const { error: userError } = await supabase
@@ -340,7 +339,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     full_name, job_number, username,
                     ...passwordUpdatePayload,
                     role: selectedEmployee.role,
-                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
+                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || null) : null,
                     department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar,
                     specialization: selectedEmployee.specialization,
@@ -495,7 +494,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             });
 
-            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: "developer", department_id: null });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: null, department_id: null });
         } catch (error: any) {
             toast.error("فشل إكمال العملية: " + error.message);
         } finally {

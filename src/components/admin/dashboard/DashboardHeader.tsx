@@ -90,10 +90,11 @@ export const DashboardHeader = ({
                 <div className="flex items-center gap-2 mb-2">
                     <label className="text-xs font-bold text-gray-500 dark:text-gray-400">محافظة الإدارة:</label>
                     <select 
-                        value={activeGovernorate}
+                        value={activeGovernorate || ''}
                         onChange={(e) => setActiveGovernorate(e.target.value)}
-                        className="text-xs font-bold p-1 rounded border bg-white dark:bg-slate-800 dark:border-slate-700 outline-none cursor-pointer"
+                        className="text-xs font-bold p-1 rounded border bg-white text-slate-900 dark:text-white dark:bg-slate-800 dark:border-slate-700 outline-none cursor-pointer min-w-[140px]"
                     >
+                        <option value="" disabled>اختر المحافظة...</option>
                         {availableGovernorates.map(g => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
