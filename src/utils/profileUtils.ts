@@ -139,15 +139,27 @@ export function cleanCertificate(text: any): string {
     
     let cleaned = text.trim();
     
-    // إزالة "بنسبة ...%" أو أي شيء يبدأ بـ "بنسبة"
+    // توحيد المسميات الشائعة مباشرة قبل محاولة القص
+    if (cleaned.includes('بكلوريوس') || cleaned.includes('بكالوريوس')) return 'بكلوريوس';
+    if (cleaned.includes('ماجستير')) return 'ماجستير';
+    if (cleaned.includes('دكتوراه')) return 'دكتوراه';
+    if (cleaned.includes('دبلوم عالي')) return 'دبلوم عالي';
+    if (cleaned.includes('دبلوم')) return 'دبلوم';
+    if (cleaned.includes('الاعدادية') || cleaned.includes('اعدادية')) return 'الاعدادية';
+    if (cleaned.includes('المتوسطة') || cleaned.includes('متوسطة')) return 'المتوسطة';
+    if (cleaned.includes('الابتدائية') || cleaned.includes('ابتدائية')) return 'الابتدائية';
+    if (cleaned.includes('دون الابتدائية') || cleaned.includes('يقرأ ويكتب') || cleaned.includes('يقرا ويكتب')) return 'دون الابتدائية';
+    if (cleaned.includes('أمي') || cleaned.includes('امي')) return 'أمي';
+    
+    // إزالة "بنسبة ...%" أو أي شيء يبدأ بـ "بنسبة" / "بنسبه"
     if (cleaned.includes('بنسبة')) {
         cleaned = cleaned.split('بنسبة')[0].trim();
+    } else if (cleaned.includes('بنسبه')) {
+        cleaned = cleaned.split('بنسبه')[0].trim();
     }
     
-    // توحيد المسميات الشائعة
-    if (cleaned.includes('بكلوريوس') || cleaned.includes('بكالوريوس')) cleaned = 'بكلوريوس';
-    if (cleaned.includes('ماجستير')) cleaned = 'ماجستير';
-    if (cleaned.includes('دكتوراه')) cleaned = 'دكتوراه';
+    // إزالة الأرقام العربية والإنجليزية وعلامة %
+    cleaned = cleaned.replace(/[0-9\u0660-\u0669%]/g, '').trim();
     
     return cleaned;
 }

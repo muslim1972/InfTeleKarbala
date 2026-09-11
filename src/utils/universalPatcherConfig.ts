@@ -1,3 +1,4 @@
+import { cleanCertificate } from './profileUtils';
 /**
  * تعريف الجداول والأعمدة للمحدث العام
  * Universal Patcher Configuration
@@ -197,8 +198,13 @@ export function normalizeArabicText(text: string): string {
         .replace(/\s+/g, ' ');
 }
 
+
 /** تنظيف قيمة حسب نوع الحقل */
 export function cleanFieldValue(val: any, tableName: string, fieldValue: string): any {
+    if (fieldValue === 'certificate_text') {
+        return cleanCertificate(val);
+    }
+    
     if (isNumericField(tableName, fieldValue)) {
         if (typeof val === 'number') return val;
         if (val === null || val === undefined || val === '') return 0;
