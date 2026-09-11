@@ -20,8 +20,8 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
     const { user } = useAuth();
     const [availableGovernorates, setAvailableGovernorates] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
     
-    // Developer & General admins can change it. Others are locked to their profile's governorate.
-    const canChangeGovernorate = user?.admin_role === 'developer' || user?.admin_role === 'general';
+    // Developer can change it. Others are locked to their profile's governorate.
+    const canChangeGovernorate = user?.admin_role === 'developer';
 
     // State for the active governorate
     const [activeGovernorate, setInternalActiveGovernorate] = useState<string>(() => {

@@ -54,51 +54,25 @@ Deno.serve(async (req: Request) => {
     const { user_id, email, password } = await req.json()
     if (!user_id || !email || !password) throw new Error('user_id, email, password are required')
 
-    let finalUserId = user_id
-
-    // 4. مزامنة حساب Auth: تحديث إن وُجد وإلا إنشاء (بدل listUsers — نفس منطق getUserById)
-    const getRes = await fetch(`${URL}/auth/v1/admin/users?id=eq.${encodeURIComponent(user_id)}`, {
-      headers: restHeaders(SERVICE, SERVICE)
+    // 4. إنشاء مستخدم جديد بنفس الـ id المطلوب (بما أن frontend يولد UUID جديد)
+    const createRes = await fetch(`${URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: restHeaders(SERVICE, SERVICE),
+      body: JSON.stringify({
+        id: user_id,
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: String(email).split('@')[0] }
+      })
     })
-    let existingUser: any = null
-    if (getRes.ok) {
-      const body = await getRes.json()
-      const arr = Array.isArray(body) ? body : body?.users
-      existingUser = Array.isArray(arr) && arr.length > 0 ? arr[0] : null
+    
+    if (!createRes.ok) {
+      const errBody = await createRes.json().catch(() => ({}))
+      throw new Error(`Auth create error: ${errBody?.msg || errBody?.message || createRes.status}`)
     }
-
-    if (existingUser?.id) {
-      // تحديث المستخدم الموجود
-      finalUserId = existingUser.id
-      const updRes = await fetch(`${URL}/auth/v1/admin/users/${finalUserId}`, {
-        method: 'PUT',
-        headers: restHeaders(SERVICE, SERVICE),
-        body: JSON.stringify({ email, password, email_confirm: true })
-      })
-      if (!updRes.ok) {
-        const errBody = await updRes.json().catch(() => ({}))
-        throw new Error(`Auth sync error: ${errBody?.msg || errBody?.message || updRes.status}`)
-      }
-    } else {
-      // إنشاء مستخدم جديد بنفس الـ id المطلوب
-      const createRes = await fetch(`${URL}/auth/v1/admin/users`, {
-        method: 'POST',
-        headers: restHeaders(SERVICE, SERVICE),
-        body: JSON.stringify({
-          id: user_id,
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { full_name: String(email).split('@')[0] }
-        })
-      })
-      if (!createRes.ok) {
-        const errBody = await createRes.json().catch(() => ({}))
-        throw new Error(`Auth sync error: ${errBody?.msg || errBody?.message || createRes.status}`)
-      }
-      const createdUser = await createRes.json()
-      finalUserId = createdUser?.id || user_id
-    }
+    const createdUser = await createRes.json()
+    let finalUserId = createdUser?.id || user_id
 
     // 5. توليد hash كلمة المرور (نفس RPC المستخدم نظامياً)
     const hashRes = await fetch(`${URL}/rest/v1/rpc/hash_password`, {

@@ -417,15 +417,24 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            const { data: existingUsers } = await supabase
-                .from('profiles')
-                .select('job_number, username')
-                .or(`job_number.eq.${job_number}, username.eq.${username}`);
+            const { data: checkResult, error: checkError } = await supabase.rpc('check_employee_exists_global', {
+                p_username: username,
+                p_job_number: job_number
+            });
 
-            if (existingUsers && existingUsers.length > 0) {
-                const existing = existingUsers[0];
-                if (existing.job_number === job_number) toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
-                else toast.error("اسم المستخدم هذا موجود بالفعل!");
+            if (checkError) {
+                toast.error("حدث خطأ أثناء التحقق من توفر الحساب");
+                setLoading(false);
+                return;
+            }
+
+            if (checkResult?.job_number_exists) {
+                toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
+                setLoading(false);
+                return;
+            }
+            if (checkResult?.username_exists) {
+                toast.error("اسم المستخدم هذا موجود بالفعل!");
                 setLoading(false);
                 return;
             }
