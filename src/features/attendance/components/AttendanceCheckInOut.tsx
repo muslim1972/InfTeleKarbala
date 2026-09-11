@@ -106,7 +106,7 @@ export default function AttendanceCheckInOut({
 - اللقطات المعالجة: ${stats.frames}
 - مرات رصد الوجه: ${stats.faces}
 - إطارات التطابق المستمرة: ${stats.matchFrames}
-- أفضل مسافة (التطابق): ${stats.minDistance === 999 ? 'N/A' : stats.minDistance.toFixed(3)} (المطلوب < 0.55)
+- أفضل مسافة (التطابق): ${stats.minDistance === 999 ? 'N/A' : stats.minDistance.toFixed(3)} (المطلوب <= 0.48)
 - آخر مسافة مقاسة: ${stats.lastDistance === 999 ? 'N/A' : stats.lastDistance.toFixed(3)}
 - أفضل رمشة (EAR): ${stats.minEar === 999 ? 'N/A' : stats.minEar.toFixed(3)} (المطلوب < 0.30)
 - آخر EAR: ${stats.lastEar === 999 ? 'N/A' : stats.lastEar.toFixed(3)}`;
@@ -417,14 +417,18 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
           
-          if (distance < 0.64) {
+          if (distance <= 0.55) {
             debugStatsRef.current.matchFrames++;
             setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
             
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
-            if (ear < 0.32 || debugStatsRef.current.matchFrames >= 2) { // Instant match threshold (~ 0.25s)
+            const isPerfectMatch = distance <= 0.45 && debugStatsRef.current.matchFrames >= 3;
+            const isGoodMatchWithBlink = distance <= 0.55 && ear < 0.28;
+            const isGoodMatchWithHold = distance <= 0.55 && debugStatsRef.current.matchFrames >= 12;
+
+            if (isPerfectMatch || isGoodMatchWithBlink || isGoodMatchWithHold) {
               // Liveness verified!
               if (capturedRef.current) return;
               capturedRef.current = true;
