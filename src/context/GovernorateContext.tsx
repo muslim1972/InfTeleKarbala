@@ -25,14 +25,14 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
 
     // State for the active governorate
     const [activeGovernorate, setInternalActiveGovernorate] = useState<string>(() => {
-        if (typeof window === 'undefined') return 'karbala';
+        if (typeof window === 'undefined') return '';
         // 1. If user is logged in and CANNOT change it, lock to their profile
         if (user && !canChangeGovernorate && user.governorate) {
             return user.governorate;
         }
         // 2. Otherwise, check session storage (set from login screen or by developer)
         const stored = sessionStorage.getItem('selectedGovernorate');
-        return stored || (user?.governorate || 'karbala');
+        return stored || (user?.governorate || '');
     });
 
     // Sync when user changes
@@ -71,10 +71,13 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
     }, []);
 
     const setActiveGovernorate = (gov: string) => {
-        if (canChangeGovernorate) {
+        if (!user || canChangeGovernorate || gov === '') {
             setInternalActiveGovernorate(gov);
-            sessionStorage.setItem('selectedGovernorate', gov);
-            // No reload needed! React Context will update all consumers automatically.
+            if (gov) {
+                sessionStorage.setItem('selectedGovernorate', gov);
+            } else {
+                sessionStorage.removeItem('selectedGovernorate');
+            }
         } else {
             console.warn('Unauthorized attempt to change governorate.');
         }
