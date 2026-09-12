@@ -1,0 +1,1 @@
+SELECT full_name, username, job_number, governorate FROM profiles WHERE full_name LIKE '%مؤيد رمضان نعيثل%' OR full_name LIKE '%قاسم مهدي يحيى%' OR full_name LIKE '%كريم نعمة عبد%' OR full_name LIKE '%رجاء صادق حسين%' OR full_name LIKE '%رضا شاكر رضا%';

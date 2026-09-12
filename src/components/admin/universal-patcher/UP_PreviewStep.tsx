@@ -68,7 +68,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
 
             {/* 📅 تسمية النسخة الشهرية — إلزامية للجداول المُدارة */}
             {needsSnapshotName && (
-                <div className="mx-4 mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border-2 border-green-300 dark:border-green-800 shrink-0">
+                <div className="mx-4 mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border-2 border-green-500 animate-pulse shrink-0 shadow-[0_0_15px_rgba(34,197,94,0.4)]">
                     <label className="block text-sm font-bold text-green-800 dark:text-green-300 mb-1">
                         📅 اسم النسخة الشهرية <span className="text-red-500">*</span>
                     </label>

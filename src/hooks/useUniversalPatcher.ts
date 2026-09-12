@@ -16,6 +16,7 @@ import {
     cleanFieldValue,
     stripAccountFields,
 } from '../utils/universalPatcherConfig';
+import { extractCertificateData } from '../utils/profileUtils';
 import { useGovernorate } from '../context/GovernorateContext';
 
 // ─── Types ──────────────────────────────────────
@@ -312,8 +313,8 @@ export function useUniversalPatcher() {
             if (tableDef.tableName === 'profiles') {
                 existingRecords = profiles.map((p: any) => ({ ...p, _userId: p.id }));
             } else if (govProfileIds.length > 0) {
-                // تقسيم الطلبات لتجنب مشكلة URL Too Long (414)
-                const CHUNK_SIZE = 100;
+                // تقسيم الطلبات لتجنب مشكلة URL Too Long (414) أو Timeout
+                const CHUNK_SIZE = 50;
                 for (let i = 0; i < govProfileIds.length; i += CHUNK_SIZE) {
                     const chunk = govProfileIds.slice(i, i + CHUNK_SIZE);
                     
@@ -374,6 +375,26 @@ export function useUniversalPatcher() {
                     newValues[dbField] = cleanFieldValue(rawVal, tableDef.tableName, dbField);
                 }
 
+                // --- Auto Certificate Extraction & Validation ---
+                // إذا تم ربط عمود باسم الشهادة (في السجلات المالية أو غيرها)، نقوم باستخراج النسبة آلياً وتدقيقها
+                if (columnMapping['certificate_text'] && columnMapping['certificate_text'] !== 'auto_gov') {
+                    const certColIdx = parseInt(columnMapping['certificate_text']);
+                    const rawCertVal = row[certColIdx];
+                    if (rawCertVal) {
+                        const parsed = extractCertificateData(rawCertVal);
+                        if (parsed) {
+                            newValues['certificate_text'] = parsed.certName;
+                            newValues['certificate_percentage'] = parsed.certPerc;
+                            
+                            // حساب مخصصات الشهادة آلياً إذا كان الراتب الاسمي متوفراً
+                            const nominal = newValues['nominal_salary'] || 0;
+                            if (nominal > 0) {
+                                newValues['certificate_allowance'] = Math.round((nominal * parsed.certPerc) / 100);
+                            }
+                        }
+                    }
+                }
+
                 // ضمان تثبيت المحافظة المستهدفة في الجداول التي تدعمها
                 if ((tableDef.tableName === 'profiles' || tableDef.tableName === 'financial_records') && !newValues.governorate) {
                     newValues.governorate = gov;
@@ -416,6 +437,15 @@ export function useUniversalPatcher() {
                     // financial_records
                     if (userRecords.length > 0) {
                         const existing = userRecords[0];
+                        
+                        // Recalculate certificate_allowance if percentage is present but nominal was missing in newValues
+                        if (newValues['certificate_percentage'] !== undefined && !newValues['nominal_salary']) {
+                            const nominal = existing.nominal_salary || 0;
+                            if (nominal > 0) {
+                                newValues['certificate_allowance'] = Math.round((nominal * newValues['certificate_percentage']) / 100);
+                            }
+                        }
+                        
                         const diffs = buildDiffs(newValues, existing);
                         results.push({
                             status: 'match',
@@ -478,9 +508,9 @@ export function useUniversalPatcher() {
             setMatches(results);
             setStep('preview');
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error analyzing data:', err);
-            toast.error('حدث خطأ أثناء فحص البيانات');
+            toast.error('حدث خطأ أثناء فحص البيانات: ' + (err?.message || String(err)), { duration: 6000 });
             setStep('config');
         }
     }, [matchColumn, matchBy, tableDef, columnMapping, rows, targetYear, gov]);
