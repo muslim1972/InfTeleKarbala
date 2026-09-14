@@ -4,11 +4,8 @@ import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
 import { cleanText } from "../utils/profileUtils";
 import { isDeveloperLevel } from "../utils/permissions";
-import { useGovernorate } from "../context/GovernorateContext";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
-    const { activeGovernorate } = useGovernorate();
-    
     // 1. Loading State
     const [loading, setLoading] = useState(false);
 
@@ -19,7 +16,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         full_name: "",
         job_number: "",
         role: "user",
-        admin_role: null as string | null,
+        admin_role: "developer",
         department_id: null as string | null
     });
 
@@ -237,34 +234,16 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         if (!trimmedSearch) return;
         setLoading(true);
         try {
-            const currentGov = activeGovernorate || 'karbala';
-            let query = supabase
+            const { data: userData, error: userError } = await supabase
                 .from('profiles')
-                .select('id, governorate')
-                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`);
-
-            if (currentGov && currentGov !== 'all') {
-                query = query.eq('governorate', currentGov);
-            }
-
-            const { data: userData, error: userError } = await query.maybeSingle();
+                .select('id')
+                .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`)
+                .maybeSingle();
 
             if (userError) throw userError;
 
             if (!userData) {
-                // فحص إذا كان الموظف مسجلاً في محافظة أخرى لتوضيح ذلك للمشرف
-                const { data: otherGovUser } = await supabase
-                    .from('profiles')
-                    .select('id, governorate')
-                    .or(`job_number.eq.${trimmedSearch},username.eq.${trimmedSearch}`)
-                    .maybeSingle();
-
-                if (otherGovUser) {
-                    const govName = otherGovUser.governorate === 'babil' ? 'بابل' : otherGovUser.governorate === 'karbala' ? 'كربلاء' : otherGovUser.governorate;
-                    toast.error(`الموظف مسجل في محافظة (${govName}) وليس في المحافظة الحالية`, { duration: 6000 });
-                } else {
-                    toast.error("الموظف غير موجود برقم: " + trimmedSearch);
-                }
+                toast.error("الموظف غير موجود برقم: " + trimmedSearch);
                 setSelectedEmployee(null);
                 setFinancialData(null);
                 setLoading(false);
@@ -329,8 +308,9 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             else if (normalizedCert.includes('متوسطة') || normalizedCert.includes('ابتدائية') || normalizedCert.includes('يقرأ ويكتب') || normalizedCert.includes('امي')) expectedPerc = 15;
 
             if (certPerc !== expectedPerc && certText) {
-                toast.error(`تم تصحيح مخصص الشهادة لـ "${certText}" تلقائياً لتكون ${expectedPerc}%`);
-                financialData.certificate_percentage = expectedPerc;
+                toast.error(`خطأ: شهادة "${certText}" نسبةها يجب أن تكون ${expectedPerc}%`);
+                setLoading(false);
+                return;
             }
 
             const { error: userError } = await supabase
@@ -339,7 +319,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     full_name, job_number, username,
                     ...passwordUpdatePayload,
                     role: selectedEmployee.role,
-                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || null) : null,
+                    admin_role: selectedEmployee.role === 'admin' ? (selectedEmployee.admin_role || 'developer') : null,
                     department_id: selectedEmployee.department_id,
                     avatar: selectedEmployee.avatar_url || selectedEmployee.avatar,
                     specialization: selectedEmployee.specialization,
@@ -417,24 +397,15 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            const { data: checkResult, error: checkError } = await supabase.rpc('check_employee_exists_global', {
-                p_username: username,
-                p_job_number: job_number
-            });
+            const { data: existingUsers } = await supabase
+                .from('profiles')
+                .select('job_number, username')
+                .or(`job_number.eq.${job_number}, username.eq.${username}`);
 
-            if (checkError) {
-                toast.error("حدث خطأ أثناء التحقق من توفر الحساب");
-                setLoading(false);
-                return;
-            }
-
-            if (checkResult?.job_number_exists) {
-                toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
-                setLoading(false);
-                return;
-            }
-            if (checkResult?.username_exists) {
-                toast.error("اسم المستخدم هذا موجود بالفعل!");
+            if (existingUsers && existingUsers.length > 0) {
+                const existing = existingUsers[0];
+                if (existing.job_number === job_number) toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
+                else toast.error("اسم المستخدم هذا موجود بالفعل!");
                 setLoading(false);
                 return;
             }
@@ -466,7 +437,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
             // Use the ID returned by the edge function (may differ if email already existed)
             const actualUserId = syncData?.user_id || newUserId;
-            const finalGovernorate = currentUser?.governorate || activeGovernorate;
+            const finalGovernorate = currentUser?.governorate || sessionStorage.getItem('selectedGovernorate');
 
             if (!finalGovernorate) {
                 toast.error("لم يتم العثور على المحافظة. يرجى تسجيل الخروج والدخول مرة أخرى لتحديث جلستك.");
@@ -503,7 +474,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             });
 
-            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: null, department_id: null });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: "developer", department_id: null });
         } catch (error: any) {
             toast.error("فشل إكمال العملية: " + error.message);
         } finally {
@@ -670,13 +641,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     // Auto-search Suggestions (powered by global useEmployeeSearch hook)
-    const activeGov = activeGovernorate || 'karbala';
     const _empSearch = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, username, role',
         limit: 50,
         debounceMs: 300,
-        enabled: searchExpanded,
-        governorate: activeGov
+        enabled: searchExpanded
     });
 
     // مزامنة searchJobNumber مع الخطاف العالمي

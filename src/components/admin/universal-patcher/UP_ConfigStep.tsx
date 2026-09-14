@@ -83,14 +83,14 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                         </button>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-500">
+                    <div className="p-2.5 rounded-xl border-2 animate-blink-rgb bg-blue-500/5 space-y-1.5 relative">
+                        <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                             عمود المطابقة من Excel
                         </label>
                         <select
                             value={matchColumn}
                             onChange={e => setMatchColumn(e.target.value)}
-                            className="w-full p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm"
+                            className="w-full p-2.5 bg-white dark:bg-zinc-900 border-2 border-green-500 text-green-700 dark:text-green-400 font-bold focus:ring-2 ring-blue-500 rounded-lg text-sm transition-colors outline-none"
                         >
                             <option value="">اختر العمود...</option>
                             {headers.map((h, i) => (

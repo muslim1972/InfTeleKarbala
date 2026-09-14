@@ -96,6 +96,11 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
+        },
+        'blink-rgb': {
+          '0%, 100%': { borderColor: '#16a34a', boxShadow: '0 0 20px rgba(34,197,94,1)' },
+          '33%': { borderColor: '#dc2626', boxShadow: '0 0 20px rgba(220,38,38,1)' },
+          '66%': { borderColor: '#000000', boxShadow: '0 0 20px rgba(0,0,0,1)' },
         }
       },
       animation: {
@@ -105,6 +110,7 @@ export default {
         'pulse-sm': 'pulse-sm 2s infinite cubic-bezier(0.4, 0, 0.6, 1)',
         'button-pop': 'buttonPop 0.3s ease-out',
         'float': 'float 3s ease-in-out infinite',
+        'blink-rgb': 'blink-rgb 1.5s infinite',
         'spin-slow': 'spin 3s linear infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-radar': 'spin 3s linear infinite',

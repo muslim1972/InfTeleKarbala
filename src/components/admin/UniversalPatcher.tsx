@@ -35,11 +35,11 @@ export function UniversalPatcher({ onClose }: UniversalPatcherProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 pb-28 md:pb-32 overflow-y-auto animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-[98vw] max-w-screen-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 flex flex-col h-[calc(100vh-9rem)]">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-md p-2 sm:p-4 overflow-hidden animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-[98vw] max-w-screen-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 flex flex-col h-[98vh]">
 
                 {/* Header */}
-                <div className="shrink-0 p-4 border-b border-zinc-100 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950 flex justify-between items-center relative">
+                <div className="shrink-0 p-3 border-b border-zinc-100 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950 flex justify-between items-center relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500" />
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -72,7 +72,7 @@ export function UniversalPatcher({ onClose }: UniversalPatcherProps) {
                     {Object.entries(stepLabels).map(([key, label]) => (
                         <div
                             key={key}
-                            className={`flex-1 py-2.5 px-3 text-center text-[11px] font-bold transition-all border-l first:border-l-0 dark:border-zinc-800 ${step === key
+                            className={`flex-1 py-2 px-3 text-center text-[11px] font-bold transition-all border-l first:border-l-0 dark:border-zinc-800 ${step === key
                                 ? 'bg-white dark:bg-zinc-950 text-blue-600'
                                 : 'text-zinc-400 opacity-50'
                                 }`}

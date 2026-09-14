@@ -98,14 +98,14 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
     return (
         <div
             className={cn(
-                "relative overflow-hidden bg-slate-900 border-b border-blue-500/20 h-10 w-full flex items-center",
+                "relative overflow-hidden bg-slate-900 border-b border-blue-500/20 h-8 sm:h-9 md:h-10 w-full flex items-center",
                 className
             )}
             dir="ltr" 
         >
             {/* Fade Effect */}
-            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-slate-900 to-transparent z-20 pointer-events-none" />
-            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-slate-900 to-transparent z-20 pointer-events-none" />
+            <div className="absolute inset-y-0 left-0 w-8 sm:w-12 bg-gradient-to-r from-slate-900 to-transparent z-20 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-8 sm:w-12 bg-gradient-to-l from-slate-900 to-transparent z-20 pointer-events-none" />
 
             <div className="flex whitespace-nowrap min-w-full">
                 <div
@@ -120,10 +120,10 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                     onTouchStart={() => setIsPaused(true)}
                     onTouchEnd={() => setIsPaused(false)}
                 >
-                    <span className="font-bold text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
+                    <span className="font-bold text-xs sm:text-sm md:text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
                         {duplicatedText}
                     </span>
-                    <span className="font-bold text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
+                    <span className="font-bold text-xs sm:text-sm md:text-base text-blue-100 drop-shadow-[0_2px_4px_rgba(30,58,138,0.5)] font-tajawal px-4">
                         {duplicatedText}
                     </span>
                 </div>

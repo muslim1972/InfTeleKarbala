@@ -27,6 +27,38 @@ if (typeof window !== 'undefined') {
       window.location.reload();
     }
   });
+
+  // معالجة أخطاء فشل تحميل الـ Chunks عند التنقل في التطبيق (خصوصاً في PWA)
+  window.addEventListener('error', (e) => {
+    if (
+      e.message &&
+      (e.message.includes('Failed to fetch dynamically imported module') ||
+       e.message.includes('Importing a module script failed'))
+    ) {
+      console.warn('Chunk load error detected, forcing reload...');
+      if (!sessionStorage.getItem('chunk-error-reloaded')) {
+        sessionStorage.setItem('chunk-error-reloaded', 'true');
+        // استخدام true لفرض جلب النسخة الجديدة من السيرفر متجاوزاً الكاش
+        window.location.reload();
+      }
+    }
+  });
+
+  // معالجة نفس الخطأ إذا ظهر كـ Promise Rejection غير معالج
+  window.addEventListener('unhandledrejection', (e) => {
+    if (
+      e.reason && 
+      e.reason.message &&
+      (e.reason.message.includes('Failed to fetch dynamically imported module') ||
+       e.reason.message.includes('Importing a module script failed'))
+    ) {
+      console.warn('Chunk load error detected in promise, forcing reload...');
+      if (!sessionStorage.getItem('chunk-error-reloaded')) {
+        sessionStorage.setItem('chunk-error-reloaded', 'true');
+        window.location.reload();
+      }
+    }
+  });
 }
 
 // إنشاء عميل react-query مع إعدادات محسنة

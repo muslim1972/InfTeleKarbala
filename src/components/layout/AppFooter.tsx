@@ -44,17 +44,17 @@ export const AppFooter = ({ onDeveloperClick }: AppFooterProps) => {
                         {/* Center: Signature Image - Lifted slightly to prevent cutoff */}
                         <div
                             onClick={onDeveloperClick}
-                            className="flex items-center justify-center w-14 h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[35] -mt-6 -mb-2"
+                            className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 cursor-pointer group active:scale-95 transition-all z-[35] -mt-4 -mb-1 sm:-mt-6 sm:-mb-2"
                         >
                             {/* Halo Effect - Sun Rays */}
-                            <div className="absolute w-12 h-12 md:w-16 md:h-16 bg-yellow-500/30 rounded-full blur-[4px] animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
-                            <div className="absolute w-12 h-12 md:w-16 md:h-16 bg-yellow-400/20 rounded-full blur-md animate-ripple group-hover:bg-blue-400/40" style={{ animationDelay: '0.6s' }} />
+                            <div className="absolute w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-yellow-500/30 rounded-full blur-[4px] animate-ripple group-hover:bg-blue-500/50" style={{ animationDelay: '0s' }} />
+                            <div className="absolute w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-yellow-400/20 rounded-full blur-md animate-ripple group-hover:bg-blue-400/40" style={{ animationDelay: '0.6s' }} />
                             
                             {/* The Image */}
                             <img
                                 src="/MyName.png"
                                 alt="Signature"
-                                className="h-12 md:h-16 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500 translate-y-[-2px]"
+                                className="h-9 sm:h-11 md:h-16 w-auto opacity-100 relative z-10 drop-shadow-[0_2px_15px_rgba(255,255,255,0.4)] group-hover:brightness-125 group-hover:scale-110 transition-all duration-500 translate-y-[-2px]"
                             />
                         </div>
 

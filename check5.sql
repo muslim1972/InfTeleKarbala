@@ -1,1 +1,1 @@
-SELECT count(*) FROM profiles WHERE governorate = 'babil' AND username = job_number;
+﻿SELECT * FROM financial_records WHERE full_name LIKE '%ابراهيم عبد الامير%';

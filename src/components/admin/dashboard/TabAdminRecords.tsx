@@ -78,7 +78,7 @@ export const TabAdminRecords = ({
     const isCurrentYear = selectedAdminYear === new Date().getFullYear();
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-6 pb-28 sm:pb-36">
             {/* Sections */}
             <div className="space-y-4">
                 <RecordSection

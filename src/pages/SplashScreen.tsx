@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 import { LogoGlow } from '../components/visual/LogoGlow';
+import { SplashBeaconVideos } from '../components/visual/SplashBeaconVideos';
 
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
 const BINARY_STREAMS_COUNT = 50; // تقليل العدد قليلاً لتقليل التشتيت
@@ -170,7 +171,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1.5, ease: 'easeInOut' }}
-          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center overflow-hidden select-none"
+          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center overflow-hidden select-none pb-24 md:pb-32"
           style={{ background: '#030510' }}
           dir="rtl"
           onClick={() => {
@@ -199,6 +200,9 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
           {/* ── خلفية الـ Binary Rain (الميزة الجديدة) ────────── */}
           <BinaryBackground />
+
+          {/* ── فيديو المنارة الدوارة — زاويتا أسفل الشاشة (الكبيرة فقط) ── */}
+          <SplashBeaconVideos />
 
           {/* ── الشعار الرئيسي + الهالة الضوئية ──────────────────── */}
           <div className="relative flex items-center justify-center mb-10 md:mb-16">

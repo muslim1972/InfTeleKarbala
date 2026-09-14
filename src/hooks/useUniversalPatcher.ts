@@ -16,8 +16,6 @@ import {
     cleanFieldValue,
     stripAccountFields,
 } from '../utils/universalPatcherConfig';
-import { extractCertificateData } from '../utils/profileUtils';
-import { useGovernorate } from '../context/GovernorateContext';
 
 // ─── Types ──────────────────────────────────────
 
@@ -83,8 +81,11 @@ export function useUniversalPatcher() {
     const [previewFilter, setPreviewFilter] = useState<'all' | 'match' | 'new_record' | 'missing'>('all');
 
     // 🗺️ المحافظة المستهدفة — تُحدد تبعية كل المطابقات والحقن
-    const { activeGovernorate: gov, setActiveGovernorate: setGov } = useGovernorate();
-    
+    const [gov, setGovState] = useState(() => sessionStorage.getItem('selectedGovernorate') || 'karbala');
+    const setGov = useCallback((g: string) => {
+        setGovState(g);
+        sessionStorage.setItem('selectedGovernorate', g);
+    }, []);
     // 🆕 وضع افتتاح محافظة جديدة: لا مستخدمين → إنشاء الحسابات من عمودي الملف ثم الحقن
     const [govOpening, setGovOpening] = useState(false);
 
@@ -161,88 +162,6 @@ export function useUniversalPatcher() {
 
     // ─── Proceed to Config ──────────────────────
 
-    const autoMapColumns = useCallback((silent = false) => {
-        if (!tableDef || headers.length === 0) return;
-        const mapping: Record<string, string> = selectedTable === 'profiles' ? { governorate: '__target_gov__' } : {};
-        
-        // Custom aliases for better mapping accuracy (based on specific user feedback)
-        const customAliases: Record<string, string[]> = {
-            'certificate_text': ['الشهادة'],
-            'tax_status': ['حالة الموظف في الاستقطاع الضريبي', 'حالة الاستقطاع الضريبي'],
-            'certificate_percentage': ['ignore_this_field_completely'], // Ignore specifically requested by user
-            'full_name': ['ignore_this_field_completely'], // 🛑 User asked to ignore this so it doesn't wrongly map to الراتب الاسمي
-            'leaves_balance_expiry_date': ['ignore_this_field_completely'], // 🛑 User asked to ignore this so it doesn't wrongly map to تاريخ الاستحقاق
-            'position_allowance': ['مخصصات المنصب'],
-            'extra_allowance_50': ['المخصصات الإضافية 50', 'المخصصات الاضافية 50'],
-            'children_allowance': ['مخصصات الأطفال', 'مخصصات الاطفال'],
-            'gross_salary': ['الراتب الإجمالي (الايرادات)', 'الراتب الاجمالي الايرادات', 'الراتب الإجمالي'],
-            'loan_deduction': ['استقطاع مبلغ القرض', 'استقطاع القرض'],
-            'other_deductions': ['طرح مبلغ', 'استقطاعات أخرى', 'استقطاعات اخرى']
-        };
-
-        const cleanStr = (s: string) => String(s).replace(/[^\w\u0600-\u06FF]+/g, ' ').trim();
-
-        tableDef.fields.forEach(field => {
-            if (field.value === 'governorate') {
-                mapping[field.value] = '__target_gov__';
-                return;
-            }
-            if (customAliases[field.value]?.includes('ignore_this_field_completely')) {
-                return; // Leave as ignore
-            }
-
-            const fieldLabel = cleanStr(field.label);
-            const fieldLabelTokens = fieldLabel.split(' ').filter(Boolean);
-            const aliases = (customAliases[field.value] || []).map(cleanStr);
-            
-            let bestIdx = -1;
-            let maxScore = 0;
-            
-            headers.forEach((h, idx) => {
-                const headerText = cleanStr(h);
-                if (!headerText) return;
-                
-                // 1. Check Exact Alias Match
-                if (aliases.includes(headerText)) {
-                    if (maxScore < 200) { bestIdx = idx; maxScore = 200; }
-                    return;
-                }
-                
-                // 2. Check Exact Label Match
-                if (headerText === fieldLabel) {
-                    if (maxScore < 100) { bestIdx = idx; maxScore = 100; }
-                    return;
-                }
-                
-                // 3. Check Includes Match
-                if (headerText.includes(fieldLabel) || fieldLabel.includes(headerText)) {
-                    if (maxScore < 80) { bestIdx = idx; maxScore = 80; }
-                    return;
-                }
-                
-                // 4. Partial match of tokens
-                let tokensMatched = 0;
-                for (const token of fieldLabelTokens) {
-                    if (token.length > 2 && headerText.includes(token)) tokensMatched++;
-                }
-                if (tokensMatched > 0 && fieldLabelTokens.length > 0) {
-                    const score = (tokensMatched / fieldLabelTokens.length) * 50;
-                    if (score > maxScore) {
-                        bestIdx = idx;
-                        maxScore = score;
-                    }
-                }
-            });
-            
-            if (bestIdx !== -1) {
-                mapping[field.value] = String(bestIdx);
-            }
-        });
-        
-        setColumnMapping(mapping);
-        if (!silent) toast.success('تمت محاولة مطابقة الحقول تلقائياً بناءً على الأسماء', { icon: '🤖' });
-    }, [tableDef, headers, selectedTable]);
-
     const goToConfig = useCallback(() => {
         if (!selectedTable) {
             toast.error('يرجى اختيار الجدول المستهدف');
@@ -252,11 +171,9 @@ export function useUniversalPatcher() {
             toast.error('لم يتم العثور على أعمدة في الملف');
             return;
         }
-        
-        // محاولة التطابق التلقائي الأولية بصمت
-        autoMapColumns(true);
+        setColumnMapping({});
         setStep('config');
-    }, [selectedTable, headers, autoMapColumns]);
+    }, [selectedTable, headers]);
 
     // ─── Analyze & Match Data ───────────────────
 
@@ -281,8 +198,7 @@ export function useUniversalPatcher() {
             const { data: profilesRaw, error } = await supabase
                 .from('profiles')
                 .select('id, username, full_name, job_number')
-                .eq('governorate', gov)
-                .limit(10000);
+                .eq('governorate', gov);
             if (error) throw error;
 
             const profiles = profilesRaw || [];
@@ -312,28 +228,20 @@ export function useUniversalPatcher() {
 
             if (tableDef.tableName === 'profiles') {
                 existingRecords = profiles.map((p: any) => ({ ...p, _userId: p.id }));
-            } else if (govProfileIds.length > 0) {
-                // تقسيم الطلبات لتجنب مشكلة URL Too Long (414) أو Timeout
-                const CHUNK_SIZE = 50;
-                for (let i = 0; i < govProfileIds.length; i += CHUNK_SIZE) {
-                    const chunk = govProfileIds.slice(i, i + CHUNK_SIZE);
-                    
-                    let query = supabase.from(tableDef.tableName).select('*').in('user_id', chunk);
-                    
-                    // إضافة تصفية السنة للجداول السنوية والتفصيلية
-                    if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
-                        query = query.eq('year', targetYear);
-                    }
-                    
-                    const { data, error } = await query;
-                    if (error) {
-                        console.error(`Error fetching chunk ${i} for ${tableDef.tableName}:`, error);
-                    }
-                    
-                    if (data) {
-                        existingRecords.push(...data.map((r: any) => ({ ...r, _userId: r.user_id })));
-                    }
-                }
+            } else if (govProfileIds.length === 0) {
+                existingRecords = [];
+            } else if (tableDef.type === 'single') {
+                // financial_records: سجل واحد لكل موظف
+                const { data } = await supabase.from(tableDef.tableName).select('*').in('user_id', govProfileIds);
+                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
+            } else {
+                // yearly / detail: نحتاج السنة
+                const { data } = await supabase
+                    .from(tableDef.tableName)
+                    .select('*')
+                    .eq('year', targetYear)
+                    .in('user_id', govProfileIds);
+                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
             }
 
             // بناء خريطة السجلات الحالية (user_id → record(s))
@@ -366,38 +274,9 @@ export function useUniversalPatcher() {
                 const newValues: Record<string, any> = {};
                 for (const [dbField, colIdxStr] of Object.entries(columnMapping)) {
                     if (!colIdxStr) continue;
-                    if (colIdxStr === '__target_gov__') {
-                        newValues[dbField] = gov;
-                        continue;
-                    }
                     const colIdx = parseInt(colIdxStr);
                     const rawVal = row[colIdx];
                     newValues[dbField] = cleanFieldValue(rawVal, tableDef.tableName, dbField);
-                }
-
-                // --- Auto Certificate Extraction & Validation ---
-                // إذا تم ربط عمود باسم الشهادة (في السجلات المالية أو غيرها)، نقوم باستخراج النسبة آلياً وتدقيقها
-                if (columnMapping['certificate_text'] && columnMapping['certificate_text'] !== 'auto_gov') {
-                    const certColIdx = parseInt(columnMapping['certificate_text']);
-                    const rawCertVal = row[certColIdx];
-                    if (rawCertVal) {
-                        const parsed = extractCertificateData(rawCertVal);
-                        if (parsed) {
-                            newValues['certificate_text'] = parsed.certName;
-                            newValues['certificate_percentage'] = parsed.certPerc;
-                            
-                            // حساب مخصصات الشهادة آلياً إذا كان الراتب الاسمي متوفراً
-                            const nominal = newValues['nominal_salary'] || 0;
-                            if (nominal > 0) {
-                                newValues['certificate_allowance'] = Math.round((nominal * parsed.certPerc) / 100);
-                            }
-                        }
-                    }
-                }
-
-                // ضمان تثبيت المحافظة المستهدفة في الجداول التي تدعمها
-                if ((tableDef.tableName === 'profiles' || tableDef.tableName === 'financial_records') && !newValues.governorate) {
-                    newValues.governorate = gov;
                 }
 
                 const jobNumber = String(newValues.job_number ?? (matchBy === 'job_number' ? matchValue : '')).trim();
@@ -437,15 +316,6 @@ export function useUniversalPatcher() {
                     // financial_records
                     if (userRecords.length > 0) {
                         const existing = userRecords[0];
-                        
-                        // Recalculate certificate_allowance if percentage is present but nominal was missing in newValues
-                        if (newValues['certificate_percentage'] !== undefined && !newValues['nominal_salary']) {
-                            const nominal = existing.nominal_salary || 0;
-                            if (nominal > 0) {
-                                newValues['certificate_allowance'] = Math.round((nominal * newValues['certificate_percentage']) / 100);
-                            }
-                        }
-                        
                         const diffs = buildDiffs(newValues, existing);
                         results.push({
                             status: 'match',
@@ -508,9 +378,9 @@ export function useUniversalPatcher() {
             setMatches(results);
             setStep('preview');
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error analyzing data:', err);
-            toast.error('حدث خطأ أثناء فحص البيانات: ' + (err?.message || String(err)), { duration: 6000 });
+            toast.error('حدث خطأ أثناء فحص البيانات');
             setStep('config');
         }
     }, [matchColumn, matchBy, tableDef, columnMapping, rows, targetYear, gov]);
@@ -536,7 +406,7 @@ export function useUniversalPatcher() {
 
             // 📅 حماية التعديلات اليدوية: مزامنة النسخة المعروضة قبل الحقن
             if (isSnapshotManaged) {
-                await syncActiveSnapshot(gov);
+                await syncActiveSnapshot();
             }
 
             let effectiveMatches = matches;
@@ -626,25 +496,6 @@ export function useUniversalPatcher() {
                         if (tableDef.tableName === 'profiles') {
                             // تحديث profiles مباشرة
                             if (item.recordId) {
-                                payload.governorate = gov;
-                                if (item.newValues.password) {
-                                    const pwd = String(item.newValues.password).trim();
-                                    if (pwd) {
-                                        payload.password = pwd;
-                                        const { data: newHash } = await supabase.rpc('hash_password', { password: pwd });
-                                        if (newHash) payload.password_hash = newHash;
-
-                                        const jn = item.newValues.job_number || item.jobNumber;
-                                        if (jn) {
-                                            await supabase.rpc('rpc_sync_user_auth', {
-                                                p_user_id: item.recordId,
-                                                p_email: `${String(jn).trim()}@inftele.com`,
-                                                p_password: pwd
-                                            });
-                                        }
-                                    }
-                                }
-
                                 const { error } = await supabase
                                     .from('profiles')
                                     .update({ ...payload, updated_at: new Date().toISOString() })
@@ -653,9 +504,6 @@ export function useUniversalPatcher() {
                             }
                         } else if (item.status === 'match' && item.recordId) {
                             // تحديث سجل موجود
-                            if (tableDef.tableName === 'financial_records') {
-                                payload.governorate = gov;
-                            }
                             const { error } = await supabase
                                 .from(tableDef.tableName)
                                 .update({ ...payload, updated_at: new Date().toISOString() })
@@ -667,9 +515,6 @@ export function useUniversalPatcher() {
                                 ...payload,
                                 user_id: item.profileId,
                             };
-                            if (tableDef.tableName === 'financial_records') {
-                                insertPayload.governorate = gov;
-                            }
                             // إضافة السنة للجداول السنوية/التفصيلية
                             if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
                                 insertPayload.year = targetYear;
@@ -695,14 +540,7 @@ export function useUniversalPatcher() {
                 try {
                     await enableGovernorateCard(gov);
                 } catch (cardErr) {
-                    console.warn('تعذر تفعيل بطاقة المحافظة عبر RPC:', cardErr);
-                    try {
-                        await supabase
-                            .from('governorate_cards')
-                            .upsert({ id: gov, is_active: true, activated_at: new Date().toISOString() });
-                    } catch (directErr) {
-                        console.error('فشل التحديث المباشر لبطاقة المحافظة:', directErr);
-                    }
+                    console.warn('تعذر تفعيل بطاقة المحافظة:', cardErr);
                 }
 
                 // 🛡️ رفع صلاحيات مشرف IT المحدد (اختياري — قبل إتمام العملية)
@@ -710,7 +548,7 @@ export function useUniversalPatcher() {
                     try {
                         const { error: supErr } = await supabase
                             .from('profiles')
-                            .update({ role: 'admin', admin_role: 'it_supervisor', governorate: gov })
+                            .update({ role: 'admin', admin_role: 'it_supervisor' })
                             .eq('id', itSupervisorId);
                         if (supErr) throw supErr;
                         toast.success('تم رفع صلاحيات مشرف IT المحدد بنجاح', { duration: 5000 });
@@ -723,7 +561,7 @@ export function useUniversalPatcher() {
                 // 📅 التزام النسخة الجديدة المسماة للجداول المُدارة
                 if (isSnapshotManaged) {
                     try {
-                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null, gov);
+                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null);
                         toast.success(`تم إنشاء نسخة «${trimmedSnapshotName}» واعتمادها`, { duration: 6000 });
                     } catch (commitErr: any) {
                         console.error(commitErr);
@@ -800,7 +638,6 @@ export function useUniversalPatcher() {
         analyzeData,
         executeUpdate,
         reset,
-        autoMapColumns,
     };
 }
 

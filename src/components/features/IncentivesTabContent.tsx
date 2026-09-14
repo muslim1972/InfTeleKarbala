@@ -104,10 +104,11 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                 const { data, error } = await supabase
                     .rpc('get_departments_bypass_rls')
                     .select('id')
-                    .eq('manager_id', currentUser.id);
+                    .eq('manager_id', currentUser.id)
+                    .maybeSingle();
                 
                 if (error) console.error("Error checking manager status:", error);
-                if (data && data.length > 0) {
+                if (data) {
                     setIsDepartmentManager(true);
                 }
             } catch (err) {
@@ -125,12 +126,13 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                 .from('incentive_point_values')
                 .select('point_value')
                 .eq('year', yr)
-                .eq('month', mth);
+                .eq('month', mth)
+                .maybeSingle();
             
             if (error) console.error("Error fetching point value:", error);
-            if (data && data.length > 0) {
-                setPointValue(Number(data[0].point_value));
-                setPointValInput(Number(data[0].point_value));
+            if (data) {
+                setPointValue(Number(data.point_value));
+                setPointValInput(Number(data.point_value));
             } else {
                 setPointValue(0);
                 setPointValInput("");
@@ -340,23 +342,23 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
         setLoadingRecord(true);
         try {
             // 1. محاولة جلب سجل الحوافز المخزن مسبقاً لهذا الشهر والسنة
-            const { data: recordData, error } = await supabase
+            const { data: record, error } = await supabase
                 .from('incentive_records')
                 .select('*')
                 .eq('user_id', emp.id)
                 .eq('year', selectedYear)
-                .eq('month', selectedMonth);
+                .eq('month', selectedMonth)
+                .maybeSingle();
 
             if (error) console.error("Error loading incentive record:", error);
-            const record = recordData && recordData.length > 0 ? recordData[0] : null;
 
             // جلب البيانات الديناميكية الحقيقية دائماً (سواء كان هناك سجل محفوظ أم لا)
-            const { data: finDataArray } = await supabase
+            const { data: finData } = await supabase
                 .from('financial_records')
                 .select('certificate_text')
-                .eq('user_id', emp.id);
+                .eq('user_id', emp.id)
+                .maybeSingle();
 
-            const finData = finDataArray && finDataArray.length > 0 ? finDataArray[0] : null;
             const certText = finData?.certificate_text || "بدون شهادة";
             const serviceYears = calculateServiceYears(emp.appointment_date);
 
@@ -626,14 +628,11 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     .select('*')
                     .eq('user_id', currentUser.id)
                     .eq('year', selectedYear)
-                    .eq('month', selectedMonth);
+                    .eq('month', selectedMonth)
+                    .maybeSingle();
 
                 if (error) console.error("Error fetching own incentives:", error);
-                if (data && data.length > 0) {
-                    setUserRecord(data[0]);
-                } else {
-                    setUserRecord(null);
-                }
+                setUserRecord(data);
             } catch (err) {
                 console.error("Error fetching own incentives:", err);
             } finally {

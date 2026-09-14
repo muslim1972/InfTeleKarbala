@@ -190,7 +190,7 @@ export const TabManageEmployees = ({
     return (
         <div className="space-y-6">
             {selectedEmployee ? (
-                <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto">
+                <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto pb-28 sm:pb-36">
 
                     <AccordionSection
                         id="main_info"
@@ -839,8 +839,8 @@ function EditableField({
     className = ""
 }: any) {
     return (
-        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-            <div className="flex justify-start pl-2">
+        <div className="grid grid-cols-1 sm:grid-cols-[132px_1fr] items-center gap-1.5 sm:gap-2">
+            <div className="flex justify-start sm:pl-2">
                 <label className="text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{label}</label>
             </div>
 
@@ -860,7 +860,7 @@ function EditableField({
                     type={type}
                     value={value || ""}
                     onChange={(e) => onChange(e.target.value)}
-                    className={cn("flex-1", className)}
+                    className={cn("flex-1 text-sm", className)}
                     disabled={isReadOnly}
                 />
             </div>
@@ -871,9 +871,9 @@ function EditableField({
 function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly }: any) {
     if (!field) return null;
     return (
-        <div className="grid grid-cols-[132px_1fr] items-center gap-2">
-            <div className="flex justify-start pl-2">
-                <label className="text-[10px] md:text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{field.label}</label>
+        <div className="grid grid-cols-1 sm:grid-cols-[132px_1fr] items-center gap-1.5 sm:gap-2">
+            <div className="flex justify-start sm:pl-2">
+                <label className="text-[11px] sm:text-xs font-bold block whitespace-nowrap text-muted-foreground text-right w-full">{field.label}</label>
             </div>
 
             <div className="flex items-center gap-2 relative w-full">
@@ -916,10 +916,10 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
                                 value={value || ""}
                                 onChange={(e) => onChange(field.key, e.target.value)}
                                 disabled={field.disabled || isReadOnly}
-                                className={cn("no-spin w-full", field.isMoney && "pl-10")}
+                                className={cn("no-spin w-full text-sm", field.isMoney && "pl-10")}
                             />
-                            {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">د.ع</span>}
-                            {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{field.suffix}</span>}
+                            {field.isMoney && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">د.ع</span>}
+                            {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">{field.suffix}</span>}
                         </div>
                     )}
                 </div>

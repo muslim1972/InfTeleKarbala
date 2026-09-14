@@ -168,6 +168,12 @@ body {
   animation: highlight 1s ease-in-out 2;
 }
 
+html {
+  scroll-padding-top: 140px;
+  scroll-padding-bottom: 130px; /* Fallback for older webviews */
+  scroll-padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+}
+
 #root {
   width: 100%;
   min-height: 100vh;

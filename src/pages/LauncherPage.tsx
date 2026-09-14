@@ -93,7 +93,7 @@ export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPa
             </div>
 
             {/* Platform Selection */}
-            <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col items-center px-6 pb-20">
+            <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col items-center px-6 pb-32 sm:pb-40">
                 <h2 className={`text-lg mb-6 text-center animate-in fade-in duration-1000 delay-150 transition-colors ${
                     theme === 'light' ? 'text-slate-600' : 'text-slate-300'
                 }`}>
