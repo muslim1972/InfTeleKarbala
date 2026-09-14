@@ -1,0 +1,6 @@
+﻿import sys
+content=sys.stdin.read()
+old_csp = '"default-src \'self\'; script-src \'self\' https://*.azureedge.net https://cdn.onesignal.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com; font-src \'self\' data: https://fonts.gstatic.com; img-src \'self\' data: blob: https://*; connect-src \'self\' wss://* ws://* https://* http://*; media-src \'self\' blob:; object-src \'none\'; frame-ancestors \'self\' https://*.khr-itpc.egov.iq; worker-src \'self\' blob:; frame-src \'self\'; form-action \'self\'"'
+new_csp = '"default-src \'self\'; script-src \'self\' https://*.azureedge.net https://cdn.onesignal.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com; font-src \'self\' data: https://fonts.gstatic.com; img-src \'self\' data: blob: https://*.azureedge.net https://jvnjkqxpnhridlbczkgw.supabase.co https://cdn.onesignal.com; connect-src \'self\' wss://khr-itpc.egov.iq https://cdn.onesignal.com https://onesignal.com https://*.azureedge.net https://jvnjkqxpnhridlbczkgw.supabase.co wss://jvnjkqxpnhridlbczkgw.supabase.co; media-src \'self\' blob:; object-src \'none\'; frame-ancestors \'self\' https://*.khr-itpc.egov.iq; worker-src \'self\' blob:; frame-src \'self\'; form-action \'self\'"'
+content=content.replace(old_csp, new_csp)
+sys.stdout.write(content)
