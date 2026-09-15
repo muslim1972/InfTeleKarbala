@@ -7,11 +7,12 @@ import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import type { CourseType } from '../types';
 import { COURSE_TYPE_LABELS } from '../types';
+import { useGovernorate } from '../../../context/GovernorateContext';
 
 interface PromotionPermissionsModalProps {
     onClose: () => void;
-    theme: string;
-    mode?: 'supervisors' | 'students';
+    theme?: string;
+    mode?: 'students' | 'supervisors';
 }
 
 /**
@@ -31,6 +32,8 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
 
     const [selectedCourseType, setSelectedCourseType] = useState<CourseType | null>(null);
     const [selectedSubjectName, setSelectedSubjectName] = useState('');
+    
+    const { activeGovernorate } = useGovernorate();
 
     useEffect(() => {
         const trimmed = searchQuery.trim();
@@ -43,7 +46,8 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
             setIsSearching(true);
             try {
                 const { data, error } = await supabase.rpc('search_promotion_candidates', {
-                    search_term: trimmed
+                    search_term: trimmed,
+                    p_governorate: activeGovernorate
                 });
                 
                 if (error) throw error;
@@ -57,7 +61,7 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
         }, 400);
 
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, activeGovernorate]);
 
     const fetchAllowedUsers = async () => {
         setIsLoadingUsers(true);
@@ -75,7 +79,8 @@ export const PromotionPermissionsModal: React.FC<PromotionPermissionsModalProps>
             const { data, error } = await supabase.rpc('get_promotion_users', {
                 supervisor_mode: isSupervisorMode,
                 p_course_type: isSupervisorMode ? null : selectedCourseType,
-                p_subject_name: isSupervisorMode ? null : formattedDate
+                p_subject_name: isSupervisorMode ? null : formattedDate,
+                p_governorate: activeGovernorate
             });
 
             if (error) throw error;

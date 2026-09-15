@@ -1,1 +1,0 @@
-﻿SELECT ROUND((certificate_allowance / nominal_salary) * 100) AS calculated_perc FROM financial_records WHERE (certificate_percentage IS NULL OR certificate_percentage = 0) AND nominal_salary > 0 AND certificate_allowance > 0 LIMIT 10;

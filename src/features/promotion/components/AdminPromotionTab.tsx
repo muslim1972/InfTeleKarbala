@@ -10,6 +10,7 @@ import { COURSE_TYPE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { smoothScrollToId, smoothScrollToTop } from '../../../hooks/useSmoothScroll';
 import { PromotionPermissionsModal } from './PromotionPermissionsModal';
+import { useGovernorate } from '../../../context/GovernorateContext';
 
 interface AdminPromotionTabProps {
     isAdminView?: boolean;
@@ -23,6 +24,7 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const { user } = useAuth();
+    const { activeGovernorate } = useGovernorate();
     const { settings, settingsLoading, updateSettings, uploadFile, deleteFile, checkFileExists, fetchResults, listCurriculaFiles } = usePromotionData();
 
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -315,7 +317,8 @@ export const AdminPromotionTab = ({ isAdminView = false }: AdminPromotionTabProp
                 supabase.rpc('get_promotion_users', {
                     supervisor_mode: false,
                     p_course_type: resultsCourseType,
-                    p_subject_name: formattedDate
+                    p_subject_name: formattedDate,
+                    p_governorate: activeGovernorate
                 })
             ]);
             

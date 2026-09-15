@@ -1,1 +1,0 @@
-﻿SELECT full_name, job_title, salary_grade, nominal_salary, risk_allowance, certificate_text, certificate_percentage, certificate_allowance FROM financial_records WHERE full_name LIKE '%ابراهيم عبد الامير%';

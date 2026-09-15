@@ -1,1 +1,0 @@
-﻿SELECT p.job_number, p.full_name, f.certificate_text, f.certificate_percentage, f.certificate_allowance, f.engineering_allowance, f.nominal_salary, f.gross_salary FROM profiles p JOIN financial_records f ON p.id = f.user_id WHERE p.full_name LIKE '%رباب مسلم%';

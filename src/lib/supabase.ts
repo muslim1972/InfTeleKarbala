@@ -14,7 +14,7 @@ const getDynamicSupabaseUrl = () => {
   if (isVpsEnvironment()) {
     return window.location.origin;
   }
-  return import.meta.env.VITE_SUPABASE_URL || 'https://jvnjkqxpnhridlbczkgw.supabase.co';
+  return import.meta.env.VITE_SUPABASE_URL;
 };
 
 const getDynamicSupabaseAnonKey = () => {
