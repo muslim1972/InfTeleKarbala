@@ -1,16 +1,14 @@
-﻿import sys
+﻿const fs = require('fs');
+let content = fs.readFileSync('D:/InfTeleKarbala/src/components/admin/FinancialDataUpdater.tsx', 'utf-8');
 
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    content = f.read()
-
-old_block = '''                    // 2. Automated Certificate Percentage
+const oldBlock =                     // 2. Automated Certificate Percentage
                     if (updates['certificate_text']) {
                         let certText = updates['certificate_text'].to || '';
                         let extractedPerc = null;
                         let extractedName = certText;
 
                         // Case A: Extract percentage e.g. "ماجستير بنسبة 125"
-                        const matchPercentage = certText.match(/(?:بنسبة|نسبة)\s*(\d{2,3})/);
+                        const matchPercentage = certText.match(/(?:بنسبة|نسبة)\\s*(\\d{2,3})/);
                         if (matchPercentage && matchPercentage[1]) {
                             extractedPerc = parseInt(matchPercentage[1], 10);
                             extractedName = certText.replace(matchPercentage[0], '').replace(/[%-]/g, '').trim();
@@ -47,9 +45,9 @@ old_block = '''                    // 2. Automated Certificate Percentage
                             };
                             if (modified) hasChanges = true;
                         }
-                    }'''
+                    };
 
-new_block = '''                    // 2. Automated Certificate Percentage
+const newBlock =                     // 2. Automated Certificate Percentage
                     if (updates['certificate_text']) {
                         const { percentage, text: cleanName } = extractPercentageFromText(updates['certificate_text'].to || '');
                         let finalName = cleanName;
@@ -93,9 +91,7 @@ new_block = '''                    // 2. Automated Certificate Percentage
                     updates.validation = validation; // Store the validation results so the UI can flag them
                     if (Object.keys(validation.discrepancies).length > 0) {
                         hasChanges = true; // Force it to show if there are math discrepancies so admin can review
-                    }'''
+                    };
 
-content = content.replace(old_block, new_block)
-
-with open(sys.argv[1], 'w', encoding='utf-8') as f:
-    f.write(content)
+content = content.replace(oldBlock, newBlock);
+fs.writeFileSync('D:/InfTeleKarbala/src/components/admin/FinancialDataUpdater.tsx', content, 'utf-8');

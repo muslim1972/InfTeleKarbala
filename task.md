@@ -1,0 +1,5 @@
+﻿- [ ] Create payrollValidation.ts
+- [ ] Update FinancialTabContent.tsx
+- [ ] Update TabManageEmployees.tsx
+- [ ] Update FinancialDataUpdater.tsx
+- [ ] Rebuild and deploy to VPS

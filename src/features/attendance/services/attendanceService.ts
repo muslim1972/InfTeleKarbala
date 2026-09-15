@@ -159,21 +159,31 @@ async function notifySupervisorsOfDeviceMismatch(
     // 3. Optional Push Notifications via OneSignal Edge Function
     try {
       let employeeName = 'موظف';
+      let employeeGov = '';
       const { data: userProfile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, governorate')
         .eq('id', employeeId)
         .maybeSingle();
 
       if (userProfile?.full_name) {
         employeeName = userProfile.full_name;
       }
+      if (userProfile?.governorate) {
+        employeeGov = userProfile.governorate;
+      }
 
-      const { data: directProfiles } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id')
         .or('admin_role.eq.general,admin_role.eq.developer,role.eq.admin')
         .neq('id', employeeId);
+
+      if (employeeGov) {
+        query = query.or(`admin_role.eq.developer,governorate.eq.${employeeGov}`);
+      }
+
+      const { data: directProfiles } = await query;
 
       const supervisorIds: string[] = (directProfiles || []).map(p => p.id);
 

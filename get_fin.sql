@@ -1,0 +1,1 @@
+﻿SELECT p.job_number, p.full_name, p.governorate, f.certificate_text, f.certificate_percentage, f.certificate_allowance, f.nominal_salary FROM profiles p JOIN financial_records f ON p.id = f.user_id WHERE p.governorate = 'babil' AND f.certificate_allowance > 0 AND (f.certificate_percentage = 0 OR f.certificate_percentage IS NULL) LIMIT 10;

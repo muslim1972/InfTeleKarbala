@@ -4,6 +4,7 @@ import { AccordionSection } from "../ui/AccordionSection";
 import { SalaryCalculator } from "./SalaryCalculator";
 import { formatDateTime } from "../../utils/formatDate";
 import { cn } from "../../lib/utils";
+import { validateFinancialRecord } from "../../utils/payrollValidation";
 interface FinancialField {
     key: string;
     label: string;
@@ -48,6 +49,8 @@ export const FinancialTabContent = ({
 
 
 
+
+    const validation = financialData ? validateFinancialRecord(financialData) : { discrepancies: {} };
 
     const financialGroups = [
         {
@@ -222,6 +225,11 @@ export const FinancialTabContent = ({
                                                     )}>
                                                         {displayVal}
                                                     </div>
+                                                    {validation.discrepancies[field.key] && (
+                                                        <div className="text-red-500 text-[11px] font-bold mt-1 bg-red-500/10 p-1.5 rounded border border-red-500/20 text-center animate-in slide-in-from-top-1">
+                                                            {validation.discrepancies[field.key]}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

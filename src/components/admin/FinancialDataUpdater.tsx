@@ -27,6 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot, listMonthlySnapshots, enableGovernorateCard, type MonthlySnapshot } from '../../utils/snapshots';
 import { SnapshotNamePicker } from '../snapshots/SnapshotNamePicker';
 import { GOVERNORATES, governorateName } from '../../constants/governorates';
+import { extractPercentageFromText, validateFinancialRecord } from '../../utils/payrollValidation';
 
 interface FinancialDataUpdaterProps {
     onClose: () => void;
@@ -456,25 +457,53 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
 
                     // 2. Automated Certificate Percentage
                     if (updates['certificate_text']) {
-                        const certText = updates['certificate_text'].to;
+                        const { percentage, text: cleanName } = extractPercentageFromText(updates['certificate_text'].to || '');
+                        let finalName = cleanName;
+                        let finalPerc = percentage;
+
                         const certDef = CERTIFICATES.find(c => 
-                            certText === c.label || 
-                            (c.aliases && c.aliases.includes(certText)) ||
-                            normalizeForComparison(certText) === normalizeForComparison(c.label)
+                            finalName === c.label || 
+                            finalName.includes(c.label) ||
+                            (c.aliases && c.aliases.some(a => finalName.includes(a))) ||
+                            normalizeForComparison(finalName) === normalizeForComparison(c.label)
                         );
                         
                         if (certDef) {
+                            finalName = certDef.label; // Clean standard name
+                            if (finalPerc === null) finalPerc = certDef.percentage;
+                        }
+
+                        if (finalName !== updates['certificate_text'].to) {
+                            updates['certificate_text'].to = finalName;
+                            updates['certificate_text'].modified = (existing ? existing['certificate_text'] : null) !== finalName;
+                        }
+
+                        if (finalPerc !== null) {
                             const fromValue = existing ? existing['certificate_percentage'] : null;
-                            const toValue = certDef.percentage;
-                            const modified = Number(fromValue) !== Number(toValue);
+                            const modified = Number(fromValue) !== Number(finalPerc);
                             
                             updates['certificate_percentage'] = {
                                 from: fromValue,
-                                to: toValue,
+                                to: finalPerc,
                                 modified: modified
                             };
                             if (modified) hasChanges = true;
                         }
+                    }
+
+                    // 3. Robust Data Validation against Math Rules
+                    const virtualRecord: any = { ...existing };
+                    // Apply all updates to virtual record to see what the final math looks like
+                    Object.keys(updates).forEach(k => {
+                        if (updates[k] && updates[k].to !== undefined) {
+                            virtualRecord[k] = updates[k].to;
+                        }
+                    });
+                    
+                    const validation = validateFinancialRecord(virtualRecord);
+                    updates.validation = validation; // Store the validation results so the UI can flag them
+                    if (Object.keys(validation.discrepancies).length > 0) {
+                        hasChanges = true; // Force it to show if there are math discrepancies so admin can review
                     }
                     
                     if (hasChanges) {
@@ -981,6 +1010,20 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                                                                     </div>
                                                                 </div>
                                                             ))}
+                                                            {row.validation && Object.keys(row.validation.discrepancies).length > 0 && (
+                                                                <div className="w-full mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
+                                                                    <div className="text-xs font-bold text-red-600 dark:text-red-400 mb-1 flex items-center gap-1">
+                                                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                                                        تناقض رياضي في حسابات الإكسل المرفوع:
+                                                                    </div>
+                                                                    <ul className="list-disc list-inside text-[10px] text-red-500 space-y-0.5">
+                                                                        {Object.entries(row.validation.discrepancies).map(([key, msg]) => {
+                                                                            const label = TARGET_FIELDS.find(f => f.key === key)?.label || key;
+                                                                            return <li key={key}><span className="font-bold">{label}:</span> {String(msg)}</li>;
+                                                                        })}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>

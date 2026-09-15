@@ -31,6 +31,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { getExpectedNominalSalary } from "../../../utils/salaryScale";
 import { cleanText } from '../../../utils/profileUtils';
+import { validateFinancialRecord } from "../../../utils/payrollValidation";
 
 // Lazy load heavy admin modals
 const ProfileDataUpdater = React.lazy(() => import('../ProfileDataUpdater').then(m => ({ default: m.ProfileDataUpdater })));
@@ -348,7 +349,7 @@ export const TabManageEmployees = ({
 
                             {/* Job Title and Risk % */}
                             <div className="grid grid-cols-1 gap-4 mt-4">
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="job_title"
                                     field={financialFields.basic.find((f: any) => f.key === 'job_title')}
                                     value={financialData?.job_title}
@@ -358,7 +359,7 @@ export const TabManageEmployees = ({
                                     dbField="job_title"
                                     isReadOnly={isFieldReadOnly("job_title")}
                                 />
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="risk_percentage"
                                     field={financialFields.basic.find((f: any) => f.key === 'risk_percentage')}
                                     value={financialData?.risk_percentage}
@@ -430,7 +431,7 @@ export const TabManageEmployees = ({
 
                             {/* Row 2: Grade and Stage - Vertical Stack */}
                             <div className="grid grid-cols-1 gap-4">
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="salary_grade"
                                     field={{ ...financialFields.basic.find((f: any) => f.key === 'salary_grade'), label: "الدرجة الوظيفية" }}
                                     value={financialData?.salary_grade}
@@ -480,7 +481,7 @@ export const TabManageEmployees = ({
                             </div>
 
                             {/* Row 3: Certificate Text */}
-                            <FinancialInput
+                            <FinancialInput financialData={financialData}
                                 key="certificate_text"
                                 field={financialFields.basic.find((f: any) => f.key === 'certificate_text')}
                                 value={financialData?.certificate_text}
@@ -494,7 +495,7 @@ export const TabManageEmployees = ({
                             {/* Row 4: Certificate Percentage & Nominal Salary */}
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="relative">
-                                    <FinancialInput
+                                    <FinancialInput financialData={financialData}
                                         key="nominal_salary"
                                         field={financialFields.basic.find((f: any) => f.key === 'nominal_salary')}
                                         value={financialData?.nominal_salary}
@@ -529,7 +530,7 @@ export const TabManageEmployees = ({
                                         </div>
                                     )}
                                 </div>
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="certificate_percentage"
                                     field={{ ...financialFields.basic.find((f: any) => f.key === 'certificate_percentage')!, label: "م.الشهادة %" }}
                                     value={financialData?.certificate_percentage}
@@ -543,7 +544,7 @@ export const TabManageEmployees = ({
 
                             {/* الراتب الكلي والصافي */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-white/10">
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="gross_salary"
                                     // @ts-ignore
                                     field={{ key: 'gross_salary', label: 'الراتب الاجمالي (قبل الاستقطاع)', type: 'number' }}
@@ -554,7 +555,7 @@ export const TabManageEmployees = ({
                                     dbField="gross_salary"
                                     isReadOnly={isFieldReadOnly("gross_salary")}
                                 />
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key="net_salary"
                                     // @ts-ignore
                                     field={{ key: 'net_salary', label: 'الراتب الصافي (مستحق الدفع)', type: 'number' }}
@@ -579,7 +580,7 @@ export const TabManageEmployees = ({
                     >
                         <div className="grid grid-cols-1 gap-4">
                             {financialFields.deductions.map((field: any) => (
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key={field.key}
                                     field={field}
                                     value={financialData?.[field.key]}
@@ -602,7 +603,7 @@ export const TabManageEmployees = ({
                     >
                         <div className="grid grid-cols-1 gap-4">
                             {financialFields.allowances.map((field: any) => (
-                                <FinancialInput
+                                <FinancialInput financialData={financialData}
                                     key={field.key}
                                     field={field}
                                     value={financialData?.[field.key]}
@@ -868,7 +869,7 @@ function EditableField({
     );
 }
 
-function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly }: any) {
+function FinancialInput({ field, value, onChange, recordId, tableName, dbField, isReadOnly, financialData }: any) {
     if (!field) return null;
     return (
         <div className="grid grid-cols-1 sm:grid-cols-[132px_1fr] items-center gap-1.5 sm:gap-2">
@@ -922,6 +923,18 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
                             {field.suffix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">{field.suffix}</span>}
                         </div>
                     )}
+
+                    {financialData && (() => {
+                        const validation = validateFinancialRecord(financialData);
+                        if (validation.discrepancies[field.key]) {
+                            return (
+                                <div className="text-red-500 text-[11px] font-bold mt-1 bg-red-500/10 p-1.5 rounded border border-red-500/20 text-center animate-in slide-in-from-top-1">
+                                    {validation.discrepancies[field.key]}
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
             </div>
         </div>

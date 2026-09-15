@@ -284,7 +284,7 @@ export default function AttendanceAdminSettings() {
   const loadDeviceLogs = async () => {
     setLoadingLogs(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('device_change_requests')
         .select(`
           id,
@@ -294,10 +294,15 @@ export default function AttendanceAdminSettings() {
           status,
           created_at,
           updated_at,
-          profiles:employee_id(full_name, job_number, primary_device_id)
+          profiles!inner(full_name, job_number, primary_device_id, governorate)
         `)
         .order('created_at', { ascending: false });
+
+      if (user?.admin_role !== 'developer' && user?.governorate) {
+        query = query.eq('profiles.governorate', user.governorate);
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       setDeviceLogs(data || []);
     } catch (err: any) {
@@ -357,7 +362,7 @@ export default function AttendanceAdminSettings() {
   const loadDeviceRequests = async () => {
     setLoadingRequests(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('device_change_requests')
         .select(`
           id,
@@ -366,15 +371,20 @@ export default function AttendanceAdminSettings() {
           new_device_id,
           status,
           created_at,
-          profiles:employee_id(full_name, job_number)
+          profiles!inner ( full_name, job_number, primary_device_id, role, admin_role, governorate )
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
+
+      if (user?.admin_role !== 'developer' && user?.governorate) {
+        query = query.eq('profiles.governorate', user.governorate);
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       setDeviceRequests(data || []);
     } catch (err: any) {
-      toast.error('فشل تحميل طلبات الأجهزة: ' + err.message);
+      toast.error('فشل تحميل الطلبات: ' + err.message);
     } finally {
       setLoadingRequests(false);
     }
