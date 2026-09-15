@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Network, Loader2 } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { Label } from '../ui/Label';
+import React, { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { Network, Loader2 } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { Label } from "../ui/Label";
+import { useGovernorate } from "../../context/GovernorateContext";
 
 interface Department {
     id: string;
@@ -23,22 +24,36 @@ interface DepartmentSelectorProps {
 export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
     value,
     onChange,
-    theme = 'light',
+    theme = "light",
     disabled = false,
     label = "المرجع / التشكيل الإداري",
     className
 }) => {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [loading, setLoading] = useState(true);
+    const { activeGovernorate } = useGovernorate();
 
     useEffect(() => {
         const fetchDepartments = async () => {
             try {
-                const { data, error } = await supabase
-                    .rpc('get_departments_bypass_rls')
-                    .select('*')
-                    .order('level', { ascending: true })
-                    .order('name', { ascending: true });
+                let { data, error } = await supabase
+                    .rpc("get_departments_bypass_rls")
+                    .select("*")
+                    .eq("governorate", activeGovernorate)
+                    .order("level", { ascending: true })
+                    .order("name", { ascending: true });
+
+                if (!error && data && data.length === 0 && activeGovernorate && activeGovernorate !== "karbala") {
+                    await supabase.rpc("clone_departments_tree", { target_gov: activeGovernorate });
+                    const retry = await supabase
+                        .rpc("get_departments_bypass_rls")
+                        .select("*")
+                        .eq("governorate", activeGovernorate)
+                        .order("level", { ascending: true })
+                        .order("name", { ascending: true });
+                    data = retry.data;
+                    error = retry.error;
+                }
 
                 if (error) throw error;
                 setDepartments(data || []);
@@ -50,7 +65,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
         };
 
         fetchDepartments();
-    }, []);
+    }, [activeGovernorate]);
 
     return (
         <div className={cn("grid gap-2", className)}>
@@ -65,7 +80,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
                     disabled={disabled || loading}
                     className={cn(
                         "w-full h-10 px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 transition-colors appearance-none",
-                        theme === 'light'
+                        theme === "light"
                             ? "bg-white border-gray-300 text-gray-900 focus:border-brand-green hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
                             : "bg-slate-800 border-white/10 text-white focus:border-brand-green hover:bg-white/5 disabled:bg-slate-800 disabled:text-gray-500"
                     )}
@@ -87,3 +102,4 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
         </div>
     );
 };
+

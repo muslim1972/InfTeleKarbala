@@ -130,11 +130,28 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     const fetchDepartments = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .rpc('get_departments_bypass_rls')
                 .select('*')
+                .eq('governorate', activeGovernorate)
                 .order('level', { ascending: true })
                 .order('name', { ascending: true });
+
+            if (!error && data && data.length === 0 && activeGovernorate && activeGovernorate !== 'karbala') {
+                // Auto-clone the tree from Karbala for this new governorate!
+                await supabase.rpc('clone_departments_tree', { target_gov: activeGovernorate });
+                
+                // Fetch again after cloning
+                const retry = await supabase
+                    .rpc('get_departments_bypass_rls')
+                    .select('*')
+                    .eq('governorate', activeGovernorate)
+                    .order('level', { ascending: true })
+                    .order('name', { ascending: true });
+                
+                data = retry.data;
+                error = retry.error;
+            }
 
             if (error) {
                 console.error("Supabase error fetching departments:", error);
@@ -155,6 +172,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, full_name, department_id, dept_text, section_text, unit_text')
+                .eq('governorate', activeGovernorate)
                 .order('full_name');
 
             if (error) throw error;
@@ -252,7 +270,8 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                         name: currentDept.name,
                         level: currentDept.level,
                         parent_id: currentDept.parent_id,
-                        manager_id: currentDept.manager_id
+                        manager_id: currentDept.manager_id,
+                        governorate: activeGovernorate
                     }]);
                 error = res.error;
             }
@@ -383,7 +402,7 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         const isExpanded = expandedNodeIds.has(dept.id);
 
         return (
-            <div key={dept.id} className="w-full relative">
+            <div key={dept.id} className={`w-full relative ${editingManagerNodeId === dept.id ? 'z-50' : 'z-10'}`}>
                 <div className={`flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-100 dark:border-white/10 rounded-xl shadow-sm transition-all hover:shadow-md backdrop-blur-sm ${theme === 'light' ? 'bg-white/70' : 'bg-slate-800/60'}`}>
                     <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
