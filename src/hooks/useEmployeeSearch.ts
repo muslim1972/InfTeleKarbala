@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useGovernorate } from '../context/GovernorateContext';
 
 /**
  * خطاف بحث الموظفين العالمي
@@ -43,6 +44,8 @@ export interface UseEmployeeSearchOptions {
 }
 
 export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
+    const { activeGovernorate } = useGovernorate();
+    
     const {
         selectFields,
         includeFinancialRecords = false,
@@ -53,7 +56,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
         excludeUserId,
         enabled = true,
         usePublicView = true,
-        governorate
+        governorate = activeGovernorate // استخدم المحافظة النشطة إذا لم يتم تحديدها
     } = options;
 
     const [query, setQuery] = useState('');

@@ -101,7 +101,11 @@ Deno.serve(async (req: Request) => {
       if ((jobNumber && existingSet.has(jobNumber)) || existingUsernames.has(username)) { skipped++; continue }
 
       const userPassword = String(u.password || '').trim() || defaultPassword
-      const email = `${username}@inftele.com`
+      // البريد الإلكتروني في خادم Auth يعتمد الرقم الوظيفي حصراً لضمان صحة التنسيق وتوافقه مع نظام الدخول
+      const emailIdent = (jobNumber && /^[a-zA-Z0-9_-]+$/.test(jobNumber))
+        ? jobNumber
+        : (username ? username.replace(/[^a-zA-Z0-9_-]/g, '') : '') || `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+      const email = `${emailIdent}@inftele.com`
       try {
         // إنشاء مستخدم Auth عبر Admin API — كلمة المرور الخاصة بكل مستخدم من الملف
         const authRes = await fetch(`${URL}/auth/v1/admin/users`, {

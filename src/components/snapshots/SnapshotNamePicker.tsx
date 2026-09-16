@@ -15,7 +15,7 @@ interface SnapshotNamePickerProps {
     onChange: (name: string) => void;
     disabled?: boolean;
     /** لون الإطار المميز حسب الشاشة المضيفة */
-    accent?: 'green' | 'teal';
+    accent?: 'green' | 'teal' | 'blue';
 }
 
 export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green' }: SnapshotNamePickerProps) {
@@ -34,6 +34,8 @@ export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green'
 
     const selectCls = accent === 'teal'
         ? 'bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-700 text-slate-800 dark:text-slate-100'
+        : accent === 'blue'
+        ? 'bg-white dark:bg-zinc-900 border-2 border-green-500 text-green-700 dark:text-green-400'
         : 'bg-white dark:bg-slate-900 border border-green-300 dark:border-green-700 text-slate-800 dark:text-slate-100';
 
     return (

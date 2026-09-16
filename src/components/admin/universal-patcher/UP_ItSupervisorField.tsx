@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, User, X, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useEmployeeSearch } from '../../../hooks/useEmployeeSearch';
+import { governorateName } from '../../../constants/governorates';
 
 interface Profile {
     id: string;
@@ -13,18 +14,21 @@ interface Profile {
 interface UP_ItSupervisorFieldProps {
     onSelect: (supervisorId: string | null) => void;
     selectedSupervisorId: string | null;
+    governorate?: string;
 }
 
 /**
  * حقل «تحديد مشرف IT» (معزول - المحدث العام)
- * حقل اختياري: بحث عالمي عن مستخدم لرفع صلاحياته إلى مشرف IT بعد الحقن.
+ * حقل اختياري: بحث محصور بمحافظة الهدف لرفع صلاحيات موظف إلى مشرف IT بعد الحقن.
  */
-export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSupervisorFieldProps) => {
-    // البحث العالمي للموظفين
+export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governorate }: UP_ItSupervisorFieldProps) => {
+    // البحث المحصور بمحافظة الهدف فقط
     const { query, setQuery, results: rawResults } = useEmployeeSearch({
         selectFields: 'id, full_name, job_number, avatar_url',
         limit: 10,
-        debounceMs: 300
+        debounceMs: 300,
+        governorate: governorate,
+        usePublicView: false
     });
     const results: Profile[] = rawResults.map((d: any) => ({
         id: d.id,
@@ -33,8 +37,25 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
         avatar_url: d.avatar_url
     }));
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+    const [isExistingSupervisor, setIsExistingSupervisor] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [dropdownPlacement, setDropdownPlacement] = useState<'up' | 'down'>('up');
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const inputContainerRef = useRef<HTMLDivElement>(null);
+    const userClearedGovRef = useRef<string | null>(null);
+
+    // تحسس مساحة الشاشة لتوجيه القائمة للأعلى أو للأسفل بذكاء
+    useEffect(() => {
+        if (isOpen && inputContainerRef.current) {
+            const rect = inputContainerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 280) {
+                setDropdownPlacement('up');
+            } else {
+                setDropdownPlacement('down');
+            }
+        }
+    }, [isOpen]);
 
     // إغلاق القائمة عند النقر خارجه
     useEffect(() => {
@@ -47,10 +68,63 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
+    // 🧠 فحص واكتشاف مشرف IT المثبت مسبقاً لهذه المحافظة تلقائياً
+    useEffect(() => {
+        if (!governorate) return;
+        // إذا قام المطور بإلغاء التثبيت يدوياً لهذه المحافظة، لا نعيد اختياره تلقائياً
+        if (userClearedGovRef.current === governorate) return;
+
+        let isMounted = true;
+        const checkExistingSupervisor = async () => {
+            try {
+                // 1. البحث عن مشرف IT مثبت مسبقاً في هذه المحافظة
+                let { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, job_number, avatar_url, admin_role, role')
+                    .eq('governorate', governorate)
+                    .eq('admin_role', 'it_supervisor')
+                    .limit(1)
+                    .maybeSingle();
+
+                // 2. كخيار بديل: مسؤول المحافظة
+                if (!data && !error) {
+                    const { data: adminData } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, job_number, avatar_url, admin_role, role')
+                        .eq('governorate', governorate)
+                        .eq('role', 'admin')
+                        .limit(1)
+                        .maybeSingle();
+                    data = adminData;
+                }
+
+                if (!isMounted || !data) return;
+
+                const prof: Profile = {
+                    id: data.id,
+                    full_name: data.full_name || 'مشرف IT',
+                    job_number: data.job_number,
+                    avatar_url: data.avatar_url
+                };
+                setSelectedProfile(prof);
+                setIsExistingSupervisor(true);
+                onSelect(data.id);
+            } catch (err) {
+                console.error('Error finding existing IT supervisor:', err);
+            }
+        };
+
+        checkExistingSupervisor();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [governorate]);
+
     // تحميل الملف المختار عند توفر المعرف
     useEffect(() => {
         const fetchSelectedProfile = async () => {
-            if (selectedSupervisorId && !selectedProfile) {
+            if (selectedSupervisorId && (!selectedProfile || selectedProfile.id !== selectedSupervisorId)) {
                 const { data } = await supabase
                     .from('profiles')
                     .select('id, full_name, job_number, avatar_url')
@@ -64,6 +138,7 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                 });
             } else if (!selectedSupervisorId) {
                 setSelectedProfile(null);
+                setIsExistingSupervisor(false);
             }
         };
         fetchSelectedProfile();
@@ -71,22 +146,25 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
 
     const handleSelect = (profile: Profile) => {
         setSelectedProfile(profile);
+        setIsExistingSupervisor(false);
         onSelect(profile.id);
         setIsOpen(false);
         setQuery('');
     };
 
     const clearSelection = () => {
+        userClearedGovRef.current = governorate || null;
         setSelectedProfile(null);
+        setIsExistingSupervisor(false);
         onSelect(null);
         setQuery('');
     };
 
     return (
         <div className="relative" ref={wrapperRef}>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 font-tajawal">
                 <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400" />
-                تحديد مشرف IT
+                <span>تحديد مشرف IT لمحافظة ({governorateName(governorate)})</span>
                 <span className="text-xs text-gray-400 font-normal">(اختياري)</span>
             </label>
 
@@ -101,9 +179,20 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                             )}
                         </div>
                         <div>
-                            <p className="font-bold text-gray-900 dark:text-gray-100">{selectedProfile.full_name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{selectedProfile.job_number}</p>
-                            <p className="text-xs text-blue-600 dark:text-blue-400">سيتم رفع صلاحياته إلى مشرف IT</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-bold text-gray-900 dark:text-gray-100">{selectedProfile.full_name}</p>
+                                {isExistingSupervisor && (
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        ✓ مثبت حالياً
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{selectedProfile.job_number}</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                                {isExistingSupervisor 
+                                    ? `مشرف IT الحالي لمحافظة ${governorateName(governorate)} — سيتم الإبقاء على صلاحياته`
+                                    : `سيتم رفع صلاحياته إلى مشرف IT لمحافظة ${governorateName(governorate)}`}
+                            </p>
                         </div>
                     </div>
                     <button
@@ -115,11 +204,11 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                     </button>
                 </div>
             ) : (
-                <div className="relative">
+                <div className="relative" ref={inputContainerRef}>
                     <input
                         type="text"
-                        className="w-full px-4 py-3 pl-10 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                        placeholder="ابحث عن مستخدم لرفع صلاحياته إلى مشرف IT..."
+                        className="w-full px-4 py-3 pl-10 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition font-tajawal text-sm"
+                        placeholder={`ابحث عن موظف في ${governorateName(governorate)} لرفع صلاحياته إلى مشرف IT...`}
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
@@ -129,8 +218,12 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                     />
                     <Search className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
 
-                    {isOpen && (query || results.length > 0) && (
-                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto">
+                    {isOpen && (query.trim() || results.length > 0) && (
+                        <div className={`absolute z-50 w-full bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 max-h-60 overflow-y-auto ${
+                            dropdownPlacement === 'up'
+                                ? 'bottom-full mb-2 shadow-[0_-8px_25px_rgba(0,0,0,0.18)]'
+                                : 'top-full mt-2 shadow-[0_8px_25px_rgba(0,0,0,0.18)]'
+                        }`}>
                             {results.length > 0 ? (
                                 results.map(profile => (
                                     <button
@@ -152,7 +245,11 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId }: UP_ItSu
                                     </button>
                                 ))
                             ) : (
-                                query && <div className="p-4 text-center text-gray-500 text-sm">لا توجد نتائج</div>
+                                query.trim() && (
+                                    <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-xs font-tajawal">
+                                        لا يوجد موظف بهذا الاسم في {governorateName(governorate)}
+                                    </div>
+                                )
                             )}
                         </div>
                     )}

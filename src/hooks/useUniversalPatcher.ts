@@ -15,6 +15,7 @@ import {
     normalizeArabicText,
     cleanFieldValue,
     stripAccountFields,
+    FIELD_SYNONYMS,
 } from '../utils/universalPatcherConfig';
 
 // ─── Types ──────────────────────────────────────
@@ -128,12 +129,14 @@ export function useUniversalPatcher() {
                 return;
             }
 
+            const maxCols = Math.max(worksheet.columnCount || 0, 50);
             const allRows: any[][] = [];
-            worksheet.eachRow((row) => {
+            worksheet.eachRow({ includeEmpty: false }, (row) => {
                 const rowData: any[] = [];
-                row.eachCell((cell) => {
-                    rowData.push(cell.value);
-                });
+                const cellCount = Math.max(maxCols, row.cellCount);
+                for (let c = 1; c <= cellCount; c++) {
+                    rowData.push(row.getCell(c).value);
+                }
                 allRows.push(rowData);
             });
 
@@ -149,16 +152,125 @@ export function useUniversalPatcher() {
             setHeaders(hdrs);
             setRows(allRows.slice(safeIdx + 1).filter(r => r.length > 0 && r.some(cell => cell)));
 
-            // محاولة اكتشاف عمود الاسم تلقائياً
-            const nameIdx = hdrs.findIndex((c: string) =>
-                c.includes('اسم') || c.toLowerCase().includes('name')
-            );
-            if (nameIdx !== -1) setMatchColumn(String(nameIdx));
+            // محاولة اكتشاف عمود المطابقة تلقائياً (الرقم الوظيفي أولاً ثم الاسم)
+            const jobIdx = hdrs.findIndex((c: string) => {
+                const lc = c.toLowerCase();
+                return lc.includes('رقم وظيف') || lc.includes('الرقم الوظيفي') || lc.includes('job') || lc === 'الرقم';
+            });
+            if (jobIdx !== -1) {
+                setMatchColumn(String(jobIdx));
+                setMatchBy('job_number');
+            } else {
+                const nameIdx = hdrs.findIndex((c: string) =>
+                    c.includes('اسم') || c.toLowerCase().includes('name')
+                );
+                if (nameIdx !== -1) {
+                    setMatchColumn(String(nameIdx));
+                    setMatchBy('full_name');
+                }
+            }
 
         } catch {
             toast.error('حدث خطأ أثناء معالجة الورقة');
         }
     }, [workbook, selectedSheet, headerRowIndex]);
+
+    // ─── Auto-mapping Columns (مطابقة ذكية) ───────────
+
+    const autoMapColumns = useCallback((notify = false) => {
+        if (!tableDef || headers.length === 0) return;
+
+        const newMapping: Record<string, string> = {};
+        const usedHeaderIndices = new Set<number>();
+
+        const norm = (s: string) => (s || '')
+            .toLowerCase()
+            .replace(/[\(\)\[\]\{\}\\\/\-_\.\,:%]/g, ' ')
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/ة/g, 'ه')
+            .replace(/ى/g, 'ي')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const normalizedHeaders = headers.map(h => norm(h));
+
+        tableDef.fields.forEach(field => {
+            if (field.value === 'governorate') {
+                newMapping[field.value] = '__target_gov__';
+                return;
+            }
+
+            const fieldNorm = norm(field.label);
+            const synonyms = (FIELD_SYNONYMS[field.value] || []).map(s => norm(s));
+            const targets = [fieldNorm, norm(field.value), ...synonyms].filter(Boolean);
+
+            // Level 1: Exact match with label or value
+            let foundIdx = normalizedHeaders.findIndex((nh, idx) => 
+                !usedHeaderIndices.has(idx) && (nh === fieldNorm || nh === norm(field.value))
+            );
+
+            // Level 2: Exact match with any synonym
+            if (foundIdx === -1) {
+                foundIdx = normalizedHeaders.findIndex((nh, idx) => 
+                    !usedHeaderIndices.has(idx) && targets.some(t => t === nh)
+                );
+            }
+
+            // Level 3: Substring match
+            if (foundIdx === -1) {
+                foundIdx = normalizedHeaders.findIndex((nh, idx) => 
+                    !usedHeaderIndices.has(idx) && 
+                    nh.length >= 3 && 
+                    targets.some(t => t.length >= 3 && (nh.includes(t) || t.includes(nh)))
+                );
+            }
+
+            if (foundIdx !== -1) {
+                newMapping[field.value] = String(foundIdx);
+                usedHeaderIndices.add(foundIdx);
+            }
+        });
+
+        setColumnMapping(newMapping);
+
+        // Auto-select matchColumn & matchBy with job_number priority
+        let matchIdx = -1;
+        if (newMapping['job_number'] !== undefined && newMapping['job_number'] !== '') {
+            matchIdx = parseInt(newMapping['job_number']);
+            setMatchBy('job_number');
+        } else {
+            const jobSynonyms = (FIELD_SYNONYMS['job_number'] || []).map(s => norm(s));
+            const foundJobCol = normalizedHeaders.findIndex(nh => jobSynonyms.some(s => nh === s || (s.length >= 4 && nh.includes(s))));
+            if (foundJobCol !== -1) {
+                matchIdx = foundJobCol;
+                setMatchBy('job_number');
+            }
+        }
+
+        if (matchIdx === -1) {
+            if (newMapping['full_name'] !== undefined && newMapping['full_name'] !== '') {
+                matchIdx = parseInt(newMapping['full_name']);
+                setMatchBy('full_name');
+            } else {
+                const nameSynonyms = (FIELD_SYNONYMS['full_name'] || []).map(s => norm(s));
+                const foundNameCol = normalizedHeaders.findIndex(nh => nameSynonyms.some(s => nh === s || (s.length >= 4 && nh.includes(s))));
+                if (foundNameCol !== -1) {
+                    matchIdx = foundNameCol;
+                    setMatchBy('full_name');
+                }
+            }
+        }
+
+        if (matchIdx !== -1 && !isNaN(matchIdx)) {
+            setMatchColumn(String(matchIdx));
+        }
+
+        const matchedCount = Object.keys(newMapping).filter(k => newMapping[k] && newMapping[k] !== '__target_gov__').length;
+        if (notify) {
+            toast.success(`تمت المطابقة الذكية لـ ${matchedCount} حقل بنجاح 🎯`, { id: 'auto-map' });
+        }
+        return newMapping;
+    }, [tableDef, headers]);
 
     // ─── Proceed to Config ──────────────────────
 
@@ -171,9 +283,9 @@ export function useUniversalPatcher() {
             toast.error('لم يتم العثور على أعمدة في الملف');
             return;
         }
-        setColumnMapping({});
+        autoMapColumns(false);
         setStep('config');
-    }, [selectedTable, headers]);
+    }, [selectedTable, headers, autoMapColumns]);
 
     // ─── Analyze & Match Data ───────────────────
 
@@ -216,9 +328,16 @@ export function useUniversalPatcher() {
             const jobMap = new Map<string, { profileId: string; full_name: string; job_number: string }>();
 
             for (const p of profiles) {
-                const entry = { profileId: p.id, full_name: p.full_name || '', job_number: p.job_number || '' };
-                if (p.full_name) nameMap.set(normalizeArabicText(p.full_name), entry);
-                if (p.job_number) jobMap.set(String(p.job_number).trim(), entry);
+                const cleanJob = String(p.job_number || '').replace(/\.0$/, '').trim();
+                const entry = { profileId: p.id, full_name: p.full_name || '', job_number: cleanJob };
+                if (p.full_name) {
+                    nameMap.set(normalizeArabicText(p.full_name), entry);
+                }
+                if (cleanJob) {
+                    jobMap.set(cleanJob, entry);
+                    const intJob = parseInt(cleanJob, 10);
+                    if (!isNaN(intJob)) jobMap.set(String(intJob), entry);
+                }
             }
 
             // 3. جلب السجلات الحالية (إن وجدت)
@@ -257,36 +376,58 @@ export function useUniversalPatcher() {
             const matchColIdx = parseInt(matchColumn);
 
             for (const row of rows) {
-                const matchValue = String(row[matchColIdx] || '').trim();
+                const rawMatch = row[matchColIdx];
+                const matchValue = String(rawMatch ?? '').replace(/\.0$/, '').trim();
                 if (!matchValue) continue;
 
-                // المطابقة (في وضع الافتتاح لا توجد حسابات لمطابقتها)
+                // المطابقة بناءً على اختيار المستخدم الصريح:
                 let matched: { profileId: string; full_name: string; job_number: string } | undefined;
-                if (opening) {
-                    matched = undefined;
-                } else if (matchBy === 'full_name') {
-                    matched = nameMap.get(normalizeArabicText(matchValue));
-                } else {
-                    matched = jobMap.get(matchValue);
+                if (!opening) {
+                    if (matchBy === 'job_number') {
+                        // البحث في خريطة الأرقام الوظيفية فقط
+                        matched = jobMap.get(matchValue) || jobMap.get(String(parseInt(matchValue, 10)));
+                    } else {
+                        // البحث في خريطة الأسماء فقط
+                        matched = nameMap.get(normalizeArabicText(matchValue));
+                    }
                 }
 
                 // بناء القيم الجديدة
                 const newValues: Record<string, any> = {};
                 for (const [dbField, colIdxStr] of Object.entries(columnMapping)) {
                     if (!colIdxStr) continue;
+                    if (dbField === 'governorate' && colIdxStr === '__target_gov__') {
+                        newValues['governorate'] = gov;
+                        continue;
+                    }
                     const colIdx = parseInt(colIdxStr);
+                    if (isNaN(colIdx)) continue;
                     const rawVal = row[colIdx];
                     newValues[dbField] = cleanFieldValue(rawVal, tableDef.tableName, dbField);
                 }
 
-                const jobNumber = String(newValues.job_number ?? (matchBy === 'job_number' ? matchValue : '')).trim();
-                const displayName = String(newValues.full_name ?? (matchBy === 'full_name' ? matchValue : '')).trim();
+                // ضمان عدم ترك المحافظة فارغة أبداً
+                if (!newValues['governorate'] && gov) {
+                    newValues['governorate'] = gov;
+                }
+
+                const jobNumber = String(newValues.job_number ?? (matched?.job_number || (matchBy === 'job_number' || /^\d+$/.test(matchValue) ? matchValue : ''))).trim();
+                const displayName = String(newValues.full_name ?? (matched?.full_name || (matchBy === 'full_name' && !/^\d+$/.test(matchValue) ? matchValue : ''))).trim();
+
+                if (tableDef.tableName === 'profiles') {
+                    if (!newValues['job_number'] && jobNumber) newValues['job_number'] = jobNumber;
+                    if (!newValues['full_name'] && displayName) newValues['full_name'] = displayName;
+                }
+
+                const cardTitle = matched?.full_name
+                    ? `${matched.full_name} (${matched.job_number || matchValue})`
+                    : (displayName ? `${displayName} (${matchValue})` : matchValue);
 
                 if (!matched) {
                     // 🆕 في وضع الافتتاح: كل صف سجل جديد سيُربط بالحساب المنشأ عند التنفيذ
                     results.push({
                         status: opening ? 'new_record' : 'missing',
-                        excelName: matchValue,
+                        excelName: cardTitle,
                         jobNumber: jobNumber || undefined,
                         displayName: displayName || undefined,
                         newValues,
@@ -307,7 +448,9 @@ export function useUniversalPatcher() {
                         recordId: matched.profileId,
                         profileId: matched.profileId,
                         currentName: matched.full_name,
-                        excelName: matchValue,
+                        excelName: cardTitle,
+                        jobNumber: jobNumber || matched.job_number || undefined,
+                        displayName: matched.full_name || displayName || undefined,
                         newValues,
                         oldValues: existing,
                         diffs,
@@ -322,7 +465,9 @@ export function useUniversalPatcher() {
                             recordId: existing.id,
                             profileId: matched.profileId,
                             currentName: matched.full_name,
-                            excelName: matchValue,
+                            excelName: cardTitle,
+                            jobNumber: jobNumber || matched.job_number || undefined,
+                            displayName: matched.full_name || displayName || undefined,
                             newValues,
                             oldValues: existing,
                             diffs,
@@ -332,7 +477,9 @@ export function useUniversalPatcher() {
                             status: 'new_record',
                             profileId: matched.profileId,
                             currentName: matched.full_name,
-                            excelName: matchValue,
+                            excelName: cardTitle,
+                            jobNumber: jobNumber || matched.job_number || undefined,
+                            displayName: matched.full_name || displayName || undefined,
                             newValues,
                             diffs: {},
                         });
@@ -347,7 +494,9 @@ export function useUniversalPatcher() {
                             recordId: existing.id,
                             profileId: matched.profileId,
                             currentName: matched.full_name,
-                            excelName: matchValue,
+                            excelName: cardTitle,
+                            jobNumber: jobNumber || matched.job_number || undefined,
+                            displayName: matched.full_name || displayName || undefined,
                             newValues,
                             oldValues: existing,
                             diffs,
@@ -357,7 +506,9 @@ export function useUniversalPatcher() {
                             status: 'new_record',
                             profileId: matched.profileId,
                             currentName: matched.full_name,
-                            excelName: matchValue,
+                            excelName: cardTitle,
+                            jobNumber: jobNumber || matched.job_number || undefined,
+                            displayName: matched.full_name || displayName || undefined,
                             newValues,
                             diffs: {},
                         });
@@ -368,7 +519,9 @@ export function useUniversalPatcher() {
                         status: 'new_record',
                         profileId: matched.profileId,
                         currentName: matched.full_name,
-                        excelName: matchValue,
+                        excelName: cardTitle,
+                        jobNumber: jobNumber || matched.job_number || undefined,
+                        displayName: matched.full_name || displayName || undefined,
                         newValues,
                         diffs: {},
                     });
@@ -478,13 +631,14 @@ export function useUniversalPatcher() {
                 }
                 if (effectiveMatches.length === 0) {
                     toast.error(`لم يُربط أي صف بالحسابات الجديدة${unresolved ? ` (${unresolved} صفاً بلا مطابقة)` : ''}`, { duration: 8000 });
-                    setStep('done');
+                    setStep('preview');
                     return;
                 }
             }
 
             const tasks = effectiveMatches.filter(m => m.status === 'match' || m.status === 'new_record');
             const CHUNK_SIZE = 50;
+            let lastErrMessage = '';
 
             for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
                 const chunk = tasks.slice(i, i + CHUNK_SIZE);
@@ -494,12 +648,14 @@ export function useUniversalPatcher() {
                         const payload: any = stripAccountFields({ ...item.newValues }, tableDef.tableName);
 
                         if (tableDef.tableName === 'profiles') {
-                            // تحديث profiles مباشرة
-                            if (item.recordId) {
+                            // ضمان تعيين المحافظة وعدم تركها فارغة
+                            if (!payload.governorate) payload.governorate = gov;
+                            const targetId = item.recordId || item.profileId;
+                            if (targetId) {
                                 const { error } = await supabase
                                     .from('profiles')
                                     .update({ ...payload, updated_at: new Date().toISOString() })
-                                    .eq('id', item.recordId);
+                                    .eq('id', targetId);
                                 if (error) throw error;
                             }
                         } else if (item.status === 'match' && item.recordId) {
@@ -525,8 +681,9 @@ export function useUniversalPatcher() {
                             if (error) throw error;
                         }
                         return true;
-                    } catch (err) {
+                    } catch (err: any) {
                         console.error('Failed to process:', item.excelName, err);
+                        lastErrMessage = err?.message || String(err);
                         return false;
                     }
                 });
@@ -571,7 +728,7 @@ export function useUniversalPatcher() {
                 toast.success(`تم معالجة ${successCount} سجل بنجاح في ${tableDef.label}`);
                 setStep('done');
             } else {
-                toast.error('لم يتم معالجة أي سجل');
+                toast.error(`لم يتم معالجة أي سجل${lastErrMessage ? `: ${lastErrMessage}` : ''}`, { duration: 8000 });
                 setStep('preview');
             }
         } catch (err) {
@@ -635,6 +792,7 @@ export function useUniversalPatcher() {
         // Actions
         handleFileSelect,
         goToConfig,
+        autoMapColumns,
         analyzeData,
         executeUpdate,
         reset,

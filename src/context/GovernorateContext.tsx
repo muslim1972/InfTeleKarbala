@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 
+import { GOVERNORATES, DEFAULT_GOVERNORATE } from '../constants/governorates';
+
 interface GovernorateContextType {
     activeGovernorate: string;
     setActiveGovernorate: (gov: string) => void;
@@ -10,7 +12,7 @@ interface GovernorateContextType {
 }
 
 const GovernorateContext = createContext<GovernorateContextType>({
-    activeGovernorate: 'karbala',
+    activeGovernorate: DEFAULT_GOVERNORATE,
     setActiveGovernorate: () => {},
     availableGovernorates: [],
     canChangeGovernorate: false,
@@ -18,21 +20,28 @@ const GovernorateContext = createContext<GovernorateContextType>({
 
 export const GovernorateProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
-    const [availableGovernorates, setAvailableGovernorates] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
     
-    // Developer can change it. Others are locked to their profile's governorate.
-    const canChangeGovernorate = user?.admin_role === 'developer';
+    // Developer can change it (strictly developer / user Muslim). Others are locked to their profile's governorate.
+    const canChangeGovernorate = user?.admin_role === 'developer' || user?.username === 'مسلم';
+
+    const [availableGovernorates, setAvailableGovernorates] = useState<{ id: string; name: string; isActive: boolean }[]>(
+        () => GOVERNORATES.map(g => ({
+            id: g.id,
+            name: g.name,
+            isActive: g.id === 'karbala' || g.id === 'babil'
+        }))
+    );
 
     // State for the active governorate
     const [activeGovernorate, setInternalActiveGovernorate] = useState<string>(() => {
-        if (typeof window === 'undefined') return '';
+        if (typeof window === 'undefined') return DEFAULT_GOVERNORATE;
         // 1. If user is logged in and CANNOT change it, lock to their profile
         if (user && !canChangeGovernorate && user.governorate) {
             return user.governorate;
         }
         // 2. Otherwise, check session storage (set from login screen or by developer)
         const stored = sessionStorage.getItem('selectedGovernorate');
-        return stored || (user?.governorate || '');
+        return stored || (user?.governorate || DEFAULT_GOVERNORATE);
     });
 
     // Sync when user changes
@@ -42,7 +51,7 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
                 setInternalActiveGovernorate(user.governorate);
                 sessionStorage.setItem('selectedGovernorate', user.governorate);
             } else if (canChangeGovernorate) {
-                // If developer just logged in, ensure we keep whatever they had, or default to their profile
+                // If developer just logged in, ensure we keep whatever they had, or default to their profile or default gov
                 const stored = sessionStorage.getItem('selectedGovernorate');
                 if (!stored && user.governorate) {
                     setInternalActiveGovernorate(user.governorate);
@@ -58,10 +67,11 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
         supabase.from('governorate_cards').select('id, is_active, name')
             .then(({ data }) => {
                 if (isMounted && data) {
-                    setAvailableGovernorates(data.map(d => ({
-                        id: d.id,
-                        name: d.name || d.id,
-                        isActive: d.is_active
+                    const activeMap = new Map(data.map(d => [d.id, d.is_active]));
+                    setAvailableGovernorates(GOVERNORATES.map(g => ({
+                        id: g.id,
+                        name: g.name,
+                        isActive: activeMap.has(g.id) ? !!activeMap.get(g.id) : (g.id === 'karbala' || g.id === 'babil')
                     })));
                 }
             })

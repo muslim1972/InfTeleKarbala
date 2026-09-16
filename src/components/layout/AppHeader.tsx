@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { User, Power, Settings, Sun, Moon, History } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, History, MapPin } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { useSnapshots } from "../../context/SnapshotContext";
+import { useGovernorate } from "../../context/GovernorateContext";
 import { SettingsModal } from "../features/SettingsModal";
 import { SnapshotBrowser } from "../snapshots/SnapshotBrowser";
 import { useTheme } from "../../context/ThemeContext";
@@ -20,6 +21,7 @@ interface AppHeaderProps {
 export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
     const { activeSnapshot } = useSnapshots();
+    const { activeGovernorate, setActiveGovernorate, canChangeGovernorate, availableGovernorates } = useGovernorate();
     const { theme, toggleTheme } = useTheme();
     const { fontScale, setFontScale, currentOption } = useAccessibility();
     const [showSettings, setShowSettings] = useState(false);
@@ -42,11 +44,11 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                     : '!bg-[#0f172a]/80 !border-white/10'
                     }`}>
                     <div className="flex items-center justify-between w-full relative">
-                        {/* Right: Avatar + User Name - Clickable for Settings */}
-                        <div className="flex-1 flex justify-start">
+                        {/* Right: Avatar + User Name + Developer Governorate Switcher */}
+                        <div className="flex-1 flex items-center justify-start gap-2">
                             <button
                                 onClick={() => setShowSettings(true)}
-                                className="flex items-center gap-2 hover:bg-white/5 p-1 rounded-lg transition-colors group"
+                                className="flex items-center gap-2 hover:bg-white/5 p-1 rounded-lg transition-colors group shrink-0"
                             >
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-yellow-DEFAULT to-brand-green-DEFAULT flex items-center justify-center shadow-lg border-2 border-white/20 overflow-hidden relative">
                                     {user.avatar_url ? (
@@ -73,6 +75,44 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                                     </div>
                                 )}
                             </button>
+
+                            {/* تبديل المحافظة - متاح حصرياً لحساب المطور (مسلم عقيل) */}
+                            {canChangeGovernorate && (
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-xl border transition-all shadow-sm ${
+                                    theme === 'light'
+                                        ? 'bg-white/90 border-gray-200 text-gray-800 shadow-sm'
+                                        : 'bg-white/10 border-white/10 text-white'
+                                }`}>
+                                    <MapPin className="w-3.5 h-3.5 text-brand-green dark:text-brand-yellow shrink-0" />
+                                    <select
+                                        value={activeGovernorate}
+                                        onChange={(e) => {
+                                            const nextGov = e.target.value;
+                                            setActiveGovernorate(nextGov);
+                                            const found = availableGovernorates.find(g => g.id === nextGov);
+                                            toast.success(`المحافظة النشطة: ${found?.name || nextGov}`, {
+                                                id: 'gov-change-toast',
+                                                duration: 1500,
+                                                icon: '📍'
+                                            });
+                                        }}
+                                        className={`bg-transparent text-xs font-bold font-tajawal outline-none cursor-pointer border-none py-0.5 max-w-[85px] sm:max-w-[130px] truncate ${
+                                            theme === 'light' ? 'text-gray-800' : 'text-white'
+                                        }`}
+                                        title="تبديل المحافظة النشطة (صلاحية المطور)"
+                                    >
+                                        {availableGovernorates.map((g) => (
+                                            <option
+                                                key={g.id}
+                                                value={g.id}
+                                                className="bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-xs font-tajawal"
+                                            >
+                                                {g.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {/* Center: Font Scale & Theme Toggles */}

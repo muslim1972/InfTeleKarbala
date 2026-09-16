@@ -5,6 +5,7 @@ import { Loader2, Plus, Edit, Trash2, Save, Network, Check, X, Edit2, Search } f
 import { normalizeForComparison } from "../../utils/profileUtils";
 import { smoothScrollToId } from "../../hooks/useSmoothScroll";
 import { useGovernorate } from "../../context/GovernorateContext";
+import { EmployeeSearch } from "../shared/EmployeeSearch";
 
 interface Department {
     id: string;
@@ -440,33 +441,15 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                                 {editingManagerNodeId === dept.id ? (
                                     <div className="w-full max-w-sm relative">
                                         <div className={`flex flex-col gap-1 w-full p-2 rounded-lg border shadow-sm ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-slate-900 border-white/10'}`}>
-                                            <div className="relative w-full">
-                                                <Search className="w-4 h-4 text-gray-400 absolute right-2 top-2.5" />
-                                                <input
-                                                    type="text"
+                                            <div className="relative w-full z-[999]">
+                                                <EmployeeSearch
+                                                    onSelect={(u) => saveInlineManager(dept.id, u.id)}
                                                     placeholder="البحث باسم الموظف..."
-                                                    value={managerSearch}
-                                                    onChange={e => setManagerSearch(e.target.value)}
-                                                    className={`w-full pr-8 pl-2 py-2 text-sm rounded border ${theme === 'light' ? 'bg-white border-gray-300 focus:border-brand-green outline-none' : 'bg-slate-800 border-white/20 text-white focus:border-brand-green outline-none'}`}
                                                     autoFocus
+                                                    clearOnSelect
+                                                    showIcon={false}
+                                                    inputClassName="py-1.5 text-xs bg-white dark:bg-slate-800"
                                                 />
-                                                {/* AUTOCOMPLETE DROPDOWN */}
-                                                {managerSearch && (
-                                                    <div className={`absolute z-20 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-800 border-white/10'}`}>
-                                                        {users.filter(u => u.full_name.includes(managerSearch)).slice(0, 5).map(u => (
-                                                            <div
-                                                                key={u.id}
-                                                                onClick={() => saveInlineManager(dept.id, u.id)}
-                                                                className={`p-2 text-sm cursor-pointer border-b last:border-0 ${theme === 'light' ? 'hover:bg-brand-green/10 border-gray-100 text-gray-800' : 'hover:bg-brand-green/20 border-white/5 text-gray-200'}`}
-                                                            >
-                                                                {u.full_name}
-                                                            </div>
-                                                        ))}
-                                                        {users.filter(u => u.full_name.includes(managerSearch)).length === 0 && (
-                                                            <div className="p-2 text-sm text-gray-500 text-center">لا يوجد موظف بهذا الاسم</div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                             <div className="flex gap-2 w-full mt-1">
                                                 <button onClick={() => saveInlineManager(dept.id, null)} className={`flex-1 flex justify-center items-center py-1.5 text-xs rounded transition-colors ${theme === 'light' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'}`}>إزالة المسؤول</button>

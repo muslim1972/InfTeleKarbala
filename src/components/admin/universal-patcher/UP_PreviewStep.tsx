@@ -68,14 +68,14 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
 
             {/* 📅 تسمية النسخة الشهرية — إلزامية للجداول المُدارة */}
             {needsSnapshotName && (
-                <div className="mx-4 mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border-2 border-green-300 dark:border-green-800 shrink-0">
-                    <label className="block text-sm font-bold text-green-800 dark:text-green-300 mb-1">
+                <div className="mx-4 mt-3 p-2.5 md:p-3 rounded-xl border-2 animate-blink-rgb bg-blue-500/5 shrink-0 relative">
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1 font-tajawal">
                         📅 اسم النسخة الشهرية <span className="text-red-500">*</span>
                     </label>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-2">
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-2 font-tajawal">
                         اختر الشهر والسنة ليُبنى اسم النسخة تلقائياً، وستُحفظ البيانات بعد التنفيذ كنسخة يمكن لأي مستخدم الرجوع إليها.
                     </p>
-                    <SnapshotNamePicker value={snapshotName} onChange={setSnapshotName} accent="green" />
+                    <SnapshotNamePicker value={snapshotName} onChange={setSnapshotName} accent="blue" />
                 </div>
             )}
 
@@ -181,13 +181,16 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                 )}
             </div>
 
-            {/* 🛡️ تحديد مشرف IT — اختياري قبل إتمام عملية الحقن */}
-            <div className="mx-4 mt-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0">
-                <UP_ItSupervisorField
-                    onSelect={setItSupervisorId}
-                    selectedSupervisorId={itSupervisorId}
-                />
-            </div>
+            {/* 🛡️ تحديد مشرف IT — اختياري: يظهر فقط عند وجود قيود للمحافظة في النظام أو عند حقن المعلومات المالية وما يليها */}
+            {(tableDef.tableName !== 'profiles' || !govOpening) && (
+                <div className="mx-4 mt-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0">
+                    <UP_ItSupervisorField
+                        onSelect={setItSupervisorId}
+                        selectedSupervisorId={itSupervisorId}
+                        governorate={gov}
+                    />
+                </div>
+            )}
 
             {/* Footer Controls */}
             <div className="shrink-0 p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-between items-center">

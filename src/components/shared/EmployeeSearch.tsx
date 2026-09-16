@@ -176,8 +176,8 @@ export function EmployeeSearch({
                 const rect = searchRef.current!.getBoundingClientRect();
                 const spaceBelow = window.innerHeight - rect.bottom;
                 const spaceAbove = rect.top;
-                const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
-                const maxHeight = Math.max(140, Math.min(220, (openUp ? spaceAbove : spaceBelow) - 12));
+                const openUp = spaceBelow < 300 && spaceAbove > spaceBelow;
+                const maxHeight = Math.max(140, Math.min(350, (openUp ? spaceAbove : spaceBelow) - 12));
                 const portalStyle: CSSProperties = {
                     left: `${rect.left}px`,
                     width: `${rect.width}px`,

@@ -89,7 +89,19 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                         </label>
                         <select
                             value={matchColumn}
-                            onChange={e => setMatchColumn(e.target.value)}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setMatchColumn(val);
+                                const idx = parseInt(val, 10);
+                                if (!isNaN(idx) && headers[idx]) {
+                                    const h = headers[idx].toLowerCase();
+                                    if (h.includes('رقم') || h.includes('job') || h.includes('id')) {
+                                        setMatchBy('job_number');
+                                    } else if (h.includes('اسم') || h.includes('name')) {
+                                        setMatchBy('full_name');
+                                    }
+                                }
+                            }}
                             className="w-full p-2.5 bg-white dark:bg-zinc-900 border-2 border-green-500 text-green-700 dark:text-green-400 font-bold focus:ring-2 ring-blue-500 rounded-lg text-sm transition-colors outline-none"
                         >
                             <option value="">اختر العمود...</option>
@@ -110,8 +122,8 @@ export function UP_ConfigStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                                 ربط الأعمدة ↔ الحقول
                             </h4>
                             <button
-                                onClick={patcher.autoMapColumns}
-                                className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1"
+                                onClick={() => patcher.autoMapColumns(true)}
+                                className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1 active:scale-95 shadow-sm"
                             >
                                 🤖 مطابقة ذكية
                             </button>
