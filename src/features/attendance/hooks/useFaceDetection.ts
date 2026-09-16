@@ -102,12 +102,12 @@ export const useFaceDetection = () => {
     if (globalEnrollmentModelsLoaded) {
       detection = await faceapi.detectSingleFace(
         videoElement, 
-        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 })
       ).withFaceLandmarks().withFaceDescriptor();
     } else {
       detection = await faceapi.detectSingleFace(
         videoElement,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 })
       ).withFaceLandmarks().withFaceDescriptor();
     }
 

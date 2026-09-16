@@ -181,8 +181,8 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                 )}
             </div>
 
-            {/* 🛡️ تحديد مشرف IT — اختياري: يظهر فقط عند وجود قيود للمحافظة في النظام أو عند حقن المعلومات المالية وما يليها */}
-            {(tableDef.tableName !== 'profiles' || !govOpening) && (
+            {/* 🛡️ تحديد مشرف IT — اختياري: يظهر فقط عند وجود قيود للمحافظة في النظام أو عند حقن المعلومات المالية وما يليها، ولا يظهر للتدريب الصيفي */}
+            {tableDef.tableName !== 'summer_training_students' && (tableDef.tableName !== 'profiles' || !govOpening) && (
                 <div className="mx-4 mt-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0">
                     <UP_ItSupervisorField
                         onSelect={setItSupervisorId}

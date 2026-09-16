@@ -16,13 +16,22 @@ interface SnapshotNamePickerProps {
     disabled?: boolean;
     /** لون الإطار المميز حسب الشاشة المضيفة */
     accent?: 'green' | 'teal' | 'blue';
+    /** بادئة تضاف قبل اسم النسخة (مثل "تدريب ") */
+    prefix?: string;
 }
 
-export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green' }: SnapshotNamePickerProps) {
+export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green', prefix = '' }: SnapshotNamePickerProps) {
     const now = new Date();
-    const parsed = parseSnapshotName(value);
+    // إزالة البادئة عند التحليل إذا كانت موجودة
+    const valueWithoutPrefix = prefix && value.startsWith(prefix) ? value.substring(prefix.length) : value;
+    const parsed = parseSnapshotName(valueWithoutPrefix);
+    
     const month = parsed?.month ?? now.getMonth();
     const year = parsed?.year ?? now.getFullYear();
+
+    const handleChange = (monthIdx: number, yr: number) => {
+        onChange(prefix + snapshotNameFromMonth(monthIdx, yr));
+    };
 
     const years = useMemo(() => {
         const y = now.getFullYear();
@@ -46,7 +55,7 @@ export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green'
                     <select
                         value={month}
                         disabled={disabled}
-                        onChange={e => onChange(snapshotNameFromMonth(parseInt(e.target.value, 10), year))}
+                        onChange={e => handleChange(parseInt(e.target.value, 10), year)}
                         className={`w-full appearance-none pr-9 pl-3 py-2 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-green-500/50 disabled:opacity-60 ${selectCls}`}
                     >
                         {IRAQI_MONTHS.map((mName, idx) => (
@@ -57,7 +66,7 @@ export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green'
                 <select
                     value={year}
                     disabled={disabled}
-                    onChange={e => onChange(snapshotNameFromMonth(month, parseInt(e.target.value, 10)))}
+                    onChange={e => handleChange(month, parseInt(e.target.value, 10))}
                     className={`w-full py-2 px-3 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-green-500/50 disabled:opacity-60 ${selectCls}`}
                 >
                     {years.map(y => (
@@ -69,7 +78,7 @@ export function SnapshotNamePicker({ value, onChange, disabled, accent = 'green'
                 type="text"
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                placeholder="مثال: شهر آب الثامن 2026"
+                placeholder={`مثال: ${prefix}شهر آب الثامن 2026`}
                 disabled={disabled}
                 className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/50 font-tajawal"
             />

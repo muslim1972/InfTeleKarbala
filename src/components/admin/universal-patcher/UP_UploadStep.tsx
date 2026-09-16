@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { TABLE_DEFINITIONS } from '../../../utils/universalPatcherConfig';
 import { GOVERNORATES } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
+import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
 
 export function UP_UploadStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +58,22 @@ export function UP_UploadStep({ patcher }: { patcher: UseUniversalPatcherReturn 
                     ))}
                 </div>
             </div>
+
+            {selectedTable === 'summer_training_students' && (
+                <div className="p-3 rounded-xl border-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10 flex flex-col md:flex-row md:items-start gap-3">
+                    <label className="text-[12px] font-bold text-emerald-800 dark:text-emerald-300 whitespace-nowrap mt-2">
+                        اسم النسخة / الدورة
+                    </label>
+                    <div className="flex-1">
+                        <SnapshotNamePicker 
+                            value={patcher.targetBatch} 
+                            onChange={patcher.setTargetBatch} 
+                            accent="green" 
+                            prefix="تدريب " 
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* رفع الملف والإعدادات */}
             <div className="space-y-2">

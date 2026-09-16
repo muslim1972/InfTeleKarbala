@@ -21,6 +21,8 @@ export interface TableDef {
     fields: FieldDef[];
     /** الأعمدة المطلوبة من Excel للمطابقة في الجداول التفصيلية */
     requiredExcelFields?: string[];
+    /** إذا كان الجدول مستقلاً ولا يحتاج إلى حسابات في Profiles (مثل طلبة التدريب الصيفي) */
+    isStandalone?: boolean;
 }
 
 // ─── الأعمدة المستثناة من الربط (تُدار تلقائياً) ─────────
@@ -40,6 +42,24 @@ const ACCOUNT_FIELDS: FieldDef[] = [
 // ─── تعريف الجداول ─────────────────────────────────────
 
 export const TABLE_DEFINITIONS: TableDef[] = [
+    {
+        tableName: 'summer_training_students',
+        label: 'طلبة التدريب الصيفي',
+        icon: '🎓',
+        type: 'single',
+        color: 'emerald',
+        isStandalone: true,
+        fields: [
+            { value: 'full_name', label: 'الاسم الثلاثي', type: 'text' },
+            { value: 'username', label: 'اسم المستخدم (للمطابقة والدخول)', type: 'text' },
+            { value: 'password_hash', label: 'الرمز', type: 'text' },
+            { value: 'institution_name', label: 'الجامعة او المعهد', type: 'text' },
+            { value: 'training_location', label: 'موقع التدريب', type: 'text' },
+            { value: 'trainer_name', label: 'اسم المدرب', type: 'text' },
+            { value: 'batch_name', label: 'اسم الدورة / النسخة', type: 'text' },
+            { value: 'exam_grade', label: 'درجة الاختبار', type: 'text' },
+        ]
+    },
     {
         tableName: 'profiles',
         label: 'الملفات الشخصية',

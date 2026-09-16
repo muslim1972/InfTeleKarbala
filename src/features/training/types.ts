@@ -53,6 +53,7 @@ export interface TrainingStudent {
     exam_grade: ExamGrade | null;
     supervisor_id: string;
     created_at: string;
+    batch_name?: string;
 }
 
 /** نتيجة اختبار تدريب صيفي */
@@ -70,6 +71,7 @@ export interface TrainingResult {
     started_at: string;
     completed_at: string;
     created_at: string;
+    batch_name?: string;
 }
 
 /** إعدادات اختبار التدريب الصيفي */

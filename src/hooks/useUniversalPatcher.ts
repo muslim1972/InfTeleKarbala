@@ -66,8 +66,11 @@ export function useUniversalPatcher() {
         [selectedTable]
     );
 
-    // سنة التشغيل (للجداول السنوية/التفصيلية)
+    // السنة المستهدفة للجداول السنوية والتفصيلية
     const [targetYear, setTargetYear] = useState(() => new Date().getFullYear());
+
+    // اسم الدورة (للتدريب الصيفي)
+    const [targetBatch, setTargetBatch] = useState(() => 'تدريب ' + suggestSnapshotName());
 
     // ربط الأعمدة: { dbField: excelColumnIndex }
     const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
@@ -147,7 +150,17 @@ export function useUniversalPatcher() {
             }
 
             const safeIdx = Math.max(0, Math.min(headerRowIndex, allRows.length - 1));
-            const hdrs = (allRows[safeIdx] || []).map((h: any) => String(h || '').trim());
+            const rawHdrs = (allRows[safeIdx] || []).map((h: any) => String(h || '').trim());
+            
+            // إزالة الأعمدة الفارغة من نهاية المصفوفة
+            let lastNonEmpty = -1;
+            for (let i = rawHdrs.length - 1; i >= 0; i--) {
+                if (rawHdrs[i] !== '') {
+                    lastNonEmpty = i;
+                    break;
+                }
+            }
+            const hdrs = rawHdrs.slice(0, lastNonEmpty + 1);
 
             setHeaders(hdrs);
             setRows(allRows.slice(safeIdx + 1).filter(r => r.length > 0 && r.some(cell => cell)));
@@ -307,17 +320,36 @@ export function useUniversalPatcher() {
             setAllowMissingSkip(false);
 
             // 1. جلب ملفات محافظة الهدف فقط
-            const { data: profilesRaw, error } = await supabase
-                .from('profiles')
-                .select('id, username, full_name, job_number')
-                .eq('governorate', gov);
-            if (error) throw error;
+            let profilesRaw: any[] = [];
+            
+            if (tableDef.isStandalone) {
+                let query = supabase
+                    .from(tableDef.tableName)
+                    .select('id, username, full_name'); // assuming standalone tables have these
+                
+                // If table has governorate column, filter by it. We know summer_training_students doesn't.
+                if (tableDef.tableName !== 'summer_training_students') {
+                     query = query.eq('governorate', gov);
+                }
+                
+                const { data, error } = await query;
+                if (error) throw error;
+                profilesRaw = data || [];
+            } else {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, username, full_name, job_number')
+                    .eq('governorate', gov);
+                if (error) throw error;
+                profilesRaw = data || [];
+            }
 
-            const profiles = profilesRaw || [];
+            const profiles = profilesRaw;
 
             // 🧠 ذكاء الافتتاح: لا مستخدمين = افتتاح محافظة جديدة — لا مطابقة،
             // ستُنشأ الحسابات عند التنفيذ من عمودي «اسم المستخدم» و«كلمة المرور» في الملف
-            const opening = profiles.length === 0;
+            // ملاحظة: الجداول المستقلة دائماً تتعامل مع بياناتها الخاصة وليس إنشاء حسابات
+            const opening = !tableDef.isStandalone && profiles.length === 0;
             setGovOpening(opening);
             if (opening) {
                 toast(`🆕 افتتاح محافظة جديدة (${governorateName(gov)}) — ستُنشأ الحسابات من الملف عند التنفيذ`, { icon: 'ℹ️', duration: 5000 });
@@ -345,7 +377,7 @@ export function useUniversalPatcher() {
 
             const govProfileIds = profiles.map((p: any) => p.id);
 
-            if (tableDef.tableName === 'profiles') {
+            if (tableDef.tableName === 'profiles' || tableDef.isStandalone) {
                 existingRecords = profiles.map((p: any) => ({ ...p, _userId: p.id }));
             } else if (govProfileIds.length === 0) {
                 existingRecords = [];
@@ -409,6 +441,11 @@ export function useUniversalPatcher() {
                 // ضمان عدم ترك المحافظة فارغة أبداً
                 if (!newValues['governorate'] && gov) {
                     newValues['governorate'] = gov;
+                }
+
+                // حقن اسم الدورة إذا كان الجدول تدريب صيفي
+                if (tableDef.tableName === 'summer_training_students') {
+                    newValues['batch_name'] = targetBatch;
                 }
 
                 const jobNumber = String(newValues.job_number ?? (matched?.job_number || (matchBy === 'job_number' || /^\d+$/.test(matchValue) ? matchValue : ''))).trim();
@@ -665,12 +702,12 @@ export function useUniversalPatcher() {
                                 .update({ ...payload, updated_at: new Date().toISOString() })
                                 .eq('id', item.recordId);
                             if (error) throw error;
-                        } else if (item.status === 'new_record' && item.profileId) {
+                        } else if (item.status === 'new_record' && (item.profileId || tableDef.isStandalone)) {
                             // إضافة سجل جديد
-                            const insertPayload: any = {
-                                ...payload,
-                                user_id: item.profileId,
-                            };
+                            const insertPayload: any = { ...payload };
+                            if (!tableDef.isStandalone) {
+                                insertPayload.user_id = item.profileId;
+                            }
                             // إضافة السنة للجداول السنوية/التفصيلية
                             if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
                                 insertPayload.year = targetYear;
@@ -777,6 +814,7 @@ export function useUniversalPatcher() {
         headers, rows,
         selectedTable, setSelectedTable, tableDef,
         targetYear, setTargetYear,
+        targetBatch, setTargetBatch,
         snapshotName, setSnapshotName,
         columnMapping, setColumnMapping,
         matchColumn, setMatchColumn,

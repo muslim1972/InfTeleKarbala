@@ -287,7 +287,7 @@ export function useTrainingData() {
         try {
             const { data, error } = await supabase.rpc('authenticate_training_student', {
                 p_username: username,
-                p_password: password,
+                p_password: password, p_governorate: import.meta.env.VITE_GOVERNORATE || 'karbala',
             });
             if (error) throw error;
             if (data && data.length > 0) return data[0];

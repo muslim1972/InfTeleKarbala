@@ -417,16 +417,16 @@ export default function AttendanceCheckInOut({
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
           
-          if (distance <= 0.55) {
+          if (distance <= 0.45) {
             debugStatsRef.current.matchFrames++;
             setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
             
             debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
             debugStatsRef.current.lastEar = ear;
 
-            const isPerfectMatch = distance <= 0.45 && debugStatsRef.current.matchFrames >= 3;
-            const isGoodMatchWithBlink = distance <= 0.55 && ear < 0.28;
-            const isGoodMatchWithHold = distance <= 0.55 && debugStatsRef.current.matchFrames >= 12;
+            const isPerfectMatch = distance <= 0.38 && debugStatsRef.current.matchFrames >= 3;
+            const isGoodMatchWithBlink = distance <= 0.42 && ear < 0.28;
+            const isGoodMatchWithHold = distance <= 0.45 && debugStatsRef.current.matchFrames >= 15;
 
             if (isPerfectMatch || isGoodMatchWithBlink || isGoodMatchWithHold) {
               // Liveness verified!
