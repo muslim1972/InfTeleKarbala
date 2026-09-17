@@ -18,6 +18,8 @@ export interface MapBuilding {
   label: string; // H1..H16
   polygon: Vec2[];
   connectionPoint: Vec2; // نقطة دخول الكابل للمنزل (تواجه الزقاق)
+  /** اسم المبنى من المصدر إن وُجد (خرائط GIS المستوردة) */
+  name?: string;
 }
 
 export interface MapRoad {

@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, FolderOpen, HelpCircle, Loader2, Lock, Maximize2, Minimize2, Plus, Save, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, FolderOpen, HelpCircle, Loader2, Lock, Map, Maximize2, Minimize2, Plus, Save, Trash2, TriangleAlert, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { simRedo, simUndo, useSimulatorStore } from './store/simulator.store';
 import { useEduStore } from './store/education.store';
@@ -23,6 +23,7 @@ import {
   type FiberProjectRow,
 } from './services/scores.service';
 import { getMapById } from './data/maps/registry';
+import GisImporter from './gis/GisImporter';
 import SimCanvas from './ui/SimCanvas';
 import SimToolbar from './ui/SimToolbar';
 import SimInspector from './ui/SimInspector';
@@ -57,6 +58,8 @@ export default function FiberSimulatorWorkspace({
   const [savedName, setSavedName] = useState('');
   /* نافذة «فتح المشروع» */
   const [openDlg, setOpenDlg] = useState(false);
+  /* نافذة «خرائط GIS واستيرادها» */
+  const [gisDlg, setGisDlg] = useState(false);
   const [projects, setProjects] = useState<FiberProjectRow[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -337,6 +340,10 @@ export default function FiberSimulatorWorkspace({
       if (t && ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) return;
 
       if (e.key === 'Escape') {
+        if (gisDlg) {
+          setGisDlg(false);
+          return;
+        }
         if (openDlg) {
           setOpenDlg(false);
           return;
@@ -397,7 +404,7 @@ export default function FiberSimulatorWorkspace({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st, confirmExit, projectName, projectId, savedName, openDlg]);
+  }, [st, confirmExit, projectName, projectId, savedName, openDlg, gisDlg]);
 
   return (
     <div ref={rootRef} id="fiber-sim-root" dir="rtl" className="fixed inset-0 z-[90] flex flex-col bg-[#070d18] text-slate-200">
@@ -460,6 +467,15 @@ export default function FiberSimulatorWorkspace({
           >
             <FolderOpen size={14} />
             فتح مشروع
+          </button>
+          <button
+            type="button"
+            onClick={() => setGisDlg(true)}
+            title="خرائط GIS — استيراد ملف GeoJSON لمساحة عملك وإدارة الخرائط"
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-500/10"
+          >
+            <Map size={14} />
+            خرائط GIS
           </button>
           <button
             type="button"
@@ -790,6 +806,9 @@ export default function FiberSimulatorWorkspace({
           </div>
         </div>
       )}
+
+      {/* نافذة «خرائط GIS» — استيراد GeoJSON وإدارة الخرائط */}
+      <GisImporter open={gisDlg} onClose={() => setGisDlg(false)} />
 
       {/* الجولة التدريبية التوجيهية */}
       <OnboardingTour />

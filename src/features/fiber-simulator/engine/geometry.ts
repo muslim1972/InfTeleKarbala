@@ -152,3 +152,89 @@ export function nearestBuildingConnection(
   }
   return best ? { id: best.id, point: best.point } : null;
 }
+
+/* ============================================================
+ * عمليات المضلعات — تدعم المضلعات الحقيقية المستوردة من GIS
+ * ============================================================ */
+
+/** هل النقطة داخل مضلع (ray casting) — مع هامش اختياري */
+export function pointInPolygon(p: Vec2, ring: Vec2[], pad = 0): boolean {
+  const n = ring.length;
+  if (n < 3) return false;
+  /* المربع المحيط أولًا — تسريع كبير للخرائط الكبيرة */
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const q of ring) {
+    if (q.x < minX) minX = q.x;
+    if (q.x > maxX) maxX = q.x;
+    if (q.y < minY) minY = q.y;
+    if (q.y > maxY) maxY = q.y;
+  }
+  if (p.x < minX - pad || p.x > maxX + pad || p.y < minY - pad || p.y > maxY + pad) return false;
+  let inside = false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    const intersect =
+      a.y > p.y !== b.y > p.y &&
+      p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/** مركز ثقل المضلع (مساحي) — لوضع تسميات وعناصر داخل المبنى */
+export function polygonCentroid(ring: Vec2[]): Vec2 {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    const cross = a.x * b.y - b.x * a.y;
+    area += cross;
+    cx += (a.x + b.x) * cross;
+    cy += (a.y + b.y) * cross;
+  }
+  if (Math.abs(area) < 1e-9) {
+    /* مضلع منحلّ — نرجع المتوسط الحسابي */
+    let sx = 0, sy = 0;
+    for (const q of ring) { sx += q.x; sy += q.y; }
+    return { x: sx / ring.length, y: sy / ring.length };
+  }
+  area *= 0.5;
+  return { x: cx / (6 * area), y: cy / (6 * area) };
+}
+
+/** أقرب نقطة على محيط مضلع لنقطة مرجعية خارجية (بالتحديد على أقرب ضلع) */
+export function nearestPointOnRing(p: Vec2, ring: Vec2[]): { point: Vec2; dist: number } {
+  let best: { point: Vec2; dist: number } | null = null;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % ring.length];
+    const pr = projectOnSegment(p, a, b);
+    if (!best || pr.dist < best.dist) best = { point: pr.point, dist: pr.dist };
+  }
+  return best ?? { point: ring[0], dist: dist(p, ring[0]) };
+}
+
+/** أقرب نقطة على خط متعدد + مسافتها */
+export function nearestPointOnPolyline(
+  p: Vec2,
+  pts: Vec2[]
+): { point: Vec2; dist: number; segIndex: number } {
+  let best: { point: Vec2; dist: number; segIndex: number } | null = null;
+  for (let i = 1; i < pts.length; i++) {
+    const pr = projectOnSegment(p, pts[i - 1], pts[i]);
+    if (!best || pr.dist < best.dist) best = { point: pr.point, dist: pr.dist, segIndex: i - 1 };
+  }
+  return best ?? { point: p, dist: 0, segIndex: 0 };
+}
+
+/** مساحة مضلع (shoelace) بالمتر المربع */
+export function polygonArea(ring: Vec2[]): number {
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    a += ring[i].x * ring[j].y - ring[j].x * ring[i].y;
+  }
+  return Math.abs(a) / 2;
+}

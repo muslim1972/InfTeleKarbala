@@ -21,6 +21,8 @@ import {
   computeSnap,
   dist,
   nearestBuildingConnection,
+  pointInPolygon,
+  polygonCentroid,
   polylineLength,
   projectOnSegment,
   type NodeRef,
@@ -132,6 +134,30 @@ export default function SimCanvas(): React.ReactElement {
     return nodes;
   }, [tool, entities.structures, entities.cabinets, entities.fats, map]);
 
+  /* ===================== تخطيط تسميات المباني =====================
+   مركز ثقل كل مضلع + حجم خط يتناسب مع حجم المبنى (يدعم
+   المضلعات الحقيقية المستوردة من GIS ذات الأحجام المختلفة) */
+  const buildingLabels = useMemo(
+    () =>
+      map
+        ? map.buildings.map((b) => {
+            const c = polygonCentroid(b.polygon);
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const p of b.polygon) {
+              if (p.x < minX) minX = p.x;
+              if (p.x > maxX) maxX = p.x;
+              if (p.y < minY) minY = p.y;
+              if (p.y > maxY) maxY = p.y;
+            }
+            const w = maxX - minX;
+            const h = maxY - minY;
+            const fontSize = Math.max(2, Math.min(3.4, Math.min(w, h) * 0.42));
+            return { id: b.id, c, w, fontSize };
+          })
+        : [],
+    [map]
+  );
+
   /* ===================== تحويلات الإحداثيات ===================== */
   const getWorld = (): Vec2 | null => {
     const pos = stageRef.current?.getPointerPosition();
@@ -239,12 +265,9 @@ export default function SimCanvas(): React.ReactElement {
     /* المقسم — مربّع 4×2.4م حول نقطته */
     if (Math.abs(p.x - map.exchange.point.x) <= 3.5 && Math.abs(p.y - map.exchange.point.y) <= 3.5)
       return 'exchange';
-    /* الدور — مستطيل 10×10م بهامش متر */
-    const inBuilding = map.buildings.some((b) => {
-      const minX = b.polygon.reduce((m, q) => Math.min(m, q.x), Infinity);
-      const minY = b.polygon.reduce((m, q) => Math.min(m, q.y), Infinity);
-      return p.x >= minX - 1 && p.x <= minX + 11 && p.y >= minY - 1 && p.y <= minY + 11;
-    });
+    /* الدور — فحص داخل المضلع الفعلي (يدعم المضلعات الحقيقية
+       المستوردة من GIS والمستطيلات الثابتة على حد سواء) */
+    const inBuilding = map.buildings.some((b) => pointInPolygon(p, b.polygon, 1));
     if (inBuilding) return 'home';
     /* الشوارع — ضمن نصف عرض الشارع + متر هوامش */
     const nearRoad = map.roads.some((r) => {
@@ -547,38 +570,41 @@ export default function SimCanvas(): React.ReactElement {
             />
           </Group>
 
-          {/* الدور */}
-          {map.buildings.map((b) => (
-            <Group key={b.id} listening={false}>
-              <Rect
-                x={b.polygon.reduce((m, p) => Math.min(m, p.x), Infinity)}
-                y={b.polygon.reduce((m, p) => Math.min(m, p.y), Infinity)}
-                width={10}
-                height={10}
-                fill="#1b2536"
-                stroke="#54657f"
-                strokeWidth={0.15}
-              />
-              <Text
-                x={b.polygon[0].x}
-                y={b.polygon[0].y + 3}
-                width={10}
-                align="center"
-                fontSize={3}
-                fill="#93a6c4"
-                text={b.label}
-              />
-              <Circle
-                x={b.connectionPoint.x}
-                y={b.connectionPoint.y}
-                radius={0.55}
-                fill={tool === 'drop' ? '#0ea5e9' : '#334155'}
-                stroke="#38bdf8"
-                strokeWidth={0.12}
-                opacity={tool === 'drop' ? 1 : 0.5}
-              />
-            </Group>
-          ))}
+          {/* الدور — مضلعات حقيقية ( خرائط GIS ) أو مستطيلات ثابتة */}
+          {map.buildings.map((b) => {
+            const lbl = buildingLabels.find((l) => l.id === b.id);
+            return (
+              <Group key={b.id} listening={false}>
+                <Line
+                  points={flat(b.polygon)}
+                  closed
+                  fill="#1b2536"
+                  stroke="#54657f"
+                  strokeWidth={0.15}
+                />
+                {lbl && (
+                  <Text
+                    x={lbl.c.x - lbl.w / 2}
+                    y={lbl.c.y - lbl.fontSize / 1.4}
+                    width={lbl.w}
+                    align="center"
+                    fontSize={lbl.fontSize}
+                    fill="#93a6c4"
+                    text={b.name && b.name.trim() ? `${b.label} · ${b.name.trim()}` : b.label}
+                  />
+                )}
+                <Circle
+                  x={b.connectionPoint.x}
+                  y={b.connectionPoint.y}
+                  radius={0.55}
+                  fill={tool === 'drop' ? '#0ea5e9' : '#334155'}
+                  stroke="#38bdf8"
+                  strokeWidth={0.12}
+                  opacity={tool === 'drop' ? 1 : 0.5}
+                />
+              </Group>
+            );
+          })}
 
           {/* مسارات الحفر */}
           {entities.trenches.map((t) => (
