@@ -89,56 +89,59 @@ export interface GisImportResult {
 
 export class GisImportError extends Error {}
 
-interface Rect { minX: number; minY: number; maxX: number; maxY: number; }
-
 /* ======================= أدوات داخلية ======================= */
 
 const r1 = (v: number): number => Math.round(v * 4) / 4; // دقة 0.25م
 
 /**
- * قص خط متعدد على مستطيل (slab clipping) — يُنتج قطعاً متصلة
- * داخل المستطيل فقط. ضروري لقص الطرق التي تمتد خارج منطقة
- * التدريب (Overpass يرجع هندسة الطريق كاملة) ولاحتياط أي ملف
- * مستورد يحوي عناصر شاذة.
+ * سقف أبعاد الخريطة (م) — حماية من الملفات الشاذة التي تحوي
+ * طرقاً تمتد آلاف الكيلومترات. فوق هذا الحد نطلب منطقة أصغر.
  */
-function clipPolylineToRect(pts: Vec2[], rect: Rect): Vec2[][] {
-  const inside = (p: Vec2) =>
-    p.x >= rect.minX && p.x <= rect.maxX && p.y >= rect.minY && p.y <= rect.maxY;
-  const pieces: Vec2[][] = [];
-  let cur: Vec2[] = [];
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1];
-    const b = pts[i];
-    const ain = inside(a);
-    const bin = inside(b);
-    if (ain && bin) {
-      if (cur.length === 0) cur.push(a);
-      cur.push(b);
-    } else if (ain && !bin) {
-      if (cur.length === 0) cur.push(a);
-      cur.push(clipExit(a, b, rect));
-      if (cur.length >= 2) pieces.push(cur);
-      cur = [];
-    } else if (!ain && bin) {
-      cur = [clipExit(b, a, rect), b];
-    }
-    /* !ain && !bin — لا شيء */
-  }
-  if (cur.length >= 2) pieces.push(cur);
-  return pieces;
+const MAX_MAP_DIM_M = 4000;
+
+/**
+ * حدود الخريطة = اتحاد كل العناصر (مبانٍ وطرق) + هامش عمل.
+ *
+ * قرار تصميمي مهم: لا نقص أي أطراف. الخريطة تُعرض كاملةً كما هي
+ * على أرض الواقع، ويقرر المستخدم بنفسه التصغير لرؤية الكل ثم
+ * التكبير والتحريك نحو المنطقة التي يريد العمل عليها (pan/zoom).
+ * هذا يحافظ على دقة الجرد الجغرافي ولا يخفي أي بنية تحتية.
+ */
+interface Bounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  w: number;
+  h: number;
 }
 
-/** نقطة خروج القطعة (a→b) من المستطيل — a داخل، b خارج */
-function clipExit(a: Vec2, b: Vec2, rect: Rect): Vec2 {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  let t = 1;
-  if (dx > 0) t = Math.min(t, (rect.maxX - a.x) / dx);
-  else if (dx < 0) t = Math.min(t, (rect.minX - a.x) / dx);
-  if (dy > 0) t = Math.min(t, (rect.maxY - a.y) / dy);
-  else if (dy < 0) t = Math.min(t, (rect.minY - a.y) / dy);
-  t = Math.max(0, Math.min(1, t));
-  return { x: a.x + dx * t, y: a.y + dy * t };
+function unionBounds(
+  buildings: { ring: Vec2[] }[],
+  roads: { pts: Vec2[] }[]
+): Bounds | null {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const grow = (p: Vec2) => {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  };
+  for (const { ring } of buildings) ring.forEach(grow);
+  for (const { pts } of roads) pts.forEach(grow);
+  if (!Number.isFinite(minX)) return null;
+  const MARGIN = 14;
+  return {
+    minX: minX - MARGIN,
+    minY: minY - MARGIN,
+    maxX: maxX + MARGIN,
+    maxY: maxY + MARGIN,
+    w: maxX - minX + MARGIN * 2,
+    h: maxY - minY + MARGIN * 2,
+  };
 }
 
 /** فحص بنية GeoJSON بصارمة — فاشل دائماً عند أي شك */
@@ -480,48 +483,29 @@ export function geoJsonToSimMap(
   if (proj.buildings.length === 0)
     throw new GisImportError('لا توجد مبانٍ صالحة (Polygon مغلقة بمساحة كافية)');
 
-  /* 4) صندوق منطقة التدريب = تجمّع المباني + هامش عمل.
-     نصقص عليه كل الطرق حتى لا تمتد طرق رئيسية خارج الحي —
-     Overpass يرجع هندسة الطريق كاملة بلا قص. */
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const { ring } of proj.buildings)
-    for (const p of ring) {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-  const MARGIN = 14;
-  const clip: Rect = {
-    minX: minX - MARGIN,
-    minY: minY - MARGIN,
-    maxX: maxX + MARGIN,
-    maxY: maxY + MARGIN,
-  };
+  /* 4) حدود الخريطة = اتحاد كل العناصر (مبانٍ وطرق) — لا قصّ
+     للأطراف: المستخدم يصغّر لرؤية الكل ويكبّر على منطقة عمله. */
+  const bounds = unionBounds(proj.buildings, proj.roads);
+  if (!bounds)
+    throw new GisImportError('تعذّر تحديد أبعاد المنطقة — لا توجد إحداثيات صالحة');
+  if (bounds.w > MAX_MAP_DIM_M || bounds.h > MAX_MAP_DIM_M)
+    throw new GisImportError(
+      `أبعاد المنطقة ${Math.round(Math.max(bounds.w, bounds.h))}م تتجاوز الحد المسموح (${MAX_MAP_DIM_M}م) — استورد منطقة أصغر`
+    );
 
-  /* 5) قص الطرق على صندوق منطقة التدريب (قد تتفتت الطريقة
-     الواحدة لعدة قطع — نُبقيها كلها بنفس الاسم) */
-  const clippedRoads: { pts: Vec2[]; props: Record<string, unknown> }[] = [];
-  let droppedRoads = 0;
-  for (const rd of proj.roads) {
-    const pieces = clipPolylineToRect(rd.pts, clip);
-    if (pieces.length === 0) { droppedRoads++; continue; }
-    for (const pts of pieces) clippedRoads.push({ pts, props: rd.props });
-  }
+  /* 5) الطرق كاملةً بلا قص (تحتاجها المباني لربط نقاط الدخول) */
+  const { roads, hw } = buildRoads(proj.roads);
 
-  /* 6) الطرق أولاً (تحتاجها المباني لربط نقاط الدخول) */
-  const { roads, hw } = buildRoads(clippedRoads);
-
-  /* 7) المباني بنقاط دخول ذكية */
+  /* 6) المباني بنقاط دخول ذكية */
   const { items: buildings, skipped } = buildBuildings(proj.buildings, roads);
   if (buildings.length === 0)
     throw new GisImportError('لا توجد مبانٍ صالحة (Polygon مغلقة بمساحة كافية)');
 
-  /* 8) أبعاد الخريطة = صندوق منطقة التدريب */
-  const widthM = Math.max(40, Math.ceil(clip.maxX - clip.minX));
-  const heightM = Math.max(40, Math.ceil(clip.maxY - clip.minY));
-  const ox = clip.minX;
-  const oy = clip.minY;
+  /* 7) أبعاد الخريطة = الحدود الكاملة + الإزاحة لنظام محلي (0,0) */
+  const widthM = Math.max(40, Math.ceil(bounds.w));
+  const heightM = Math.max(40, Math.ceil(bounds.h));
+  const ox = bounds.minX;
+  const oy = bounds.minY;
   const shift = (p: Vec2): Vec2 => ({ x: r1(p.x - ox), y: r1(p.y - oy) });
   for (const b of buildings) {
     b.polygon = b.polygon.map(shift);
@@ -540,7 +524,7 @@ export function geoJsonToSimMap(
     opts.name ??
     (typeof fcName === 'string' && fcName.trim() ? fcName.trim() : `خريطة مستوردة (${buildings.length} دار)`);
 
-  const signature = `${parsed.features.length}:${buildings.length}:${roads.length}:${minX},${minY}`;
+  const signature = `${parsed.features.length}:${buildings.length}:${roads.length}:${bounds.minX},${bounds.minY}`;
   const id = `gis-${shortHash(name.toLowerCase())}-${shortHash(signature)}`;
 
   const map: SimMap = {
@@ -563,16 +547,16 @@ export function geoJsonToSimMap(
 
   const warnings: string[] = [];
   if (skipped > 0) warnings.push(`تخطّي ${skipped} عنصراً غير صالح (مساحة صغيرة أو إحداثيات ناقصة)`);
-  if (droppedRoads > 0)
-    warnings.push(`أُسقطت ${droppedRoads} طريقاً خارج منطقة التدريب`);
   const decimated = proj.buildings.some((b) => b.ring.length >= GIS_LIMITS.maxRingPoints);
   if (decimated)
     warnings.push(`بعض المباني اختُزلت رؤوسها إلى ${GIS_LIMITS.maxRingPoints} للحفاظ على الأداء`);
   if (roads.length === 0) warnings.push('لا توجد طرق — سيعتمد ربط نقاط الدخول على أقرب محيط');
+  if (roads.length > 0)
+    warnings.push('تُعرض الأطراف كاملةً — استخدم التصغير لرؤية الكل والتكبير على منطقة العمل');
 
   return {
     map,
-    stats: { buildings: buildings.length, roads: roads.length, skipped, bboxM: { w: Math.round(proj.w), h: Math.round(proj.h) } },
+    stats: { buildings: buildings.length, roads: roads.length, skipped, bboxM: { w: widthM, h: heightM } },
     warnings,
   };
 }

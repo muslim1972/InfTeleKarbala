@@ -4,9 +4,14 @@
  * ============================================================
  * نافذة مستقلة توفر:
  *  - استيراد ملف GeoJSON (سحب/إفلات أو اختيار) مع تحقق صارم
- *  - تنزيل نموذج جاهز (حي كربلاء) لتجربة الاستيراد فوراً
+ *  - جلب خريطة حقيقية في الوقت الفعلي من OpenStreetMap حسب طلب
+ *    المستخدم (مباشرةً من المتصفح عبر مرايا Overpass العامة)
  *  - تبديل الخريطة الحالية (الثابتة أو المستوردة)
  *  - حذف الخرائط المستوردة
+ *
+ * لا يُحفظ أي ملف داخل حزمة التطبيق (public/): الخريطة تُجلَب أو
+ * تُستورد عند الطلب، وحين يحفظ المستخدم مشروعه تستقر الخريطة
+ * معه في قاعدة البيانات (map_data) ليعمل من أي جهاز.
  *
  * العزل: لا يستقبل سوى open/onClose، ويقرأ حالته من مخزن
  * الخرائط ومخزن المحاكي مباشرة — بلا تبعيات على مساحة العمل.
@@ -14,14 +19,14 @@
  */
 
 import { useRef, useState } from 'react';
-import { Download, Map, Trash2, Upload, X } from 'lucide-react';
+import { Globe, Map, Trash2, Upload, X } from 'lucide-react';
 import { useGisMaps } from './gis-maps.store';
 import { geoJsonToSimMap, GisImportError } from './geojsonToSimMap';
+import { fetchOsmArea, OSM_PRESETS } from './osm-areas';
 import { SIM_MAPS } from '../data/maps/registry';
 import { useSimulatorStore } from '../store/simulator.store';
 import type { SimMap } from '../types';
 
-const SAMPLE_URL = '/gis-samples/karbala-neighborhood.geojson';
 const MAX_FILE_BYTES = 8_000_000;
 const ACCEPT = '.geojson,.json,application/geo+json,application/json';
 
@@ -44,7 +49,10 @@ export default function GisImporter({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [osmPreset, setOsmPreset] = useState(OSM_PRESETS[0].id);
 
   if (!open) return null;
 
@@ -83,25 +91,36 @@ export default function GisImporter({
     void importFile(files[0]);
   };
 
-  /* =================== تنزيل النموذج =================== */
-  const downloadSample = async () => {
+  /* =================== جلب خريطة حيّة من OpenStreetMap ===================
+   * الاستيراد في الوقت الفعلي حسب طلب المستخدم: تُجلب بيانات حقيقية
+   * من OSM مباشرةً من متصفح المستخدم عبر مرايا Overpass العامة —
+   * لا نحفظ أي ملف في حزمة التطبيق. بعد العمل عليها يحفظها
+   * المستخدم ضمن مشروعه فتستقر في قاعدة البيانات.
+   * التغذية الراجعة: مؤقّت ثوانٍ حيّ + المرآة الحالية، لأن بعض
+   * المرايا المزدحمة تستغرق عشرات الثواني ولا نريد المستخدم يظن
+   * الواجهة معلّقة. */
+  const fetchLive = async () => {
     setError(null);
+    setInfo(null);
+    setStage(null);
+    setElapsed(0);
+    const preset = OSM_PRESETS.find((p) => p.id === osmPreset);
+    if (!preset) return;
+    setBusy(true);
+    const timer = window.setInterval(() => setElapsed((s) => s + 1), 1000);
     try {
-      const res = await fetch(SAMPLE_URL, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'karbala-neighborhood.geojson';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      /* تحرير الذاكرة فوراً — لا نُبقي مرجعاً للكائن */
-      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
-      setInfo('نُزِّل النموذج إلى جهازك — استورده الآن من زر «اختر ملف GeoJSON»');
-    } catch {
-      setError('تعذّر تنزيل النموذج — تحقق من الاتصال وحاول مجدداً');
+      const { geojson } = await fetchOsmArea(preset.bbox, preset.label, setStage);
+      const res = geoJsonToSimMap(geojson, { name: preset.label });
+      gis.upsert(res.map);
+      st.loadMap(res.map);
+      /* نجاح الجلب: الخريطة مسجَّلة ومحمَّلة في مساحة العمل —
+       * نغلق النافذة تلقائياً ليستلمها المستخدم على القسم مباشرة */
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر جلب الخريطة من OpenStreetMap');
+    } finally {
+      window.clearInterval(timer);
+      setBusy(false);
     }
   };
 
@@ -197,17 +216,54 @@ export default function GisImporter({
             />
           </div>
 
-          {/* تنزيل النموذج */}
-          <button
-            type="button"
-            onClick={() => void downloadSample()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-700/60 bg-emerald-950/30 px-3 py-2.5 text-[12px] font-bold text-emerald-300 transition-colors hover:border-emerald-500 hover:bg-emerald-500/10"
-          >
-            <Download size={15} />
-            تنزيل نموذج جاهز — حي شرق الحرم، كربلاء (32 مبنى حقيقياً)
-          </button>
+          {/* جلب خريطة حقيقية في الوقت الفعلي من OpenStreetMap */}
+          <div className="rounded-xl border border-sky-700/50 bg-sky-950/30 p-4">
+            <div className="mb-2.5 flex items-center gap-2 text-[12px] font-bold text-sky-300">
+              <Globe size={15} />
+              جلب خريطة حقيقية — OpenStreetMap
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+              تُجلَب بيانات حقيقية من خرائط OpenStreetMap لحظة طلبها
+              مباشرةً من متصفحك — ولا تُخزَّن أي ملفات داخل التطبيق.
+            </p>
+            <div className="flex items-center gap-2">
+              <select
+                value={osmPreset}
+                onChange={(e) => setOsmPreset(e.target.value)}
+                disabled={busy}
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] font-bold text-slate-100 outline-none focus:border-sky-500 disabled:opacity-50"
+              >
+                {OSM_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label} — {p.hint}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void fetchLive()}
+                disabled={busy}
+                className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
+              >
+                {busy ? 'جارٍ الجلب…' : 'جلب'}
+              </button>
+            </div>
+          </div>
 
           {/* الرسائل */}
+          {busy && (stage || elapsed > 0) && (
+            <div className="rounded-lg border border-sky-500/40 bg-sky-950/40 px-3 py-2.5 text-[12px] leading-relaxed text-sky-300">
+              <span className="inline-flex items-center gap-2 font-bold">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                جارٍ الجلب… <span dir="ltr">{elapsed}ث</span>
+              </span>
+              {stage && (
+                <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
+                  {stage}
+                </span>
+              )}
+            </div>
+          )}
           {error && (
             <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2.5 text-[12px] leading-relaxed text-red-300">
               {error}
@@ -245,7 +301,8 @@ export default function GisImporter({
               <p className="rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-3 text-center text-[12px] leading-relaxed text-slate-600">
                 لا توجد خرائط مستوردة بعد.
                 <br />
-                استورد ملف GeoJSON ليظهر هنا (يُحفظ على هذا الجهاز).
+                استورد ملف GeoJSON أو اجلب خريطة حيّة — وحين تحفظ
+                مشروعك تُخزَّن الخريطة معه في قاعدة البيانات.
               </p>
             ) : (
               <div className="space-y-2">

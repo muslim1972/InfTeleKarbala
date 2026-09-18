@@ -7,8 +7,7 @@
  */
 
 import { supabase } from '../../../lib/supabase';
-import type { ProjectEntities } from '../types';
-import type { PhaseId } from '../types';
+import type { ProjectEntities, PhaseId, SimMap } from '../types';
 import type { ScoreResult } from '../engine/scoring';
 
 export interface FiberScoreRow {
@@ -28,6 +27,8 @@ export interface FiberProjectRow {
   name: string;
   phase: PhaseId;
   entities: ProjectEntities;
+  /** خريطة GIS المستوردة (SimMap كاملاً) إن وُجدت — محفوظة مع المشروع */
+  map_data: SimMap | null;
   updated_at: string;
 }
 
@@ -93,7 +94,7 @@ export async function fetchBestFiberScore(
 export async function listFiberProjects(userId: string): Promise<FiberProjectRow[]> {
   const { data, error } = await supabase
     .from('fiber_sim_projects')
-    .select('id, map_id, name, phase, entities, updated_at')
+    .select('id, map_id, name, phase, entities, map_data, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(100);
@@ -105,7 +106,13 @@ export async function listFiberProjects(userId: string): Promise<FiberProjectRow
 export async function updateFiberProject(
   userId: string,
   projectId: string,
-  input: { name: string; phase: PhaseId; entities: ProjectEntities }
+  input: {
+    name: string;
+    phase: PhaseId;
+    entities: ProjectEntities;
+    /** خريطة GIS المستوردة إن وُجدت — null يمسحها */
+    mapData?: SimMap | null;
+  }
 ): Promise<void> {
   const { error } = await supabase
     .from('fiber_sim_projects')
@@ -113,6 +120,7 @@ export async function updateFiberProject(
       name: input.name,
       phase: input.phase,
       entities: input.entities,
+      map_data: input.mapData ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', projectId)
@@ -127,6 +135,8 @@ export async function insertFiberProject(input: {
   name: string;
   phase: PhaseId;
   entities: ProjectEntities;
+  /** خريطة GIS المستوردة المرافقة للمشروع (تُخزن معه في DB) */
+  mapData?: SimMap | null;
 }): Promise<FiberProjectRow> {
   const { data, error } = await supabase
     .from('fiber_sim_projects')
@@ -136,8 +146,9 @@ export async function insertFiberProject(input: {
       name: input.name,
       phase: input.phase,
       entities: input.entities,
+      map_data: input.mapData ?? null,
     })
-    .select('id, map_id, name, phase, entities, updated_at')
+    .select('id, map_id, name, phase, entities, map_data, updated_at')
     .single();
   if (error) {
     /* 23505 = خرق قيد التفرد (اسم مستخدم مسبقاً) */
@@ -165,7 +176,7 @@ export async function loadFiberProject(
 ): Promise<FiberProjectRow | null> {
   const { data, error } = await supabase
     .from('fiber_sim_projects')
-    .select('id, map_id, name, phase, entities, updated_at')
+    .select('id, map_id, name, phase, entities, map_data, updated_at')
     .eq('user_id', userId)
     .eq('map_id', mapId)
     .order('updated_at', { ascending: false })

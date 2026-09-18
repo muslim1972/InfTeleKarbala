@@ -23,6 +23,7 @@ import {
   type FiberProjectRow,
 } from './services/scores.service';
 import { getMapById } from './data/maps/registry';
+import { useGisMaps } from './gis/gis-maps.store';
 import GisImporter from './gis/GisImporter';
 import SimCanvas from './ui/SimCanvas';
 import SimToolbar from './ui/SimToolbar';
@@ -98,6 +99,12 @@ export default function FiberSimulatorWorkspace({
       try {
         const row = await loadFiberProject(user.id, st.mapId);
         if (!alive || !row) return;
+        /* الخريطة المستوردة محفوظة مع المشروع — نسجّلها وقت التشغيل،
+           وإن لم تكن محلياً على هذا الجهاز نحمّلها من المشروع نفسه */
+        if (row.map_data) {
+          useGisMaps.getState().upsert(row.map_data);
+          if (!getMapById(st.mapId)) st.loadMap(row.map_data);
+        }
         suppressDirty.current = 2;
         st.loadEntities(row.entities);
         st.setPhase(row.phase);
@@ -206,6 +213,9 @@ export default function FiberSimulatorWorkspace({
       return false;
     }
     const name = projectName.trim() || 'محاكاة بدون اسم';
+    /* الخريطة المستوردة (GIS) تُخزَّن مع المشروع في DB — لا ملفات
+       على القرص — فيُفتح المشروع على أي جهاز بالخريطة نفسها */
+    const mapData = st.mapId.startsWith('gis-') ? map ?? null : null;
     setSaving(true);
     try {
       if (projectId && name === savedName) {
@@ -214,6 +224,7 @@ export default function FiberSimulatorWorkspace({
           name,
           phase: st.phase,
           entities: st.entities,
+          mapData,
         });
         setToast(`تم تحديث المشروع «${name}»`);
       } else {
@@ -224,6 +235,7 @@ export default function FiberSimulatorWorkspace({
           name,
           phase: st.phase,
           entities: st.entities,
+          mapData,
         });
         setProjectId(row.id);
         setSavedName(row.name);
@@ -263,8 +275,12 @@ export default function FiberSimulatorWorkspace({
 
   /* ===== تحميل مشروع مختار إلى مساحة العمل ===== */
   const openProject = (row: FiberProjectRow) => {
+    /* الخريطة المستوردة محفوظة مع المشروع — نسجّلها وقت التشغيل
+       ليعمل getMapById على أي جهاز دون ملفات محلية على القرص */
+    if (row.map_data) useGisMaps.getState().upsert(row.map_data);
+
     /* خريطة مختلفة؟ نبدّل الخريطة أولاً ثم نستبدل الكيانات */
-    const m = getMapById(row.map_id);
+    const m = getMapById(row.map_id) ?? row.map_data;
     if (m && m.id !== st.mapId) st.loadMap(m);
     suppressDirty.current = 2;
     st.loadEntities(row.entities);

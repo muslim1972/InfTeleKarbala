@@ -4,8 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { geoJsonToSimMap } from '../src/features/fiber-simulator/gis/geojsonToSimMap';
 
-const raw = readFileSync('public/gis-samples/karbala-neighborhood.geojson', 'utf8');
-const res = geoJsonToSimMap(raw, { name: 'كربلاء — حي شرق الحرم' });
+const raw = readFileSync('gis-maps/najaf-old-city.geojson', 'utf8');
+const res = geoJsonToSimMap(raw, { name: 'النجف — المدينة القديمة' });
 
 const { map, stats, warnings } = res;
 console.log('=== النتيجة ===');
