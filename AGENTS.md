@@ -36,7 +36,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\InfTeleKarbala\scripts\de
 
 5. **فحص تشغيلي عند الشك** (يُرفع ثم يُنفَّذ على VPS): `scripts\runtime-check.sh`
 
-## ملفات النشر المعتمدة
+#### ملفات النشر المعتمدة
 
 | الملف | الوظيفة |
 |---|---|
