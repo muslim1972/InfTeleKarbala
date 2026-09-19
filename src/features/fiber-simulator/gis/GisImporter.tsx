@@ -1,17 +1,18 @@
 /**
  * ============================================================
- * واجهة استيراد GIS وإدارة الخرائط — محاكي FTTH
+ * واجهة خرائط المحاكي واستيراد GIS — محاكي FTTH
  * ============================================================
  * نافذة مستقلة توفر:
- *  - استيراد ملف GeoJSON (سحب/إفلات أو اختيار) مع تحقق صارم
- *  - جلب خريطة حقيقية في الوقت الفعلي من OpenStreetMap حسب طلب
- *    المستخدم (مباشرةً من المتصفح عبر مرايا Overpass العامة)
- *  - تبديل الخريطة الحالية (الثابتة أو المستوردة)
- *  - حذف الخرائط المستوردة
+ *  - استيراد ملف GeoJSON من جهاز المستخدم (سحب/إفلات أو اختيار)
+ *    مع تحقق صارم — تحليل محلي بالكامل دون رفع للخادم
+ *  - «مكتبة الخرائط المشتركة»: ملفات GeoJSON يرفعها حساب المطور
+ *    إلى قاعدة البيانات فتظهر للجميع (القائمة تبدأ فارغة)
+ *  - تبديل الخريطة الحالية وحذف الخرائط المستوردة
  *
- * لا يُحفظ أي ملف داخل حزمة التطبيق (public/): الخريطة تُجلَب أو
- * تُستورد عند الطلب، وحين يحفظ المستخدم مشروعه تستقر الخريطة
- * معه في قاعدة البيانات (map_data) ليعمل من أي جهاز.
+ * لا أي روابط خارجية أو جلب حيّ: الخريطة إمّا من ملف المستخدم
+ * المحلي أو من المكتبة المشتركة في قاعدة البيانات. وحين يحفظ
+ * المستخدم مشروعه تستقر الخريطة معه في مساحته الخاصة (map_data)
+ * ليعمل من أي جهاز.
  *
  * العزل: لا يستقبل سوى open/onClose، ويقرأ حالته من مخزن
  * الخرائط ومخزن المحاكي مباشرة — بلا تبعيات على مساحة العمل.
@@ -19,11 +20,19 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Globe, HelpCircle, Map, Plus, Trash2, Upload, X } from 'lucide-react';
+import { HelpCircle, Library, Map, Trash2, Upload, Wrench, X } from 'lucide-react';
 import { useGisMaps } from './gis-maps.store';
-import { useOsmCustomPresets } from './osm-custom-presets.store';
 import { geoJsonToSimMap, GisImportError } from './geojsonToSimMap';
-import { fetchOsmArea, OSM_PRESETS } from './osm-areas';
+import {
+  deleteMapFromLibrary,
+  LIBRARY_MAX_FILE_BYTES,
+  listMapLibrary,
+  loadMapFromLibrary,
+  uploadMapToLibrary,
+} from './sim-map-library.service';
+import type { LibraryEntry } from './sim-map-library.service';
+import { useAuth } from '../../../context/AuthContext';
+import { isDeveloperAccount } from '../security/feature-gate';
 import { SIM_MAPS } from '../data/maps/registry';
 import { useSimulatorStore } from '../store/simulator.store';
 import type { SimMap } from '../types';
@@ -46,7 +55,9 @@ export default function GisImporter({
 }): React.ReactElement | null {
   const gis = useGisMaps();
   const st = useSimulatorStore();
+  /* مدخل ملف المستخدم (استيراد شخصي محلي) ومدخل ملف المطور (رفع للمكتبة) */
   const fileInput = useRef<HTMLInputElement>(null);
+  const devFileInput = useRef<HTMLInputElement>(null);
   /* عنصر ملء الشاشة قبل فتح مستكشف الملفات (حاوية المحاكي rootRef).
    * المستكشف يُخرج المتصفح من ملء الشاشة فنعيد الطلب على العنصر نفسه
    * بعد الاختيار/الإلغاء — لا على documentElement وإلا ملأت الصفحة كلها */
@@ -54,36 +65,84 @@ export default function GisImporter({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [stage, setStage] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
   const [dragOver, setDragOver] = useState(false);
-  const [osmPreset, setOsmPreset] = useState(OSM_PRESETS[0].id);
   /* إظهار التلميح التعليمي لسير عمل GeoJSON الشخصي */
   const [showGeoHelp, setShowGeoHelp] = useState(false);
-  /* إدارة القوالب المخصصة: نموذج الإضافة وحقوله */
-  const [showPresetForm, setShowPresetForm] = useState(false);
-  const [pfLabel, setPfLabel] = useState('');
-  const [pfSouth, setPfSouth] = useState('');
-  const [pfWest, setPfWest] = useState('');
-  const [pfNorth, setPfNorth] = useState('');
-  const [pfEast, setPfEast] = useState('');
-  const osmCustom = useOsmCustomPresets();
 
-  /* إلغاء منتقي الملفات: نستمع لحدث cancel الأصلي على الـ input
-   * لاستعادة ملء الشاشة فوراً. يُركَّب عبر addEventListener لأن
-   * onCancel في أنواع React معرَّف على <dialog> فقط — وليس على
-   * input (وهذا سبب خطأ TS2322 عند تمريره كخاصية JSX). */
+  /* =================== مكتبة الخرائط المشتركة ===================
+   * القائمة تبدأ فارغة ويملؤها المطور من لوحته أدناه. تُقرأ من
+   * قاعدة البيانات عند كل فتح للنافذة فيرى الجميع آخر حالة.
+   * الإضافة/الحذف لحساب المطور فقط — والضمانة النهائية سياسات
+   * RLS في الخادم لا الواجهة. */
+  const { user } = useAuth();
+  const isDev = isDeveloperAccount(user);
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
+  const [libOk, setLibOk] = useState(true);
+  /* لوحة المطور: الاسم + الملف المختار */
+  const [devOpen, setDevOpen] = useState(false);
+  const [devBusy, setDevBusy] = useState(false);
+  const [dpLabel, setDpLabel] = useState('');
+  const [dpFile, setDpFile] = useState<File | null>(null);
+
+  /* قراءة المكتبة من قاعدة البيانات عند كل فتح للنافذة */
   useEffect(() => {
-    const el = fileInput.current;
-    if (!open || !el) return;
-    const onPickerCancel = () => restoreFs();
-    el.addEventListener('cancel', onPickerCancel);
-    return () => el.removeEventListener('cancel', onPickerCancel);
+    if (!open) return;
+    let alive = true;
+    listMapLibrary()
+      .then((rows) => {
+        if (!alive) return;
+        setLibrary(rows);
+        setLibOk(true);
+      })
+      .catch(() => {
+        if (alive) setLibOk(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [open]);
 
   if (!open) return null;
 
-  /* =================== الاستيراد =================== */
+  /* =================== أدوات ملء الشاشة والمستكشف =================== */
+
+  /* فتح مستكشف الملفات: نتذكّر عنصر ملء الشاشة قبل خروج المتصفح منه
+   * ونستمع لحدث cancel الأصلي على الـ input (لا خاصية onCancel في
+   * React — معرَّف على <dialog> فقط، وتمريره كخاصية JSX يسبب TS2322). */
+  const openPicker = (input: HTMLInputElement | null) => {
+    wasFsRef.current = document.fullscreenElement;
+    const onPickerCancel = () => restoreFs();
+    input?.addEventListener('cancel', onPickerCancel, { once: true });
+    input?.click();
+  };
+
+  /* استعادة ملء الشاشة على العنصر الأصلي فور إغلاق المستكشف.
+   * ملاحظة حاسمة: change/cancel ليسان من أحداث «تنشيط المستخدم»
+   * في المتصفح، فقد تُرفض المحاولة الفورية — لذلك الشبكة الأمانة
+   * (أول pointerdown/keydown بعدهما، وهما حدثا تنشيط مؤكدان) هي
+   * الفاعل الفعلي: تعيد الطلب على العنصر المحفوظ ثم تنظّف نفسها. */
+  const restoreFs = () => {
+    const attempt = (final: boolean) => {
+      const el = wasFsRef.current;
+      if (el && !document.fullscreenElement) {
+        void el.requestFullscreen().catch(() => {});
+      }
+      if (final) {
+        wasFsRef.current = null;
+        document.removeEventListener('pointerdown', onGesture);
+        document.removeEventListener('keydown', onGesture);
+      }
+    };
+    const onGesture = () => attempt(true);
+    attempt(false);
+    document.addEventListener('pointerdown', onGesture);
+    document.addEventListener('keydown', onGesture);
+  };
+
+  /* =================== الاستيراد الشخصي (محلي فقط) ===================
+   * الملف يُقرأ ويُحلَّل داخل متصفح المستخدم — لا يُرفع إلى أي خادم
+   * في هذه الخطوة. يصبح في مساحة العمل فوراً، ويستقر في قاعدة
+   * البيانات لاحقاً فقط حين يحفظ المستخدم مشروعه. */
   const importFile = async (file: File) => {
     setError(null);
     setInfo(null);
@@ -103,7 +162,7 @@ export default function GisImporter({
       gis.upsert(res.map);
       st.loadMap(res.map);
       /* نجاح الاستيراد: نغلق النافذة تلقائياً ليستلمها المستخدم
-       * على مساحة العمل مباشرة — نفس سلوك الجلب الحيّ من OSM */
+       * على مساحة العمل مباشرة */
       onClose();
     } catch (e) {
       setError(e instanceof GisImportError ? e.message : 'خطأ غير متوقع أثناء التحليل');
@@ -112,76 +171,86 @@ export default function GisImporter({
     }
   };
 
-  /* فتح المستكشف: نتذكّر عنصر ملء الشاشة قبل خروج المتصفح منه */
-  const openPicker = () => {
-    wasFsRef.current = document.fullscreenElement;
-    fileInput.current?.click();
-  };
-
-  /* استعادة ملء الشاشة على العنصر الأصلي فور إغلاق المستكشف.
-   * ملاحظة حاسمة: change/cancel ليسان من أحداث «تنشيط المستخدم»
-   * في المتصفح، فقد تُرفض المحاولة الفورية — لذلك الشبكة الأمانة
-   * (أول pointerdown/keydown بعدهما، وهما حدثا تنشيط مؤكدان) هي
-   * الفاعل الفعلي: تعيد الطلب على العنصر المحفوظ ثم تنظّف نفسها.
-   * (خلل سابق: المحاولة الفورية كانت تصفّر المرجع فتجد النقرة
-   * المرجع null — صُحّح بإبقاء المرجع حتى أول إيماءة) */
-  const restoreFs = () => {
-    const attempt = (final: boolean) => {
-      const el = wasFsRef.current;
-      if (el && !document.fullscreenElement) {
-        void el.requestFullscreen().catch(() => {});
-      }
-      if (final) {
-        wasFsRef.current = null;
-        document.removeEventListener('pointerdown', onGesture);
-        document.removeEventListener('keydown', onGesture);
-      }
-    };
-    const onGesture = () => attempt(true);
-    attempt(false);
-    document.addEventListener('pointerdown', onGesture);
-    document.addEventListener('keydown', onGesture);
-  };
-
   const onPick = (files: FileList | null) => {
     restoreFs();
     if (!files || files.length === 0) return;
     void importFile(files[0]);
   };
 
-  /* =================== جلب خريطة حيّة من OpenStreetMap ===================
-   * الاستيراد في الوقت الفعلي حسب طلب المستخدم: تُجلب بيانات حقيقية
-   * من OSM مباشرةً من متصفح المستخدم عبر مرايا Overpass العامة —
-   * لا نحفظ أي ملف في حزمة التطبيق. بعد العمل عليها يحفظها
-   * المستخدم ضمن مشروعه فتستقر في قاعدة البيانات.
-   * التغذية الراجعة: مؤقّت ثوانٍ حيّ + المرآة الحالية، لأن بعض
-   * المرايا المزدحمة تستغرق عشرات الثواني ولا نريد المستخدم يظن
-   * الواجهة معلّقة. */
-  const fetchLive = async () => {
+  /* =================== فتح خريطة من المكتبة (للجميع) =================== */
+  const openFromLibrary = async (entry: LibraryEntry) => {
     setError(null);
     setInfo(null);
-    setStage(null);
-    setElapsed(0);
-    const preset = [...OSM_PRESETS, ...osmCustom.presets].find(
-      (p) => p.id === osmPreset
-    );
-    if (!preset) return;
     setBusy(true);
-    const timer = window.setInterval(() => setElapsed((s) => s + 1), 1000);
     try {
-      const { geojson } = await fetchOsmArea(preset.bbox, preset.label, setStage);
-      const res = geoJsonToSimMap(geojson, { name: preset.label });
-      gis.upsert(res.map);
-      st.loadMap(res.map);
-      /* نجاح الجلب: الخريطة مسجَّلة ومحمَّلة في مساحة العمل —
-       * نغلق النافذة تلقائياً ليستلمها المستخدم على القسم مباشرة */
+      const map = await loadMapFromLibrary(entry.id);
+      gis.upsert(map);
+      st.loadMap(map);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر جلب الخريطة من OpenStreetMap');
+      setError(e instanceof Error ? e.message : 'تعذّر تحميل الخريطة من المكتبة');
     } finally {
-      window.clearInterval(timer);
       setBusy(false);
     }
+  };
+
+  /* =================== لوحة المطور: رفع/حذف من المكتبة =================== */
+
+  /* اختيار ملف من جهاز المطور — فحص أولي فوري ثم انتظار زر الاستيراد */
+  const onPickDevFile = (files: FileList | null) => {
+    restoreFs();
+    if (!files || files.length === 0) return;
+    const f = files[0];
+    if (f.size > LIBRARY_MAX_FILE_BYTES) {
+      setError(`حجم الملف ${(f.size / 1_000_000).toFixed(1)}MB يتجاوز الحد 8MB — اختر منطقة أصغر`);
+      return;
+    }
+    const nameOk = /\.(geo)?json$/i.test(f.name) || f.type.includes('json');
+    if (!nameOk) {
+      setError('الملف ليس GeoJSON/JSON — اختر ملفاً بصيغة .geojson أو .json');
+      return;
+    }
+    setError(null);
+    setDpFile(f);
+    setInfo(`تم اختيار «${f.name}» — اكتب اسم الخريطة ثم اضغط «استيراد إلى المكتبة»`);
+  };
+
+  /* الرفع إلى المكتبة: التحقق النهائي والتحليل داخل الخدمة، ثم
+   * الإدخال في قاعدة البيانات ليظهر في قائمة جميع المستخدمين */
+  const uploadToLibrary = async () => {
+    if (!dpFile || devBusy) return;
+    setDevBusy(true);
+    const res = await uploadMapToLibrary(dpLabel, dpFile);
+    setDevBusy(false);
+    if (typeof res === 'string') {
+      setError(res);
+      return;
+    }
+    setLibrary((prev) => [...prev, res.entry]);
+    setError(null);
+    setInfo(`أُضيفت «${res.entry.label}» إلى المكتبة — أصبحت متاحة لجميع المستخدمين`);
+    setDpLabel('');
+    setDpFile(null);
+    if (devFileInput.current) devFileInput.current.value = '';
+  };
+
+  const removeFromLibrary = async (entry: LibraryEntry) => {
+    if (
+      !window.confirm(
+        `حذف «${entry.label}» من مكتبة جميع المستخدمين؟ (المشاريع المحفوظة بهذه الخريطة لن تتأثر)`
+      )
+    )
+      return;
+    setDevBusy(true);
+    const err = await deleteMapFromLibrary(entry.id);
+    setDevBusy(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setLibrary((prev) => prev.filter((x) => x.id !== entry.id));
+    setError(null);
+    setInfo(`حُذفت «${entry.label}» من المكتبة — اختفت من قائمة الجميع`);
   };
 
   /* =================== تبديل/حذف الخرائط =================== */
@@ -233,7 +302,7 @@ export default function GisImporter({
         </div>
 
         <div className="space-y-4 p-4">
-          {/* منطقة السحب والإفلات */}
+          {/* منطقة السحب والإفلات — متاحة لجميع المستخدمين، والملف يبقى محلياً */}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -258,12 +327,12 @@ export default function GisImporter({
               <span className="text-[11px] text-slate-500">
                 (مبانٍ Polygon + طرق LineString · حتى 8MB · EPSG:4326
                 <br />
-                · السحب والإفلات لا يُخرجك من ملء الشاشة)
+                · يُحلَّل في متصفحك ولا يُرفع لأي خادم · السحب والإفلات لا يُخرجك من ملء الشاشة)
               </span>
             </p>
             <button
               type="button"
-              onClick={openPicker}
+              onClick={() => openPicker(fileInput.current)}
               disabled={busy}
               className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
             >
@@ -317,179 +386,137 @@ export default function GisImporter({
               </li>
               <li className="border-t border-emerald-900/60 pt-2 text-[11px] text-slate-400">
                 ملاحظة: قائمة «خرائط مستوردة» تُحفظ في متصفحك للوصول السريع، والنسخة الضامنة
-                هي نسخة المشروع المحفوظ في قاعدة البيانات.
+                هي نسخة المشروع المحفوظ في قاعدة البيانات. وقائمة «مكتبة الخرائط» مشتركة
+                بين الجميع ويديرها المطور.
               </li>
             </ol>
           )}
 
-          {/* جلب خريطة حقيقية في الوقت الفعلي من OpenStreetMap */}
-          <div className="rounded-xl border border-sky-700/50 bg-sky-950/30 p-4">
-            <div className="mb-2.5 flex items-center gap-2 text-[12px] font-bold text-sky-300">
-              <Globe size={15} />
-              جلب خريطة حقيقية — OpenStreetMap
+          {/* مكتبة الخرائط المشتركة — تبدأ فارغة ويملؤها المطور */}
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              <Library size={13} />
+              مكتبة الخرائط المشتركة ({library.length})
             </div>
-            <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
-              تُجلَب بيانات حقيقية من خرائط OpenStreetMap لحظة طلبها
-              مباشرةً من متصفحك — ولا تُخزَّن أي ملفات داخل التطبيق.
-            </p>
-            <div className="flex items-center gap-2">
-              <select
-                value={osmPreset}
-                onChange={(e) => setOsmPreset(e.target.value)}
-                disabled={busy}
-                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] font-bold text-slate-100 outline-none focus:border-sky-500 disabled:opacity-50"
-              >
-                <optgroup label="قوالب أساسية — يديرها المطور">
-                  {OSM_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label} — {p.hint}
-                    </option>
-                  ))}
-                </optgroup>
-                {osmCustom.presets.length > 0 && (
-                  <optgroup label="قوالبي المخصصة — في متصفحي فقط">
-                    {osmCustom.presets.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label} — {p.hint}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-              <button
-                type="button"
-                onClick={() => void fetchLive()}
-                disabled={busy}
-                className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
-              >
-                {busy ? 'جارٍ الجلب…' : 'جلب'}
-              </button>
-            </div>
-
-            {/* إدارة القوالب المخصصة: تخصيص تفاعلي بيد كل مستخدم —
-             * تُحفظ في متصفحه ولا تمس القوالب الأساسية ولا بقية المستخدمين */}
-            <div className="mt-2.5 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPresetForm((v) => !v)}
-                disabled={busy}
-                aria-expanded={showPresetForm}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-700/60 bg-sky-900/30 px-2.5 py-1.5 text-[11px] font-bold text-sky-300 transition-colors hover:bg-sky-900/60 disabled:opacity-50"
-              >
-                <Plus size={13} />
-                إضافة قالب منطقتي
-              </button>
-              {osmCustom.presets.some((p) => p.id === osmPreset) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cur = osmCustom.presets.find((p) => p.id === osmPreset);
-                    if (!cur) return;
-                    if (
-                      !window.confirm(
-                        `حذف القالب المخصص «${cur.label}»؟ (لن تُحذف أي خرائط جُلبت به)`
-                      )
-                    )
-                      return;
-                    osmCustom.remove(cur.id);
-                    setOsmPreset(OSM_PRESETS[0].id);
-                    setInfo(`حُذف القالب «${cur.label}»`);
-                    setError(null);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-red-950/40 hover:text-red-400"
-                >
-                  <Trash2 size={13} />
-                  حذف القالب المحدد
-                </button>
-              )}
-            </div>
-            {showPresetForm && (
-              <form
-                className="mt-2.5 space-y-2 rounded-lg border border-slate-700 bg-slate-900/60 p-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const south = Number(pfSouth);
-                  const west = Number(pfWest);
-                  const north = Number(pfNorth);
-                  const east = Number(pfEast);
-                  if ([south, west, north, east].some((v) => !Number.isFinite(v))) {
-                    setError('أدخل إحداثيات رقمية صحيحة في الحقول الأربعة');
-                    return;
-                  }
-                  const res = osmCustom.add({ label: pfLabel, south, west, north, east });
-                  if (typeof res === 'string') {
-                    setError(res);
-                    return;
-                  }
-                  setError(null);
-                  setOsmPreset(res.id);
-                  setInfo(`أُضيف القالب «${res.label}» — محدد الآن، اضغط «جلب»`);
-                  setShowPresetForm(false);
-                  setPfLabel('');
-                  setPfSouth('');
-                  setPfWest('');
-                  setPfNorth('');
-                  setPfEast('');
-                }}
-              >
-                <div className="text-[11px] leading-relaxed text-slate-400">
-                  أضف منطقتك كقالب دائم: صندوق بإحداثيات درجات عشرية (WGS84) بمساحة
-                  صغيرة (100م–5كم للضلع). القوالب المخصصة تُحفظ في متصفحك فقط
-                  ولا تظهر لبقية المستخدمين.
-                </div>
-                <input
-                  value={pfLabel}
-                  onChange={(e) => setPfLabel(e.target.value)}
-                  maxLength={60}
-                  required
-                  placeholder="اسم المنطقة (مثال: حي الأمل — النجف)"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-slate-100 outline-none focus:border-sky-500"
-                />
-                <div className="grid grid-cols-4 gap-2" dir="ltr">
-                  {(
-                    [
-                      ['South', pfSouth, setPfSouth],
-                      ['West', pfWest, setPfWest],
-                      ['North', pfNorth, setPfNorth],
-                      ['East', pfEast, setPfEast],
-                    ] as const
-                  ).map(([ph, val, set]) => (
-                    <input
-                      key={ph}
-                      value={val}
-                      onChange={(e) => set(e.target.value)}
-                      inputMode="decimal"
-                      required
-                      placeholder={ph}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-[12px] text-slate-100 outline-none focus:border-sky-500"
-                    />
-                  ))}
-                </div>
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-lg bg-sky-600 px-3 py-1.5 text-[11.5px] font-bold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
-                >
-                  حفظ القالب
-                </button>
-              </form>
+            {!libOk && (
+              <p className="mb-2 rounded-lg border border-amber-700/40 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-300">
+                تعذّرت القراءة من قاعدة البيانات — أعد فتح النافذة بعد استعادة الاتصال.
+              </p>
+            )}
+            {library.length === 0 ? (
+              <p className="rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-3 text-center text-[12px] leading-relaxed text-slate-600">
+                المكتبة فارغة حالياً.
+                <br />
+                {isDev
+                  ? 'أضف أول خريطة من لوحة المطور أدناه — ملف GeoJSON من جهازك باسم من اختيارك.'
+                  : 'استورد ملف GeoJSON من الأعلى، أو اطلب من المشرف إضافة خرائط المكتبة.'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {library.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 transition-colors hover:border-slate-600"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-slate-100">
+                        {entry.label}
+                      </div>
+                      <div className="mt-0.5 text-[10.5px] text-slate-500">
+                        {entry.buildings} دار · {entry.roads} طريق
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void openFromLibrary(entry)}
+                      className="shrink-0 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[11px] font-bold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {busy ? 'جارٍ التحميل…' : 'فتح'}
+                    </button>
+                    {isDev && (
+                      <button
+                        type="button"
+                        disabled={devBusy}
+                        onClick={() => void removeFromLibrary(entry)}
+                        title="حذف الخريطة من مكتبة جميع المستخدمين"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-red-950/50 hover:text-red-400 disabled:opacity-40"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* الرسائل */}
-          {busy && (stage || elapsed > 0) && (
-            <div className="rounded-lg border border-sky-500/40 bg-sky-950/40 px-3 py-2.5 text-[12px] leading-relaxed text-sky-300">
-              <span className="inline-flex items-center gap-2 font-bold">
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-                جارٍ الجلب… <span dir="ltr">{elapsed}ث</span>
-              </span>
-              {stage && (
-                <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
-                  {stage}
-                </span>
+          {/* لوحة المطور: رفع ملف GeoJSON إلى المكتبة باسم من اختياره —
+           * تظهر لحساب المطور فقط، والضمانة النهائية سياسات RLS */}
+          {isDev && (
+            <div className="rounded-xl border border-amber-700/50 bg-amber-950/20 p-4">
+              <button
+                type="button"
+                onClick={() => setDevOpen((v) => !v)}
+                aria-expanded={devOpen}
+                className="flex w-full items-center gap-1.5 text-[11.5px] font-bold text-amber-300 transition-colors hover:text-amber-200"
+              >
+                <Wrench size={13} />
+                لوحة المطور — إضافة خريطة إلى المكتبة
+              </button>
+              {devOpen && (
+                <form
+                  className="mt-3 space-y-2.5"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void uploadToLibrary();
+                  }}
+                >
+                  <div className="text-[11px] leading-relaxed text-slate-400">
+                    دلّل على ملف GeoJSON من جهازك، أعطه اسماً، واضغط استيراد —
+                    يُرفع إلى قاعدة البيانات فيظهر في «مكتبة الخرائط المشتركة»
+                    لجميع المستخدمين فوراً دون إعادة نشر.
+                  </div>
+                  <input
+                    value={dpLabel}
+                    onChange={(e) => setDpLabel(e.target.value)}
+                    maxLength={80}
+                    required
+                    placeholder="اسم الخريطة (مثال: حي السلام — كربلاء)"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-slate-100 outline-none focus:border-amber-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openPicker(devFileInput.current)}
+                      className="shrink-0 rounded-lg border border-amber-700/60 bg-amber-900/30 px-3 py-2 text-[11.5px] font-bold text-amber-300 transition-colors hover:bg-amber-900/60"
+                    >
+                      اختيار ملف GeoJSON
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
+                      {dpFile ? dpFile.name : 'لم يُحدد ملف بعد'}
+                    </span>
+                  </div>
+                  <input
+                    ref={devFileInput}
+                    type="file"
+                    accept={ACCEPT}
+                    className="hidden"
+                    onChange={(e) => onPickDevFile(e.target.files)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={devBusy || !dpFile}
+                    className="w-full rounded-lg bg-amber-600 px-3 py-2 text-[12px] font-bold text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    {devBusy ? 'جارٍ الاستيراد…' : 'استيراد إلى المكتبة'}
+                  </button>
+                </form>
               )}
             </div>
           )}
+
+          {/* الرسائل */}
           {error && (
             <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2.5 text-[12px] leading-relaxed text-red-300">
               {error}
@@ -501,10 +528,10 @@ export default function GisImporter({
             </div>
           )}
 
-          {/* الخرائط الثابتة */}
+          {/* خرائط النظام المدمجة */}
           <div>
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              خرائط أساسية
+              خرائط النظام المدمجة
             </div>
             <div className="space-y-2">
               {SIM_MAPS.map((m) => (
@@ -518,7 +545,7 @@ export default function GisImporter({
             </div>
           </div>
 
-          {/* الخرائط المستوردة */}
+          {/* الخرائط المستوردة (محلياً في هذا المتصفح) */}
           <div>
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
               خرائط مستوردة ({imported.length})
@@ -527,8 +554,8 @@ export default function GisImporter({
               <p className="rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-3 text-center text-[12px] leading-relaxed text-slate-600">
                 لا توجد خرائط مستوردة بعد.
                 <br />
-                استورد ملف GeoJSON أو اجلب خريطة حيّة — وحين تحفظ
-                مشروعك تُخزَّن الخريطة معه في قاعدة البيانات.
+                استورد ملف GeoJSON من الأعلى أو افتح خريطة من المكتبة —
+                وحين تحفظ مشروعك تُخزَّن الخريطة معه في قاعدة البيانات.
               </p>
             ) : (
               <div className="space-y-2">

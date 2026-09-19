@@ -753,7 +753,7 @@ export default function FiberSimulatorWorkspace({
                 <div className="py-10 text-center text-[13px] leading-relaxed text-slate-500">
                   لا توجد مشاريع محفوظة بعد.
                   <br />
-                  صمّم شبكتك ثم اضغط «حفظ» لتظهر هنا.
+                  صمّم شبكتك ثم اضغط «حفظ المشروع» لتظهر هنا.
                 </div>
               ) : (
                 projects.map((row) => {
