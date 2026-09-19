@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Save, Loader2, CheckCircle, AlertCircle, Trash2, Search, UserCheck, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { useEmployeeSearch } from '../../hooks/useEmployeeSearch';
@@ -91,12 +92,19 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
         setSaveStatus('idle');
 
         try {
+            if (!user.governorate) {
+                toast.error("لا يمكن الحفظ: لم يتم تحديد المحافظة");
+                setSaving(false);
+                return;
+            }
+
             const payload = {
                 type,
                 content,
                 is_active: isActive,
                 updated_at: new Date().toISOString(),
-                updated_by: user.id
+                updated_by: user.id,
+                governorate: user.governorate // عزل: المحتوى يخص محافظة ناشره فقط
             };
 
             if (contentId) {

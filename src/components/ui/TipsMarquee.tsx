@@ -21,7 +21,10 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
         // Skip fetching if manualTips are provided
         if (manualTips) return;
 
-        const activeGov = activeGovernorate || 'karbala';
+        // عزل صارم: لا جلب قبل تحديد المحافظة (لا يوجد fallback لكربلاء)
+        if (!activeGovernorate) return;
+
+        const activeGov = activeGovernorate;
 
         const fetchTips = async () => {
             try {

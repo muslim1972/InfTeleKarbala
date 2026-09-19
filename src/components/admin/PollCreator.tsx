@@ -124,6 +124,12 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
 
     const handleSaveLink = async () => {
         if (!user) return;
+        // عزل fail-closed: لا حفظ دون محافظة محددة
+        if (!user.governorate) {
+            toast.error("لا يمكن الحفظ: لم يتم تحديد المحافظة");
+            setIsSavingLink(false);
+            return;
+        }
         setIsSavingLink(true);
         try {
             const payload = {
@@ -132,7 +138,8 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
                 content: pollLink,
                 is_active: pollLinkActive,
                 updated_at: new Date().toISOString(),
-                updated_by: user.id
+                updated_by: user.id,
+                governorate: user.governorate // عزل: الرابط يخص محافظة ناشره فقط
             };
 
             if (pollLinkExists) {
@@ -155,8 +162,8 @@ export function PollCreator({ category = 'media' }: PollCreatorProps = {}) {
             savedLinkRef.current = { link: pollLink, title: pollLinkTitle.trim(), active: pollLinkActive };
 
             // إبطال الكاش فوراً لضمان تحديث واجهة المستخدم
-            if (user?.id) {
-                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            if (user?.id && user.governorate) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}_${user.governorate}`);
             }
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
         } catch (err) {

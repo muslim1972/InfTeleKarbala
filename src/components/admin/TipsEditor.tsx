@@ -22,7 +22,12 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        const activeGov = activeGovernorate || user?.governorate || 'karbala';
+        // عزل صارم: لا جلب بدون محافظة محددة (لا يوجد fallback لكربلاء)
+        const activeGov = activeGovernorate || user?.governorate || '';
+        if (!activeGov) {
+            setLoading(false);
+            return;
+        }
 
         const fetchTip = async () => {
             setLoading(true);
@@ -63,7 +68,12 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
         setSaving(true);
         setSaveStatus('idle');
 
-        const activeGov = activeGovernorate || user?.governorate || 'karbala';
+        const activeGov = activeGovernorate || user?.governorate || '';
+        if (!activeGov) {
+            toast.error('لا يمكن الحفظ: لم يتم تحديد المحافظة');
+            setSaving(false);
+            return;
+        }
 
         try {
             if (tipId) {

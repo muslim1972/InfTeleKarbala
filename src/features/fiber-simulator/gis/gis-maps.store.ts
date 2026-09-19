@@ -21,6 +21,28 @@ const STORAGE_KEY = 'ftth-sim:gis-maps';
 /** أقصى حجم تخزيني إجمالي (2MB) — الخرائط الصغيرة تحتاج بضع عشرات KB */
 const MAX_STORAGE_BYTES = 2_000_000;
 
+/* ======================= عزل المالك المحلي =======================
+ * الخرائط المستوردة محلياً لا تُخزن في DB — تُخزن في متصفح الجهاز.
+ * على جهاز مشترك (قاعة تدريب) كان المفتاح ثابتاً فيرى كل حساب
+ * خرائط من استوردها غيره على المتصفح نفسه. الحل: مفتاح لكل
+ * مالك — يُعيَّن من AuthContext عند الدخول/الخروج/تبديل الحساب
+ * عبر setGisStorageOwner، مع إعادة ترطيب من مفتاح المالك الجديد. */
+
+let storageUid = '';
+
+const storageKeyFor = (): string => `${STORAGE_KEY}:${storageUid || 'anon'}`;
+
+/** تبديل مالك التخزين المحلي (uid أو null عند الخروج) — idempotent */
+export function setGisStorageOwner(uid: string | null): void {
+  const next = uid ?? '';
+  if (next === storageUid) return;
+  storageUid = next;
+  /* نفرغ الذاكرة أولاً ثم نقرأ خرائط المالك الجديد من مفتاحه —
+     ومفتاح غير موجود يعني قائمة فارغة (بداية نظيفة) */
+  useGisMaps.setState({ maps: [] });
+  void useGisMaps.persist.rehydrate();
+}
+
 /* ======================= تحقق سلامة الخريطة ======================= */
 
 function isValidVec2(p: unknown): p is Vec2 {
@@ -106,7 +128,12 @@ export const useGisMaps = create<GisMapsState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      /* مفتاح فعلي لكل مالك — نتجاهل name الثابت ونركّب مفتاح المالك */
+      storage: createJSONStorage(() => ({
+        getItem: (name) => localStorage.getItem(storageKeyFor()),
+        setItem: (name, value) => localStorage.setItem(storageKeyFor(), value),
+        removeItem: (name) => localStorage.removeItem(storageKeyFor()),
+      })),
       /* نُصرّح بالحقل الوحيد — لا نُخزن شيئاً غير الخرائط */
       partialize: (state) => ({ maps: state.maps }),
       /* فلترة دفاعية عند القراءة: الخرائط غير الصالحة تُسقط صامتة */

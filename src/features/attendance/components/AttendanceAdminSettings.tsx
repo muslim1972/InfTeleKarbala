@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
+import { useGovernorate } from '../../../context/GovernorateContext';
 import { isDeveloperLevel } from '../../../utils/permissions';
 
 import WorkSchedulesTab from './WorkSchedulesTab';
@@ -25,6 +26,7 @@ type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceReque
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
+  const { activeGovernorate } = useGovernorate();
   const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
   
   const [activeTab, setActiveTab] = useState<Tab>(isHighAdmin ? 'liveBoard' : 'locations');
@@ -235,7 +237,7 @@ export default function AttendanceAdminSettings() {
     const delayDebounce = setTimeout(async () => {
       if (employeeSearch.trim().length > 1) {
         try {
-          const results = await workLocationService.searchEmployees(employeeSearch);
+          const results = await workLocationService.searchEmployees(employeeSearch, activeGovernorate);
           // filter out already assigned
           const assignedIds = new Set(assignedEmployees.map(ae => ae.employee_id));
           const filtered = results.filter(r => !assignedIds.has(r.id));
@@ -604,6 +606,11 @@ export default function AttendanceAdminSettings() {
     }
 
     try {
+      // عزل المحافظات: بلا محافظة نشطة محددة = رفض (fail-closed)
+      if (!activeGovernorate || activeGovernorate === 'all') {
+        toast.error('اختر محافظة محددة أولاً من مبدل المحافظات');
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       const locationData = {
         name: locName,
@@ -611,7 +618,8 @@ export default function AttendanceAdminSettings() {
         longitude: locLng,
         radius_meters: locRadius,
         is_active: true,
-        created_by: user?.id
+        created_by: user?.id,
+        governorate: activeGovernorate
       };
 
       if (editingLocationId) {

@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, FolderOpen, HelpCircle, Loader2, Lock, Map, Maximize2, Minimize2, Plus, Save, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, FolderOpen, HelpCircle, Loader2, Lock, Map, Maximize2, Minimize2, Plus, Save, Trash2, TriangleAlert, User, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { simRedo, simUndo, useSimulatorStore } from './store/simulator.store';
 import { useEduStore } from './store/education.store';
@@ -462,6 +462,18 @@ export default function FiberSimulatorWorkspace({
           </p>
         </div>
 
+        {/* المستخدم الحالي — يظهر بوضوح على الأجهزة المشتركة كي لا تُنسب
+            المشاريع إلا لصاحبها، ويُعلِم كل مستخدم بأي حساب يعمل */}
+        {user && (
+          <span
+            title="المستخدم الحالي — كل حفظ واسترجاع مقصور على مشاريع هذا الحساب حصراً"
+            className="mr-2 flex max-w-[190px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1 text-[11px] font-bold text-emerald-300"
+          >
+            <User size={13} className="shrink-0" />
+            <span className="truncate">{user.full_name}</span>
+          </span>
+        )}
+
         {/* تسمية المحاكاة + الحفظ */}
         <div className="mr-2 flex items-center gap-2">
           <input
@@ -501,7 +513,7 @@ export default function FiberSimulatorWorkspace({
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? 'جارٍ الحفظ…' : 'حفظ'}
+            {saving ? 'جارٍ الحفظ…' : 'حفظ المشروع'}
           </button>
           {dirty && (
             <span

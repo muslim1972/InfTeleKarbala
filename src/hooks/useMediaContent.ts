@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { cacheManager } from '../cache/CacheManager';
 import { CACHE_CONFIG, getOptimalSettings } from '../cache/CacheConfig';
+import { useAuth } from '../context/AuthContext';
 
 interface MediaContent {
     directive: { id: string; content: string } | null;
@@ -17,10 +18,13 @@ interface MediaContent {
 }
 
 /**
- * جلب محتوى الإعلام مع الكاش - نسخة محسّنة
+ * جلب محتوى الإعلام مع الكاش - نسخة محسّنة (معزولة بالمحافظة)
  */
-async function fetchMediaContent(userId: string): Promise<MediaContent> {
-    const cacheKey = `${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${userId}`;
+async function fetchMediaContent(userId: string, governorate: string): Promise<MediaContent> {
+    // عزل صارم: لا جلب بدون محافظة محددة (fail-closed)
+    if (!governorate) throw new Error('governorate required');
+
+    const cacheKey = `${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${userId}_${governorate}`;
 
     // محاولة جلب من الكاش أولاً
     const cached = await cacheManager.get<MediaContent>(cacheKey);
@@ -103,11 +107,13 @@ async function fetchMediaContent(userId: string): Promise<MediaContent> {
 export function useMediaContent(userId: string | undefined) {
     const settings = getOptimalSettings();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const governorate = user?.governorate || '';
 
     const query = useQuery({
-        queryKey: ['mediaContent', userId],
-        queryFn: () => fetchMediaContent(userId!),
-        enabled: !!userId,
+        queryKey: ['mediaContent', userId, governorate],
+        queryFn: () => fetchMediaContent(userId!, governorate),
+        enabled: !!userId && !!governorate,
         staleTime: 60000, // دقيقة واحدة
         gcTime: settings.gcTime,
         refetchOnWindowFocus: false,
@@ -116,9 +122,9 @@ export function useMediaContent(userId: string | undefined) {
 
     // دالة لإعادة التحميل (بعد الإقرار مثلاً)
     const invalidateCache = async () => {
-        if (userId) {
-            await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${userId}`);
-            queryClient.invalidateQueries({ queryKey: ['mediaContent', userId] });
+        if (userId && governorate) {
+            await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${userId}_${governorate}`);
+            queryClient.invalidateQueries({ queryKey: ['mediaContent', userId, governorate] });
         }
     };
 

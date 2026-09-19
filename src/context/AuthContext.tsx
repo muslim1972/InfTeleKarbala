@@ -3,6 +3,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { sendPushNotification, initOneSignal, logoutOneSignal } from "../services/notifications";
 import { geolocationManager } from "../utils/GeolocationManager";
+import { setGisStorageOwner } from "../features/fiber-simulator/gis/gis-maps.store";
+import { resetFiberSimSession } from "../features/fiber-simulator/session-reset";
 
 export interface AppUser {
   id: string;
@@ -90,6 +92,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: userData.role,
         user_agent: navigator.userAgent
       });
+      /* عزل خرائط GIS المحلية: مفتاح تخزين لهذا المستخدم وحده */
+      setGisStorageOwner(userData.id);
+      resetFiberSimSession();
       setUser(userData);
       localStorage.setItem("cached_app_user", JSON.stringify(userData));
       sessionStorage.setItem('session_logged', 'true');
@@ -146,6 +151,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setTimeout(() => resolve({ data: null, error: 'profile_timeout' }), 2500)
           );
           const { data: profile, error: profileErr }: any = await Promise.race([profilePromise, profileTimeout]);
+          if (profileErr) console.warn('get_own_profile:', profileErr === 'profile_timeout' ? 'تجاوز المهلة (2.5 ثانية)' : profileErr.message);
 
           if (profile && isMounted) {
             const appUser: AppUser = {
@@ -173,6 +179,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               face_descriptor: profile.face_descriptor
             };
             setUser(appUser);
+            /* استرجاع مالك خرائط GIS المحلية بعد أي إعادة تحميل للصفحة */
+            setGisStorageOwner(appUser.id);
+            resetFiberSimSession();
             localStorage.setItem("cached_app_user", JSON.stringify(appUser));
 
             // تشغيل الإشعارات وسجل الدخول في الخلفية دون حجب التطبيق
@@ -201,6 +210,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!session) {
         if (!sessionStorage.getItem("visitor_user")) {
           localStorage.removeItem("cached_app_user");
+          setGisStorageOwner(null);
+          resetFiberSimSession();
           if (isMounted) setUser(null);
         }
       }
@@ -299,6 +310,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       setUser(appUser);
+      /* عزل خرائط GIS المحلية فوراً عند تسجيل الدخول — دون الاعتماد على
+         logVisit الذي قد يعود مبكراً إذا كانت الجلسة مسجلة مسبقاً */
+      setGisStorageOwner(appUser.id);
+      /* مسح حالة المحاكي المتبقية في الذاكرة من الحساب السابق (الرسم
+         والخريطة المفتوحة وتاريخ التراجع) — دون إعادة تحميل الصفحة */
+      resetFiberSimSession();
       initOneSignal(appUser.id);
       logVisit(appUser);
       return { success: true };
@@ -318,6 +335,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       full_name: 'زائر النظام',
       role: 'visitor',
     };
+    setGisStorageOwner('visitor-id');
+    resetFiberSimSession();
     setUser(visitorUser);
     sessionStorage.setItem("visitor_user", JSON.stringify(visitorUser));
     sessionStorage.removeItem('session_logged');
@@ -328,6 +347,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
     geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
     logoutOneSignal();
+    /* خرائط GIS المحلية تعود لوضع مجهول فوراً — لا تظهر لغير مالكها
+       (استدعاء مباشر لا يعتمد على وصول حدث onAuthStateChange) */
+    setGisStorageOwner(null);
+    /* حالة المحاكي في الذاكرة تُمسح فوراً — لا يحملها الحساب التالي */
+    resetFiberSimSession();
     setUser(null);
     sessionStorage.removeItem("visitor_user");
     sessionStorage.removeItem("session_logged");

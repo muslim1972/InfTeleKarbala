@@ -63,13 +63,20 @@ export const TraineePollSettings = () => {
 
         setSaving(true);
         try {
+            if (!user.governorate) {
+                toast.error('لا يمكن الحفظ: لم يتم تحديد المحافظة');
+                setSaving(false);
+                return;
+            }
+
             const payload = {
                 type: 'poll_link_training',
                 content: pollLink.trim(),
                 title: pollLinkTitle.trim() || null,
                 is_active: true,
                 updated_at: new Date().toISOString(),
-                updated_by: user.id
+                updated_by: user.id,
+                governorate: user.governorate // عزل: الرابط يخص محافظة ناشره فقط
             };
 
             if (contentId) {
@@ -103,8 +110,8 @@ export const TraineePollSettings = () => {
             setPollLinkActive(true);
             
             // Invalidate React Query cache & CacheManager
-            if (user?.id) {
-                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            if (user?.id && user.governorate) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}_${user.governorate}`);
             }
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
@@ -140,12 +147,12 @@ export const TraineePollSettings = () => {
             }
             if (error) throw error;
 
-            if (user?.id) {
-                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}`);
+            if (user?.id && user.governorate) {
+                await cacheManager.delete(`${CACHE_CONFIG.MEDIA_CONTENT_KEY}_${user.id}_${user.governorate}`);
             }
             queryClient.invalidateQueries({ queryKey: ['trainee_poll_link'] });
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
-                
+
             toast.success(newValue ? 'تم إظهار الرابط للمتدربين' : 'تم إخفاء الرابط عن المتدربين');
         } catch (error) {
             setPollLinkActive(!newValue);

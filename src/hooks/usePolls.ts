@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { cacheManager } from '../cache/CacheManager';
 import { CACHE_CONFIG, getOptimalSettings } from '../cache/CacheConfig';
+import { useAuth } from '../context/AuthContext';
 
 export interface Poll {
     id: string;
@@ -21,10 +22,13 @@ export interface Poll {
 }
 
 /**
- * جلب الاستطلاعات النشطة مع الكاش
+ * جلب الاستطلاعات النشطة مع الكاش (معزول بالمحافظة)
  */
-async function fetchPolls(category: 'media' | 'training' = 'media'): Promise<Poll[]> {
-    const cacheKey = `${CACHE_CONFIG.POLLS_KEY}_${category}`;
+async function fetchPolls(category: 'media' | 'training' = 'media', governorate: string): Promise<Poll[]> {
+    // عزل صارم: لا جلب بدون محافظة محددة (fail-closed)
+    if (!governorate) return [];
+
+    const cacheKey = `${CACHE_CONFIG.POLLS_KEY}_${governorate}_${category}`;
 
     // محاولة جلب من الكاش
     const cached = await cacheManager.get<Poll[]>(cacheKey);
@@ -88,10 +92,13 @@ async function fetchPolls(category: 'media' | 'training' = 'media'): Promise<Pol
 export function usePolls(category: 'media' | 'training' = 'media') {
     const settings = getOptimalSettings();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const governorate = user?.governorate || '';
 
     const query = useQuery({
-        queryKey: ['polls', category],
-        queryFn: () => fetchPolls(category),
+        queryKey: ['polls', governorate, category],
+        queryFn: () => fetchPolls(category, governorate),
+        enabled: !!governorate,
         staleTime: settings.staleTime,
         gcTime: settings.gcTime,
         refetchOnWindowFocus: false,
@@ -100,8 +107,8 @@ export function usePolls(category: 'media' | 'training' = 'media') {
 
     // دالة لإعادة التحميل
     const invalidateCache = async (cat: 'media' | 'training' = category) => {
-        await cacheManager.delete(`${CACHE_CONFIG.POLLS_KEY}_${cat}`);
-        queryClient.invalidateQueries({ queryKey: ['polls', cat] });
+        await cacheManager.delete(`${CACHE_CONFIG.POLLS_KEY}_${governorate}_${cat}`);
+        queryClient.invalidateQueries({ queryKey: ['polls', governorate, cat] });
     };
 
     return {

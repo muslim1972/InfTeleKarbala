@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useGovernorate } from "../../context/GovernorateContext";
 import { isDeveloperLevel } from "../../utils/permissions";
 import { toast } from "react-hot-toast";
 import { 
@@ -67,6 +68,7 @@ interface IncentivesTabContentProps {
 export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabContentProps) => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
+    const { activeGovernorate } = useGovernorate();
 
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -238,14 +240,23 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
             setSearching(true);
             try {
                 if (isDeveloperOrGeneral) {
-                    // المطور والمشرف العام يبحثون في جميع الموظفين
-                    const { data, error } = await supabase
+                    // عزل المحافظات: البحث داخل محافظة المستخدم النشطة فقط
+                    // ('all' للمطور فقط — بلا محافظة محددة = لا نتائج fail-closed)
+                    if (!activeGovernorate) {
+                        setSuggestions([]);
+                        return;
+                    }
+                    let query = supabase
                         .from('profiles')
                         .select('id, full_name, job_number, department_id, appointment_date')
-                        .or(`job_number.ilike.${trimmed}%,full_name.ilike.${trimmed}%`)
+                        .or(`job_number.ilike.${trimmed}%,full_name.ilike.${trimmed}%`);
+                    if (activeGovernorate !== 'all') {
+                        query = query.eq('governorate', activeGovernorate);
+                    }
+                    const { data, error } = await query
                         .order('full_name')
                         .limit(10);
-                    
+
                     if (error) console.error("Error fetching profiles:", error);
                     if (data) setSuggestions(data);
                 } else if (isDepartmentManager) {
@@ -270,7 +281,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
 
         const timer = setTimeout(fetchSuggestions, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery, currentUser, isDeveloperOrGeneral, isDepartmentManager]);
+    }, [searchQuery, currentUser, isDeveloperOrGeneral, isDepartmentManager, activeGovernorate]);
 
     // استنتاج المنصب الإداري ونقاطه من شجرة الأقسام
     const inferPositionDetails = async (empId: string) => {

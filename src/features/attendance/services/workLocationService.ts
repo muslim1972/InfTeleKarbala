@@ -166,17 +166,21 @@ export const workLocationService = {
   },
 
   /**
-   * Searches for profiles by name or job number
+   * Searches for profiles by name or job number, scoped to the active governorate
    */
-  async searchEmployees(query: string): Promise<any[]> {
+  async searchEmployees(query: string, governorate?: string | null): Promise<any[]> {
     if (!query || query.trim() === '') return [];
-    
-    const { data, error } = await supabase
+
+    let req = supabase
       .from('profiles')
-      .select('id, full_name, job_number, role')
+      .select('id, full_name, job_number, role');
+    if (governorate && governorate !== 'all') {
+      req = req.eq('governorate', governorate);
+    }
+    const { data, error } = await req
       .or(`full_name.ilike.%${query}%,job_number.ilike.%${query}%`)
       .limit(10);
-      
+
     if (error) throw error;
     return data || [];
   }
