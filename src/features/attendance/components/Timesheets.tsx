@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { supabase } from '../../../lib/supabase';
-import { computeWorkedMinutes, formatDurationArabic, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
+import { computeWorkedMinutes, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X, RefreshCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
@@ -49,6 +49,29 @@ const pauseBackground = (ms: number): Promise<void> => {
   } catch {
     return new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
+};
+
+// ─── تنظيف الملاحظات من أي وسوم أجهزة أو بقايا ترميز غير صالحة للعرض ───
+export const sanitizeNotesForDisplay = (notes?: string | null, isDevicePending: boolean = false): string => {
+  if (!notes) return '';
+  let cleaned = notes
+    .replace(/\[\?+.*?\]/g, '') // إزالة كتل علامات الاستفهام التالفة
+    .replace(/\?+/g, '') // إزالة أي علامات استفهام منفردة
+    .replace(/\s*-\s*\[\s*\]/g, '')
+    .trim();
+
+  if (!isDevicePending) {
+    cleaned = cleaned
+      .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
+      .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
+      .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '');
+  }
+
+  return cleaned
+    .replace(/\s*-\s*-\s*/g, ' - ')
+    .replace(/\s*\|\s*\|\s*/g, ' | ')
+    .replace(/^[\s\-|]+|[\s\-|]+$/g, '')
+    .trim();
 };
 
 // ─── معرض لقطات البصمات المطوية (مقعد الخروج في جدول التقرير) ───
@@ -292,10 +315,15 @@ export default function Timesheets() {
 
     // ─── تكامل الإجازات (تقارير): خريطة إجازات اليوم الكامل المعتمدة لكل موظف ───
     const dayLeavesByEmp: Record<string, LeaveRequestLite[]> = {};
+    const timeLeavesByEmp: Record<string, LeaveRequestLite[]> = {};
     monthLeaves.forEach(l => {
-      if (!DAY_LEAVE_TYPES.includes(l.leave_type)) return;
-      if (!dayLeavesByEmp[l.user_id]) dayLeavesByEmp[l.user_id] = [];
-      dayLeavesByEmp[l.user_id].push(l);
+      if (DAY_LEAVE_TYPES.includes(l.leave_type)) {
+        if (!dayLeavesByEmp[l.user_id]) dayLeavesByEmp[l.user_id] = [];
+        dayLeavesByEmp[l.user_id].push(l);
+      } else if (l.leave_type === 'time_off') {
+        if (!timeLeavesByEmp[l.user_id]) timeLeavesByEmp[l.user_id] = [];
+        timeLeavesByEmp[l.user_id].push(l);
+      }
     });
 
     const relevantEmployees = allEmployees.filter(emp => {
@@ -360,12 +388,22 @@ export default function Timesheets() {
                    newRecords.push(rec);
 
                    const netMins = computeWorkedMinutes(rec, undefined, shiftInfo.expectedOut);
-                   const defMins = computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
-                   const ovtMins = computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                   let defMins = computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                    const ovtMins = computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
 
-                   group.totalWorkMins += netMins;
-                   group.totalDeficit += defMins;
-                   group.totalOvertime += ovtMins;
+                    const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
+                    const timeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+                    if (timeLeaves.length > 0) {
+                        const totalTimeOffMins = timeLeaves.reduce((sum, l) => sum + (l.time_duration_minutes || 0), 0);
+                        defMins = Math.max(0, defMins - totalTimeOffMins);
+                        const timeOffNote = `(إجازة زمنية: ${totalTimeOffMins} دقيقة)`;
+                        if (!rec.notes) rec.notes = timeOffNote;
+                        else if (!rec.notes.includes('إجازة زمنية')) rec.notes += ' | ' + timeOffNote;
+                    }
+
+                    group.totalWorkMins += netMins;
+                    group.totalDeficit += defMins;
+                    group.totalOvertime += ovtMins;
                    if (rec.status === 'late') group.lateCount++;
                } else {
                    const fakeDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
@@ -559,16 +597,19 @@ export default function Timesheets() {
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
           
-          const cleanNotesText = rec.is_device_pending
-            ? (rec.notes || '')
-            : (rec.notes || '')
-                .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
-                .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
-                .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
-                .replace(/\s*-\s*/g, ' ')
-                .trim();
+          const isForcedPunch = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
+          let displayNotes = sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
+          if (isForcedPunch) {
+            const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
+            const reason = match ? match[1].trim() : 'وضع طارئ';
+            displayNotes = `ثبتت بطلب الموظف: ${reason} (رُفعت للمسؤول)`;
+          }
 
-          const notesStyle = (isVirtualIn || isVirtualOut) ? 'font-size: 7.5px; color: #e11d48; font-weight: bold;' : 'font-size: 7.5px;';
+          const notesStyle = (isVirtualIn || isVirtualOut) 
+            ? 'font-size: 7.5px; color: #e11d48; font-weight: bold;' 
+            : isForcedPunch 
+            ? 'font-size: 7.5px; color: #ea580c; font-weight: bold;' 
+            : 'font-size: 7.5px;';
 
           html += `
             <tr style="height: ${ROW_H};">
@@ -587,7 +628,7 @@ export default function Timesheets() {
               ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor, true)}
               ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', isLeaveOvertimeDay ? leaveOvertimeColor : overtimeColor, true)}
               ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
-              ${renderCell(cleanNotesText || '', notesStyle)}
+              ${renderCell(displayNotes || '', notesStyle)}
             </tr>
           `;
         }
@@ -949,7 +990,18 @@ export default function Timesheets() {
             <td style="${tdNumStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
             <td style="${tdNumStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
             <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
-            <td style="${tdStyle} font-size: 8px;">${rec.notes || ''}</td>
+            <td style="${tdStyle} font-size: 8px; ${(() => {
+              const isForced = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
+              return isForced ? 'color: #ea580c; font-weight: bold;' : '';
+            })()}">${(() => {
+              const isForced = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
+              if (isForced) {
+                const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
+                const reason = match ? match[1].trim() : 'وضع طارئ';
+                return `ثبتت بطلب الموظف: ${reason} (رُفعت للمسؤول)`;
+              }
+              return sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
+            })()}</td>
           </tr>
         `;
       }
@@ -1330,15 +1382,25 @@ export default function Timesheets() {
                                 {rec.notes?.includes('دخول اولي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 دخول اولي افتراضي</span> : null}
                                 {rec.notes?.includes('خروج نهائي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 خروج نهائي افتراضي</span> : null}
                                 {(() => {
-                                  const clean = rec.is_device_pending
-                                    ? (rec.notes || '')
-                                    : (rec.notes || '')
-                                        .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
-                                        .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
-                                        .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
-                                        .replace(/\s*-\s*/g, ' ')
-                                        .trim();
-                                  return clean || '--';
+                                  const isForcedPunch = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
+                                  let forcedBadge = null;
+                                  if (isForcedPunch) {
+                                    const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
+                                    const reason = match ? match[1].trim() : 'وضع طارئ';
+                                    forcedBadge = (
+                                      <span className="text-orange-600 dark:text-orange-400 font-bold block mb-1 bg-orange-50 dark:bg-orange-950/40 px-2 py-1 rounded-lg border border-orange-200 dark:border-orange-800/40">
+                                        ⚠️ ثبتت بطلب الموظف: {reason} (رُفعت للمسؤول)
+                                      </span>
+                                    );
+                                  }
+                                  const clean = sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
+                                  const otherNotes = clean ? clean.replace(/\(?تثبيت بطلب الموظف:[^)]*\)?/g, '').replace(/\(?تجاهل إجازة زمنية\)?/g, '').trim() : '';
+                                  return (
+                                    <>
+                                      {forcedBadge}
+                                      {otherNotes ? <span>{otherNotes}</span> : !forcedBadge ? (clean || '--') : null}
+                                    </>
+                                  );
                                 })()}
                               </td>
                             </tr>

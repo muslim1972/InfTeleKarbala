@@ -50,23 +50,28 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
     const gov = currentGov;
     if (gov) {
       const trimmedUsernameForCheck = username.trim();
-      const { data: userExists, error: checkErr } = await supabase
-          .rpc('check_user_exists', {
-              p_username: trimmedUsernameForCheck,
-              p_governorate: gov
-          });
+      try {
+        const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
+          window.setTimeout(() => resolve({ data: true, error: null }), 6000)
+        );
+        const { data: userExists, error: checkErr }: any = await Promise.race([
+          supabase.rpc('check_user_exists', {
+            p_username: trimmedUsernameForCheck,
+            p_governorate: gov
+          }),
+          timeoutPromise
+        ]);
 
         if (checkErr) {
-            setLoading(false);
-            setError(checkErr.message || "حدث خطأ غير متوقع");
-            return;
+          console.warn("check_user_exists error:", checkErr);
+        } else if (userExists === false) {
+          setLoading(false);
+          setError("لم يتم العثور على اسم المستخدم في هذه المحافظة");
+          return;
         }
-        
-        if (!userExists) {
-            setLoading(false);
-            setError("لم يتم العثور على اسم المستخدم");
-            return;
-        }
+      } catch (err) {
+        console.warn("check_user_exists failed, proceeding to direct login:", err);
+      }
     }
 
     const result = await login(username, password);

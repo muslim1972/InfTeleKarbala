@@ -101,6 +101,8 @@ export interface TimeLeaveInfo {
   /** mid_shift | shift_start | shift_end | null */
   subtype: string | null;
   minutes: number;
+  reason?: string | null;
+  status?: string;
 }
 
 /** نتيجة مطابقة بصمات الخروج/العودة مع الإجازات الزمنية المطلوبة */
@@ -177,11 +179,13 @@ function toTimeLeaveInfo(req: LeaveRequestLite): TimeLeaveInfo {
     leaveType: 'time_off',
     subtype: req.time_off_subtype || null,
     minutes: req.time_duration_minutes || 0,
+    reason: req.reason,
+    status: req.status,
   };
 }
 
 const LEAVE_SELECT_FIELDS =
-  'id, user_id, leave_type, start_date, end_date, time_duration_minutes, time_off_subtype, with_request, is_mandatory, status';
+  'id, user_id, leave_type, start_date, end_date, time_duration_minutes, time_off_subtype, with_request, is_mandatory, status, reason';
 
 // ─── فحوصات وقت البصمة ──────────────────────────────────────────────────────
 
@@ -195,8 +199,8 @@ export async function getApprovedDayLeave(employeeId: string, dateStr: string): 
 }
 
 /**
- * جلب جميع الإجازات المعتمدة (يوم كامل + زمنية) لتاريخ محدد —
- * تُستخدم في واجهة البصمة لعرض البانرات والتحذيرات.
+ * جلب جميع الإجازات المعتمدة والزمنية المعلّقة لتاريخ محدد —
+ * تُستخدم في واجهة البصمة لعرض البانرات والتحذيرات والتدقيق الذكي.
  */
 export async function getLeaveContext(
   employeeId: string,
@@ -207,7 +211,7 @@ export async function getLeaveContext(
       .from('leave_requests')
       .select(LEAVE_SELECT_FIELDS)
       .eq('user_id', employeeId)
-      .eq('status', 'approved')
+      .in('status', ['approved', 'pending'])
       .lte('start_date', dateStr)
       .or(`end_date.gte.${dateStr},end_date.is.null`);
 
@@ -216,7 +220,8 @@ export async function getLeaveContext(
     const all = (data || []) as LeaveRequestLite[];
     const requested = all.filter(r => isRequestedLeave(r) && coversDate(r, dateStr));
 
-    const dayLeaveReq = requested.find(r => DAY_LEAVE_TYPES.includes(r.leave_type));
+    // إجازة اليوم الكامل تشترط الاعتماد الصريح (approved) لتفعيل التحذير الإداري
+    const dayLeaveReq = requested.find(r => r.status === 'approved' && DAY_LEAVE_TYPES.includes(r.leave_type));
     return {
       dayLeave: dayLeaveReq ? toDayLeaveInfo(dayLeaveReq) : null,
       timeLeaves: requested.filter(r => r.leave_type === 'time_off').map(toTimeLeaveInfo),

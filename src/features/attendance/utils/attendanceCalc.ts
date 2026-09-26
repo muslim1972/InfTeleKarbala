@@ -4,6 +4,16 @@ import type { ShiftType } from './shiftRules';
 
 export type LiveStatus = 'working' | 'on_break' | 'late' | 'checked_out' | 'absent' | 'not_checked_in';
 
+// ─── وسم التعارض: بصمة مثبتة رغم إجازة معتمدة واعتمدها المشرف كساعات غير محتسبة ───
+
+/** يُضاف إلى ملاحظات سجل البصمة عند اعتماد المشرف التعارض بزر «موافق» */
+export const LEAVE_CONFLICT_NOTE_TAG = 'بصمة متعارضة مع طلب';
+
+/** هل يحمل السجل وسم التعارض؟ ساعاته تُعرض غير محتسبة (0.00) حتى مراجعة الإدارة */
+export function hasLeaveConflictNote(notes?: string | null): boolean {
+  return !!notes && notes.includes(LEAVE_CONFLICT_NOTE_TAG);
+}
+
 /**
  * حساب دقائق العمل الفعلية مع خصم الإجازات الزمنية
  */
@@ -14,6 +24,9 @@ export function computeWorkedMinutes(
   shiftType: ShiftType = 'morning'
 ): number {
   if (!record.check_in) return 0;
+
+  // بصمة اعتمدها المشرف كـ«متعارضة مع طلب»: ساعات اليوم غير محتسبة ضمن ساعات العمل
+  if (hasLeaveConflictNote(record.notes)) return 0;
   
   const inTime = parseISO(record.check_in);
   let outTime = record.check_out ? parseISO(record.check_out) : (toTime || new Date());
@@ -181,6 +194,9 @@ export function computeOvertimeMinutes(
 ): number {
   if (record.overtime_minutes) return record.overtime_minutes;
   if (!record.check_in || !record.check_out) return 0;
+
+  // يوم التعارض المعتمد: لا ساعات إضافية (كله غير محتسب حتى مراجعة الإدارة)
+  if (hasLeaveConflictNote(record.notes)) return 0;
   
   // إذا كان الموظف مناوباً، ساعات العمل تسجل كساعات طبيعية
   if (shiftType === 'shift') {

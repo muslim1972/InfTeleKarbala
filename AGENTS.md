@@ -7,10 +7,12 @@
 1. **فحص الأنواع (إجباري قبل أي بناء):**
 
 ```powershell
-npx tsc --noEmit
+npx tsc --noEmit -p tsconfig.app.json
 ```
 
-> تحذير: `vite build` لا يفحص الأنواع — بناء بدون tsc سبّب انهيار إنتاجي (`showGeoHelp is not defined`).
+> تحذير 1: `vite build` لا يفحص الأنواع — بناء بدون tsc سبّب انهيارات إنتاجية (`showGeoHelp is not defined`، `useCallback is not defined`، `ChevronLeft is not defined`).
+> تحذير 2: `npx tsc --noEmit` **بدون** `-p tsconfig.app.json` معطوب في هذا المشروع — tsconfig الجذر solution-style (`files: []` + `references`) فيمرّ دون فحص أي ملف. أمر الفحص الصحيح يستهدف `tsconfig.app.json` حصراً.
+> ملاحظة: الكودBase يحوي أخطاء أنواع تاريخية (~150) — حتى معالجتها بالكامل، يُقارن فحص tsc بالسجل المعروف: يُلزم ألّا تظهر أخطاء جديدة في الملفات المعدَّلة (خاصة TS2304 معرّف غير معرّف)، لا أن يكون العدّ صفراً.
 
 2. **البناء:**
 
@@ -46,6 +48,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\InfTeleKarbala\scripts\de
 
 > ممنوع إنشاء سكربتات رفع جديدة. أي تحسين يكون بتعديل الملفات أعلاه فقط.
 > (سُحبت `upload_dist.bat` و `compare-dist.ps1` لأن الرفع الأعمى يهدر النطاق وفحص الحجم معطوب.)
+
+#### أدوات الذكاء — تحليل ملف الراتب الشهري (`scripts\AI Scrept`)
+
+أدوات Node محلية 100% (لا تلمس VPS) لفهم ملف إكسل الرواتب قبل الحقن وبناء الوكيل الذكي:
+
+| الملف | الوظيفة |
+|---|---|
+| `scripts\AI Scrept\dump-salary-excel.mjs` | تفريغ بنية الملف (structure.txt + full.json) |
+| `scripts\AI Scrept\analyze-salary-excel.mjs` | فحص ~20 علاقة حسابية على كل الصفوف (findings.txt) |
+| `scripts\AI Scrept\probe-salary-excel.mjs` | حلّ الألغاز المفتوحة (probe.txt) |
+| `scripts\AI Scrept\probe2-salary-excel.mjs` | فك قواعد الهندسية/القانونية والتقاطعات (probe2.txt) |
+| `scripts\AI Scrept\flags-salary-excel.mjs` | جرد كل سجل غير مطابق/عليه ملاحظة بأرقام صفوفه (flags.txt) |
+
+الاستخدام (مخرجات في مجلد مؤقت):
+
+```powershell
+node "scripts\AI Scrept\analyze-salary-excel.mjs" "F:\صور للتجربة\نظام المديرية\excel\2026 - راتب شهر 8.xlsx" "C:\Users\SAM-Tech\AppData\Local\Temp\sal8"
+```
+
+> اقرأ هذا القسم قبل أي عمل على حقول الإدارة/المالية — العلاقات المؤكدة المستخلصة: الصافي=الإجمالي−الاستقطاعات (336/336)، التقاعد=10% الاسمي، الحماية الاجتماعية=0.25%، الشهادة/الخطورة/الهندسية(35%)/القانونية(30%)/المنصب = الاسمي×النسبة، علاوة السائقين 87500 غير مفصّلة، وتفوات جميع المخصصات = نمط اجازة 5 سنوات، وفوق المرحلة 11 زيادة معامل ثابت لكل درجة (الدرجة الأولى +20000).
 
 ## معطيات VPS
 

@@ -10,6 +10,7 @@ export interface RawPunch {
   notes?: string;
   verified_by_biometric?: boolean;
   is_virtual?: boolean; // البصمات الافتراضية المحقونة تلقائياً بواسطة النظام
+  target_slot?: 'check_in' | 'time_leave_out' | 'time_leave_return' | 'time_leave_out_2' | 'time_leave_return_2' | 'check_out' | 'update_check_out';
 }
 
 /**
@@ -36,7 +37,8 @@ export function categorizePunches(
   // 1. Sort punches by time
   const sortedPunches = [...rawPunches].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-  // 2. Debounce (3 minutes between adjacent taps)
+  // 2. تطبيق مهلة الأمان (3 دقائق بين البصمات المتتالية للحركة نفسها) لمنع التكرار العرضي
+  // مع الحفاظ على كل بصمة جديدة بعد انقضاء المهلة
   const filteredPunches: RawPunch[] = [];
   let i = 0;
   while (i < sortedPunches.length) {
@@ -45,45 +47,48 @@ export function categorizePunches(
       j < sortedPunches.length &&
       new Date(sortedPunches[j].time).getTime() - new Date(sortedPunches[j - 1].time).getTime() <= 3 * 60 * 1000
     ) {
+      // إذا كانت الخانة محددة صراحة وتختلف عن السابقة، لا ندمجها حتى لو كانت متقاربة
+      if (
+        sortedPunches[j].target_slot &&
+        sortedPunches[j - 1].target_slot &&
+        sortedPunches[j].target_slot !== sortedPunches[j - 1].target_slot
+      ) {
+        break;
+      }
       j++;
     }
+    // في مهلة الدخول نعتمد أول بصمة، وفي مهلة الخروج/الانصراف نعتمد آخر بصمة
     if (filteredPunches.length % 2 === 0) {
-      filteredPunches.push(sortedPunches[i]); // Earliest for IN
+      filteredPunches.push(sortedPunches[i]);
     } else {
-      filteredPunches.push(sortedPunches[j - 1]); // Latest for OUT
+      filteredPunches.push(sortedPunches[j - 1]);
     }
     i = j;
   }
 
   let finalNotes = '';
 
-  // 3. Handle excessive punches
-  if (filteredPunches.length === 7) {
-    filteredPunches.splice(5, 1);
-  } else if (filteredPunches.length >= 8) {
-    filteredPunches.splice(5, filteredPunches.length - 6);
-    finalNotes = 'يرجى المراجعة , كثير البصمات';
-  }
-
   const updates: any = {
+    raw_punches: filteredPunches,
     check_in: null,
     check_in_location: null,
     check_in_device_id: null,
     check_in_snapshot_url: null,
-    check_in_verified_by_biometric: null,
-    time_leave_out: null,
-    time_leave_return: null,
-    time_leave_out_2: null,
-    time_leave_return_2: null,
+    check_in_verified_by_biometric: false,
+    
     check_out: null,
     check_out_location: null,
     check_out_device_id: null,
     check_out_snapshot_url: null,
-    check_out_verified_by_biometric: null,
-    raw_punches: filteredPunches
+    check_out_verified_by_biometric: false,
+    
+    time_leave_out: null,
+    time_leave_return: null,
+    time_leave_out_2: null,
+    time_leave_return_2: null,
   };
 
-  // 4. فحص حالة دوام المناوب الممتد عبر منتصف الليل (Overnight Follow-up Check)
+  // 3. فحص حالة دوام المناوب الممتد عبر منتصف الليل (Overnight Follow-up Check)
   // إذا كان الموظف مناوباً + له بصمة صباحية واحدة فقط اليوم (عدد فردي) + بصمات الأمس الحقيقية كانت فردية (1 أو 3 أو 5)
   const yesterdayRealCount = yesterdayRecord ? countRealPunches(yesterdayRecord.raw_punches) : 0;
   const yesterdayWasOdd = yesterdayRealCount % 2 === 1 || (yesterdayRecord?.check_in && !yesterdayRecord?.check_out);
@@ -114,7 +119,7 @@ export function categorizePunches(
     }
   }
 
-  // 5. التوزيع القياسي للبصمات من 1 إلى 6
+  // 4. التوزيع القياسي للبصمات من 1 إلى 6
   if (filteredPunches.length > 0) {
     updates.check_in = filteredPunches[0].time;
     updates.check_in_location = filteredPunches[0].location;
@@ -123,32 +128,29 @@ export function categorizePunches(
     updates.check_in_verified_by_biometric = filteredPunches[0].verified_by_biometric;
   }
 
-  if (filteredPunches.length > 1) {
-    if (filteredPunches.length === 2) {
+  if (filteredPunches.length === 2) {
+    const p2Date = new Date(filteredPunches[1].time);
+    const p2BaghdadHour = (p2Date.getUTCHours() + 3) % 24;
+    // إذا كانت البصمة الثانية في نهاية الدوام (>= 14:00 في الصباحي) نعتبرها انصرافاً، وإلا فاستراحة
+    if (shiftType === 'morning' ? p2BaghdadHour >= 14 : p2BaghdadHour >= 18) {
       setOutData(updates, filteredPunches[1], 'check_out');
     } else {
       setOutData(updates, filteredPunches[1], 'time_leave_out');
     }
-  }
+  } else if (filteredPunches.length > 2) {
+    // البصمة الأخيرة انصراف نهائي
+    const lastPunch = filteredPunches[filteredPunches.length - 1];
+    setOutData(updates, lastPunch, 'check_out');
 
-  if (filteredPunches.length > 2) {
-    setOutData(updates, filteredPunches[2], 'time_leave_return');
-  }
-
-  if (filteredPunches.length > 3) {
-    if (filteredPunches.length === 4) {
-      setOutData(updates, filteredPunches[3], 'check_out');
-    } else {
-      setOutData(updates, filteredPunches[3], 'time_leave_out_2');
+    // البصمات الوسطى تُوزع استراحات
+    const middlePunches = filteredPunches.slice(1, -1);
+    if (middlePunches.length > 0) setOutData(updates, middlePunches[0], 'time_leave_out');
+    if (middlePunches.length > 1) setOutData(updates, middlePunches[1], 'time_leave_return');
+    if (middlePunches.length > 2) setOutData(updates, middlePunches[2], 'time_leave_out_2');
+    if (middlePunches.length > 3) setOutData(updates, middlePunches[3], 'time_leave_return_2');
+    if (middlePunches.length > 4) {
+      finalNotes = 'يرجى المراجعة , كثير البصمات';
     }
-  }
-
-  if (filteredPunches.length > 4) {
-    setOutData(updates, filteredPunches[4], 'time_leave_return_2');
-  }
-
-  if (filteredPunches.length > 5) {
-    setOutData(updates, filteredPunches[5], 'check_out');
   }
 
   // 6. فحص وإدراج الخروج الافتراضي الإجباري عند نهاية اليوم إذا كانت البصمات فردية

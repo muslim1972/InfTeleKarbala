@@ -13,6 +13,7 @@ interface DashboardHeaderProps {
     currentUser: any;
     isRoleEditable: boolean;
     canAddEmployee: boolean;
+    canAccessAttendance?: boolean;
     isFieldReadOnly: (columnName: string) => boolean;
     theme: 'light' | 'dark';
     selectedAdminYear: number;
@@ -40,6 +41,7 @@ export const DashboardHeader = ({
     currentUser,
     isRoleEditable,
     canAddEmployee,
+    canAccessAttendance,
     isFieldReadOnly,
     theme,
     selectedAdminYear,
@@ -63,6 +65,14 @@ export const DashboardHeader = ({
 
     const tabs = (() => {
         const canAccessNews = !isFieldReadOnly('tab_news');
+        const canManageAttendance = Boolean(
+            canAccessAttendance ||
+            isRoleEditable ||
+            currentUser?.has_attendance_access === true ||
+            currentUser?.admin_role === 'biometric' ||
+            currentUser?.admin_role === 'attendance_supervisor' ||
+            currentUser?.username === 'attend'
+        );
 
         const allTabs = [
             ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
@@ -75,7 +85,7 @@ export const DashboardHeader = ({
             { id: 'admin_audio', label: 'القرآن الكريم' },
             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
             ...((currentUser?.admin_role === 'general' || isDeveloperLevel(currentUser?.admin_role)) ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),
-            ...(isRoleEditable ? [{ id: 'admin_attendance', label: 'إعداد البصمة' }] : [])
+            ...(canManageAttendance ? [{ id: 'admin_attendance', label: 'إدارة البصمة' }] : [])
         ];
 
         return allTabs;

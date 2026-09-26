@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   localStorage.removeItem(key);
                 }
               }
-              supabase.auth.signOut().catch(() => {});
+              supabase.auth.signOut({ scope: 'local' }).catch(() => {});
             } catch (e) {}
           }
         }
@@ -228,17 +228,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const trimmedUsername = username.trim();
       const trimmedPassword = password.trim();
 
-      // 1. Resolve Username -> Profile (via secure RPC)
-      // The RPC now checks the password and rate limit internally for better security
-      const { data: profile, error: profileErr } = await supabase
-        .rpc('get_login_profile', { 
-          p_username: trimmedUsername,
-          p_password: trimmedPassword 
-        })
-        .maybeSingle() as { data: { id: string; job_number: string; email: string; real_email: string; role: string; full_name: string } | null; error: any };
+      // تصفية فورية لأي جلسة سابقة أو قفل معلق لضمان بدء عملية المصادقة بحالة نظيفة 100%
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (e) {}
+
+      // مهلة كافية لشبكات الهاتف والمودم (12 ثانية) لمنع الإنذارات الخاطئة
+      const timeoutPromise = (ms: number, msg: string) =>
+        new Promise<{ data: any; error: any }>((_, reject) =>
+          window.setTimeout(() => reject(new Error(msg)), ms)
+        );
+
+      // 1. Resolve Username -> Profile (via secure RPC) مع مهلة 12 ثانية
+      let profileResult: { data: any; error: any };
+      try {
+        profileResult = await Promise.race([
+          supabase.rpc('get_login_profile', { 
+            p_username: trimmedUsername,
+            p_password: trimmedPassword 
+          }).maybeSingle(),
+          timeoutPromise(12000, 'استغرق التحقق من الحساب وقتاً أطول من المعتاد. يرجى إعادة المحاولة.')
+        ]) as { data: any; error: any };
+      } catch (toErr: any) {
+        return { success: false, error: toErr.message || 'تعذر الاتصال بالخادم، يرجى المحاولة ثانية' };
+      }
+
+      const { data: profile, error: profileErr } = profileResult;
 
       if (profileErr) {
-        if (profileErr.message.includes('Blocked')) {
+        if (profileErr.message?.includes('Blocked')) {
           return { success: false, error: 'استنفذت عدد المحاولات المسموح بها. يرجى العودة بعد 30 دقيقة.' };
         }
         return { success: false, error: 'حدث خطأ أثناء تسجيل الدخول' };
@@ -251,31 +269,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 2. Use the email returned by the RPC (the generated email for login)
       const loginEmail = profile.email;
 
-      // 3. Authenticate with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: trimmedPassword
-      });
+      // 3. Authenticate with Supabase Auth مع مهلة 12 ثانية
+      let authResult: { data: any; error: any };
+      try {
+        authResult = await Promise.race([
+          supabase.auth.signInWithPassword({
+            email: loginEmail,
+            password: trimmedPassword
+          }),
+          timeoutPromise(12000, 'استغرقت جلسة المصادقة وقتاً طويلاً. يرجى التحقق من اتصال الإنترنت.')
+        ]) as { data: any; error: any };
+      } catch (authToErr: any) {
+        return { success: false, error: authToErr.message || 'تعذر استكمال المصادقة' };
+      }
 
-      if (authError || !authData.user) {
+      const { data: authData, error: authError } = authResult;
+
+      if (authError || !authData?.user) {
         if (authError && authError.status === 500) {
           return { success: false, error: 'حدث خطأ في قاعدة بيانات المصادقة (500). يرجى مراجعة الدعم الفني.' };
         }
         return { success: false, error: 'كلمة المرور غير صحيحة' };
       }
 
+      // Clear rate limit on success (non-blocking)
+      Promise.resolve(
+        supabase.rpc('update_rate_limit', {
+          p_identifier: trimmedUsername,
+          p_endpoint: 'login',
+          p_success: true
+        })
+      ).catch(console.warn);
 
-      // Clear rate limit on success
-      await supabase.rpc('update_rate_limit', {
-        p_identifier: trimmedUsername,
-        p_endpoint: 'login',
-        p_success: true
-      });
+      // 4. Fetch Full Profile Details via secure RPC (bypasses RLS safely) مع مهلة 12 ثانية
+      let fullProfileResult: { data: any; error: any };
+      try {
+        fullProfileResult = await Promise.race([
+          supabase.rpc('get_own_profile').single(),
+          timeoutPromise(12000, 'استغرق جلب بيانات الملف الشخصي وقتاً طويلاً.')
+        ]) as { data: any; error: any };
+      } catch (fetchToErr: any) {
+        return { success: false, error: fetchToErr.message || 'تعذر تحميل بيانات المستخدم' };
+      }
 
-      // 4. Fetch Full Profile Details via secure RPC (bypasses RLS safely)
-      const { data: fullProfile, error: fetchErr } = await supabase
-        .rpc('get_own_profile')
-        .single() as { data: any; error: any };
+      const { data: fullProfile, error: fetchErr } = fullProfileResult;
 
       if (fetchErr || !fullProfile) {
         console.error("Exact fetch error:", fetchErr);
@@ -316,8 +353,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       /* مسح حالة المحاكي المتبقية في الذاكرة من الحساب السابق (الرسم
          والخريطة المفتوحة وتاريخ التراجع) — دون إعادة تحميل الصفحة */
       resetFiberSimSession();
-      initOneSignal(appUser.id);
-      logVisit(appUser);
+      initOneSignal(appUser.id).catch(() => {});
+      logVisit(appUser).catch(() => {});
       return { success: true };
 
     } catch (err) {
@@ -344,18 +381,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
-    logoutOneSignal();
-    /* خرائط GIS المحلية تعود لوضع مجهول فوراً — لا تظهر لغير مالكها
-       (استدعاء مباشر لا يعتمد على وصول حدث onAuthStateChange) */
-    setGisStorageOwner(null);
-    /* حالة المحاكي في الذاكرة تُمسح فوراً — لا يحملها الحساب التالي */
-    resetFiberSimSession();
-    setUser(null);
-    sessionStorage.removeItem("visitor_user");
-    sessionStorage.removeItem("session_logged");
-    localStorage.removeItem("app_user"); // cleanup old legacy
+    try {
+      // 1. قطع جميع اشتراكات القنوات اللحظية (Realtime WebSockets) لمنع أي استهلاك بالخلفية
+      try {
+        supabase.removeAllChannels();
+      } catch (chErr) {
+        console.warn("Remove channels warning:", chErr);
+      }
+
+      // 2. تسجيل الخروج المحلي الفوري (scope: local) لتحرير الأقفال ومسح الجلسة في الذاكرة بدون انتظار الشبكة
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (localErr) {
+        console.warn("Local signOut warning:", localErr);
+      }
+
+      // 3. إعلام الخادم في الخلفية دون حجب أو انتظار
+      supabase.auth.signOut({ scope: 'global' }).catch(() => {});
+    } catch (error) {
+      console.warn("Supabase signout warning:", error);
+    } finally {
+      geolocationManager.clearAllWatches(); // تنظيف جميع طلبات الموقع عند الخروج
+      logoutOneSignal().catch(() => {});
+      /* خرائط GIS المحلية تعود لوضع مجهول فوراً — لا تظهر لغير مالكها
+         (استدعاء مباشر لا يعتمد على وصول حدث onAuthStateChange) */
+      setGisStorageOwner(null);
+      /* حالة المحاكي في الذاكرة تُمسح فوراً — لا يحملها الحساب التالي */
+      resetFiberSimSession();
+      setUser(null);
+
+      // تنظيف الجلسة والتخزين المحلي مع الحفاظ على حالة الشاشة الافتتاحية واختيار الويب
+      const splashShown = sessionStorage.getItem('splashShown');
+      const hasChosenWeb = sessionStorage.getItem('hasChosenWeb');
+      try {
+        sessionStorage.clear();
+      } catch (e) {}
+      if (splashShown) sessionStorage.setItem('splashShown', splashShown);
+      if (hasChosenWeb) sessionStorage.setItem('hasChosenWeb', hasChosenWeb);
+
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.startsWith('sb-') || 
+            key.includes('supabase') || 
+            key === 'adminViewMode' || 
+            key === 'cached_app_user' || 
+            key === 'app_user' ||
+            key.startsWith('2fa_')
+          )) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch (e) {}
+      
+      // استبدال النافذة وإعادة التحميل لضمان بيئة نظيفة 100%
+      setTimeout(() => {
+        window.location.replace('/');
+      }, 100);
+    }
   };
 
   const updateProfile = async (updates: Partial<AppUser>) => {

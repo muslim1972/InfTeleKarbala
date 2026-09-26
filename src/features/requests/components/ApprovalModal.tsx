@@ -41,6 +41,8 @@ interface LeaveRequest {
     cancellation_reason?: string;
     unpaid_days?: number;
     cut_date?: string;
+    destination?: string;
+    time_duration_minutes?: number;
     prev_manager_name?: string;
     approval_chain?: string[];
     current_approval_step?: number;
@@ -157,8 +159,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 
                 // إرسال إشعار الدفع الفوري (للمتصفح أو الهاتف)
                 sendPushNotification(request.user_id, message, { title: `تحديث طلب ${typeName}`, url: `${window.location.origin}/requests` });
-                
-                // إضافية إشعار النظام أزيلت بناءً على طلب المستخدم لمنع التكرار مع قسم الردود
+                // ملاحظة: إشعار الموظف داخل التطبيق يتم عبر جدول leave_requests (الردود على طلباتك) تلقائياً لمنع التكرار
             }
 
             // Notify HR/Admin if it's a cut or cancellation approval

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
 import { getLocalDateStr } from '../services/attendanceService';
@@ -13,16 +13,22 @@ import {
   type DayLeaveInfo,
   type TimeLeaveInfo
 } from '../services/leaveIntegrationService';
+// ─── المحرك الذكي: تمييز الواجب/الإيفاد عن الإجازات الصارمة في البانرات ───
+import { OFFICIAL_DUTY_TYPES } from '../services/attendanceRequestEngine';
+import { hasLeaveConflictNote } from '../utils/attendanceCalc';
+import { useNavigate } from 'react-router-dom';
 import type { AttendanceRecord, WorkLocation } from '../types';
 import {
   LogIn, LogOut, MapPin, CheckCircle,
   AlertTriangle, RefreshCw, Camera,
   ShieldCheck, X, User, Clock, XCircle,
-  ChevronDown, ChevronUp, Radio, Laptop, Smartphone
+  ChevronDown, ChevronUp, Radio, Laptop, Smartphone, Eraser, FileText, Trash2, Fingerprint
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
 import { type LocationTelemetryResult } from '../../../utils/antiSpoofing';
 import { useAuth } from '../../../context/AuthContext';
+import { useTestEnvironment } from '../utils/testEnvironment';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
@@ -61,8 +67,9 @@ export default function AttendanceCheckInOut({
   loading,
   onAttendanceUpdate
 }: AttendanceCheckInOutProps) {
-  const { registerPunch, timeLeaveOut, timeLeaveReturn } = useAttendance(employeeId);
+  const { registerPunch } = useAttendance(employeeId);
   const { user } = useAuth();
+  const { isTest, resetPunches } = useTestEnvironment();
   const { isTampered, tamperInfo, forceSync } = useServerTime();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
@@ -74,7 +81,58 @@ export default function AttendanceCheckInOut({
   });
   // بصمة معلّقة بانتظار تأكيد الموظف (اليوم يوم إجازته)
   const [pendingLeavePunch, setPendingLeavePunch] = useState<{ snapshotResult: { url?: string; notes?: string } } | null>(null);
+  const navigate = useNavigate();
   const [confirmingPunch, setConfirmingPunch] = useState(false);
+  const [pendingTimeOffWarning, setPendingTimeOffWarning] = useState(false);
+  const [conflictingTimeOff, setConflictingTimeOff] = useState<TimeLeaveInfo | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [cancellingTimeOff, setCancellingTimeOff] = useState(false);
+  const hasAcknowledgedTimeOffRef = useRef(false);
+  const userOverrideReasonRef = useRef<string>('');
+  const abortPunchRef = useRef(false);
+
+  // ─── محرك التوجيه الذكي للبصمات (فصل الخانات بدقة واعتراض ذكي) ───
+  type TargetSlotType = 'check_in' | 'time_leave_out' | 'time_leave_return' | 'check_out' | 'update_check_out' | undefined;
+  const targetSlotRef = useRef<TargetSlotType>(undefined);
+  const [, setSelectedTargetSlot] = useState<TargetSlotType>(undefined);
+
+
+  // ─── مهلة الأمان (3 دقائق = 180 ثانية) بين البصمات لمنع التكرار العرضي ───
+  const [nowTick, setNowTick] = useState(Date.now());
+  const [cooldownBypassed, setCooldownBypassed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const lastPunchTime = useMemo(() => {
+    if (!todayAttendance?.raw_punches || !Array.isArray(todayAttendance.raw_punches) || todayAttendance.raw_punches.length === 0) {
+      return 0;
+    }
+    const last = todayAttendance.raw_punches[todayAttendance.raw_punches.length - 1];
+    return last?.time ? new Date(last.time).getTime() : 0;
+  }, [todayAttendance?.raw_punches]);
+
+  const cooldownRemaining = useMemo(() => {
+    if (!lastPunchTime || cooldownBypassed) return 0;
+    const elapsed = Math.floor((nowTick - lastPunchTime) / 1000);
+    return Math.max(0, 180 - elapsed);
+  }, [lastPunchTime, nowTick, cooldownBypassed]);
+
+  const isCooldownActive = cooldownRemaining > 0;
+
+  // ─── فحص حالة الموظف الدقيقة في الوقت الراهن ───
+
+  const baghdadHour = useMemo(() => {
+    const str = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Baghdad',
+      hour: '2-digit',
+      hour12: false
+    }).format(new Date(nowTick));
+    return parseInt(str, 10) || 0;
+  }, [nowTick]);
 
   // تاريخ محلي — toISOString() يرجع UTC فيظل «أمس» حتى 03:00 صباحاً بغداد
   // فتُعرض بانرات إجازات اليوم السابق خطأً بعد منتصف الليل
@@ -142,7 +200,7 @@ export default function AttendanceCheckInOut({
   const capturedRef = useRef(false);
 
   const { videoRef, isCameraOpen: cameraOpen, startCamera, stopCamera, captureFrame } = useCamera();
-  const { modelsLoaded, loadModels, detectFaceInFrame } = useFaceDetection();
+  const { loadModels, detectFaceInFrame } = useFaceDetection();
   const screenFlashCleanupRef = useRef<(() => void) | null>(null);
 
   // ---- Preload Face Models Silently on Mount ----
@@ -157,6 +215,15 @@ export default function AttendanceCheckInOut({
     setLoadingLocation(true);
     setGeofenceChecked(false);
     try {
+      if (isTest) {
+        setIsAllowed(true);
+        setLocationText('بيئة تجريبية - الموقع الفعلي متجاوز');
+        setGeofenceChecked(true);
+        if (showToast) toast.success('تم تخطي فحص الموقع (بيئة تجريبية)', { id: 'geo-verify' });
+        setLoadingLocation(false);
+        return;
+      }
+
       if (showToast) toast.loading('جاري فحص وتدقيق إحداثيات الموقع الجغرافي...', { id: 'geo-verify' });
       const { position, telemetry: telResult } = await geolocationManager.getCurrentPositionWithTelemetry();
       setTelemetry(telResult);
@@ -275,13 +342,23 @@ export default function AttendanceCheckInOut({
     toast('تم إلغاء عملية تثبيت البصمة', { icon: '🛑' });
   }, [handleStopCamera]);
 
-  const completeAction = useCallback(async (currentAction: 'punch', snapshotResult: { url?: string; notes?: string }) => {
+  const completeAction = useCallback(async (_currentAction: 'punch', snapshotResult: { url?: string; notes?: string }) => {
+    if (abortPunchRef.current) {
+        abortPunchRef.current = false;
+        return;
+    }
     setProcessing(true);
     try {
       const deviceId = await getDeviceFingerprint();
 
       try {
-        await registerPunch(locationText, deviceId, false, snapshotResult.url, snapshotResult.notes);
+        let finalNotes = snapshotResult.notes;
+        if (hasAcknowledgedTimeOffRef.current) {
+          const reasonStr = userOverrideReasonRef.current?.trim() || 'وضع طارئ';
+          const warningText = ` (تثبيت بطلب الموظف: ${reasonStr})`;
+          finalNotes = finalNotes ? finalNotes + warningText : warningText;
+        }
+        await registerPunch(locationText, deviceId, false, snapshotResult.url, finalNotes, false, targetSlotRef.current);
       } catch (err: any) {
         // تحذير يوم الإجازة: يوقف التثبيت ويعرض مودال التأكيد بدل الخطأ
         if (err?.isLeaveDayWarning) {
@@ -298,6 +375,7 @@ export default function AttendanceCheckInOut({
         toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
       }
 
+      setCooldownBypassed(false);
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
       loadLeaveContext();
@@ -322,13 +400,15 @@ export default function AttendanceCheckInOut({
         false,
         pendingLeavePunch.snapshotResult.url,
         pendingLeavePunch.snapshotResult.notes,
-        true // bypassLeaveWarning — الموظف أكّد الاستمرار رغم التنبيه
+        true, // bypassLeaveWarning — الموظف أكّد الاستمرار رغم التنبيه
+        targetSlotRef.current
       );
       if (pendingLeavePunch.snapshotResult.url) {
         toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً في يوم إجازتك');
       } else {
         toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
       }
+      setCooldownBypassed(false);
       onAttendanceUpdate();
       verifyLocationAndGeofence(false);
       loadLeaveContext();
@@ -482,11 +562,63 @@ export default function AttendanceCheckInOut({
       return;
     }
 
+    try {
+      const freshCtx = await getLeaveContext(employeeId, todayStr);
+      setLeaveCtx(freshCtx);
+      if (freshCtx.timeLeaves.length > 0 && !hasAcknowledgedTimeOffRef.current) {
+        let bypassWarning = false;
+        let conflictItem: TimeLeaveInfo | null = null;
+
+        // استخراج الوقت الحالي بالساعات والدقائق بتوقيت بغداد المعتمد
+        const baghdadTimeStr = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Baghdad',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).format(getServerNow());
+        const [curH, curM] = baghdadTimeStr.split(':').map(Number);
+        const nowMinutes = curH * 60 + curM;
+
+        for (const l of freshCtx.timeLeaves) {
+            conflictItem = l;
+            const outMatch = l.reason?.match(/ساعة الخروج:\s*(\d{2}:\d{2})/);
+            const returnMatch = l.reason?.match(/ساعة العودة:\s*(\d{2}:\d{2})/);
+            
+            if (outMatch) {
+                const [h, m] = outMatch[1].split(':').map(Number);
+                const outMins = h * 60 + m;
+                if (Math.abs(nowMinutes - outMins) <= 5) {
+                    bypassWarning = true;
+                    break;
+                }
+            }
+            if (returnMatch) {
+                const [h, m] = returnMatch[1].split(':').map(Number);
+                const retMins = h * 60 + m;
+                if (Math.abs(nowMinutes - retMins) <= 5) {
+                    bypassWarning = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!bypassWarning) {
+            setConflictingTimeOff(conflictItem);
+            setPendingTimeOffWarning(true);
+            return;
+        } else {
+            hasAcknowledgedTimeOffRef.current = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch fresh leave context:', err);
+    }
+
     if (isTampered) {
       toast(tamperInfo.message, { icon: '⚠️', duration: 5000 });
     }
 
-    const shiftType = determineShiftType(user, null);
+    const shiftType = determineShiftType(user as any, null);
     const hasExistingPunch = Boolean(todayAttendance?.check_in);
     if (!hasExistingPunch) {
       const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow());
@@ -562,7 +694,13 @@ export default function AttendanceCheckInOut({
       try {
         const deviceId = await getDeviceFingerprint();
         try {
-          await registerPunch(locationText, deviceId, false, undefined, notes);
+          let finalNotes = notes;
+          if (hasAcknowledgedTimeOffRef.current) {
+            const reasonStr = userOverrideReasonRef.current?.trim() || 'وضع طارئ';
+            const warningText = ` (تثبيت بطلب الموظف: ${reasonStr})`;
+            finalNotes = finalNotes ? finalNotes + warningText : warningText;
+          }
+          await registerPunch(locationText, deviceId, false, undefined, finalNotes, false, targetSlotRef.current);
         } catch (regErr: any) {
           // تحذير يوم الإجازة: مودال تأكيد بدل تسجيل مباشر
           if (regErr?.isLeaveDayWarning) {
@@ -572,6 +710,7 @@ export default function AttendanceCheckInOut({
           throw regErr;
         }
 
+        setCooldownBypassed(false);
         onAttendanceUpdate();
         verifyLocationAndGeofence(false);
         loadLeaveContext();
@@ -592,38 +731,6 @@ export default function AttendanceCheckInOut({
     setCapturingAction(null);
   }, [handleStopCamera]);
 
-  // ---- Time Leave Handlers (with device fingerprint) ----
-  const handleTimeLeaveOut = useCallback(async () => {
-    if (!isAllowed) {
-      toast.error('لا يمكن تسجيل الخروج الزمني: يجب أن تكون متواجداً في نطاق العمل');
-      return;
-    }
-    try {
-      const deviceId = await getDeviceFingerprint();
-      await timeLeaveOut(locationText, deviceId, false);
-      toast.success('تم تسجيل الخروج الزمني بنجاح');
-      onAttendanceUpdate();
-      verifyLocationAndGeofence(false);
-    } catch (err: any) {
-      toast.error(formatArabicErrorMessage(err, 'فشل تسجيل الخروج الزمني'));
-    }
-  }, [isAllowed, locationText, timeLeaveOut, onAttendanceUpdate, verifyLocationAndGeofence]);
-
-  const handleTimeLeaveReturn = useCallback(async () => {
-    if (!isAllowed) {
-      toast.error('لا يمكن تسجيل العودة: يجب أن تكون متواجداً في نطاق العمل');
-      return;
-    }
-    try {
-      const deviceId = await getDeviceFingerprint();
-      await timeLeaveReturn(locationText, deviceId, false);
-      toast.success('تم تسجيل العودة من الإجازة الزمنية بنجاح');
-      onAttendanceUpdate();
-      verifyLocationAndGeofence(false);
-    } catch (err: any) {
-      toast.error(formatArabicErrorMessage(err, 'فشل تسجيل العودة'));
-    }
-  }, [isAllowed, locationText, timeLeaveReturn, onAttendanceUpdate, verifyLocationAndGeofence]);
 
   // ---- Helpers ----
   const formatTime = (timeString?: string) => {
@@ -634,10 +741,155 @@ export default function AttendanceCheckInOut({
     });
   };
 
-  const canPunch = true; // Always true, logic handles it in backend
+
 
   return (
     <div className="space-y-6">
+      {/* ========== Test Environment Controls ========== */}
+      {isTest && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20 p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
+        >
+          <div>
+            <h4 className="font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              بيئة الفحص التجريبية مفعلة
+            </h4>
+            <p className="text-sm text-indigo-700/80 dark:text-indigo-400/80 mt-1">
+              أنت الآن في وضع الاختبار. قيود الموقع الجغرافي ملغاة مؤقتاً لتسهيل الفحص.
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              const success = await resetPunches(employeeId);
+              if (success) {
+                onAttendanceUpdate();
+                window.location.reload();
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95"
+          >
+            <Eraser className="w-4 h-4" />
+            تصفير البصمات والبدأ من جديد
+          </button>
+        </motion.div>
+      )}
+
+      {/* ========== Actions Card ========== */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 md:p-8"
+      >
+        {/* Processing Indicator */}
+        {processing ? (
+          <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+              <p className="font-bold text-base text-slate-800 dark:text-slate-200">
+                جاري تثبيت البصمة...
+              </p>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+              يرجى الانتظار ثوانٍ معدودة لحفظ وتوثيق الحركة
+            </p>
+            <button
+              type="button"
+              onClick={cancelPunchProcess}
+              className="mt-1 px-5 py-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-sm font-bold rounded-xl border border-red-200 dark:border-red-800/50 transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>إلغاء ومقاطعة العملية</span>
+            </button>
+          </div>
+        ) : !isEnrolled ? (
+          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-center">
+            <ShieldCheck className="w-12 h-12 text-brand-green mb-4" />
+            <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">تسجيل الوجه مطلوب</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-sm">
+              لتمكين ميزة تسجيل الحضور الذكية، يجب أولاً توثيق بصمة وجهك بإشراف المسؤول.
+            </p>
+            <button
+              onClick={() => setShowEnrollment(true)}
+              className="bg-brand-green hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 flex items-center gap-2"
+            >
+              <User className="w-5 h-5" />
+              توثيق بصمة الوجه (يتطلب مسؤول)
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* شارة مهلة الأمان (3 دقائق) لمنع البصمات المزدوجة العرضية */}
+            {isCooldownActive && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-mono font-bold shrink-0 text-xs shadow-sm">
+                    {cooldownRemaining}s
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">مهلة الأمان بين البصمات نشطة (متبقي {cooldownRemaining} ثانية)</p>
+                    <p className="text-[11px] text-amber-700/90 dark:text-amber-300/90 mt-0.5">
+                      تم تسجيل بصمتك بنجاح. لمنع البصمات المزدوجة العرضية، يُرجى الانتظار لحين اكتمال المهلة.
+                    </p>
+                  </div>
+                </div>
+                {isTest && (
+                  <button
+                    type="button"
+                    onClick={() => setCooldownBypassed(true)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm shrink-0 active:scale-95"
+                  >
+                    تخطي المهلة (فحص تجريبي)
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* الأزرار الذكية حسب حالة الموظف الدقيقة */}
+            {(() => {
+              const isBaseDisabled = loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed;
+              const isActionDisabled = isBaseDisabled || (isCooldownActive && !isTest);
+
+              return (
+                <button
+                  onClick={() => {
+                    targetSlotRef.current = undefined;
+                    setSelectedTargetSlot(undefined);
+                    openCamera('punch');
+                  }}
+                  disabled={isActionDisabled}
+                  className={`w-full py-5 px-6 rounded-3xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.98] ${
+                    !isActionDisabled
+                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-xl hover:shadow-2xl shadow-emerald-600/30 ring-4 ring-emerald-50 dark:ring-emerald-900/30'
+                      : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                  }`}
+                >
+                  <Fingerprint className={`w-8 h-8 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
+                  <span className="text-xl">
+                    {isCooldownActive && !isTest ? `مهلة الأمان (${cooldownRemaining} ث)` : 'تثبيت البصمة'}
+                  </span>
+                </button>
+              );
+            })()}
+
+            {isEnrolled && (
+              <button
+                onClick={() => setShowEnrollment(true)}
+                disabled={loading || processing || cameraOpen}
+                className="py-3 px-6 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                إعادة تسجيل الوجه (بحضور المسؤول)
+              </button>
+            )}
+          </div>
+        )}
+      </motion.div>
+
+
       {/* ========== Camera Overlay with Face Detection ========== */}
       <AnimatePresence>
         {cameraOpen && (
@@ -930,28 +1182,54 @@ export default function AttendanceCheckInOut({
         </motion.div>
       )}
 
-      {/* ========== تكامل الإجازات: بانرات حالة اليوم ========== */}
-      {/* إجازة يوم كامل (اعتيادية/مرضية/واجب/إيفاد) قبل أول بصمة */}
-      {leaveCtx.dayLeave && !todayAttendance?.check_in && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl shadow-lg border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/40 p-5 flex items-start gap-3"
-        >
-          <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5" />
-          </div>
+      {/* ========== تكامل الإجازات: بانرات حالة اليوم (ذكية حسب نوع الطلب) ========== */}
+      {/* إجازة يوم كامل قبل أول بصمة: صارمة (أحمر) / واجب رسمي (أخضر) */}
+      {leaveCtx.dayLeave && !todayAttendance?.check_in && (() => {
+        const dl = leaveCtx.dayLeave!;
+        const isOfficialDuty = OFFICIAL_DUTY_TYPES.includes(dl.leaveType);
+        const isStrict = !isOfficialDuty;
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={isStrict
+              ? "rounded-2xl shadow-lg border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-900/40 p-5 flex items-start gap-3"
+              : "rounded-2xl shadow-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-5 flex items-start gap-3"}
+          >
+            <div className={isStrict
+              ? "w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"
+              : "w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0"}>
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className={isStrict ? "font-bold text-red-800 dark:text-red-300" : "font-bold text-emerald-800 dark:text-emerald-300"}>
+                {dl.warningMessage}
+              </p>
+              <p className={`text-sm mt-1 leading-relaxed ${isStrict ? "text-red-700/90 dark:text-red-400/90" : "text-emerald-700/90 dark:text-emerald-400/90"}`}>
+                {isStrict
+                  ? 'إن ثبتت البصمة رغم ذلك لن تُقبل إلا بعد موافقة المشرف من إشعاراته: تثبت بالأحمر في الجدول وساعات عمل هذه البصمة غير محتسبة ضمن دوامك.'
+                  : `بصمتك اليوم تُسجل كبصمة دوام رسمية في يوم «${dl.label}» دون أي إنذار.`}
+              </p>
+            </div>
+          </motion.div>
+        );
+      })()}
+
+      {/* تأكيد ما بعد البصمة: تعارض مع طلب (أحمر — أولوية) أو دوام إضافي (برتقالي) */}
+      {todayAttendance?.check_in && hasLeaveConflictNote(todayAttendance.notes) && (
+        <div className="rounded-2xl border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-900/40 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-orange-800 dark:text-orange-300">{leaveCtx.dayLeave.warningMessage}</p>
-            <p className="text-sm mt-1 text-orange-700/90 dark:text-orange-400/90 leading-relaxed">
-              إن ثبتت بصمة الحضور اليوم سيُحتسب الدوام «دواماً إضافياً في يوم إجازة».
+            <p className="text-sm font-bold text-red-800 dark:text-red-300">
+              بصمة اليوم متعارضة مع طلب إجازة — تم إبلاغ المشرف بذلك.
+            </p>
+            <p className="text-xs mt-0.5 text-red-700/90 dark:text-red-400/90">
+              ساعات هذه البصمة غير محتسبة ضمن دوامك، ويلزم مراجعة الإدارة لحل الاشكال واحتساب البصمة أصلياً.
             </p>
           </div>
-        </motion.div>
+        </div>
       )}
-
-      {/* تأكيد: بصمة اليوم مسجّلة كدوام إضافي في يوم إجازة */}
-      {todayAttendance?.check_in && hasLeaveOvertimeNote(todayAttendance.notes) && (
+      {todayAttendance?.check_in && hasLeaveOvertimeNote(todayAttendance.notes) && !hasLeaveConflictNote(todayAttendance.notes) && (
         <div className="rounded-2xl border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/40 p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
           <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
@@ -1175,80 +1453,6 @@ export default function AttendanceCheckInOut({
         ) : null}
       </motion.div>
 
-      {/* ========== Actions Card ========== */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 md:p-8"
-      >
-        {/* Processing Indicator */}
-        {processing ? (
-          <div className="mb-6 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center gap-4">
-            <div className="flex items-center gap-3">
-              <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
-              <p className="font-bold text-base text-slate-800 dark:text-slate-200">
-                جاري تثبيت البصمة...
-              </p>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-              يرجى الانتظار ثوانٍ معدودة لحفظ وتوثيق الحركة
-            </p>
-            <button
-              type="button"
-              onClick={cancelPunchProcess}
-              className="mt-1 px-5 py-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-sm font-bold rounded-xl border border-red-200 dark:border-red-800/50 transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
-            >
-              <XCircle className="w-4 h-4" />
-              <span>إلغاء ومقاطعة العملية</span>
-            </button>
-          </div>
-        ) : !isEnrolled ? (
-          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-center">
-            <ShieldCheck className="w-12 h-12 text-brand-green mb-4" />
-            <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">تسجيل الوجه مطلوب</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-sm">
-              لتمكين ميزة تسجيل الحضور الذكية، يجب أولاً توثيق بصمة وجهك بإشراف المسؤول.
-            </p>
-            <button
-              onClick={() => setShowEnrollment(true)}
-              className="bg-brand-green hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 flex items-center gap-2"
-            >
-              <User className="w-5 h-5" />
-              توثيق بصمة الوجه (يتطلب مسؤول)
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4">
-            <button
-              onClick={() => openCamera('punch')}
-              disabled={loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed}
-              className={`py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
-                isAllowed && !loading && !processing && !cameraOpen && !loadingLocation && geofenceChecked
-                  ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg shadow-blue-600/20'
-                  : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Camera className="w-5 h-5" />
-                <span>تثبيت البصمة (صورة مباشرة)</span>
-              </div>
-            </button>
-
-            {isEnrolled && (
-              <button
-                onClick={() => setShowEnrollment(true)}
-                disabled={loading || processing || cameraOpen}
-                className="py-3 px-6 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                إعادة تسجيل الوجه (بحضور المسؤول)
-              </button>
-            )}
-          </div>
-        )}
-      </motion.div>
-
       {/* ========== Custom Alert Modal (Unverified Registration) ========== */}
       <AnimatePresence>
         {alertInfo.show && (
@@ -1263,7 +1467,7 @@ export default function AttendanceCheckInOut({
                 <AlertTriangle className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3">
-                تم تثبيت تسجيل {alertInfo.action === 'checkIn' ? 'الحضور' : 'الانصراف'} بدون تحقق
+                تم تثبيت البصمة بدون تحقق من الصورة
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
                 تم تثبيت الوقت في السجل باللون الأحمر وإعلام الإدارة للتحقق من الحالة والموافقة عليها.
@@ -1314,6 +1518,152 @@ export default function AttendanceCheckInOut({
                 >
                   {confirmingPunch ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
                   تثبيت البصمة رغم ذلك
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== مودال تنبيه التدقيق الذكي: تعارض مع إجازة زمنية ========== */}
+      <AnimatePresence>
+        {pendingTimeOffWarning && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-28 md:pb-32 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl border border-amber-200 dark:border-amber-900/40 max-h-[calc(100vh-6rem)] overflow-y-auto font-tajawal"
+            >
+              <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 rounded-full flex items-center justify-center mb-4 text-amber-500">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-2 font-tajawal">
+                تنبيه التدقيق الذكي: تعارض مع إجازة زمنية
+              </h3>
+
+              {conflictingTimeOff && (
+                <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-right text-xs leading-relaxed font-tajawal text-slate-700 dark:text-slate-300">
+                  <div className="font-bold text-amber-600 dark:text-amber-400 mb-1 flex items-center justify-between">
+                    <span>بيانات الإجازة الزمنية المسجلة اليوم:</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 font-bold">
+                      {conflictingTimeOff.status === 'approved' ? 'معتمدة' : 'قيد الانتظار'}
+                    </span>
+                  </div>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                    {conflictingTimeOff.reason || `المدة: ${conflictingTimeOff.minutes} دقيقة`}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed font-tajawal">
+                توقيت بصمتك الحالي يختلف عن وقت الإجازة الزمنية بفارق يتجاوز 5 دقائق.
+                <br />
+                يمكنك الانتقال لإلغاء الإجازة أو تعديل وقتها في صفحة الطلبات (وفي كلتا الحالتين تتطلب انتظار موافقة المسؤول)، أو المتابعة وتثبيت البصمة الآن كدوام اعتيادي.
+              </p>
+
+              <div className="grid gap-2.5 font-tajawal">
+                {/* 1. الانتقال المباشر لتبويبة الطلبات في لوحة الموظف */}
+                <button
+                  onClick={() => {
+                    setPendingTimeOffWarning(false);
+                    window.dispatchEvent(new CustomEvent('switch_admin_view_mode', { detail: { mode: 'user' } }));
+                    window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'requests' } }));
+                    window.dispatchEvent(new CustomEvent('navigate_to_user_requests', { detail: { type: 'time_off' } }));
+                    navigate('/?mode=user&tab=requests', {
+                      replace: true,
+                      state: { adminViewMode: 'user', tab: 'requests', openSubtype: 'time_off' }
+                    });
+                  }}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 active:scale-[0.98] transition-all text-xs sm:text-sm flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>تعديل أو إلغاء الإجازة (في تبويبة الطلبات)</span>
+                </button>
+
+                {/* 2. إلغاء الإجازة الزمنية مباشرة بنقرة واحدة */}
+                {conflictingTimeOff?.id && (
+                  <button
+                    disabled={cancellingTimeOff}
+                    onClick={async () => {
+                      if (!window.confirm('هل أنت متأكد من إلغاء الإجازة الزمنية المسجلة لليوم؟')) return;
+                      setCancellingTimeOff(true);
+                      try {
+                        const { error: rpcErr } = await supabase.rpc('modify_leave_request', {
+                          p_request_id: conflictingTimeOff.id,
+                          p_modification_type: 'canceled',
+                          p_cancellation_reason: 'إلغاء مباشر من الموظف عند تسجيل البصمة'
+                        });
+                        if (rpcErr) throw rpcErr;
+                        toast.success('تم إلغاء الإجازة الزمنية بنجاح — يمكنك تثبيت بصمتك الآن');
+                        setPendingTimeOffWarning(false);
+                        loadLeaveContext();
+                      } catch (err: any) {
+                        toast.error(err.message || 'تعذر إلغاء الإجازة');
+                      } finally {
+                        setCancellingTimeOff(false);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 font-bold hover:bg-red-50 dark:hover:bg-red-950/30 transition-all text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {cancellingTimeOff ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>إلغاء الإجازة الزمنية فوراً دون مغادرة الشاشة</span>
+                  </button>
+                )}
+
+                {/* 3. تمشية البصمة على أية حال مع حقل كتابة السبب وتبرير الوضع الطارئ للمسؤول */}
+                {!showReasonInput ? (
+                  <button
+                    onClick={() => setShowReasonInput(true)}
+                    className="w-full py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-xs sm:text-sm"
+                  >
+                    تمشية البصمة على أية حال (تثبيت بطلب الموظف)
+                  </button>
+                ) : (
+                  <div className="p-3.5 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 space-y-2 text-right">
+                    <label className="block text-xs font-bold text-amber-800 dark:text-amber-200">
+                      سبب تثبيت البصمة وتجاوز الزمنية (يُرفع للمسؤول في التقرير):
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="مثال: وضع طارئ، تكليف عاجل، إلغاء شفوي..."
+                      className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-600 bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          const reason = overrideReason.trim() || 'وضع طارئ';
+                          userOverrideReasonRef.current = reason;
+                          hasAcknowledgedTimeOffRef.current = true;
+                          setPendingTimeOffWarning(false);
+                          setShowReasonInput(false);
+                          openCamera('punch');
+                        }}
+                        className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition-all text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <span>تثبيت البصمة مع التبرير</span>
+                      </button>
+                      <button
+                        onClick={() => setShowReasonInput(false)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                      >
+                        إلغاء
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setPendingTimeOffWarning(false);
+                    setShowReasonInput(false);
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 mt-1 py-1"
+                >
+                  تراجع وإلغاء
                 </button>
               </div>
             </motion.div>

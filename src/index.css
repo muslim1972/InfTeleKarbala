@@ -566,7 +566,18 @@ html.dark option,
    ───────────────────────────────────────────────────────── */
 html {
   transition: font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  -webkit-text-size-adjust: 100%;
+  /* 📱 تجاهل تكبير الخطوط من إعدادات الهاتف — التطبيق يدير حجمه بنفسه حصراً */
+  -webkit-text-size-adjust: 100% !important;
+  -moz-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+html.font-scale-xsmall {
+  font-size: 80%; /* 12.8px Base (-20%) */
+}
+
+html.font-scale-small {
+  font-size: 90%; /* 14.4px Base (-10%) */
 }
 
 html.font-scale-normal,

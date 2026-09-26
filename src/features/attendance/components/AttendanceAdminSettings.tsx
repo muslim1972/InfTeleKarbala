@@ -28,8 +28,9 @@ export default function AttendanceAdminSettings() {
   const { user } = useAuth();
   const { activeGovernorate } = useGovernorate();
   const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
+  const isAttendanceAdmin = isHighAdmin || user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.has_attendance_access === true || user?.username === 'attend';
   
-  const [activeTab, setActiveTab] = useState<Tab>(isHighAdmin ? 'liveBoard' : 'locations');
+  const [activeTab, setActiveTab] = useState<Tab>(isAttendanceAdmin ? 'liveBoard' : 'locations');
   const [locations, setLocations] = useState<WorkLocation[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -126,6 +127,12 @@ export default function AttendanceAdminSettings() {
     loadLocations();
     loadWorkSchedules();
     rosterReminderService.checkAndSendRosterReminders().catch(console.error);
+
+    const pendingSubTab = sessionStorage.getItem('attendance_pending_subtab');
+    if (pendingSubTab) {
+      sessionStorage.removeItem('attendance_pending_subtab');
+      setActiveTab(pendingSubTab as Tab);
+    }
 
     const handleSwitchSubtab = (e: any) => {
       if (e.detail?.subTab) {
@@ -787,7 +794,7 @@ export default function AttendanceAdminSettings() {
           </button>
           
           <div ref={tabsRef} className="flex gap-2 overflow-x-auto py-2 px-8 hide-scrollbar scroll-smooth w-full items-center">
-          {isHighAdmin && (
+          {isAttendanceAdmin && (
             <button
               onClick={() => setActiveTab('liveBoard')}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
@@ -801,7 +808,7 @@ export default function AttendanceAdminSettings() {
             </button>
           )}
           
-          {isHighAdmin && (
+          {isAttendanceAdmin && (
             <button
               onClick={() => setActiveTab('timesheets')}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
@@ -2033,11 +2040,11 @@ export default function AttendanceAdminSettings() {
         <WorkSchedulesTab />
       )}
 
-      {activeTab === 'liveBoard' && isHighAdmin && (
+      {activeTab === 'liveBoard' && isAttendanceAdmin && (
         <LiveAttendanceBoard />
       )}
 
-      {activeTab === 'timesheets' && isHighAdmin && (
+      {activeTab === 'timesheets' && isAttendanceAdmin && (
         <Timesheets />
       )}
 

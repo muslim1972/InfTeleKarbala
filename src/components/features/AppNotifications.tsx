@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { isDeveloperLevel } from '../../utils/permissions';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
+import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
+import { toast } from 'react-hot-toast';
 
 const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean) => {
     switch (type) {
@@ -46,6 +48,10 @@ export const AppNotifications = () => {
 
     // Modal state
     const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
+    // أزرار الإجراءات الذكية (بصمة متعارضة/طلب معلق): منع النقر المزدوج
+    const [smartActionLoading, setSmartActionLoading] = useState<string | null>(null);
+    // طلب معلق يُفتح من إشعار «بصمة مع طلب قيد المراجعة» في نموذج الاعتماد المعتمد
+    const [smartApprovalRequest, setSmartApprovalRequest] = useState<any>(null);
 
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
@@ -200,6 +206,7 @@ export const AppNotifications = () => {
             .select('*', { count: 'exact' })
             .eq('recipient_id', user.id)
             .eq('is_read', false)
+            .neq('type', 'leave_response')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -318,6 +325,70 @@ export const AppNotifications = () => {
         window.dispatchEvent(event);
     };
 
+    // ─── المحرك الذكي: أزرار إجراءات إشعارات البصمة ───
+
+    /** زر «موافق»: ساعات المخالفة غير محتسبة + وسم السجل + إشعار الموظف بمراجعة الإدارة */
+    const handleApproveLeaveConflict = async (notification: any) => {
+        const meta = notification.metadata || {};
+        if (!meta.employee_id || !meta.record_date) {
+            toast.error('بيانات الإشعار غير مكتملة');
+            return;
+        }
+        setSmartActionLoading(`conflict-${notification.id}`);
+        try {
+            const result = await approveLeaveConflict(meta.employee_id, meta.record_date);
+            if (result.success) {
+                toast.success(result.message);
+                handleMarkSystemNotificationRead(notification.id);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (err) {
+            console.error('handleApproveLeaveConflict:', err);
+            toast.error('تعذر إتمام العملية، حاول مجدداً');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    /** زر «مراجعة الطلب»: يفتح نموذج الاعتماد للطلب المعلق المرتبط بإشعار البصمة */
+    const handleOpenPendingRequest = async (notification: any) => {
+        const meta = notification.metadata || {};
+        if (!meta.request_id) {
+            toast.error('بيانات الإشعار غير مكتملة');
+            return;
+        }
+        setSmartActionLoading(`pending-${notification.id}`);
+        try {
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .select('*')
+                .eq('id', meta.request_id)
+                .maybeSingle();
+            if (error) throw error;
+            if (!data || data.status !== 'pending') {
+                toast.error('الطلب لم يعد قيد المراجعة');
+                handleMarkSystemNotificationRead(notification.id);
+                return;
+            }
+            // نفس شكل طلبات المشرف في القائمة (profiles عبر get_basic_profiles)
+            const { data: profilesData } = await supabase
+                .rpc('get_basic_profiles', { p_user_ids: [data.user_id] });
+            const shaped = {
+                ...data,
+                profiles: profilesData && profilesData.length > 0 ? profilesData[0] : null
+            };
+            setShowModal(false);
+            setSmartApprovalRequest(shaped);
+            handleMarkSystemNotificationRead(notification.id);
+        } catch (err) {
+            console.error('handleOpenPendingRequest:', err);
+            toast.error('تعذر فتح الطلب، حاول مجدداً');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
     return (
         <>
             <button
@@ -391,38 +462,79 @@ export const AppNotifications = () => {
                                                     </span>
                                                 </div>
                                             </div>
-                                            {notification.type === 'device_mismatch' ? (
-                                                <div className="flex gap-2 mt-1">
-                                                    <button
-                                                        onClick={() => {
-                                                            handleMarkSystemNotificationRead(notification.id);
-                                                            setShowModal(false);
-                                                            window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'admin_attendance' } }));
-                                                            setTimeout(() => {
-                                                                window.dispatchEvent(new CustomEvent('switch_attendance_subtab', { detail: { subTab: 'deviceRequests' } }));
-                                                            }, 100);
-                                                        }}
-                                                        className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
-                                                    >
-                                                        <CheckCircle size={14} />
-                                                        مراجعة طلب الجهاز
-                                                    </button>
+                                            {(() => {
+                                                const meta = notification.metadata || {};
+                                                const metaType = meta.type as string | undefined;
+                                                const hideBtn = (
                                                     <button
                                                         onClick={() => handleMarkSystemNotificationRead(notification.id)}
-                                                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition"
+                                                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition shrink-0"
                                                     >
                                                         إخفاء
                                                     </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleMarkSystemNotificationRead(notification.id)}
-                                                    className="w-full mt-1 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
-                                                >
-                                                    <CheckCircle size={14} className="text-slate-400" />
-                                                    علم (إخفاء)
-                                                </button>
-                                            )}
+                                                );
+                                                // بصمة متعارضة مع إجازة: زر «موافق» → ساعات غير محتسبة + وسم + إشعار الموظف
+                                                if (metaType === 'leave_punch_alert') {
+                                                    return (
+                                                        <div className="flex gap-2 mt-1">
+                                                            <button
+                                                                disabled={smartActionLoading === `conflict-${notification.id}`}
+                                                                onClick={() => handleApproveLeaveConflict(notification)}
+                                                                className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                {smartActionLoading === `conflict-${notification.id}` ? 'جارٍ الاعتماد...' : 'موافق'}
+                                                            </button>
+                                                            {hideBtn}
+                                                        </div>
+                                                    );
+                                                }
+                                                // بصمة مع طلب معلق: فتح نموذج الاعتماد مباشرة
+                                                if (metaType === 'pending_request_punch') {
+                                                    return (
+                                                        <div className="flex gap-2 mt-1">
+                                                            <button
+                                                                disabled={smartActionLoading === `pending-${notification.id}`}
+                                                                onClick={() => handleOpenPendingRequest(notification)}
+                                                                className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                {smartActionLoading === `pending-${notification.id}` ? 'جارٍ الفتح...' : 'مراجعة الطلب'}
+                                                            </button>
+                                                            {hideBtn}
+                                                        </div>
+                                                    );
+                                                }
+                                                if (notification.type === 'device_mismatch') {
+                                                    return (
+                                                        <div className="flex gap-2 mt-1">
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleMarkSystemNotificationRead(notification.id);
+                                                                    setShowModal(false);
+                                                                    sessionStorage.setItem('attendance_pending_subtab', 'deviceRequests');
+                                                                    window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: { tab: 'admin_attendance' } }));
+                                                                    window.dispatchEvent(new CustomEvent('switch_attendance_subtab', { detail: { subTab: 'deviceRequests' } }));
+                                                                }}
+                                                                className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                مراجعة طلب الجهاز
+                                                            </button>
+                                                            {hideBtn}
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <button
+                                                        onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                        className="w-full mt-1 py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <CheckCircle size={14} className="text-slate-400" />
+                                                        علم (إخفاء)
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     ))}
                                 </div>
@@ -586,6 +698,17 @@ export const AppNotifications = () => {
                 <ApprovalModal
                     request={selectedApprovalRequest}
                     onClose={() => setSelectedApprovalRequest(null)}
+                    onProcessed={() => {
+                        fetchSupervisorNotifications();
+                    }}
+                />
+            )}
+
+            {/* نموذج الاعتماد المفتوح من زر «مراجعة الطلب» في الإشعارات الذكية */}
+            {smartApprovalRequest && (
+                <ApprovalModal
+                    request={smartApprovalRequest}
+                    onClose={() => setSmartApprovalRequest(null)}
                     onProcessed={() => {
                         fetchSupervisorNotifications();
                     }}

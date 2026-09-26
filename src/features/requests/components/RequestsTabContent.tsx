@@ -17,6 +17,7 @@
  */
 
 import { useState, useRef, useEffect, lazy, Suspense, useCallback } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, CheckCircle2, Loader2 } from 'lucide-react';
 import { REQUEST_TYPE_OPTIONS } from './requestTypes';
@@ -68,9 +69,23 @@ function SelectedForm({ typeId, leaveType, label, onSuccess }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export const RequestsTabContent = () => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const initialType = (location.state as any)?.openSubtype || searchParams.get('request_type');
+  const [selectedId, setSelectedId] = useState<string | null>(initialType || null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Auto-switch request form when notified via custom events
+  useEffect(() => {
+    const handleReq = (e: any) => {
+      if (e.detail?.type) {
+        setSelectedId(e.detail.type);
+      }
+    };
+    window.addEventListener('navigate_to_user_requests', handleReq);
+    return () => window.removeEventListener('navigate_to_user_requests', handleReq);
+  }, []);
 
   // Derived state — no extra useState (rerender-derived-state)
   const selectedOption = REQUEST_TYPE_OPTIONS.find(o => o.id === selectedId) ?? null;

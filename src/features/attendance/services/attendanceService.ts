@@ -1,13 +1,15 @@
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
 import {
-  getLeaveContext,
   evaluateTimeLeavePunches,
   buildLeaveDayOvertimeNote,
   mergeNote,
+  LEAVE_TYPE_LABELS,
   LeaveDayPunchWarning,
-  type TimeLeaveInfo
+  type TimeLeaveInfo,
+  type LeaveRequestLite
 } from './leaveIntegrationService';
+import { resolvePunchRequestContext, OFFICIAL_DUTY_TYPES } from './attendanceRequestEngine';
 import type {
   FingerprintTemplate,
   AttendanceRecord,
@@ -53,51 +55,63 @@ async function notifyAdminsForDeviceChange(employeeName: string) {
   }
 }
 
-async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: string, leaveLabel: string) {
+/** جمع معرّفات المشرفين: الإداريون العامون + مدير قسم الموظف المباشر */
+async function collectSupervisorIds(employeeId: string): Promise<string[]> {
+  const supervisorIdsSet = new Set<string>();
   try {
-    const supervisorIdsSet = new Set<string>();
-    try {
-      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
-      if (rpcProfiles && Array.isArray(rpcProfiles)) {
-        rpcProfiles.forEach((p: any) => {
-          if (
-            p.admin_role === 'general' ||
-            p.admin_role === 'developer' ||
-            p.role === 'admin'
-          ) {
-            if (p.id) supervisorIdsSet.add(p.id);
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Error fetching via get_available_profiles:', e);
-    }
-
-    // Also get the immediate department manager of the employee
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('department_id')
-        .eq('id', employeeId)
-        .single();
-      if (profile?.department_id) {
-        const { data: dept } = await supabase
-          .from('departments')
-          .select('manager_id')
-          .eq('id', profile.department_id)
-          .single();
-        if (dept?.manager_id && dept.manager_id !== employeeId) {
-          supervisorIdsSet.add(dept.manager_id);
+    const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
+    if (rpcProfiles && Array.isArray(rpcProfiles)) {
+      rpcProfiles.forEach((p: any) => {
+        if (
+          p.admin_role === 'general' ||
+          p.admin_role === 'developer' ||
+          p.role === 'admin'
+        ) {
+          if (p.id) supervisorIdsSet.add(p.id);
         }
-      }
-    } catch (deptErr) {
-      console.error('Error finding department manager:', deptErr);
+      });
     }
+  } catch (e) {
+    console.error('Error fetching via get_available_profiles:', e);
+  }
 
-    const supervisorIds = Array.from(supervisorIdsSet);
+  // Also get the immediate department manager of the employee
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('department_id')
+      .eq('id', employeeId)
+      .single();
+    if (profile?.department_id) {
+      const { data: dept } = await supabase
+        .from('departments')
+        .select('manager_id')
+        .eq('id', profile.department_id)
+        .single();
+      if (dept?.manager_id && dept.manager_id !== employeeId) {
+        supervisorIdsSet.add(dept.manager_id);
+      }
+    }
+  } catch (deptErr) {
+    console.error('Error finding department manager:', deptErr);
+  }
+
+  return Array.from(supervisorIdsSet);
+}
+
+/**
+ * تنبيه المشرفين عند بصمة في يوم إجازة صارم (اعتيادية/مرضية/طويلة):
+ * metadata تحمل employee_id + record_date ليُنفّذ زر «موافق» من مركز
+ * الإشعارات مباشرة (وسم السجل + عدم احتساب الساعات + إشعار الموظف).
+ * ويُدرج إشعار موازٍ للموظف نفسه ليكون على علم أن المشرفين بُلِّغوا.
+ */
+async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: string, leaveLabel: string, recordDate: string) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+
     if (supervisorIds.length > 0) {
       const title = '⚠️ تنبيه ذكي: بصمة أثناء إجازة رسمية';
-      const content = `الموظف (${employeeName}) قام بتسجيل بصمة حضور بتاريخ اليوم على الرغم من تمتعه بـ (${leaveLabel}) معتمدة.`;
+      const content = `الموظف (${employeeName}) قام بتسجيل بصمة حضور بتاريخ اليوم على الرغم من تمتعه بـ (${leaveLabel}) معتمدة. يمكنك اعتمادها كساعات غير محتسبة عبر زر «موافق».`;
 
       // 1. Insert in system_notifications
       const notifRows = supervisorIds.map(supId => ({
@@ -106,9 +120,16 @@ async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: s
         title,
         content,
         is_read: false,
-        metadata: { employee_id: employeeId, leave_label: leaveLabel, type: 'leave_punch_alert' }
+        metadata: {
+          type: 'leave_punch_alert',
+          employee_id: employeeId,
+          employee_name: employeeName,
+          leave_label: leaveLabel,
+          record_date: recordDate
+        }
       }));
-      await supabase.from('system_notifications').insert(notifRows).catch(console.warn);
+      const { error: supNotifErr } = await supabase.from('system_notifications').insert(notifRows);
+      if (supNotifErr) console.warn(supNotifErr);
 
       // 2. Send Push Notifications
       const pushPromises = supervisorIds.map(supId =>
@@ -116,8 +137,193 @@ async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: s
       );
       await Promise.allSettled(pushPromises);
     }
+
+    // 3. إشعار الموظف نفسه (قاعدة البيانات فقط — هو داخل التطبيق الآن)
+    const { error: empNotifErr } = await supabase.from('system_notifications').insert({
+      recipient_id: employeeId,
+      type: 'system',
+      title: '📝 تم تثبيت بصمتك في يوم إجازة',
+      content: `ثبتت بصمة حضور في يوم (${leaveLabel}) معتمد لديك. سيُحتسب الدوام إضافياً في يوم الإجازة، وأُبلغ المشرفون بذلك.`,
+      is_read: false,
+      metadata: {
+        type: 'employee_leave_punch_notice',
+        employee_id: employeeId,
+        record_date: recordDate
+      }
+    });
+    if (empNotifErr) console.warn(empNotifErr);
   } catch (err) {
     console.error('Error in notifySupervisorsOfLeavePunch:', err);
+  }
+}
+
+/**
+ * إشعار علمي للمشرفين عند دوام في يوم (واجب رسمي/إيفاد) معتمد — دون أي عائق
+ * على الموظف لأن الدوام هو الغاية من الإجازة الرسمية.
+ */
+async function notifySupervisorsOfOfficialDutyPunch(employeeId: string, employeeName: string, leaveLabel: string, recordDate: string) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+    if (supervisorIds.length === 0) return;
+
+    const title = '📋 دوام في يوم إجازة رسمية معتمد';
+    const content = `الموظف (${employeeName}) ثبت بصمته اليوم وهو في (${leaveLabel}) معتمد — الوضع طبيعي ومتوقع.`;
+    const notifRows = supervisorIds.map(supId => ({
+      recipient_id: supId,
+      type: 'system',
+      title,
+      content,
+      is_read: false,
+      metadata: {
+        type: 'official_duty_punch',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        leave_label: leaveLabel,
+        record_date: recordDate
+      }
+    }));
+    const { error: dutyNotifErr } = await supabase.from('system_notifications').insert(notifRows);
+    if (dutyNotifErr) console.warn(dutyNotifErr);
+    const pushPromises = supervisorIds.map(supId =>
+      sendPushNotification(supId, content, { title })
+    );
+    await Promise.allSettled(pushPromises);
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfOfficialDutyPunch:', err);
+  }
+}
+
+/**
+ * إشعار المشرفين عند بصمة موظف لديه طلب إجازة (يوم كامل أو زمنية) قيد المراجعة:
+ * كل إشعار يحمل request_id ليفتح زر «مراجعة الطلب» نموذج الاعتماد مباشرة.
+ */
+async function notifySupervisorsOfPendingRequestPunch(
+  employeeId: string,
+  employeeName: string,
+  requests: LeaveRequestLite[]
+) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+    if (supervisorIds.length === 0) return;
+
+    const title = '🕓 بصمة موظف لديه طلب قيد المراجعة';
+    const notifRows: any[] = [];
+    for (const req of requests) {
+      const label = LEAVE_TYPE_LABELS[req.leave_type] || 'إجازة';
+      const dur = req.leave_type === 'time_off' ? ` (${req.time_duration_minutes || 0} دقيقة)` : '';
+      const content = `الموظف (${employeeName}) ثبت بصمته ولديه طلب (${label})${dur} قيد المراجعة يغطي اليوم.`;
+      for (const supId of supervisorIds) {
+        notifRows.push({
+          recipient_id: supId,
+          type: 'system',
+          title,
+          content,
+          is_read: false,
+          metadata: {
+            type: 'pending_request_punch',
+            request_id: req.id,
+            employee_id: employeeId,
+            employee_name: employeeName,
+            leave_label: label
+          }
+        });
+      }
+    }
+
+    if (notifRows.length > 0) {
+      const { error: pendNotifErr } = await supabase.from('system_notifications').insert(notifRows);
+      if (pendNotifErr) console.warn(pendNotifErr);
+      const pushPromises = supervisorIds.map(supId =>
+        sendPushNotification(supId, `لدى (${employeeName}) طلب إجازة قيد المراجعة وثبّت بصمته اليوم`, { title })
+      );
+      await Promise.allSettled(pushPromises);
+    }
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfPendingRequestPunch:', err);
+  }
+}
+
+/** إشعار علمي: موظف ثبت بصمته بعد رفض طلب إجازة يبدأ اليوم */
+async function notifySupervisorsOfRejectedLeavePunch(
+  employeeId: string,
+  employeeName: string,
+  requests: LeaveRequestLite[]
+) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+    if (supervisorIds.length === 0) return;
+
+    const title = '↩️ بصمة بعد رفض طلب إجازة';
+    const notifRows: any[] = [];
+    for (const req of requests) {
+      const label = LEAVE_TYPE_LABELS[req.leave_type] || 'إجازة';
+      const content = `الموظف (${employeeName}) ثبت بصمته اليوم بعد رفض طلبه لـ(${label}) — للعلم والمتابعة.`;
+      for (const supId of supervisorIds) {
+        notifRows.push({
+          recipient_id: supId,
+          type: 'system',
+          title,
+          content,
+          is_read: false,
+          metadata: {
+            type: 'rejected_leave_punch',
+            request_id: req.id,
+            employee_id: employeeId,
+            employee_name: employeeName,
+            leave_label: label
+          }
+        });
+      }
+    }
+
+    if (notifRows.length > 0) {
+      const { error: rejNotifErr } = await supabase.from('system_notifications').insert(notifRows);
+      if (rejNotifErr) console.warn(rejNotifErr);
+    }
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfRejectedLeavePunch:', err);
+  }
+}
+
+/** إشعار المشرفين عند نقص بصمات الخروج/العودة المطلوبة لإجازة زمنية معتمدة */
+async function notifySupervisorsOfMissingTimeLeavePunches(employeeId: string, message: string) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+    if (supervisorIds.length === 0) return;
+
+    let employeeName = 'موظف';
+    try {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .single();
+      if (p?.full_name) employeeName = p.full_name;
+    } catch { /* الاسم الافتراضي كافٍ */ }
+
+    const title = '⏱️ نقص بصمات إجازة زمنية';
+    const content = `الموظف (${employeeName}): ${message}.`;
+    const notifRows = supervisorIds.map(supId => ({
+      recipient_id: supId,
+      type: 'system',
+      title,
+      content,
+      is_read: false,
+      metadata: {
+        type: 'time_leave_missing',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        message
+      }
+    }));
+    const { error: tlNotifErr } = await supabase.from('system_notifications').insert(notifRows);
+    if (tlNotifErr) console.warn(tlNotifErr);
+    const pushPromises = supervisorIds.map(supId =>
+      sendPushNotification(supId, content, { title })
+    );
+    await Promise.allSettled(pushPromises);
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfMissingTimeLeavePunches:', err);
   }
 }
 
@@ -393,7 +599,7 @@ export const attendanceRecordService = {
     const actualMinutesSpent = Math.max(0, Math.floor((now.getTime() - timeLeaveOutTime.getTime()) / 60000));
 
     // Record the return punch via secure RPC
-    return await this.saveSecure(employeeId, todayRecord.id, {
+    const data = await this.saveSecure(employeeId, todayRecord.id, {
       time_leave_return: now.toISOString(),
     });
 
@@ -509,20 +715,38 @@ export const attendanceRecordService = {
       const { categorizePunches } = await import('../utils/punchCategorizer');
       const recat = categorizePunches(record.raw_punches);
       
-      // Auto-heal record if check_out or breaks differ from DB due to past categorizer state
-      if (
-        record.check_out !== recat.check_out ||
-        record.time_leave_out !== recat.time_leave_out ||
-        record.time_leave_return !== recat.time_leave_return
-      ) {
-        const updatedData = await this.saveSecure(employeeId, record.id, recat);
+      // Auto-heal only if a missing slot was discovered, without erasing existing fields
+      const needsHeal = 
+        (!record.check_in && recat.check_in) ||
+        (!record.time_leave_out && recat.time_leave_out) ||
+        (!record.time_leave_return && recat.time_leave_return) ||
+        (!record.check_out && recat.check_out);
+
+      if (needsHeal) {
+        const healUpdates: Partial<AttendanceRecord> = { ...recat };
+        if (record.check_in) healUpdates.check_in = record.check_in;
+        if (record.check_out) healUpdates.check_out = record.check_out;
+        if (record.time_leave_out) healUpdates.time_leave_out = record.time_leave_out;
+        if (record.time_leave_return) healUpdates.time_leave_return = record.time_leave_return;
+        healUpdates.raw_punches = record.raw_punches;
+
+        const updatedData = await this.saveSecure(employeeId, record.id, healUpdates);
         if (updatedData) return updatedData as AttendanceRecord;
       }
     }
     return record;
   },
 
-  async registerPunch(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) {
+  async registerPunch(
+    employeeId: string,
+    location?: string,
+    deviceId?: string,
+    verifiedByBiometric: boolean = false,
+    snapshotUrl?: string,
+    notes?: string,
+    bypassLeaveWarning: boolean = false,
+    targetSlot?: 'check_in' | 'time_leave_out' | 'time_leave_return' | 'check_out' | 'update_check_out'
+  ) {
     const { categorizePunches } = await import('../utils/punchCategorizer');
 
     // مزامنة التوقيت الرسمي مع الخادم وفحص سلامة ساعة الجهاز ضد أي تلاعب يدوي
@@ -537,10 +761,11 @@ export const attendanceRecordService = {
     const today = getLocalDateStr();
     let record = await this.getTodayByEmployeeId(employeeId);
 
-    // ─── تكامل الإجازات (1): فحص إجازة اليوم قبل تثبيت أول بصمة حضور ───
-    const leaveCtx = await getLeaveContext(employeeId, today);
-    if (leaveCtx.dayLeave && !record && !bypassLeaveWarning) {
-      throw new LeaveDayPunchWarning(leaveCtx.dayLeave);
+    // ─── المحرك الذكي: فحص إجازات وطلبات اليوم قبل تثبيت أول بصمة حضور ───
+    // (اعتيادية/مرضية → تحذير واعتماد | واجب/إيفاد → مرور مباشر | معلّق/مرفوض → إشعار مشرف)
+    const leaveCtx = await resolvePunchRequestContext(employeeId, today);
+    if (leaveCtx.strictDayLeave && !record && !bypassLeaveWarning) {
+      throw new LeaveDayPunchWarning(leaveCtx.dayLeave!);
     }
 
     // 2. Fetch profile & schedule to determine shift type
@@ -597,35 +822,69 @@ export const attendanceRecordService = {
       }).catch(console.warn);
     }
 
+    const nowServer = getServerNow();
+    const nowIso = nowServer.toISOString();
+
+    // فحص مهلة الأمان (3 دقائق = 180 ثانية) بين البصمات لمنع التكرار العرضي
+    if (record && Array.isArray(record.raw_punches) && record.raw_punches.length > 0 && !notes?.includes('تجاوز المهلة')) {
+      const lastPunchTime = new Date(record.raw_punches[record.raw_punches.length - 1].time).getTime();
+      const elapsedSeconds = Math.floor((nowServer.getTime() - lastPunchTime) / 1000);
+      if (elapsedSeconds < 180 && !bypassLeaveWarning) {
+        const remaining = 180 - elapsedSeconds;
+        throw new Error(`يرجى الانتظار ${remaining} ثانية قبل تسجيل بصمة جديدة (مهلة الأمان بين البصمات لمنع التكرار العرضي)`);
+      }
+    }
+
     // 6. وقت البصمة يُستخرج حصرياً من توقيت السيرفر المحصن getServerNow() لمنع أي تلاعب
     const newPunch = {
-      time: getServerNow().toISOString(),
+      time: nowIso,
       location,
       device_id: deviceId,
       snapshot_url: snapshotUrl,
       notes,
-      verified_by_biometric: verifiedByBiometric
+      verified_by_biometric: verifiedByBiometric,
+      target_slot: targetSlot
     };
 
     // 6. Update raw_punches
-    let rawPunches = [];
+    let rawPunches: any[] = [];
     if (record && record.raw_punches) {
-      rawPunches = Array.isArray(record.raw_punches) ? record.raw_punches : [];
+      rawPunches = Array.isArray(record.raw_punches) ? [...record.raw_punches] : [];
     }
     rawPunches.push(newPunch);
 
     // 7. Run categorizer with shift rules
     const updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false);
-    updates.raw_punches = rawPunches;
+    if (!updates.raw_punches || updates.raw_punches.length === 0) {
+      updates.raw_punches = rawPunches;
+    }
 
-    // ─── تكامل الإجازات (2): بصمة في يوم إجازة → ملاحظة دوام إضافي + إشعار ذكي للمشرفين ───
+    // إيقاف ميزة تعيين الخانات الصريحة (targetSlot) بناءً على طلب المستخدم واسترجاع التوزيع الذكي
+    // تم إلغاء كود targetSlot === 'check_in' وغيرها ليعمل النظام بذكاء وتلقائية بالكامل
+
+
+    // ─── المحرك الذكي (2): بصمة في يوم إجازة/طلب → ملاحظات + إشعارات حسب الحالة ───
+    // واجب/إيفاد → إشعار علمي بلا إنذار وساعات أصليّة | اعتيادية/مرضية → تنبيه + زر «موافق»
     if (leaveCtx.dayLeave) {
-      const baseNotes = record?.notes || updates.notes || notes;
-      updates.notes = mergeNote(baseNotes, buildLeaveDayOvertimeNote(leaveCtx.dayLeave.label));
-      
-      // إشعار المشرفين والمدير فوراً بتسجيل بصمة أثناء إجازة رسمية
+      const isOfficialDuty = OFFICIAL_DUTY_TYPES.includes(leaveCtx.dayLeave.leaveType);
+      if (!isOfficialDuty) {
+        const baseNotes = record?.notes || updates.notes || notes;
+        updates.notes = mergeNote(baseNotes, buildLeaveDayOvertimeNote(leaveCtx.dayLeave.label));
+      }
       const empName = profile?.full_name || 'موظف';
-      notifySupervisorsOfLeavePunch(employeeId, empName, leaveCtx.dayLeave.label).catch(console.warn);
+      if (isOfficialDuty) {
+        notifySupervisorsOfOfficialDutyPunch(employeeId, empName, leaveCtx.dayLeave.label, today).catch(console.warn);
+      } else {
+        notifySupervisorsOfLeavePunch(employeeId, empName, leaveCtx.dayLeave.label, today).catch(console.warn);
+      }
+    }
+    // طلب معلّق يغطي اليوم → بصمة عادية + إشعار مشرف يحمل request_id لزر «مراجعة الطلب»
+    if (leaveCtx.pendingRequests.length > 0) {
+      notifySupervisorsOfPendingRequestPunch(employeeId, profile?.full_name || 'موظف', leaveCtx.pendingRequests).catch(console.warn);
+    }
+    // طلب مرفوض يبدأ اليوم → بصمة عادية + إشعار علمي للمشرف
+    if (leaveCtx.rejectedToday.length > 0) {
+      notifySupervisorsOfRejectedLeavePunch(employeeId, profile?.full_name || 'موظف', leaveCtx.rejectedToday).catch(console.warn);
     }
 
     let isDevicePending = false;
@@ -665,7 +924,10 @@ export const attendanceRecordService = {
     }
 
     try {
-      await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+      // فقط إذا كانت البصمة انصرافاً نهائياً أو لم يُحدد نوعها
+      if (targetSlot === 'check_out' || !targetSlot) {
+        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+      }
     } catch (e) {
       console.error('Error applying mandatory penalties:', e);
     }
@@ -686,6 +948,8 @@ export const attendanceRecordService = {
       if (!status?.message) return record;
       const newNotes = mergeNote(record.notes, status.message);
       if (newNotes === record.notes) return record;
+      // المحرك الذكي: إشعار المشرفين فوراً بنقص بصمات الخروج/العودة المطلوبة
+      notifySupervisorsOfMissingTimeLeavePunches(record.employee_id, status.message).catch(console.warn);
       return await this.saveSecure(record.employee_id, record.id, { notes: newNotes });
     } catch (err) {
       console.error('[LeaveIntegration] فشل إضافة تحذير بصمات الإجازة الزمنية:', err);

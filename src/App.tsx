@@ -1,4 +1,4 @@
-﻿/**
+/**
  * App.tsx
  */
 
@@ -57,10 +57,33 @@ const AppContent = () => {
 
 
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | null>(() => {
+    const searchMode = new URLSearchParams(location.search).get('mode') as any;
+    if (searchMode) return searchMode;
     const stateMode = (location.state as any)?.adminViewMode;
     if (stateMode) return stateMode;
     return localStorage.getItem('adminViewMode') as 'admin' | 'user' | null;
   });
+
+  // الاستماع لتغيير وضع العرض من الأحداث العامة ومعلمات الرابط
+  useEffect(() => {
+    const searchMode = new URLSearchParams(location.search).get('mode') as any;
+    const stateMode = (location.state as any)?.adminViewMode;
+    if (searchMode) {
+      setAdminViewMode(searchMode);
+    } else if (stateMode) {
+      setAdminViewMode(stateMode);
+    }
+  }, [location.search, location.state]);
+
+  useEffect(() => {
+    const handleSwitchMode = (e: any) => {
+      if (e.detail?.mode) {
+        setAdminViewMode(e.detail.mode);
+      }
+    };
+    window.addEventListener('switch_admin_view_mode', handleSwitchMode);
+    return () => window.removeEventListener('switch_admin_view_mode', handleSwitchMode);
+  }, []);
 
   // ── فحص استحقاق "قسم تجهيز خدمات المعلوماتية" ───────────────────────
   // المعرف الثابت لقسم "تجهيز خدمات المعلوماتية" من seed_departments.sql
@@ -154,8 +177,12 @@ const AppContent = () => {
 
   // Persist view mode choice (لا نحفظ capacities/promotion/training/user_incentives/attendance لأنهما وضع مؤقت)
   useEffect(() => {
-    if (adminViewMode && adminViewMode !== 'capacities' && adminViewMode !== 'promotion' && adminViewMode !== 'training' && adminViewMode !== 'user_incentives' && adminViewMode !== 'attendance') {
-      localStorage.setItem('adminViewMode', adminViewMode);
+    if (adminViewMode) {
+      if (!['capacities', 'promotion', 'training', 'user_incentives', 'attendance'].includes(adminViewMode)) {
+        localStorage.setItem('adminViewMode', adminViewMode);
+      }
+    } else {
+      localStorage.removeItem('adminViewMode');
     }
   }, [adminViewMode]);
 

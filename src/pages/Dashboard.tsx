@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { TabSystem } from "../components/features/TabSystem";
 import { YearSlider } from "../components/features/YearSlider";
@@ -15,8 +15,17 @@ import { useAuth } from "../context/AuthContext";
 
 export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const { user } = useAuth();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge'>('administrative');
+    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge'>(() => {
+        const urlTab = new URLSearchParams(window.location.search).get('tab');
+        const stateTab = (location.state as any)?.tab;
+        const target = urlTab || stateTab;
+        if (target && ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge'].includes(target)) {
+            return target as any;
+        }
+        return 'administrative';
+    });
 
     const {
         financialData, loading, departmentInfo,
@@ -26,15 +35,19 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         leavesList, selectedLeave, setSelectedLeave
     } = useDashboardData(activeTab);
 
-    // Handle initial tab from URL
+    // Handle initial tab from URL or navigation state
     useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab === 'audio') {
-            setActiveTab('audio');
-            searchParams.delete('tab');
-            setSearchParams(searchParams, { replace: true });
+        const urlTab = searchParams.get('tab');
+        const stateTab = (location.state as any)?.tab;
+        const targetTab = urlTab || stateTab;
+        if (targetTab && ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge'].includes(targetTab)) {
+            setActiveTab(targetTab as any);
+            if (urlTab) {
+                searchParams.delete('tab');
+                setSearchParams(searchParams, { replace: true });
+            }
         }
-    }, [searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams, location.state]);
 
     // Handle tab switching via custom events
     useEffect(() => {

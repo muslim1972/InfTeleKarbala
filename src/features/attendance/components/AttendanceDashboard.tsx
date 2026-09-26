@@ -7,6 +7,8 @@ import { getLocalDateStr } from '../services/attendanceService';
 import { getServerNow } from '../services/serverTimeService';
 import { Fingerprint, Calendar, BarChart3, ShieldCheck } from 'lucide-react';
 
+import { useAuth } from '../../../context/AuthContext';
+
 const AttendanceCheckInOut = lazy(() => import('./AttendanceCheckInOut'));
 const AttendanceHistory = lazy(() => import('./AttendanceHistory'));
 const AttendanceStatistics = lazy(() => import('./AttendanceStatistics'));
@@ -19,6 +21,7 @@ interface AttendanceDashboardProps {
 type ActiveTab = 'check' | 'history' | 'stats' | 'settings';
 
 export default function AttendanceDashboard({ employeeId }: AttendanceDashboardProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('check');
   // تاريخ اليوم لحظة العرض — يُراقَب باستمرار لكشف تحوّل منتصف الليل
   const [viewedDate, setViewedDate] = useState(() => getLocalDateStr());
@@ -85,10 +88,23 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">نظام الحضور والانصراف</h1>
-          <p className="text-gray-600">تسجيل الحضور باستخدام البصمة الإلكترونية</p>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">نظام الحضور والانصراف</h1>
+            <p className="text-gray-600">تسجيل الحضور باستخدام البصمة الإلكترونية</p>
+          </div>
+          
+          {/* ========== Name Banner ========== */}
+          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl py-2 px-4 shadow-sm border border-emerald-100 dark:border-slate-700 flex items-center gap-3">
+             <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+               <Fingerprint className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+             </div>
+             <div>
+               <p className="text-xs text-slate-500 dark:text-slate-400">حسابك الحالي</p>
+               <p className="font-bold text-slate-800 dark:text-slate-200">{user?.full_name || user?.username || 'مستخدم'}</p>
+             </div>
+          </div>
         </motion.div>
 
         {/* Tab Navigation */}

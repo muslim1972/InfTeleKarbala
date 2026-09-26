@@ -103,7 +103,15 @@ export function useAttendance(employeeId: string) {
     }
   }, [employeeId]);
 
-  const registerPunch = useCallback(async (location?: string, deviceId?: string, useBiometric: boolean = false, snapshotUrl?: string, notes?: string, bypassLeaveWarning: boolean = false) => {
+  const registerPunch = useCallback(async (
+    location?: string,
+    deviceId?: string,
+    useBiometric: boolean = false,
+    snapshotUrl?: string,
+    notes?: string,
+    bypassLeaveWarning: boolean = false,
+    targetSlot?: 'check_in' | 'time_leave_out' | 'time_leave_return' | 'check_out' | 'update_check_out'
+  ) => {
     setLoading(true);
     setError(null);
     try {
@@ -114,7 +122,16 @@ export function useAttendance(employeeId: string) {
         verifiedByBiometric = true;
       }
 
-      const record = await attendanceRecordService.registerPunch(employeeId, location, deviceId, verifiedByBiometric, snapshotUrl, notes, bypassLeaveWarning);
+      const record = await attendanceRecordService.registerPunch(
+        employeeId,
+        location,
+        deviceId,
+        verifiedByBiometric,
+        snapshotUrl,
+        notes,
+        bypassLeaveWarning,
+        targetSlot
+      );
       setTodayAttendance(record);
       return record;
     } catch (err) {

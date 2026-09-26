@@ -42,11 +42,20 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     // Strict helper just for account types (Role / Admin Role)
     const isRoleEditable = Boolean(isDeveloperLevel(currentUser?.admin_role) || currentUser?.admin_role === 'general' || currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل'));
     const canAddEmployee = isRoleEditable || currentUser?.admin_role === 'hr';
+    const canAccessAttendance = Boolean(
+        isRoleEditable ||
+        currentUser?.has_attendance_access === true ||
+        currentUser?.admin_role === 'biometric' ||
+        currentUser?.admin_role === 'attendance_supervisor' ||
+        currentUser?.username === 'attend'
+    );
 
     // Determine default tab based on role or navigation state
     let baseTab = 'admin_manage';
-    if (currentUser?.admin_role === 'media') baseTab = 'admin_news';
+    if (currentUser?.admin_role === 'biometric' || currentUser?.username === 'attend') baseTab = 'admin_attendance';
+    else if (currentUser?.admin_role === 'media') baseTab = 'admin_news';
     else if (canAddEmployee) baseTab = 'admin_add';
+    else if (currentUser?.has_attendance_access && !isRoleEditable && currentUser?.admin_role !== 'hr' && currentUser?.admin_role !== 'finance') baseTab = 'admin_attendance';
 
     const defaultTab = location.state?.activeTab || baseTab;
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
@@ -183,6 +192,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
             currentUser={currentUser}
             isRoleEditable={isRoleEditable}
             canAddEmployee={canAddEmployee}
+            canAccessAttendance={canAccessAttendance}
             isFieldReadOnly={isFieldReadOnly}
             theme={theme}
             selectedAdminYear={selectedAdminYear}

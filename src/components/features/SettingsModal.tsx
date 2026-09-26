@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2, ShieldCheck, Bell, Mic, Volume2, Type, ZoomIn, RotateCcw, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Camera, Lock, User, UserPen, Eye, EyeOff, Save, KeyRound, CheckCircle2, ShieldCheck, Bell, Mic, Volume2, Type, ZoomIn, RotateCcw, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useAccessibility, FONT_SCALE_OPTIONS, type FontScale } from '../../context/AccessibilityContext';
+import { useAccessibility, FONT_SCALE_OPTIONS } from '../../context/AccessibilityContext';
 import { toast } from 'react-hot-toast';
 import { requestNotificationPermission } from '../../services/notifications';
 
@@ -30,6 +30,44 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             }
         }
     }, [activeTab]);
+
+    /* ══ تمرير شريط التبويبات — أسهم يمين/يسار عند تجاوز عرض الشاشة (مع تكبير الخط) ══ */
+    const tabsScrollRef = useRef<HTMLDivElement>(null);
+    const tabItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const [canScrollStart, setCanScrollStart] = useState(false); // محتوى مخفي جهة البداية (يمين)
+    const [canScrollEnd, setCanScrollEnd] = useState(false);     // محتوى مخفي جهة النهاية (يسار)
+
+    const updateTabsScrollState = useCallback(() => {
+        const el = tabsScrollRef.current;
+        if (!el) return;
+        const max = el.scrollWidth - el.clientWidth;
+        const pos = Math.abs(el.scrollLeft); // اتجاه RTL: القيم سالبة — نستخدم القيمة المطلقة
+        setCanScrollStart(pos > 2);
+        setCanScrollEnd(max > 2 && pos < max - 2);
+    }, []);
+
+    useEffect(() => {
+        updateTabsScrollState();
+        window.addEventListener('resize', updateTabsScrollState);
+        return () => window.removeEventListener('resize', updateTabsScrollState);
+    }, [updateTabsScrollState, isOpen]);
+
+    // تمرير التبويب النشط ليبقى داخل الشاشة عند اختياره أو عند تغيّر حجم الخط
+    useEffect(() => {
+        const c = tabsScrollRef.current;
+        const el = tabItemRefs.current[activeTab];
+        if (!c || !el) return;
+        const cRect = c.getBoundingClientRect();
+        const eRect = el.getBoundingClientRect();
+        if (eRect.left < cRect.left + 4) {
+            c.scrollBy({ left: eRect.left - cRect.left - 12, behavior: 'smooth' });
+        } else if (eRect.right > cRect.right - 4) {
+            c.scrollBy({ left: eRect.right - cRect.right + 12, behavior: 'smooth' });
+        }
+    }, [activeTab, fontScale, isOpen]);
+
+    const scrollTabsTowardStart = () => tabsScrollRef.current?.scrollBy({ left: 160, behavior: 'smooth' });
+    const scrollTabsTowardEnd = () => tabsScrollRef.current?.scrollBy({ left: -160, behavior: 'smooth' });
 
     const handleRequestNotifications = async () => {
         try {
@@ -217,63 +255,95 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                     </button>
                 </div>
 
-                {/* Top Tabs */}
-                <div className="flex border-b border-white/10 relative z-10 bg-black/40 px-6 pt-4 gap-4">
-                    <button
-                        onClick={() => setActiveTab('profile')}
-                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'profile'
-                            ? 'text-brand-green'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
-                    >
-                        <User className="w-5 h-5" />
-                        الملف الشخصي
-                        {activeTab === 'profile' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-green rounded-t-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
-                        )}
-                    </button>
+                {/* Top Tabs — شريط قابل للتمرير مع أسهم يمين/يسار عند تجاوز العرض */}
+                <div className="flex items-stretch border-b border-white/10 relative z-10 bg-black/40 px-1.5 pt-2">
+                    {/* سهم نحو البداية (يمين) */}
+                    {canScrollStart && (
+                        <button
+                            onClick={scrollTabsTowardStart}
+                            aria-label="تمرير لليمين"
+                            className="flex items-center justify-center w-8 shrink-0 my-2 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all active:scale-90 animate-in fade-in duration-200"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => setActiveTab('security')}
-                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'security'
-                            ? 'text-blue-400'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
+                    <div
+                        ref={tabsScrollRef}
+                        onScroll={updateTabsScrollState}
+                        className="flex-1 min-w-0 flex gap-4 px-4 pt-4 overflow-x-auto hide-scrollbar"
                     >
-                        <Lock className="w-5 h-5" />
-                        بوابة الأمان
-                        {activeTab === 'security' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-full shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>
-                        )}
-                    </button>
+                        <button
+                            ref={(el) => { tabItemRefs.current['profile'] = el; }}
+                            onClick={() => setActiveTab('profile')}
+                            className={`flex items-center gap-2 pb-4 font-bold transition-all relative shrink-0 whitespace-nowrap ${activeTab === 'profile'
+                                ? 'text-brand-green'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            <User className="w-5 h-5" />
+                            الملف الشخصي
+                            {activeTab === 'profile' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-green rounded-t-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+                            )}
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('permissions')}
-                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'permissions'
-                            ? 'text-purple-400'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
-                    >
-                        <ShieldCheck className="w-5 h-5" />
-                        الأذونات
-                        {activeTab === 'permissions' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400 rounded-t-full shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
-                        )}
-                    </button>
+                        <button
+                            ref={(el) => { tabItemRefs.current['security'] = el; }}
+                            onClick={() => setActiveTab('security')}
+                            className={`flex items-center gap-2 pb-4 font-bold transition-all relative shrink-0 whitespace-nowrap ${activeTab === 'security'
+                                ? 'text-blue-400'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            <Lock className="w-5 h-5" />
+                            بوابة الأمان
+                            {activeTab === 'security' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-full shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>
+                            )}
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('accessibility')}
-                        className={`flex items-center gap-2 pb-4 font-bold transition-all relative ${activeTab === 'accessibility'
-                            ? 'text-amber-400'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
-                    >
-                        <Type className="w-5 h-5" />
-                        حجم الخط والوصول
-                        {activeTab === 'accessibility' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t-full shadow-[0_0_10px_rgba(251,191,36,0.8)]"></div>
-                        )}
-                    </button>
+                        <button
+                            ref={(el) => { tabItemRefs.current['permissions'] = el; }}
+                            onClick={() => setActiveTab('permissions')}
+                            className={`flex items-center gap-2 pb-4 font-bold transition-all relative shrink-0 whitespace-nowrap ${activeTab === 'permissions'
+                                ? 'text-purple-400'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            <ShieldCheck className="w-5 h-5" />
+                            الأذونات
+                            {activeTab === 'permissions' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400 rounded-t-full shadow-[0_0_10px_rgba(168,85,247,0.8)]"></div>
+                            )}
+                        </button>
+
+                        <button
+                            ref={(el) => { tabItemRefs.current['accessibility'] = el; }}
+                            onClick={() => setActiveTab('accessibility')}
+                            className={`flex items-center gap-2 pb-4 font-bold transition-all relative shrink-0 whitespace-nowrap ${activeTab === 'accessibility'
+                                ? 'text-amber-400'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            <Type className="w-5 h-5" />
+                            حجم الخط والوصول
+                            {activeTab === 'accessibility' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-t-full shadow-[0_0_10px_rgba(251,191,36,0.8)]"></div>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* سهم نحو النهاية (يسار) */}
+                    {canScrollEnd && (
+                        <button
+                            onClick={scrollTabsTowardEnd}
+                            aria-label="تمرير لليسار"
+                            className="flex items-center justify-center w-8 shrink-0 my-2 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all active:scale-90 animate-in fade-in duration-200"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Content Area */}
@@ -702,7 +772,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                                                 decreaseFontScale();
                                                 toast.success('تم تصغير الخط درجة واحدة');
                                             }}
-                                            disabled={fontScale === 'normal'}
+                                            disabled={fontScale === 'xsmall'}
                                             className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold transition-all border border-white/10 flex items-center gap-1.5"
                                         >
                                             <span className="text-base font-black">A⁻</span>
