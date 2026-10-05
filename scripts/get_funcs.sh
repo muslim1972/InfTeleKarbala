@@ -1,0 +1,1 @@
+docker exec supabase-db psql -U postgres -d postgres -tAc "SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname IN ('process_leave_approval', 'approve_leave_request', 'handle_leave_state_machine', 'cleanup_request_notifications_on_process');"

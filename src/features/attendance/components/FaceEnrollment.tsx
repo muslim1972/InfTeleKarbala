@@ -189,7 +189,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                                     autoPlay 
                                     playsInline 
                                     muted 
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover -scale-x-100"
                                 />
                                 {/* Face Guide Overlay */}
                                 <div className="absolute inset-0 border-[4px] border-dashed border-white/50 rounded-full m-8 pointer-events-none" />

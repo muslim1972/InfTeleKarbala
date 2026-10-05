@@ -38,6 +38,7 @@ const AttendanceDashboard = lazy(() => import("./features/attendance").then(m =>
 const IncentivesTabContent = lazy(() => import("./components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
 const FloatingAudioPlayer = lazy(() => import("./components/features/FloatingAudioPlayer").then(m => ({ default: m.FloatingAudioPlayer })));
 const GlobalElements = lazy(() => import("./components/layout/GlobalElements").then(m => ({ default: m.GlobalElements })));
+const KioskPage = lazy(() => import("./features/kiosk/KioskPage").then(m => ({ default: m.KioskPage })));
 
 // Loading Component
 const LoadingScreen = () => (
@@ -334,6 +335,8 @@ function App() {
                       <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
                       <Route path="/" element={<AppContent />} />
                       <Route path="/login" element={<AppContent />} />
+                      {/* كيوسك البصمة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
+                      <Route path="/kiosk" element={<KioskPage />} />
                       <Route path="/*" element={<NotFound />} />
                     </Routes>
                     <FloatingAudioPlayer />

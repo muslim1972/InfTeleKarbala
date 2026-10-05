@@ -1,0 +1,1 @@
+docker exec supabase-db psql -U postgres -d postgres -x -c "SELECT id, email, raw_user_meta_data, encrypted_password, email_confirmed_at, banned_until FROM auth.users WHERE email = 'kiosk.system@inftelekarbala.iq';"

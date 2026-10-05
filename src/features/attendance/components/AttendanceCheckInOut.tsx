@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAttendance } from '../hooks/useAttendance';
-import { getLocalDateStr } from '../services/attendanceService';
+import { getLocalDateStr, isSameDevice } from '../services/attendanceService';
 import { geofenceService } from '../services/geofenceService';
 import { geolocationManager } from '../../../utils/GeolocationManager';
 import { uploadSnapshot } from '../utils/snapshotStorage';
@@ -69,7 +69,7 @@ export default function AttendanceCheckInOut({
 }: AttendanceCheckInOutProps) {
   const { registerPunch } = useAttendance(employeeId);
   const { user } = useAuth();
-  const { isTest, resetPunches } = useTestEnvironment();
+  const { isTest, canResetPunches, resetPunches } = useTestEnvironment();
   const { isTampered, tamperInfo, forceSync } = useServerTime();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
@@ -123,16 +123,45 @@ export default function AttendanceCheckInOut({
 
   const isCooldownActive = cooldownRemaining > 0;
 
-  // ─── فحص حالة الموظف الدقيقة في الوقت الراهن ───
+  // ─── التحقق من اعتماد الجهاز الحالي لمنع تثبيت بصمة ثانية من جهاز غير معتمد ───
+  const [isCurrentDeviceAuthorized, setIsCurrentDeviceAuthorized] = useState<boolean | null>(null);
 
-  const baghdadHour = useMemo(() => {
-    const str = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Baghdad',
-      hour: '2-digit',
-      hour12: false
-    }).format(new Date(nowTick));
-    return parseInt(str, 10) || 0;
-  }, [nowTick]);
+  const checkCurrentDevice = useCallback(async () => {
+    try {
+      const currentDeviceId = await getDeviceFingerprint();
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('primary_device_id')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+      if (!prof?.primary_device_id) {
+        setIsCurrentDeviceAuthorized(true);
+      } else {
+        const isAuth = isSameDevice(prof.primary_device_id, currentDeviceId);
+        setIsCurrentDeviceAuthorized(isAuth);
+      }
+    } catch (e) {
+      console.warn('Error checking device authorization:', e);
+      setIsCurrentDeviceAuthorized(true);
+    }
+  }, [employeeId]);
+
+  useEffect(() => {
+    checkCurrentDevice();
+  }, [checkCurrentDevice, todayAttendance]);
+
+  const hasExistingPunches = Boolean(
+    (todayAttendance?.raw_punches && todayAttendance.raw_punches.length > 0) ||
+    todayAttendance?.check_in
+  );
+
+  // حظر تسجيل البصمة الإضافية إذا كان الجهاز غير معتمد ولديه بصمة سابقة
+  const isBlockedByUnapprovedDevice = Boolean(
+    !isTest && hasExistingPunches && (
+      isCurrentDeviceAuthorized === false || todayAttendance?.is_device_pending
+    )
+  );
 
   // تاريخ محلي — toISOString() يرجع UTC فيظل «أمس» حتى 03:00 صباحاً بغداد
   // فتُعرض بانرات إجازات اليوم السابق خطأً بعد منتصف الليل
@@ -181,6 +210,15 @@ export default function AttendanceCheckInOut({
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
   const [telemetry, setTelemetry] = useState<LocationTelemetryResult | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const lastLocationCheckTimeRef = useRef<number>(0);
+  const isAllowedRef = useRef(isAllowed);
+  const isCooldownActiveRef = useRef(isCooldownActive);
+  useEffect(() => {
+    isAllowedRef.current = isAllowed;
+  }, [isAllowed]);
+  useEffect(() => {
+    isCooldownActiveRef.current = isCooldownActive;
+  }, [isCooldownActive]);
 
   // Camera & Face Detection
   const [capturingAction, setCapturingAction] = useState<'punch' | null>(null);
@@ -211,17 +249,24 @@ export default function AttendanceCheckInOut({
   }, [loadModels]);
 
   // ---- Geofence Logic with Anti-Spoofing & Telemetry ----
-  const verifyLocationAndGeofence = useCallback(async (showToast = false) => {
+  const verifyLocationAndGeofence = useCallback(async (showToast = false): Promise<boolean> => {
+    // أثناء مهلة الأمان (3 دقائق)، لا يُعاد فحص الموقع ولا تُستنزف الموارد أبداً
+    if (isCooldownActiveRef.current && !isTest) {
+      setLoadingLocation(false);
+      return isAllowedRef.current;
+    }
+
     setLoadingLocation(true);
     setGeofenceChecked(false);
     try {
       if (isTest) {
         setIsAllowed(true);
+        lastLocationCheckTimeRef.current = Date.now();
         setLocationText('بيئة تجريبية - الموقع الفعلي متجاوز');
         setGeofenceChecked(true);
         if (showToast) toast.success('تم تخطي فحص الموقع (بيئة تجريبية)', { id: 'geo-verify' });
         setLoadingLocation(false);
-        return;
+        return true;
       }
 
       if (showToast) toast.loading('جاري فحص وتدقيق إحداثيات الموقع الجغرافي...', { id: 'geo-verify' });
@@ -246,8 +291,11 @@ export default function AttendanceCheckInOut({
         setIsAllowed(false);
         setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - اشتباه تزييف موقع (Fake GPS)`);
         if (showToast) toast.error('تم رصد تزييف للموقع الجغرافي (Fake GPS)! البصمة مرفوضة.', { id: 'geo-verify' });
+        setGeofenceChecked(true);
+        return false;
       } else if (geofenceResult.allowed) {
         setIsAllowed(true);
+        lastLocationCheckTimeRef.current = Date.now();
         const deviceNote = telResult.isDesktop ? 'كمبيوتر' : 'هاتف';
         setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - ${locName} (دقة: ±${telResult.accuracy}م, ${deviceNote})`);
         
@@ -260,12 +308,15 @@ export default function AttendanceCheckInOut({
             toast.success(`أنت الآن داخل النطاق المسموح لـ: ${locName}`, { id: 'geo-verify' });
           }
         }
+        setGeofenceChecked(true);
+        return true;
       } else {
         setIsAllowed(false);
         setLocationText(`${latitude.toFixed(6)}, ${longitude.toFixed(6)} - خارج النطاق المسموح`);
         if (showToast) toast.error('أنت خارج النطاق الجغرافي المسموح لتسجيل الحضور!', { id: 'geo-verify' });
+        setGeofenceChecked(true);
+        return false;
       }
-      setGeofenceChecked(true);
     } catch (err: any) {
       console.error('Error fetching position:', err);
       setLocationText('تعذر تحديد الموقع الجغرافي');
@@ -278,13 +329,42 @@ export default function AttendanceCheckInOut({
         : 'تعذر تحديد موقعك. يرجى التأكد من تفعيل GPS وإذن الوصول للموقع.';
 
       if (showToast) toast.error(msg, { id: 'geo-verify' });
+      return false;
     } finally {
       setLoadingLocation(false);
     }
-  }, [employeeId]);
+  }, [employeeId, isTest]);
 
+  // فحص الموقع الأولي عند تحميل الواجهة
   useEffect(() => {
     verifyLocationAndGeofence(false);
+  }, [verifyLocationAndGeofence]);
+
+  // إعادة الفحص الدوري كل 30 ثانية فقط في حال كان الموظف خارج النطاق (وفق المخطط الانسيابي)
+  useEffect(() => {
+    if (isAllowed || isCooldownActive || !geofenceChecked) return;
+
+    const intervalId = window.setInterval(() => {
+      if (!isCooldownActiveRef.current && !isAllowedRef.current) {
+        verifyLocationAndGeofence(false);
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [isAllowed, isCooldownActive, geofenceChecked, verifyLocationAndGeofence]);
+
+  // إعادة فحص هادئة للموقع عند العودة للتبويبة بعد غياب طويل (إذا لم تكن مهلة الأمان نشطة)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !isCooldownActiveRef.current) {
+        const elapsed = Date.now() - lastLocationCheckTimeRef.current;
+        if (elapsed > 90 * 1000) {
+          verifyLocationAndGeofence(false);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [verifyLocationAndGeofence]);
 
   // ---- Camera Cleanup ----
@@ -377,7 +457,6 @@ export default function AttendanceCheckInOut({
 
       setCooldownBypassed(false);
       onAttendanceUpdate();
-      verifyLocationAndGeofence(false);
       loadLeaveContext();
     } catch (err: any) {
       toast.error(formatArabicErrorMessage(err, 'فشل تنفيذ عملية البصمة'));
@@ -386,7 +465,7 @@ export default function AttendanceCheckInOut({
       setCapturingAction(null);
       capturedRef.current = false;
     }
-  }, [locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext]);
+  }, [locationText, registerPunch, onAttendanceUpdate, loadLeaveContext]);
 
   // ---- تأكيد البصمة في يوم الإجازة ("تثبيت البصمة رغم ذلك") ----
   const confirmLeaveDayPunch = useCallback(async () => {
@@ -410,7 +489,6 @@ export default function AttendanceCheckInOut({
       }
       setCooldownBypassed(false);
       onAttendanceUpdate();
-      verifyLocationAndGeofence(false);
       loadLeaveContext();
     } catch (err: any) {
       toast.error(formatArabicErrorMessage(err, 'فشل تنفيذ عملية البصمة'));
@@ -557,8 +635,27 @@ export default function AttendanceCheckInOut({
   }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
 
   const openCamera = useCallback(async (action: 'punch') => {
-    if (!isAllowed) {
-      toast.error('لا يمكن التنفيذ: يجب أن تكون متواجداً في نطاق الدائرة');
+    // 0. التحقق من اعتماد الجهاز: منع البصمة الثانية نهائياً من أي جهاز غير معتمد
+    if (isBlockedByUnapprovedDevice) {
+      toast.error('لا يمكن تسجيل بصمة ثانية من جهاز غير معتمد. يرجى مراجعة مسؤول البصمة لاعتماد جهازك أولاً.', {
+        id: 'device-block',
+        duration: 5000
+      });
+      return;
+    }
+
+    // 1. فحص حداثة وصلاحية الموقع الجغرافي (TTL: 90 ثانية)
+    // لمنع التحايل في حال ترك الموظف الشاشة مفتوحة في الصباح وغادر للمنزل (حالة A)
+    const LOCATION_TTL_MS = 90 * 1000;
+    const isLocationStale = !lastLocationCheckTimeRef.current || (Date.now() - lastLocationCheckTimeRef.current > LOCATION_TTL_MS);
+
+    let currentAllowed = isAllowed;
+    if (isLocationStale || !geofenceChecked) {
+      currentAllowed = await verifyLocationAndGeofence(true);
+    }
+
+    if (!currentAllowed) {
+      toast.error('لا يمكن التنفيذ: يجب أن تكون متواجداً في نطاق الدائرة ومطابقاً للشروط', { id: 'geo-verify' });
       return;
     }
 
@@ -712,7 +809,6 @@ export default function AttendanceCheckInOut({
 
         setCooldownBypassed(false);
         onAttendanceUpdate();
-        verifyLocationAndGeofence(false);
         loadLeaveContext();
         setAlertInfo({ show: true, action });
       } catch (regErr: any) {
@@ -722,7 +818,7 @@ export default function AttendanceCheckInOut({
         setCapturingAction(null);
       }
     }
-  }, [isAllowed, locationText, registerPunch, onAttendanceUpdate, verifyLocationAndGeofence, loadLeaveContext, stopCamera, isEnrolled, startFaceDetection, showDebugAlert]);
+  }, [isAllowed, locationText, registerPunch, onAttendanceUpdate, loadLeaveContext, stopCamera, isEnrolled, startFaceDetection, showDebugAlert, verifyLocationAndGeofence, geofenceChecked, isBlockedByUnapprovedDevice]);
 
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
@@ -761,19 +857,21 @@ export default function AttendanceCheckInOut({
               أنت الآن في وضع الاختبار. قيود الموقع الجغرافي ملغاة مؤقتاً لتسهيل الفحص.
             </p>
           </div>
-          <button
-            onClick={async () => {
-              const success = await resetPunches(employeeId);
-              if (success) {
-                onAttendanceUpdate();
-                window.location.reload();
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95"
-          >
-            <Eraser className="w-4 h-4" />
-            تصفير البصمات والبدأ من جديد
-          </button>
+          {canResetPunches && (
+            <button
+              onClick={async () => {
+                const success = await resetPunches(employeeId);
+                if (success) {
+                  onAttendanceUpdate();
+                  window.location.reload();
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95"
+            >
+              <Eraser className="w-4 h-4" />
+              تصفير البصمات والبدأ من جديد
+            </button>
+          )}
         </motion.div>
       )}
 
@@ -848,10 +946,25 @@ export default function AttendanceCheckInOut({
               </div>
             )}
 
+            {/* تنبيه حظر البصمة الثانية لجهاز غير معتمد */}
+            {isBlockedByUnapprovedDevice && (
+              <div className="rounded-2xl border-2 border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-800 p-4 text-rose-900 dark:text-rose-200 flex items-start gap-3 shadow-sm">
+                <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-right">
+                  <h4 className="font-bold text-sm text-rose-900 dark:text-rose-100">
+                    ⛔ تسجيل البصمة مقفل من هذا الجهاز
+                  </h4>
+                  <p className="text-xs leading-relaxed text-rose-800 dark:text-rose-200">
+                    تم قبول بصمتك الأولى استثنائياً باللون الأحمر لحفظ وقت الحضور. لمنع تسجيل الحضور بالنيابة، يشترط النظام مراجعة مسؤول البصمة لاعتماد هذا الجهاز رسمياً قبل السماح لك بتسجيل أي بصمة أخرى (انصراف أو استراحة).
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* الأزرار الذكية حسب حالة الموظف الدقيقة */}
             {(() => {
               const isBaseDisabled = loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed;
-              const isActionDisabled = isBaseDisabled || (isCooldownActive && !isTest);
+              const isActionDisabled = isBaseDisabled || (isCooldownActive && !isTest) || isBlockedByUnapprovedDevice;
 
               return (
                 <button
@@ -864,12 +977,18 @@ export default function AttendanceCheckInOut({
                   className={`w-full py-5 px-6 rounded-3xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.98] ${
                     !isActionDisabled
                       ? 'bg-emerald-600 hover:bg-emerald-700 shadow-xl hover:shadow-2xl shadow-emerald-600/30 ring-4 ring-emerald-50 dark:ring-emerald-900/30'
-                      : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                      : isBlockedByUnapprovedDevice
+                        ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-2 border-rose-300 dark:border-rose-800 cursor-not-allowed pointer-events-none'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
                   }`}
                 >
                   <Fingerprint className={`w-8 h-8 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
                   <span className="text-xl">
-                    {isCooldownActive && !isTest ? `مهلة الأمان (${cooldownRemaining} ث)` : 'تثبيت البصمة'}
+                    {isCooldownActive && !isTest 
+                      ? `مهلة الأمان (${cooldownRemaining} ث)` 
+                      : isBlockedByUnapprovedDevice
+                        ? 'جهاز غير معتمد - يرجى مراجعة المسؤول'
+                        : 'تثبيت البصمة'}
                   </span>
                 </button>
               );
@@ -1017,22 +1136,28 @@ export default function AttendanceCheckInOut({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className={`rounded-2xl shadow-lg border p-6 flex flex-col md:flex-row items-center justify-between gap-4 transition-colors ${
-          loadingLocation 
-            ? 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700' 
-            : isAllowed
-              ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
-              : 'bg-rose-50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/30'
+          isCooldownActive && !isTest
+            ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/30'
+            : loadingLocation 
+              ? 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700' 
+              : isAllowed
+                ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                : 'bg-rose-50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/30'
         }`}
       >
         <div className="flex items-center gap-4 text-center md:text-right">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-            loadingLocation
-              ? 'bg-slate-200 text-slate-500 animate-pulse'
-              : isAllowed
-                ? 'bg-emerald-500 text-white'
-                : 'bg-rose-500 text-white'
+            isCooldownActive && !isTest
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+              : loadingLocation
+                ? 'bg-slate-200 text-slate-500 animate-pulse'
+                : isAllowed
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-rose-500 text-white'
           }`}>
-            {loadingLocation ? (
+            {isCooldownActive && !isTest ? (
+              <ShieldCheck className="w-6 h-6" />
+            ) : loadingLocation ? (
               <RefreshCw className="w-6 h-6 animate-spin" />
             ) : isAllowed ? (
               <CheckCircle className="w-6 h-6" />
@@ -1042,31 +1167,35 @@ export default function AttendanceCheckInOut({
           </div>
           <div>
             <h3 className="font-bold text-lg leading-tight">
-              {loadingLocation 
-                ? 'جاري التحقق من موقعك الحالي...' 
-                : telemetry?.source === 'mock_suspected'
-                  ? '⛔ تم رصد تزييف للموقع الجغرافي (Fake GPS)'
-                  : isAllowed 
-                    ? `أنت متواجد داخل: ${nearestLoc?.name || 'موقع العمل'}` 
-                    : 'أنت خارج نطاق العمل المسموح'}
+              {isCooldownActive && !isTest
+                ? 'الموقع الجغرافي موثق (مهلة الأمان نشطة)'
+                : loadingLocation 
+                  ? 'جاري التحقق من موقعك الحالي...' 
+                  : telemetry?.source === 'mock_suspected'
+                    ? '⛔ تم رصد تزييف للموقع الجغرافي (Fake GPS)'
+                    : isAllowed 
+                      ? `أنت متواجد داخل: ${nearestLoc?.name || 'موقع العمل'}` 
+                      : 'أنت خارج نطاق العمل المسموح'}
             </h3>
             <p className="text-sm mt-1 text-slate-500 dark:text-slate-400">
-              {loadingLocation 
-                ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
-                : telemetry?.source === 'mock_suspected'
-                  ? 'تم رصد إحداثيات مصمتة غير طبيعية تشير إلى استخدام تطبيق Fake GPS. تم حظر تثبيت البصمة تلقائياً.'
-                  : isAllowed
-                    ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
-                    : nearestLoc
-                      ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : Math.round(nearestDistance || 0) + ' متر'}. (النطاق المطلوب: ${nearestLoc.radius_meters} متر)`
-                      : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
+              {isCooldownActive && !isTest
+                ? `تم تسجيل حركتك بنجاح وموقعك معتمد. يُرجى انتظار انتهاء مهلة الأمان (${cooldownRemaining} ثانية) قبل أية محاولة جديدة.`
+                : loadingLocation 
+                  ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
+                  : telemetry?.source === 'mock_suspected'
+                    ? 'تم رصد إحداثيات مصمتة غير طبيعية تشير إلى استخدام تطبيق Fake GPS. تم حظر تثبيت البصمة تلقائياً.'
+                    : isAllowed
+                      ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
+                      : nearestLoc
+                        ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : Math.round(nearestDistance || 0) + ' متر'}. (النطاق المطلوب: ${nearestLoc.radius_meters} متر)`
+                        : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
             </p>
           </div>
         </div>
 
         <button
           onClick={() => verifyLocationAndGeofence(true)}
-          disabled={loadingLocation}
+          disabled={loadingLocation || (isCooldownActive && !isTest)}
           className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-slate-700 dark:text-slate-300"
         >
           <RefreshCw className={`w-4 h-4 ${loadingLocation ? 'animate-spin' : ''}`} />
@@ -1292,7 +1421,7 @@ export default function AttendanceCheckInOut({
             <div>
               <p className="font-bold mb-1">تنبيه: جهاز غير معتمد</p>
               <p className="text-sm">
-                تم تسجيل بصمتك باللون الأحمر نظراً لاستخدامك جهاز جديد غير معتمد. تم توجيه إشعار لمشرف البصمة للموافقة، وستبقى الحالة معلقة لحين الاعتماد.
+                تم تسجيل بصمتك الأولى باللون الأحمر نظراً لاستخدامك جهازاً جديداً غير معتمد. تم توجيه إشعار لمشرف البصمة، ويشترط مراجعة المسؤول لاعتماده قبل السماح بتسجيل أي بصمة لاحقة (انصراف أو استراحة).
               </p>
             </div>
           </div>

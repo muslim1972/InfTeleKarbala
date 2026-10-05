@@ -108,9 +108,21 @@ interface ManagerInfo {
 const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
   const { isTest } = useTestEnvironment();
+
   // تاريخ اليوم بالتوقيت المحلي (وليس UTC) لتفادي انزياح التاريخ ليلاً
   const now0 = new Date();
   const todayStr = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}-${String(now0.getDate()).padStart(2, '0')}`;
+
+  // وقت الآن الحالي بتنسيق HH:mm في توقيت بغداد/الجهاز المحلي
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 15000);
+    return () => window.clearInterval(t);
+  }, []);
+  const nowClock = useMemo(() => {
+    const d = new Date(nowTick);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }, [nowTick]);
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [subtype, setSubtype] = useState<TimeOffSubtype>('mid_shift');
@@ -135,6 +147,18 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [success, setSuccess] = useState(false);
   const [successConverted, setSuccessConverted] = useState(false); // نجاح عبر التحويل لإجازة اعتيادية
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // ── التحذيرات الذكية المبكرة (بانتظار لا شيء — تظهر لحظة إدخال المستخدم) ──
+  // قائمة تحذيرات متراكمة — لا تمنع الإرسال في بيئة التجربة، وتبقى ظاهرة للمستخدم حتى يعرف أن النظام اعترض
+  const [warnings, setWarnings] = useState<string[]>([]);
+
+  const pushWarning = useCallback((msg: string) => {
+    setWarnings(prev => prev.includes(msg) ? prev : [...prev, msg]);
+  }, []);
+  const clearWarnings = useCallback(() => setWarnings([]), []);
+  const removeWarningByPrefix = useCallback((prefix: string) => {
+    setWarnings(prev => prev.filter(w => !w.startsWith(prefix)));
+  }, []);
 
   // ── Manager / routing state ───────────────────────────────────────────────
   const [managerInfo, setManagerInfo] = useState<ManagerInfo | null>(null);
@@ -322,7 +346,54 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     setLeaveTime('');
     setReturnTime('');
     setError(null);
-  }, []);
+    clearWarnings();
+  }, [clearWarnings]);
+
+  // ── المحرك الذكي للتحذيرات المبكرة — يعمل لحظة تغيير التاريخ فوراً ──
+  //   • عطلة نهاية الأسبوع / إجازة رسمية
+  //   • تاريخ ماضٍ (إلا في بيئة التجربة فتحذير فقط لا يمنع)
+  //   • ساعة البداية سابقة على ساعة الآن نفس اليوم
+  //   • نهاية الزمنية قبل البداية
+  useEffect(() => {
+    if (!requestDate) return;
+    removeWarningByPrefix('تاريخ الإجازة');
+    removeWarningByPrefix('ساعة');
+
+    // (1) عطلة نهاية الأسبوع
+    if (isWeekend(requestDate)) {
+      const dayName = new Date(requestDate).toLocaleDateString('ar-SA', { weekday: 'long' });
+      pushWarning(`تاريخ الإجازة (${dayName}) يقع في أيام العطلة الرسمية (الجمعة والسبت) — في العمل العادي يُرفض. (اختر يوماً آخر إن لم تكن في بيئة الفحص.)`);
+    }
+
+    // (2) تاريخ ماضٍ (قبل اليوم الحالي)
+    if (requestDate < todayStr) {
+      pushWarning(`تاريخ الإجازة ${requestDate} هو تاريخ ماضٍ — في العمل العادي يُرفض.`);
+    }
+  }, [requestDate, todayStr, pushWarning, removeWarningByPrefix]);
+
+  // ── تحذيرات فورية لساعات (عند blur لكل حقل من حقول الوقت) ──
+  const validateTimeEarly = useCallback((kind: 'leave' | 'return') => {
+    removeWarningByPrefix('ساعة');
+    if (!requestDate) return;
+
+    const effectiveLeave = effectiveLeaveTime;
+    const effectiveReturn = effectiveReturnTime;
+
+    // (3) ساعة البداية في الماضي لنفس اليوم الحالي
+    if (requestDate === todayStr && kind === 'leave' && effectiveLeave) {
+      if (timeToMinutes(effectiveLeave) <= timeToMinutes(nowClock)) {
+        pushWarning(`ساعة البداية (${effectiveLeave}) مضت أو متداخلة مع الوقت الحالي (${nowClock}) — في العمل العادي يُرفض.`);
+      }
+    }
+
+    // (4) العودة قبل المغادرة
+    if (effectiveLeave && effectiveReturn) {
+      const diff = timeToMinutes(effectiveReturn) - timeToMinutes(effectiveLeave);
+      if (diff <= 0) {
+        pushWarning(`ساعة العودة (${effectiveReturn}) يجب أن تكون بعد ساعة المغادرة (${effectiveLeave}).`);
+      }
+    }
+  }, [requestDate, todayStr, nowClock, effectiveLeaveTime, effectiveReturnTime, pushWarning, removeWarningByPrefix]);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = useCallback((): boolean => {
@@ -347,6 +418,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       setError('يرجى تحديد ساعة العودة');
       return false;
     }
+
+    // (التحذيرات المبكرة بالفعل ظاهرة للمستخدم — نتركها ونتجاوز التدقّقات الصارمة في بيئة التجربة)
 
     // Validate leave time is within shift
     if (config.showLeaveTime && !isTest) {
@@ -378,29 +451,27 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       }
     }
 
-    // Validate return is after leave
-    if (durationMinutes <= 0) {
+    // Validate return is after leave (يتم تجاوزه في بيئة التجربة إذا وُجدت تحذيرات)
+    if (durationMinutes <= 0 && !isTest) {
       setError('ساعة العودة يجب أن تكون بعد ساعة المغادرة');
       return false;
     }
 
-    // 4) منع تداخل وقت الإجازة مع الوقت الحقيقي — لطلبات اليوم الحالي فقط
-    //    (الأيام القادمة لم تحدث بعد، فلا معنى لفحصها ضد "الآن")
+    // 4) منع طلب إجازة تبدأ في الماضي — لطلبات اليوم الحالي فقط
     if (requestDate === todayStr && !isTest) {
       const now = new Date();
-      const nowClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const nowMins = now.getHours() * 60 + now.getMinutes();
-      const sMins = timeToMinutes(shiftStart);
-      const eMins = timeToMinutes(shiftEnd);
-      // إسقاط "الآن" على خط زمن الدوام (يعالج الدوام العابر لمنتصف الليل)
-      const nowRel = (eMins < sMins && nowMins < sMins) ? nowMins + 1440 : nowMins;
-      if (leaveRelative <= nowRel) {
-        setError(`الوقت الآن ${nowClock} — لا يمكن طلب إجازة زمنية لليوم تبدأ في وقت مضى أو متداخلة مع اللحظة الحالية.`);
+      const nowClockLocal = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const leaveDT = new Date(`${requestDate}T${effectiveLeaveTime}:00`);
+      if (leaveRelative >= 1440) leaveDT.setDate(leaveDT.getDate() + 1);
+      if (leaveDT.getTime() <= now.getTime()) {
+        setError(`الوقت الآن ${nowClockLocal} — لا يمكن طلب إجازة زمنية لليوم تبدأ في وقت مضى أو متداخلة مع اللحظة الحالية.`);
         return false;
       }
     }
 
-    if (isWeekend(requestDate)) {
+    // عطلة نهاية الأسبوع: يظهر التحذير في المربع العلوي طالما بقي التاريخ. في بيئة التجربة
+    // نقبله لو المستخدم أصر، إلا في الوضع العادي يُرفض نهائياً.
+    if (isWeekend(requestDate) && !isTest) {
       setError('تاريخ الإجازة المحدد يقع في أيام العطلة الرسمية (الجمعة والسبت) — اختر يوماً آخر.');
       return false;
     }
@@ -410,7 +481,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
     setError(null);
     return true;
-  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr]);
+  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr, isTest, effectiveLeaveTime]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -459,6 +530,8 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           p_supporting_image_urls: [],
           p_time_off_subtype: subtype,
           p_with_request: true,
+          p_leave_start_time: effectiveLeaveTime ? `${effectiveLeaveTime}:00` : null,
+          p_leave_end_time: effectiveReturnTime ? `${effectiveReturnTime}:00` : null,
         });
         if (rpcError) throw rpcError;
         rpcResult = data;
@@ -712,9 +785,6 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
             }}
             className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold text-gray-800 dark:text-gray-100 shadow-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-500/30 outline-none transition-all"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
-            يُسمح بتقديم الإجازة الزمنية لليوم الحالي أو الأيام القادمة — لا يمكن اختيار تاريخ ماضٍ.
-          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -729,6 +799,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 <ModernTimePicker
                     value={leaveTime}
                     onChange={(val: string) => { setLeaveTime(val); setError(null); }}
+                    onClose={() => validateTimeEarly('leave')}
                     label={subtype === 'shift_end' ? 'ساعة المغادرة' : 'ساعة الخروج'}
                     disabled={!requestDate}
                 />
@@ -755,6 +826,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 <ModernTimePicker
                     value={returnTime}
                     onChange={(val: string) => { setReturnTime(val); setError(null); }}
+                    onClose={() => validateTimeEarly('return')}
                     label="ساعة العودة"
                     disabled={!requestDate}
                 />
@@ -829,6 +901,34 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                   : ' — المجموع التراكمي تجاوز الحد حتى لو كانت الفترات منفصلة.'}
                 سيتم تحويل هذا الطلب تلقائياً إلى إجازة اعتيادية معتمدة ليوم واحد، مع إشعار مسؤولك المباشر والموارد البشرية.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── لوحة التحذيرات المبكرة — تظهر لحظة الإدخال بدون انتظار الإرسال ── */}
+        {warnings.length > 0 && (
+          <div className={`p-3 rounded-xl border text-sm space-y-1.5 ${
+            isTest
+              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300'
+              : 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800/50 text-orange-800 dark:text-orange-300'
+          }`}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className={`font-bold mb-1 ${isTest ? 'text-amber-800 dark:text-amber-200' : ''}`}>
+                  {isTest ? 'بيئة الفحص: اعتراضات النظام (تُقبَل للتجربة رغمها)' : 'النظام يعترض على ما يلي:'}
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-xs leading-relaxed">
+                  {warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+                {isTest && (
+                  <p className="mt-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    ملاحظة: هذه الرسائل هي نفسها التي يراها المستخدم الحقيقي وتمنع الرفع عنده — أما في بيئة الفحص فهناك تجاوز للسماح لك برؤيتها ورؤية ما يرسله الطلب للمشرفين.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -921,7 +1021,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 };
 
 // ── Custom Modern 24h Time Picker ────────────────────────────────────────────
-const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
+const ModernTimePicker = ({ value, onChange, onClose, label, hint, disabled }: any) => {
    const [isOpen, setIsOpen] = useState(false);
    const [step, setStep] = useState<'h' | 'm'>('h');
    const [tempH, setTempH] = useState('');
@@ -931,6 +1031,13 @@ const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
 
    const hours = Array.from({length: 24}).map((_, i) => String(i).padStart(2, '0'));
    const minutes = Array.from({length: 60}).map((_, i) => String(i).padStart(2, '0'));
+
+   const triggerClose = () => {
+      setIsOpen(false);
+      if (typeof onClose === 'function') {
+        try { onClose(); } catch { /* ignore non-critical */ }
+      }
+   };
 
    return (
       <div className="relative">
@@ -963,7 +1070,7 @@ const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
                      <span className="font-bold text-gray-800 dark:text-gray-200">
                         {step === 'h' ? 'اختر الساعة (24)' : 'اختر الدقيقة'}
                      </span>
-                     <button type="button" onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-red-500 bg-gray-50 dark:bg-slate-700 p-1.5 rounded-full transition-colors">
+                     <button type="button" onClick={triggerClose} className="text-gray-400 hover:text-red-500 bg-gray-50 dark:bg-slate-700 p-1.5 rounded-full transition-colors">
                         <X size={16} />
                      </button>
                   </div>
@@ -990,7 +1097,7 @@ const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
                                 key={minute}
                                 onClick={() => { 
                                    onChange(`${tempH}:${minute}`); 
-                                   setIsOpen(false); 
+                                   triggerClose();
                                 }}
                                 className={`py-2 rounded-lg text-sm font-bold font-mono transition-all ${minute === m && tempH === h ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-slate-600'}`}
                               >
@@ -1008,7 +1115,7 @@ const ModernTimePicker = ({ value, onChange, label, hint, disabled }: any) => {
                      </div>
                   )}
                </div>
-               <div className="fixed inset-0 -z-10" onClick={() => setIsOpen(false)}></div>
+               <div className="fixed inset-0 -z-10" onClick={triggerClose}></div>
             </div>
           )}
       </div>

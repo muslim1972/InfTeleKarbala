@@ -1,0 +1,1 @@
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT count(*) FROM employee_roster_schedules;" -c "SELECT count(*) FROM profiles WHERE role='user';" -c "SELECT weekend_days FROM attendance_settings LIMIT 1;"

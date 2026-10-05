@@ -37,9 +37,29 @@ class GeolocationManager {
                 return;
             }
 
+            let settled = false;
+            const hardTimeout = setTimeout(() => {
+                if (!settled) {
+                    settled = true;
+                    reject(new Error('انتهت مهلة استجابة خدمة الموقع الجغرافي'));
+                }
+            }, 8500);
+
             navigator.geolocation.getCurrentPosition(
-                (position) => resolve(position),
-                (error) => reject(error),
+                (position) => {
+                    if (!settled) {
+                        settled = true;
+                        clearTimeout(hardTimeout);
+                        resolve(position);
+                    }
+                },
+                (error) => {
+                    if (!settled) {
+                        settled = true;
+                        clearTimeout(hardTimeout);
+                        reject(error);
+                    }
+                },
                 {
                     enableHighAccuracy: true,
                     timeout: 8000,

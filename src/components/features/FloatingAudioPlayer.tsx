@@ -27,8 +27,9 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
     const location = useLocation();
     const navigate = useNavigate();
     const isChat = location.pathname.startsWith('/chat/');
+    const isKiosk = location.pathname.startsWith('/kiosk');
 
-    if (!currentTrack || hide || isQuranPlayerVisible) return null;
+    if (!currentTrack || hide || isQuranPlayerVisible || isKiosk) return null;
 
     const handlePlayerClick = (e: React.MouseEvent) => {
         // Prevent navigation if clicking buttons

@@ -1,0 +1,1 @@
+﻿SELECT id, type, is_read, created_at, content FROM public.system_notifications WHERE recipient_id IN ('d79c5d50-b30c-4d0d-821f-a6093bfaa877', '2a24e7bf-357a-4587-9461-8289dfe802dc') ORDER BY created_at DESC LIMIT 5;

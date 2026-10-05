@@ -1,0 +1,1 @@
+﻿SELECT p.id, p.full_name, p.department_id, d.name AS dept_name, d.parent_id, d.manager_id, d.level FROM profiles p LEFT JOIN departments d ON p.department_id = d.id WHERE p.full_name LIKE '%اسيل جبار%';

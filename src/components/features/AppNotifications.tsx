@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, X, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useGovernorate } from '../../context/GovernorateContext';
 import { isDeveloperLevel } from '../../utils/permissions';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
@@ -31,6 +32,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
 
 export const AppNotifications = () => {
     const { user } = useAuth();
+    const { activeGovernorate } = useGovernorate();
     const [showModal, setShowModal] = useState(false);
 
     // Badge Counts
@@ -134,7 +136,7 @@ export const AppNotifications = () => {
 
             if (userIds.length > 0) {
                 const { data: profilesData } = await supabase.rpc('get_basic_profiles', { p_user_ids: userIds });
-                if (profilesData) { profilesData.forEach(p => { profileMap[p.id] = p; }); }
+                if (profilesData) { (profilesData as any[]).forEach((p: any) => { profileMap[p.id] = p; }); }
             }
 
             const formattedData = activeRequests.map(item => {
@@ -168,11 +170,18 @@ export const AppNotifications = () => {
         // 1. Approved but not archived (waiting for printing)
         // 2. Cut requests waiting for HR approval
         // 3. Canceled requests that are approved (so HR knows it was canceled)
-        const { data, error } = await supabase
+        const targetGov = typeof activeGovernorate === 'string' ? activeGovernorate : (activeGovernorate as any)?.id;
+        let req = supabase
             .from('leave_requests')
-            .select('*')
+            .select('*, profiles!inner(governorate)')
             .eq('is_read_by_hr', false)
             .or('and(status.eq.approved,is_archived.eq.false),hr_cut_status.eq.pending,cancellation_status.eq.approved');
+
+        if (targetGov && targetGov !== 'all') {
+            req = req.eq('profiles.governorate', targetGov);
+        }
+
+        const { data, error } = await req;
 
         if (error) {
             console.error('AppNotifications: Error fetching HR requests:', error);
@@ -184,7 +193,7 @@ export const AppNotifications = () => {
             if (userIds.length > 0) {
                 const { data: profilesData } = await supabase
                     .rpc('get_basic_profiles', { p_user_ids: userIds });
-                if (profilesData) profilesData.forEach(p => { profileMap[p.id] = p.full_name; });
+                if (profilesData) (profilesData as any[]).forEach((p: any) => { profileMap[p.id] = p.full_name; });
             }
 
             const formatted = data.map(item => ({
@@ -196,18 +205,25 @@ export const AppNotifications = () => {
         } else {
             setHrRequests([]);
         }
-    }, [user]);
+    }, [user, activeGovernorate]);
 
     const fetchSystemNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const { data, count, error } = await supabase
+        let query = supabase
             .from('system_notifications')
             .select('*', { count: 'exact' })
             .eq('recipient_id', user.id)
             .eq('is_read', false)
             .neq('type', 'leave_response')
             .order('created_at', { ascending: false });
+
+        // مشرف المالية: إشعار الاجازات والعمليات فقط — حجب إشعارات البصمة وتوثيق الموارد
+        if (user.admin_role === 'finance') {
+            query = query.not('type', 'in', '(device_mismatch,leave_hr,biometric_alert,leave_punch_alert,official_duty_punch)');
+        }
+
+        const { data, count, error } = await query;
 
         if (error) {
             console.error('AppNotifications: Error fetching system notifications:', error);
@@ -246,7 +262,7 @@ export const AppNotifications = () => {
             supabase.removeChannel(leaveChannel).catch(() => {});
             supabase.removeChannel(systemChannel).catch(() => {});
         };
-    }, [user, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications]);
+    }, [user, activeGovernorate, fetchEmployeeNotifications, fetchSupervisorNotifications, fetchHRNotifications, fetchSystemNotifications]);
 
     const totalNotifications = 
         supervisorPendingCount + 
@@ -358,6 +374,16 @@ export const AppNotifications = () => {
             toast.error('بيانات الإشعار غير مكتملة');
             return;
         }
+
+        // تحسين: البحث في الطلبات المحملة مسبقاً لتجنب الاتصال بالشبكة وتسريع الفتح
+        const existingReq = supervisorRequests.find(req => req.id === meta.request_id);
+        if (existingReq) {
+            setShowModal(false);
+            setSelectedApprovalRequest(existingReq);
+            handleMarkSystemNotificationRead(notification.id);
+            return;
+        }
+
         setSmartActionLoading(`pending-${notification.id}`);
         try {
             const { data, error } = await supabase
@@ -366,7 +392,8 @@ export const AppNotifications = () => {
                 .eq('id', meta.request_id)
                 .maybeSingle();
             if (error) throw error;
-            if (!data || data.status !== 'pending') {
+            const isPending = data?.status === 'pending' || data?.cancellation_status === 'pending' || data?.cut_status === 'pending';
+                                            if (!data || !isPending) {
                 toast.error('الطلب لم يعد قيد المراجعة');
                 handleMarkSystemNotificationRead(notification.id);
                 return;
@@ -454,7 +481,7 @@ export const AppNotifications = () => {
                                                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap">
                                                         {notification.content}
                                                     </p>
-                                                    <span className="text-[10px] text-slate-400 mt-1 block" dir="ltr" style={{ textAlign: 'right' }}>
+                                                    <span className="text-sm text-slate-900 font-medium mt-2 block" dir="ltr" style={{ textAlign: 'right' }}>
                                                         {new Date(notification.created_at).toLocaleString('ar-IQ', {
                                                             year: 'numeric', month: '2-digit', day: '2-digit',
                                                             hour: '2-digit', minute: '2-digit'
@@ -500,6 +527,21 @@ export const AppNotifications = () => {
                                                             >
                                                                 <CheckCircle size={14} />
                                                                 {smartActionLoading === `pending-${notification.id}` ? 'جارٍ الفتح...' : 'مراجعة الطلب'}
+                                                            </button>
+                                                            {hideBtn}
+                                                        </div>
+                                                    );
+                                                }
+                                                if (notification.type === 'leave_request') {
+                                                    return (
+                                                        <div className="flex gap-2 mt-1">
+                                                            <button
+                                                                disabled={smartActionLoading === `pending-${notification.id}`}
+                                                                onClick={() => handleOpenPendingRequest(notification)}
+                                                                className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                {smartActionLoading === `pending-${notification.id}` ? 'جارٍ الفتح...' : 'مراجعة/إجراء'}
                                                             </button>
                                                             {hideBtn}
                                                         </div>
@@ -717,3 +759,11 @@ export const AppNotifications = () => {
         </>
     );
 };
+
+
+
+
+
+
+
+

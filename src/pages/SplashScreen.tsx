@@ -2,7 +2,8 @@
  * SplashScreen.tsx
  * ─────────────────────────────────────────────────────────
  * واجهة افتتاحية فخمة لنظام الإدارة الموحد - ITPC كربلاء
- * مدتها 15 ثانية مع خلفية مصفوفة رقمية (Binary Rain).
+ * مدتها 10 ثوانٍ: فيديو ترويجي تقني (ألياف FTTH) في العمق،
+ * وفوقه مصفوفة رقمية (Binary Rain) + الشعار + النصوص المتسلسلة.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -10,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 import { LogoGlow } from '../components/visual/LogoGlow';
 import { SplashBeaconVideos } from '../components/visual/SplashBeaconVideos';
+import { SplashTechVideo } from '../components/visual/SplashTechVideo';
 
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
 const BINARY_STREAMS_COUNT = 50; // تقليل العدد قليلاً لتقليل التشتيت
@@ -182,16 +184,19 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           }}
         >
 
-          {/* ── الخلفية المتدرجة المتحركة ─────────────────── */}
+          {/* ── الفيديو الترويجي التقني (ألياف FTTH) — الطبقة الأعمق ── */}
+          <SplashTechVideo />
+
+          {/* ── الخلفية المتدرجة المتحركة (مخففة لتظهر تفاصيل الفيديو) ── */}
           <div className="absolute inset-0 overflow-hidden">
             <motion.div
               className="absolute inset-0"
               animate={{
                 background: [
-                  'radial-gradient(ellipse at 30% 50%, rgba(10,36,99,0.9) 0%, transparent 70%)',
-                  'radial-gradient(ellipse at 70% 30%, rgba(10,36,99,0.9) 0%, transparent 70%)',
-                  'radial-gradient(ellipse at 50% 70%, rgba(10,36,99,0.9) 0%, transparent 70%)',
-                  'radial-gradient(ellipse at 30% 50%, rgba(10,36,99,0.9) 0%, transparent 70%)',
+                  'radial-gradient(ellipse at 30% 50%, rgba(10,36,99,0.55) 0%, transparent 70%)',
+                  'radial-gradient(ellipse at 70% 30%, rgba(10,36,99,0.55) 0%, transparent 70%)',
+                  'radial-gradient(ellipse at 50% 70%, rgba(10,36,99,0.55) 0%, transparent 70%)',
+                  'radial-gradient(ellipse at 30% 50%, rgba(10,36,99,0.55) 0%, transparent 70%)',
                 ],
               }}
               transition={{ duration: 20, ease: 'linear', repeat: Infinity }}

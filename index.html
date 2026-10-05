@@ -15,7 +15,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="اتصالات كربلاء" />
   <link rel="apple-touch-icon" href="/icon-192.png?v=2" />
-  <link rel="manifest" href="/manifest.json?v=3" />
+  <link id="manifest-link" rel="manifest" href="/manifest.json?v=3" />
+  <script>
+    // كيوسك البصمة: عند التثبيت من مسار /kiosk تستخدم الأيقونة بيان Kiosk مستقلاً
+    // يبدأ مباشرة في واجهة البصمة بدل الصفحة الرئيسية
+    (function () {
+      try {
+        if (window.location.pathname.indexOf('/kiosk') === 0) {
+          var link = document.getElementById('manifest-link');
+          if (link) link.setAttribute('href', '/manifest-kiosk.json?v=1');
+          var appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+          if (appleTitle) appleTitle.setAttribute('content', 'بصمة');
+          document.title = 'كيوسك بصمة الموقع';
+        }
+      } catch (e) { }
+    })();
+  </script>
   <meta name="theme-color" content="#0f172a" />
   
   <script src="/error-handler.js"></script>

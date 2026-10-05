@@ -150,11 +150,6 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                                     user?.full_name?.includes('مسلم قيل');
 
                                 if (card.id === 'attendance') {
-                                    const hasAttendance = user?.has_attendance_access === true || isSupervisorOrDeveloper || isSpecialAccount;
-                                    if (!hasAttendance) {
-                                        toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
-                                        return;
-                                    }
                                     onSelect(card.id);
                                     return;
                                 }

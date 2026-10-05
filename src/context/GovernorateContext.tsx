@@ -39,8 +39,8 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
         if (user && !canChangeGovernorate && user.governorate) {
             return user.governorate;
         }
-        // 2. Otherwise, check session storage (set from login screen or by developer)
-        const stored = sessionStorage.getItem('selectedGovernorate');
+        // 2. Otherwise, check session storage or local storage
+        const stored = sessionStorage.getItem('selectedGovernorate') || localStorage.getItem('last_active_governorate');
         return stored || (user?.governorate || DEFAULT_GOVERNORATE);
     });
 
@@ -50,12 +50,14 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
             if (!canChangeGovernorate && user.governorate) {
                 setInternalActiveGovernorate(user.governorate);
                 sessionStorage.setItem('selectedGovernorate', user.governorate);
+                localStorage.setItem('last_active_governorate', user.governorate);
             } else if (canChangeGovernorate) {
                 // If developer just logged in, ensure we keep whatever they had, or default to their profile or default gov
-                const stored = sessionStorage.getItem('selectedGovernorate');
+                const stored = sessionStorage.getItem('selectedGovernorate') || localStorage.getItem('last_active_governorate');
                 if (!stored && user.governorate) {
                     setInternalActiveGovernorate(user.governorate);
                     sessionStorage.setItem('selectedGovernorate', user.governorate);
+                    localStorage.setItem('last_active_governorate', user.governorate);
                 }
             }
         }
@@ -65,17 +67,19 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
     useEffect(() => {
         let isMounted = true;
         supabase.from('governorate_cards').select('id, is_active, name')
-            .then(({ data }) => {
-                if (isMounted && data) {
-                    const activeMap = new Map(data.map(d => [d.id, d.is_active]));
-                    setAvailableGovernorates(GOVERNORATES.map(g => ({
-                        id: g.id,
-                        name: g.name,
-                        isActive: activeMap.has(g.id) ? !!activeMap.get(g.id) : (g.id === 'karbala' || g.id === 'babil')
-                    })));
-                }
-            })
-            .catch(err => console.warn('Failed to fetch governorates:', err));
+            .then(
+                ({ data }) => {
+                    if (isMounted && data) {
+                        const activeMap = new Map(data.map(d => [d.id, d.is_active]));
+                        setAvailableGovernorates(GOVERNORATES.map(g => ({
+                            id: g.id,
+                            name: g.name,
+                            isActive: activeMap.has(g.id) ? !!activeMap.get(g.id) : (g.id === 'karbala' || g.id === 'babil')
+                        })));
+                    }
+                },
+                (err: unknown) => console.warn('Failed to fetch governorates:', err)
+            );
             
         return () => { isMounted = false; };
     }, []);
@@ -85,8 +89,10 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
             setInternalActiveGovernorate(gov);
             if (gov) {
                 sessionStorage.setItem('selectedGovernorate', gov);
+                localStorage.setItem('last_active_governorate', gov);
             } else {
                 sessionStorage.removeItem('selectedGovernorate');
+                localStorage.removeItem('last_active_governorate');
             }
         } else {
             console.warn('Unauthorized attempt to change governorate.');

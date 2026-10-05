@@ -408,16 +408,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setGisStorageOwner(null);
       /* حالة المحاكي في الذاكرة تُمسح فوراً — لا يحملها الحساب التالي */
       resetFiberSimSession();
+      const userGov = user?.governorate;
       setUser(null);
 
-      // تنظيف الجلسة والتخزين المحلي مع الحفاظ على حالة الشاشة الافتتاحية واختيار الويب
+      // تنظيف الجلسة والتخزين المحلي مع الحفاظ على حالة الشاشة الافتتاحية واختيار الويب والمحافظة الحالية
       const splashShown = sessionStorage.getItem('splashShown');
       const hasChosenWeb = sessionStorage.getItem('hasChosenWeb');
+      const selectedGovernorate = sessionStorage.getItem('selectedGovernorate') || userGov || localStorage.getItem('last_active_governorate') || 'karbala';
       try {
         sessionStorage.clear();
       } catch (e) {}
       if (splashShown) sessionStorage.setItem('splashShown', splashShown);
       if (hasChosenWeb) sessionStorage.setItem('hasChosenWeb', hasChosenWeb);
+      if (selectedGovernorate) {
+        sessionStorage.setItem('selectedGovernorate', selectedGovernorate);
+        localStorage.setItem('last_active_governorate', selectedGovernorate);
+      }
 
       try {
         const keysToRemove: string[] = [];

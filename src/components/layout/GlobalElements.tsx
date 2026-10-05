@@ -12,7 +12,8 @@ export const GlobalElements = () => {
     const { totalUnreadCount } = useChat();
 
     // Do not show global elements on the chat page to avoid blocking the input
-    if (location.pathname.startsWith('/chat')) {
+    // ولا على كيوسك البصمة — واجهة مخصصة بلا عناصر عامة
+    if (location.pathname.startsWith('/chat') || location.pathname.startsWith('/kiosk')) {
         return null;
     }
 

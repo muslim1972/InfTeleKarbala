@@ -1,0 +1,1 @@
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT governorate, count(*) FROM profiles WHERE role='user' GROUP BY governorate;" -c "SELECT count(*) FROM attendance_records WHERE created_at >= CURRENT_DATE;" -c "SELECT count(*) FROM leave_requests WHERE status='approved' AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE;"

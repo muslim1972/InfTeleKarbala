@@ -77,7 +77,9 @@ export default function WorkSchedulesTab() {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {schedules.map((schedule) => {
+        {schedules
+          .filter(s => s.type !== 'roster' && !s.name?.startsWith('مناوب') && !s.name?.includes('مناوب'))
+          .map((schedule) => {
           const isRoster = schedule.type === 'roster';
           const nameLower = (schedule.name || '').toLowerCase();
           const isEvening = nameLower.includes('مسائي') || schedule.days?.some((d: any) => d.is_evening || d.start_time?.startsWith('14'));

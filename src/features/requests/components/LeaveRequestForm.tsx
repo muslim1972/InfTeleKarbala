@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Clock, Edit2, Search, ChevronDown, ChevronUp, Printer, List, Network, UserCheck, Info } from 'lucide-react';
+import { FileText, AlertCircle, AlertTriangle, CheckCircle, Clock, Edit2, Search, ChevronDown, ChevronUp, Printer, List, Network, UserCheck, Info } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { supabase } from '../../../lib/supabase';
@@ -79,6 +79,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showBalanceError, setShowBalanceError] = useState(false);
+  const [showRosterSubstituteModal, setShowRosterSubstituteModal] = useState(false);
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -128,7 +129,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     if (isRest) {
       setRosterNotice({
         type: 'warning',
-        text: '⚠️ هذا اليوم هو يوم استراحة تعويضية في جدول مناوبتك ولا يتطلب تقديم إجازة اعتيادية.'
+        text: '⚠️ هذا اليوم هو يوم استراحة في جدول مناوبتك ولا يتطلب تقديم إجازة اعتيادية.'
       });
     } else if ((isEvening && isNight) || (isMorning && isEvening && isNight)) {
       setRosterNotice({
@@ -241,12 +242,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         .from('leave_requests')
         .select('*')
         .eq('user_id', user.id)
+        .neq('with_request', false)
+        .eq('is_mandatory', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!error && data) {
-        setLatestRequest(data);
+      if (!error) {
+        setLatestRequest(data || null);
       }
     } catch (err) {
       console.error('Error fetching latest request:', err);
@@ -392,20 +395,23 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         const end = new Date(start);
         end.setDate(start.getDate() + formData.daysCount);
 
-        let adjusted = true;
-        while (adjusted) {
-          adjusted = false;
-          const day = end.getDay(); // 0=Sun .. 5=Fri 6=Sat
-          const month = end.getMonth() + 1;
-          const dayOfMonth = end.getDate();
+        // لموظفي المناوبة: الإجازة متصلة وتقويمية ولا تتأثر بالعطل الأسبوعية والرسمية (وفق Flowchart 2)
+        if (userSchedule?.type !== 'roster') {
+          let adjusted = true;
+          while (adjusted) {
+            adjusted = false;
+            const day = end.getDay(); // 0=Sun .. 5=Fri 6=Sat
+            const month = end.getMonth() + 1;
+            const dayOfMonth = end.getDate();
 
-          if (day === 5 || day === 6) {
-            end.setDate(end.getDate() + 1);
-            adjusted = true;
-          } 
-          else if (HOLIDAYS.some(h => h.m === month && h.d === dayOfMonth)) {
-            end.setDate(end.getDate() + 1);
-            adjusted = true;
+            if (day === 5 || day === 6) {
+              end.setDate(end.getDate() + 1);
+              adjusted = true;
+            } 
+            else if (HOLIDAYS.some(h => h.m === month && h.d === dayOfMonth)) {
+              end.setDate(end.getDate() + 1);
+              adjusted = true;
+            }
           }
         }
         setEndDate(end.toISOString().split('T')[0]);
@@ -415,7 +421,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     } else {
       setEndDate('');
     }
-  }, [formData.startDate, formData.daysCount, formData.leaveType, formData.startTime, formData.timeDurationMinutes]);
+  }, [formData.startDate, formData.daysCount, formData.leaveType, formData.startTime, formData.timeDurationMinutes, userSchedule]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,23 +461,115 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       return;
     }
 
-    const startCheck = isProhibitedDay(formData.startDate);
-    if (startCheck.prohibited) {
-      setError(`لا يجوز أن يصادف يوم البداية ${startCheck.reason}.`);
-      return;
-    }
+    const isRosterUser = userSchedule?.type === 'roster';
 
-    // Only reject Saturday for return date (Friday/holidays are auto-adjusted)
-    const endDay = new Date(endDate).getDay();
-    if (endDay === 6) {
-      setError('لا يجوز أن يصادف يوم المباشرة المتوقعة يوم سبت. يرجى تعديل عدد الأيام.');
-      return;
+    if (!isRosterUser) {
+      const startCheck = isProhibitedDay(formData.startDate);
+      if (startCheck.prohibited) {
+        setError(`لا يجوز أن يصادف يوم البداية ${startCheck.reason}.`);
+        return;
+      }
+
+      // Only reject Saturday for return date (Friday/holidays are auto-adjusted)
+      const endDay = new Date(endDate).getDay();
+      if (endDay === 6) {
+        setError('لا يجوز أن يصادف يوم المباشرة المتوقعة يوم سبت. يرجى تعديل عدد الأيام.');
+        return;
+      }
     }
 
     if (!formData.supervisorId) {
       setError('يرجى اختيار المسؤول المباشر لإرسال الطلب إليه.');
       return;
     }
+
+    // ─── التحقق من وجود مناوب بديل (Flowchart 2) لموظف المناوبة ───
+    if (isRosterUser && user?.id && ['regular', 'long_regular'].includes(formData.leaveType)) {
+      try {
+        const { data: myLoc } = await supabase
+          .from('work_location_employees')
+          .select('location_id')
+          .eq('employee_id', user.id)
+          .maybeSingle();
+
+        if (myLoc?.location_id) {
+          const { data: colleagues } = await supabase
+            .from('work_location_employees')
+            .select('employee_id')
+            .eq('location_id', myLoc.location_id)
+            .neq('employee_id', user.id);
+
+          const colleagueIds = (colleagues || []).map(c => c.employee_id);
+          let colleagueScheduleDays: any[] = [];
+
+          if (colleagueIds.length > 0) {
+            const { data: colProfiles } = await supabase
+              .from('profiles')
+              .select('work_schedule_id')
+              .in('id', colleagueIds);
+
+            const schedIds = (colProfiles || []).map(p => p.work_schedule_id).filter(Boolean);
+            if (schedIds.length > 0) {
+              const { data: sDays } = await supabase
+                .from('work_schedule_days')
+                .select('*')
+                .in('schedule_id', schedIds);
+              colleagueScheduleDays = sDays || [];
+            }
+          }
+
+          let hasUncoveredShift = false;
+          const totalDays = formData.daysCount || 1;
+
+          for (let i = 0; i < totalDays; i++) {
+            const curD = new Date(formData.startDate);
+            curD.setDate(curD.getDate() + i);
+            const dow = curD.getDay(); // 0=Sun .. 6=Sat
+
+            const myDay = userSchedule.days?.find((d: any) => d.day_of_week === dow);
+            if (!myDay || myDay.is_rest_day) continue;
+
+            let neededShifts: Array<'morning' | 'evening' | 'night'> = [];
+            if (totalDays === 1) {
+              // A- إجازة ليوم واحد: تسقط أول شفت فقط
+              if (myDay.is_morning) neededShifts = ['morning'];
+              else if (myDay.is_evening) neededShifts = ['evening'];
+              else if (myDay.is_night) neededShifts = ['night'];
+            } else {
+              // B- إجازة متعددة الأيام: تشمل كل الشفتات المحددة في هذا اليوم
+              if (myDay.is_morning) neededShifts.push('morning');
+              if (myDay.is_evening) neededShifts.push('evening');
+              if (myDay.is_night) neededShifts.push('night');
+            }
+
+            for (const shift of neededShifts) {
+              const isCovered = colleagueScheduleDays.some(cd => {
+                if (cd.day_of_week !== dow || cd.is_rest_day) return false;
+                if (shift === 'morning' && cd.is_morning) return true;
+                if (shift === 'evening' && cd.is_evening) return true;
+                if (shift === 'night' && cd.is_night) return true;
+                return false;
+              });
+
+              if (!isCovered) {
+                hasUncoveredShift = true;
+                break;
+              }
+            }
+
+            if (hasUncoveredShift) break;
+          }
+
+          if (hasUncoveredShift) {
+            setShowRosterSubstituteModal(true);
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Error checking roster substitute coverage:', checkErr);
+      }
+    }
+
     setError(null);
     setShowConfirmModal(true);
   };
@@ -966,6 +1064,30 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         </div>
       )}
 
+      {/* Roster Substitute Warning Modal (Flowchart 2) */}
+      {showRosterSubstituteModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl border-2 border-amber-500/30 max-h-[calc(100vh-9rem)] overflow-y-auto font-tajawal">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-amber-300 dark:border-amber-700 shadow-md">
+              <AlertTriangle size={36} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-xl font-black text-gray-900 dark:text-white mb-3 text-center">
+              تنبيه: لا يمكن تقديم الإجازة
+            </h3>
+            <p className="text-gray-700 dark:text-gray-200 mb-8 text-center text-sm md:text-base leading-relaxed font-medium bg-amber-50 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50">
+              الاجازة لا يمكن ارسالها بسبب ان المناوبة الواقعة في فترة الاجازة ستبقى بدون مناوب. يرجى تعيين المناوب البديل في جدول الدوام ثم قم بتقديم الاجازة مجددا
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRosterSubstituteModal(false)}
+              className="w-full px-6 py-3.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-black rounded-2xl transition-all shadow-lg shadow-amber-600/30 active:scale-[0.98] text-base"
+            >
+              «سأراجع لأصلح الخلل»
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Personal Archive Section (Collapsible) */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
           <button
@@ -1092,17 +1214,5 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
   );
 };
 
-// Helper icon component
-function CalendarCheck({ size = 24, className = "" }: { size?: number, className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-      <line x1="16" x2="16" y1="2" y2="6" />
-      <line x1="8" x2="8" y1="2" y2="6" />
-      <line x1="3" x2="21" y1="10" y2="10" />
-      <path d="m9 16 2 2 4-4" />
-    </svg>
-  );
-}
-
 export default LeaveRequestForm;
+

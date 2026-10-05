@@ -1,0 +1,1 @@
+docker exec -i supabase-db psql -U postgres -d postgres -tAc "SELECT p.work_schedule_id, ws.name, ws.weekend_days, COUNT(*) FROM profiles p LEFT JOIN work_schedules ws ON p.work_schedule_id = ws.id WHERE p.role='employee' AND p.status='active' AND p.is_archived=false GROUP BY p.work_schedule_id, ws.name, ws.weekend_days;"

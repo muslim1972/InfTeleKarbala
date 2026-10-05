@@ -135,6 +135,15 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                 }
             }
 
+            // تنظيف كل إشعارات النظام المرتبطة بهذا الطلب (توائم الطلب وتنبيهات
+            // البصمة) — كانت تبقى غير مقروءة وتُظهر الطلب مجدداً في الجرس
+            // (تقتصر على إشعاراتك عبر RLS؛ والخادم ينظف نسخ بقية المسؤولين)
+            supabase.from('system_notifications')
+                .update({ is_read: true })
+                .eq('is_read', false)
+                .filter('metadata->>request_id', 'eq', request.id)
+                .then();
+
             onProcessed();
             onClose();
 

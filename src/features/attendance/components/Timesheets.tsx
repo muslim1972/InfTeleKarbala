@@ -18,6 +18,7 @@ import {
   DAY_LEAVE_TYPES,
   type LeaveRequestLite
 } from '../services/leaveIntegrationService';
+import { getTimesheetDayStatus, getTimesheetSmartNotes } from '../utils/timesheetStatusHelper';
 
 // ─── جدولة آمنة لاستمرار التصدير في التبويبات الخلفية ───
 // requestAnimationFrame لا يُطلق إطلاقاً عند إخفاء التبويبة (تجمّد كامل للحلقة)،
@@ -214,7 +215,7 @@ export default function Timesheets() {
     // Label
     let label = 'صباحي';
     if (isRoster) {
-      if (!hasShifts) label = 'تعويضية';
+      if (!hasShifts) label = 'استراحة';
       else if (isMorning && isEvening && isNight) label = 'صباحي + مسائي + خفر (24س)';
       else if (isEvening && isNight) label = 'مسائي + خفر';
       else if (isMorning && isEvening) label = 'صباحي + مسائي';
@@ -290,7 +291,7 @@ export default function Timesheets() {
     if (isRoster) {
       const hasShifts = daySchedule?.is_morning || daySchedule?.is_evening || daySchedule?.is_night;
       if (hasShifts) return 'يوم عمل';
-      return 'تعويضية';
+      return 'استراحة';
     }
 
     // Standard Morning / Fixed schedule: governed by official holidays & weekends
@@ -310,21 +311,24 @@ export default function Timesheets() {
     return 'يوم عمل';
   }, [globalHolidays, globalSettings]);
 
-  const groupedData = useMemo(() => {
-    const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number, leaveCount: number }> = {};
-
-    // ─── تكامل الإجازات (تقارير): خريطة إجازات اليوم الكامل المعتمدة لكل موظف ───
-    const dayLeavesByEmp: Record<string, LeaveRequestLite[]> = {};
-    const timeLeavesByEmp: Record<string, LeaveRequestLite[]> = {};
+  // ─── تكامل الإجازات (تقارير): خريطة إجازات اليوم الكامل والزمنيات المعتمدة لكل موظف ───
+  const { dayLeavesByEmp, timeLeavesByEmp } = useMemo(() => {
+    const dayLeaves: Record<string, LeaveRequestLite[]> = {};
+    const timeLeaves: Record<string, LeaveRequestLite[]> = {};
     monthLeaves.forEach(l => {
       if (DAY_LEAVE_TYPES.includes(l.leave_type)) {
-        if (!dayLeavesByEmp[l.user_id]) dayLeavesByEmp[l.user_id] = [];
-        dayLeavesByEmp[l.user_id].push(l);
+        if (!dayLeaves[l.user_id]) dayLeaves[l.user_id] = [];
+        dayLeaves[l.user_id].push(l);
       } else if (l.leave_type === 'time_off') {
-        if (!timeLeavesByEmp[l.user_id]) timeLeavesByEmp[l.user_id] = [];
-        timeLeavesByEmp[l.user_id].push(l);
+        if (!timeLeaves[l.user_id]) timeLeaves[l.user_id] = [];
+        timeLeaves[l.user_id].push(l);
       }
     });
+    return { dayLeavesByEmp: dayLeaves, timeLeavesByEmp: timeLeaves };
+  }, [monthLeaves]);
+
+  const groupedData = useMemo(() => {
+    const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number, leaveCount: number }> = {};
 
     const relevantEmployees = allEmployees.filter(emp => {
       if (departmentId !== 'all' && emp.department_id !== departmentId) return false;
@@ -382,32 +386,33 @@ export default function Timesheets() {
            if (day <= daysInMonth) {
                const currentDateObj = new Date(year, month - 1, day);
                const shiftInfo = getShiftInfo(empScheduleId, currentDateObj.toISOString());
+               const dayType = getDayTypeStr(currentDateObj, shiftInfo.schedule);
+               const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
 
                if (recordsByDay[day] && recordsByDay[day].length > 0) {
                    const rec = recordsByDay[day][0];
                    newRecords.push(rec);
 
                    const netMins = computeWorkedMinutes(rec, undefined, shiftInfo.expectedOut);
-                   let defMins = computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
-                    const ovtMins = computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                   let defMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                   const ovtMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
 
-                    const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
-                    const timeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
-                    if (timeLeaves.length > 0) {
-                        const totalTimeOffMins = timeLeaves.reduce((sum, l) => sum + (l.time_duration_minutes || 0), 0);
-                        defMins = Math.max(0, defMins - totalTimeOffMins);
-                        const timeOffNote = `(إجازة زمنية: ${totalTimeOffMins} دقيقة)`;
-                        if (!rec.notes) rec.notes = timeOffNote;
-                        else if (!rec.notes.includes('إجازة زمنية')) rec.notes += ' | ' + timeOffNote;
-                    }
+                   const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
+                   const timeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+                   if (timeLeaves.length > 0) {
+                       const totalTimeOffMins = timeLeaves.reduce((sum, l) => sum + (l.time_duration_minutes || 0), 0);
+                       defMins = Math.max(0, defMins - totalTimeOffMins);
+                       const timeOffNote = `(إجازة زمنية: ${totalTimeOffMins} دقيقة)`;
+                       if (!rec.notes) rec.notes = timeOffNote;
+                       else if (!rec.notes.includes('إجازة زمنية')) rec.notes += ' | ' + timeOffNote;
+                   }
 
-                    group.totalWorkMins += netMins;
-                    group.totalDeficit += defMins;
-                    group.totalOvertime += ovtMins;
-                   if (rec.status === 'late') group.lateCount++;
+                   group.totalWorkMins += netMins;
+                   group.totalDeficit += defMins;
+                   group.totalOvertime += ovtMins;
+                   if (rec.status === 'late' && !isRestOrHoliday) group.lateCount++;
                } else {
                    const fakeDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
-                   const dayType = getDayTypeStr(currentDateObj, shiftInfo.schedule);
                    const isWorkingDay = dayType === 'يوم عمل';
 
                    // ─── تكامل الإجازات: هل اليوم مغطى بإجازة معتمدة (يوم كامل)؟ ───
@@ -423,7 +428,7 @@ export default function Timesheets() {
                    newRecords.push({
                        _isEmpty: true,
                        check_in: fakeDate,
-                       status: dayLeave ? 'leave' : (isWorkingDay ? 'absent' : (dayType === 'تعويضية' ? 'rest' : 'holiday')),
+                       status: dayLeave ? 'leave' : (isWorkingDay ? 'absent' : (dayType === 'استراحة' ? 'rest' : 'holiday')),
                        leaveLabel: dayLeave ? (LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة') : undefined
                    });
                }
@@ -437,7 +442,7 @@ export default function Timesheets() {
     });
 
     return result;
-  }, [records, getShiftInfo, getDayTypeStr, year, month, monthLeaves]);
+  }, [records, allEmployees, departmentId, employeeId, getShiftInfo, getDayTypeStr, year, month, dayLeavesByEmp, timeLeavesByEmp]);
 
   const exportToPDF = async () => {
     if (groupedData.length === 0) return toast.error('لا يوجد بيانات للتصدير');
@@ -530,7 +535,32 @@ export default function Timesheets() {
           
           if (rec._isEmpty) {
              const isLeaveDay = rec.status === 'leave';
-             const leaveLabel = rec.leaveLabel || 'إجازة';
+             const dateStrKey = format(dateObj, 'yyyy-MM-dd');
+             const dayLeaveItem = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+             const dayTimeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+
+             const statusResult = getTimesheetDayStatus({
+               rec,
+               dayType,
+               currentDateObj: dateObj,
+               shiftInfo,
+               deficitMins: 0,
+               dayLeave: isLeaveDay ? (dayLeaveItem || { leave_type: rec.leave_type || 'regular' }) : undefined,
+               timeLeaves: dayTimeLeaves
+             });
+
+             const smartNotes = getTimesheetSmartNotes({
+               rec,
+               dayType,
+               currentDateObj: dateObj,
+               shiftInfo,
+               netMins: 0,
+               deficitMins: 0,
+               overtimeMins: 0,
+               dayLeave: isLeaveDay ? (dayLeaveItem || { leave_type: rec.leave_type || 'regular' }) : undefined,
+               timeLeaves: dayTimeLeaves
+             });
+
              html += `<tr style="height: ${ROW_H};">`;
              html += renderCell(dateStr);
              html += renderCell(dayType);
@@ -545,14 +575,8 @@ export default function Timesheets() {
              html += renderCell('--', '', true);
              html += renderCell('--', '', true);
              html += renderCell('--', '', true);
-             html += renderCell(
-               isLeaveDay ? leaveLabel : dayType === 'تعويضية' ? 'راحة' : dayType.startsWith('عطلة') ? 'عطلة' : 'غائب',
-               isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''
-             );
-             html += renderCell(
-               isLeaveDay ? leaveLabel : dayType === 'تعويضية' ? 'تعويضية' : 'لا توجد بصمات',
-               isLeaveDay ? 'color: #ea580c; font-weight: bold;' : 'color: #999;'
-             );
+             html += renderCell(statusResult.text, statusResult.style);
+             html += renderCell(smartNotes, isLeaveDay ? 'color: #ea580c; font-weight: bold;' : 'color: #999;');
              html += `</tr>`;
              continue;
           }
@@ -574,9 +598,10 @@ export default function Timesheets() {
           const leaveOut2Str = rec.time_leave_out_2 ? format(parseISO(rec.time_leave_out_2), 'HH:mm') : '--:--';
           const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
           
+          const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-          const deficitMins = computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-          const overtimeMins = computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+          const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
           
           // Verification logic
           let verifyMethod = 'يدوي';
@@ -597,17 +622,35 @@ export default function Timesheets() {
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
           
-          const isForcedPunch = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
-          let displayNotes = sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
-          if (isForcedPunch) {
-            const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
-            const reason = match ? match[1].trim() : 'وضع طارئ';
-            displayNotes = `ثبتت بطلب الموظف: ${reason} (رُفعت للمسؤول)`;
-          }
+          const dateStrKey = format(dateObj, 'yyyy-MM-dd');
+          const dayLeaveItem = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+          const dayTimeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+
+          const statusResult = getTimesheetDayStatus({
+            rec,
+            dayType,
+            currentDateObj: dateObj,
+            shiftInfo,
+            deficitMins,
+            dayLeave: dayLeaveItem,
+            timeLeaves: dayTimeLeaves
+          });
+
+          const smartNotes = getTimesheetSmartNotes({
+            rec,
+            dayType,
+            currentDateObj: dateObj,
+            shiftInfo,
+            netMins,
+            deficitMins,
+            overtimeMins,
+            dayLeave: dayLeaveItem,
+            timeLeaves: dayTimeLeaves
+          });
 
           const notesStyle = (isVirtualIn || isVirtualOut) 
             ? 'font-size: 7.5px; color: #e11d48; font-weight: bold;' 
-            : isForcedPunch 
+            : smartNotes.includes('⚠️') 
             ? 'font-size: 7.5px; color: #ea580c; font-weight: bold;' 
             : 'font-size: 7.5px;';
 
@@ -627,8 +670,8 @@ export default function Timesheets() {
               ${renderCell(formatDurationDot(netMins), isLeaveOvertimeDay ? leaveOvertimeColor : '', true)}
               ${renderCell(deficitMins > 0 ? formatDurationDot(deficitMins) : '--', deficitColor, true)}
               ${renderCell(overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--', isLeaveOvertimeDay ? leaveOvertimeColor : overtimeColor, true)}
-              ${renderCell(rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status)}
-              ${renderCell(displayNotes || '', notesStyle)}
+              ${renderCell(statusResult.text, statusResult.style)}
+              ${renderCell(smartNotes, notesStyle)}
             </tr>
           `;
         }
@@ -916,11 +959,33 @@ export default function Timesheets() {
         const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
 
         if (rec._isEmpty) {
-            const isRest = dayType === 'تعويضية';
-            const isHoliday = dayType.startsWith('عطلة');
             const isWorking = dayType === 'يوم عمل';
             const isLeaveDay = rec.status === 'leave';
-            const leaveLabel = rec.leaveLabel || 'إجازة';
+            const dateStrKey = format(dateObj, 'yyyy-MM-dd');
+            const dayLeaveItem = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+            const dayTimeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+
+            const statusResult = getTimesheetDayStatus({
+              rec,
+              dayType,
+              currentDateObj: dateObj,
+              shiftInfo,
+              deficitMins: 0,
+              dayLeave: isLeaveDay ? (dayLeaveItem || { leave_type: rec.leave_type || 'regular' }) : undefined,
+              timeLeaves: dayTimeLeaves
+            });
+
+            const smartNotes = getTimesheetSmartNotes({
+              rec,
+              dayType,
+              currentDateObj: dateObj,
+              shiftInfo,
+              netMins: 0,
+              deficitMins: 0,
+              overtimeMins: 0,
+              dayLeave: isLeaveDay ? (dayLeaveItem || { leave_type: rec.leave_type || 'regular' }) : undefined,
+              timeLeaves: dayTimeLeaves
+            });
 
             html += `<tr style="border-bottom: 1px solid #e5e7eb; background-color: ${isWorking && !isLeaveDay ? '#fef2f2' : '#f8fafc'};">`;
             html += `<td style="${tdStyle} white-space: nowrap;">${dateStr}</td>`;
@@ -936,8 +1001,8 @@ export default function Timesheets() {
             html += `<td style="${tdNumStyle}">--</td>`;
             html += `<td style="${tdNumStyle}">--</td>`;
             html += `<td style="${tdNumStyle}">--</td>`;
-            html += `<td style="${tdStyle} ${isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">${isLeaveDay ? leaveLabel : isRest ? 'راحة' : isHoliday ? 'عطلة' : 'غائب'}</td>`;
-            html += `<td style="${tdStyle} font-size: 8px; ${isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">${isLeaveDay ? leaveLabel : isRest ? 'تعويضية' : 'لا توجد بصمات'}</td>`;
+            html += `<td style="${tdStyle} ${statusResult.style}">${statusResult.text}</td>`;
+            html += `<td style="${tdStyle} font-size: 8px; ${isLeaveDay ? 'color: #ea580c; font-weight: bold;' : ''}">${smartNotes}</td>`;
             html += `</tr>`;
             continue;
         }
@@ -960,9 +1025,10 @@ export default function Timesheets() {
         const leaveOut2Str = rec.time_leave_out_2 ? format(parseISO(rec.time_leave_out_2), 'HH:mm') : '--:--';
         const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
         
+        const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
         const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-        const deficitMins = computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-        const overtimeMins = computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+        const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+        const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
         
         let verifyMethod = 'يدوي';
         if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
@@ -974,6 +1040,32 @@ export default function Timesheets() {
         const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
         const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
         
+        const dateStrKey = format(dateObj, 'yyyy-MM-dd');
+        const dayLeaveItem = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+        const dayTimeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+
+        const statusResult = getTimesheetDayStatus({
+          rec,
+          dayType,
+          currentDateObj: dateObj,
+          shiftInfo,
+          deficitMins,
+          dayLeave: dayLeaveItem,
+          timeLeaves: dayTimeLeaves
+        });
+
+        const smartNotes = getTimesheetSmartNotes({
+          rec,
+          dayType,
+          currentDateObj: dateObj,
+          shiftInfo,
+          netMins,
+          deficitMins,
+          overtimeMins,
+          dayLeave: dayLeaveItem,
+          timeLeaves: dayTimeLeaves
+        });
+
         html += `
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="${tdStyle} white-space: nowrap;">${dateStr}</td>
@@ -989,19 +1081,8 @@ export default function Timesheets() {
             <td style="${tdNumStyle}">${formatDurationDot(netMins)}</td>
             <td style="${tdNumStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
             <td style="${tdNumStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
-            <td style="${tdStyle}">${rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status === 'absent' ? 'غائب' : rec.status}</td>
-            <td style="${tdStyle} font-size: 8px; ${(() => {
-              const isForced = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
-              return isForced ? 'color: #ea580c; font-weight: bold;' : '';
-            })()}">${(() => {
-              const isForced = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
-              if (isForced) {
-                const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
-                const reason = match ? match[1].trim() : 'وضع طارئ';
-                return `ثبتت بطلب الموظف: ${reason} (رُفعت للمسؤول)`;
-              }
-              return sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
-            })()}</td>
+            <td style="${tdStyle} ${statusResult.style}">${statusResult.text}</td>
+            <td style="${tdStyle} font-size: 8px;">${smartNotes}</td>
           </tr>
         `;
       }
@@ -1245,7 +1326,7 @@ export default function Timesheets() {
                                   <tr key={`empty-${i}`} className="border-b border-slate-100 dark:border-slate-800">
                                       <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
                                       <td className="px-3 py-3 text-sm">
-                                        <span className={dayType === 'تعويضية' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType.startsWith('عطلة') ? 'text-amber-600 font-bold text-xs' : 'text-slate-500'}>
+                                        <span className={dayType === 'استراحة' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType.startsWith('عطلة') ? 'text-amber-600 font-bold text-xs' : 'text-slate-500'}>
                                           {dayType}
                                         </span>
                                       </td>
@@ -1254,7 +1335,7 @@ export default function Timesheets() {
                                         <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-xs">{shiftInfo.label}</span>
                                       </td>
                                       <td colSpan={12} className={`px-3 py-3 text-sm text-center ${isLeaveDay ? 'text-orange-600 font-bold' : 'text-slate-400'}`}>
-                                        {isLeaveDay ? `${leaveLabel} (يوم إجازة معتمدة)` : dayType === 'تعويضية' ? 'يوم استراحة تعويضية' : 'لا توجد بصمات'}
+                                        {isLeaveDay ? `${leaveLabel} (يوم إجازة معتمدة)` : dayType === 'استراحة' ? 'يوم استراحة' : 'لا توجد بصمات'}
                                       </td>
                                   </tr>
                               );
@@ -1276,9 +1357,10 @@ export default function Timesheets() {
                           const leaveOut2Str = rec.time_leave_out_2 ? format(parseISO(rec.time_leave_out_2), 'HH:mm') : '--:--';
                           const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
                           
+                          const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
                           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-                          const deficitMins = computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-                          const overtimeMins = computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+                          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+                          const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
                           
                           let verifyMethod = 'يدوي';
                           if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
@@ -1298,35 +1380,52 @@ export default function Timesheets() {
 
                           // ─── لقطات اليوم كاملة ───
                           const daySnaps = extractPunchSnapshots(rec);
-                          // مقعد الخروج حصري للبصمات بعد الدخول: تُستثنى صورة الدخول
-                          // نفسها (حصرية للمقعد الأول) فلا تتكرر في المعرض أو العدّاد.
-                          // إن غابت صورة الدخول (فشل رفع سابق) تبقى كل اللقطات للخروج.
                           const checkInUrl = rec.check_in_snapshot_url || '';
                           const restSnaps = checkInUrl
                             ? daySnaps.filter((s) => s.url !== checkInUrl)
                             : daySnaps;
-                          // مقعد الخروج = آخر لقطة بعد الدخول دائماً (أي بصمة أخيرة):
-                          // check_out_snapshot_url يُملأ فقط عند اكتمال 2/4/6 بصمات، لذا
-                          // نعتمد آخر لقطة من raw_punches (سجلات قديمة كاحتياط).
-                          // بلقطة دخول فقط يبقى المقعد الثاني فارغاً — لا تكرار لصورة الدخول.
                           const lastSnapUrl = restSnaps.length
                             ? restSnaps[restSnaps.length - 1].url
                             : rec.check_out_snapshot_url;
-                          // النقر يفتح القائمة المطوية عند توفر أكثر من لقطة بعد الدخول
                           const openCheckoutSeat = () => {
                             if (restSnaps.length > 1) {
                               setPunchGallery({ items: restSnaps, title: `${group.employee.full_name} — ${dateStr}` });
                             } else if (lastSnapUrl) {
-                              // سجل قديم بلا raw_punches: تكبير مباشر كما كان
                               setSelectedImage(lastSnapUrl);
                             }
                           };
+
+                          const dateStrKey = format(dateObj, 'yyyy-MM-dd');
+                          const dayLeaveItem = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+                          const dayTimeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+
+                          const statusResult = getTimesheetDayStatus({
+                            rec,
+                            dayType,
+                            currentDateObj: dateObj,
+                            shiftInfo,
+                            deficitMins,
+                            dayLeave: dayLeaveItem,
+                            timeLeaves: dayTimeLeaves
+                          });
+
+                          const smartNotes = getTimesheetSmartNotes({
+                            rec,
+                            dayType,
+                            currentDateObj: dateObj,
+                            shiftInfo,
+                            netMins,
+                            deficitMins,
+                            overtimeMins,
+                            dayLeave: dayLeaveItem,
+                            timeLeaves: dayTimeLeaves
+                          });
 
                           return (
                             <tr key={rec.id || i} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">
-                                <span className={dayType === 'عطلة' ? 'text-amber-600 font-bold' : ''}>{dayType}</span>
+                                <span className={dayType === 'استراحة' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType === 'عطلة' ? 'text-amber-600 font-bold' : ''}>{dayType}</span>
                               </td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">{verifyMethod}</td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">
@@ -1368,40 +1467,35 @@ export default function Timesheets() {
                               <td className="px-3 py-3 font-bold text-rose-600">{deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
                               <td className={`px-3 py-3 font-bold ${isLeaveOvertimeDay ? 'text-orange-600' : 'text-emerald-600'}`}>{overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
                               <td className="px-3 py-3">
-                                <span className={`px-2 py-1 rounded text-xs ${
-                                  rec.is_device_pending ? 'bg-red-100 text-red-800 border border-red-200' :
-                                  rec.status === 'present' ? 'bg-emerald-100 text-emerald-800' :
-                                  rec.status === 'late' ? 'bg-rose-100 text-rose-800' :
-                                  'bg-slate-100 text-slate-800'
-                                }`}>
-                                  {rec.is_device_pending ? 'معلق (جهاز جديد)' : rec.status === 'present' ? 'حاضر' : rec.status === 'late' ? 'متأخر' : rec.status}
+                                <span className={`px-2.5 py-1 rounded-full text-[11px] whitespace-nowrap inline-block ${statusResult.badgeClass}`}>
+                                  {statusResult.text}
                                 </span>
                               </td>
-                              <td className="px-3 py-3 text-xs text-slate-500">
-                                {rec.is_device_pending ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">⚠️ جهاز غير معتمد</span> : null}
-                                {rec.notes?.includes('دخول اولي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 دخول اولي افتراضي</span> : null}
-                                {rec.notes?.includes('خروج نهائي افتراضي') ? <span className="text-red-600 dark:text-red-400 font-bold block mb-1">🚨 خروج نهائي افتراضي</span> : null}
-                                {(() => {
-                                  const isForcedPunch = rec.notes?.includes('تثبيت بطلب الموظف') || rec.notes?.includes('تجاهل إجازة زمنية') || rec.notes?.includes('طلب الموظف');
-                                  let forcedBadge = null;
-                                  if (isForcedPunch) {
-                                    const match = rec.notes?.match(/تثبيت بطلب الموظف:\s*([^)]+)/);
-                                    const reason = match ? match[1].trim() : 'وضع طارئ';
-                                    forcedBadge = (
-                                      <span className="text-orange-600 dark:text-orange-400 font-bold block mb-1 bg-orange-50 dark:bg-orange-950/40 px-2 py-1 rounded-lg border border-orange-200 dark:border-orange-800/40">
-                                        ⚠️ ثبتت بطلب الموظف: {reason} (رُفعت للمسؤول)
+                              <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-300 max-w-[280px]">
+                                {smartNotes !== '--' ? (
+                                  <div className="flex flex-col gap-1 text-[11px] leading-relaxed">
+                                    {smartNotes.split(' | ').map((notePart, nIdx) => (
+                                      <span 
+                                        key={nIdx} 
+                                        className={`inline-block px-1.5 py-0.5 rounded ${
+                                          notePart.includes('⚠️') || notePart.includes('نقص')
+                                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-900/40'
+                                            : notePart.includes('🚨')
+                                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-900/40'
+                                            : notePart.includes('إجازة زمنية')
+                                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-medium border border-blue-100 dark:border-blue-900/30'
+                                            : notePart.includes('استراحة')
+                                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium'
+                                            : 'text-slate-600 dark:text-slate-300'
+                                        }`}
+                                      >
+                                        {notePart}
                                       </span>
-                                    );
-                                  }
-                                  const clean = sanitizeNotesForDisplay(rec.notes, rec.is_device_pending);
-                                  const otherNotes = clean ? clean.replace(/\(?تثبيت بطلب الموظف:[^)]*\)?/g, '').replace(/\(?تجاهل إجازة زمنية\)?/g, '').trim() : '';
-                                  return (
-                                    <>
-                                      {forcedBadge}
-                                      {otherNotes ? <span>{otherNotes}</span> : !forcedBadge ? (clean || '--') : null}
-                                    </>
-                                  );
-                                })()}
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">--</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1471,3 +1565,4 @@ export default function Timesheets() {
     </div>
   );
 }
+

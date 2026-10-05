@@ -7,8 +7,9 @@ import {
   BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
   Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
   Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone,
-  RefreshCw, Clock, Laptop, ShieldAlert
+  RefreshCw, Clock, Laptop, ShieldAlert, AlertCircle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { useGovernorate } from '../../../context/GovernorateContext';
@@ -21,14 +22,17 @@ import HolidaysTab from './HolidaysTab';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
+import { fetchDailyAttendanceStats, baghdadDateStr, arabicDayNameForDate, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
 
 type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
   const { activeGovernorate } = useGovernorate();
+  const [reportDutyInfo, setReportDutyInfo] = useState<DailyAttendanceStats | null>(null);
   const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
   const isAttendanceAdmin = isHighAdmin || user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.has_attendance_access === true || user?.username === 'attend';
+  const canManageDevices = user?.admin_role === 'general' || user?.admin_role === 'biometric';
   
   const [activeTab, setActiveTab] = useState<Tab>(isAttendanceAdmin ? 'liveBoard' : 'locations');
   const [locations, setLocations] = useState<WorkLocation[]>([]);
@@ -51,6 +55,13 @@ export default function AttendanceAdminSettings() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
   const [rosterEmployee, setRosterEmployee] = useState<any | null>(null);
   const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
+
+  // Live Clock State
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSelectGlobalEmployee = async (emp: any) => {
     try {
@@ -322,6 +333,10 @@ export default function AttendanceAdminSettings() {
   };
 
   const handleRevokeDevice = async (req: any) => {
+    if (!canManageDevices) {
+      toast.error('صلاحية إلغاء توثيق الأجهزة مقتصرة على المشرف العام ومشرف البصمة فقط');
+      return;
+    }
     const empName = req.profiles?.full_name || 'الموظف';
     if (!window.confirm(`هل أنت متأكد من إلغاء توثيق هذا الجهاز للموظف (${empName})؟ سيتطلب منه ذلك طلب اعتماد جهازه مجدداً عند تسجيل البصمة القادمة.`)) {
       return;
@@ -385,7 +400,7 @@ export default function AttendanceAdminSettings() {
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (user?.admin_role !== 'developer' && user?.governorate) {
+      if (user?.governorate) {
         query = query.eq('profiles.governorate', user.governorate);
       }
       
@@ -400,45 +415,24 @@ export default function AttendanceAdminSettings() {
   };
 
   const handleApproveDevice = async (req: any) => {
+    if (!canManageDevices) {
+      toast.error('صلاحية اعتماد الأجهزة مقتصرة على المشرف العام ومشرف البصمة فقط');
+      return;
+    }
     try {
-      const { error: pErr } = await supabase
-        .from('profiles')
-        .update({ primary_device_id: req.new_device_id })
-        .eq('id', req.employee_id);
-      if (pErr) throw pErr;
-      
-      const { data: empRecs } = await supabase
-        .from('attendance_records')
-        .select('id, notes, is_device_pending')
-        .eq('employee_id', req.employee_id);
-
-      if (empRecs && empRecs.length > 0) {
-        for (const r of empRecs) {
-          if (r.is_device_pending || (r.notes && r.notes.includes('جهاز غير معتمد'))) {
-            let cleanNote = r.notes || '';
-            cleanNote = cleanNote
-              .replace(/\(?دخول:\s*جهاز غير معتمد\)?/gi, '')
-              .replace(/\(?خروج:\s*جهاز غير معتمد\)?/gi, '')
-              .replace(/\(?تم التسجيل من جهاز غير معتمد\)?/gi, '')
-              .replace(/\s*-\s*/g, ' ')
-              .trim();
-
-            await supabase.from('attendance_records')
-              .update({ is_device_pending: false, notes: cleanNote || null })
-              .eq('id', r.id);
-          }
-        }
-      }
-        
-      await supabase.from('device_change_requests').update({ status: 'approved' }).eq('id', req.id);
-      
-      // Notify the employee
-      await supabase.from('system_notifications').insert({
-        recipient_id: req.employee_id,
-        type: 'system',
-        title: 'تم اعتماد جهازك الجديد',
-        content: 'تمت الموافقة على جهازك الجديد لتسجيل البصمة واعتماده بنجاح.',
+      const { data, error } = await supabase.rpc('settle_device_change_request', {
+        p_request_id: req.id,
+        p_action: 'approve',
+        p_admin_id: user?.id
       });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        toast.error(data.message || 'تعذر اعتماد الجهاز');
+        loadDeviceRequests();
+        loadDeviceLogs();
+        return;
+      }
       
       toast.success('تم اعتماد الجهاز بنجاح');
       loadDeviceRequests();
@@ -449,21 +443,24 @@ export default function AttendanceAdminSettings() {
   };
 
   const handleRejectDevice = async (req: any) => {
+    if (!canManageDevices) {
+      toast.error('صلاحية رفض الأجهزة مقتصرة على المشرف العام ومشرف البصمة فقط');
+      return;
+    }
     try {
-      await supabase.from('attendance_records')
-        .delete()
-        .eq('employee_id', req.employee_id)
-        .eq('is_device_pending', true);
-        
-      await supabase.from('device_change_requests').update({ status: 'rejected' }).eq('id', req.id);
-      
-      // Notify the employee
-      await supabase.from('system_notifications').insert({
-        recipient_id: req.employee_id,
-        type: 'system',
-        title: 'تم رفض جهازك الجديد',
-        content: 'تم رفض طلبك لاعتماد الجهاز الجديد لتسجيل البصمة. يرجى مراجعة الإدارة.',
+      const { data, error } = await supabase.rpc('settle_device_change_request', {
+        p_request_id: req.id,
+        p_action: 'reject',
+        p_admin_id: user?.id
       });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        toast.error(data.message || 'تعذر رفض الجهاز');
+        loadDeviceRequests();
+        loadDeviceLogs();
+        return;
+      }
       
       toast.success('تم رفض الجهاز وحذف البصمة المعلقة');
       loadDeviceRequests();
@@ -474,6 +471,10 @@ export default function AttendanceAdminSettings() {
   };
 
   const handleReviewDevice = async (req: any) => {
+    if (!canManageDevices) {
+      toast.error('صلاحية مراجعة الأجهزة مقتصرة على المشرف العام ومشرف البصمة فقط');
+      return;
+    }
     try {
       // Notify the employee
       await supabase.from('system_notifications').insert({
@@ -495,6 +496,28 @@ export default function AttendanceAdminSettings() {
     } else if (activeTab === 'deviceRequests') {
       loadDeviceRequests();
     }
+  }, [activeTab]);
+
+  // Realtime subscription for device requests so actions reflect immediately across all supervisors
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime_device_requests_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'device_change_requests' },
+        () => {
+          if (activeTab === 'deviceRequests') {
+            loadDeviceRequests();
+          } else if (activeTab === 'deviceLogs') {
+            loadDeviceLogs();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activeTab]);
 
   // Load Reports
@@ -533,7 +556,13 @@ export default function AttendanceAdminSettings() {
           .lte('created_at', `${reportToDate}T23:59:59`);
       }
 
-      const { data, error } = await query;
+      const [{ data, error }, { count }] = await Promise.all([
+        query,
+        (activeGovernorate && activeGovernorate !== 'all' ? supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'user').eq('governorate', activeGovernorate) : supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'user'))
+          
+          
+      ]);
+
       if (error) throw error;
 
       const formatted = (data || []).map((r: any) => {
@@ -562,7 +591,15 @@ export default function AttendanceAdminSettings() {
       // Calc stats
       const total = formatted.length;
       const present = formatted.filter(r => r.status === 'present').length;
-      const absent = formatted.filter(r => r.status === 'absent').length;
+      const explicitAbsent = formatted.filter(r => r.status === 'absent').length;
+      let absent = Math.max(0, (count || 0) - present);
+      if (reportType === 'daily') {
+        try {
+          const stats = await fetchDailyAttendanceStats(reportDate, activeGovernorate);
+          absent = stats.absentCount;
+          setReportDutyInfo(stats);
+        } catch (e) { console.error('Error fetching true absent count:', e); }
+      }
       const late = formatted.filter(r => r.status === 'late').length;
       const earlyLeave = formatted.filter(r => r.status === 'early_leave').length;
 
@@ -676,6 +713,8 @@ export default function AttendanceAdminSettings() {
     }
   };
 
+  const [errorModal, setErrorModal] = useState<{ show: boolean, title: string, message: string }>({ show: false, title: '', message: '' });
+
   // Assign Employee
   const handleAssignEmployee = async (employeeId: string) => {
     if (!selectedLocId) return;
@@ -686,7 +725,19 @@ export default function AttendanceAdminSettings() {
       setSearchResults([]);
       loadAssignments(selectedLocId);
     } catch (err: any) {
-      toast.error('فشل ربط الموظف: ' + err.message);
+      const msg = err.message || 'خطأ غير معروف';
+      
+      // Log to database
+      import('../../../lib/errorLogger').then(({ logSystemError }) => {
+         logSystemError(`فشل ربط الموظف بموقع العمل (${employeeId} -> ${selectedLocId})`, err.stack || err.toString(), { error: err });
+      });
+
+      // Show prominent modal
+      setErrorModal({
+         show: true,
+         title: 'فشل ربط الموظف',
+         message: msg
+      });
     }
   };
 
@@ -780,6 +831,38 @@ export default function AttendanceAdminSettings() {
             <p className="text-slate-500 dark:text-slate-400 mt-1">
               إدارة مواقع سياج العمل، صلاحيات البصمة والتقارير الدورية للمديرية.
             </p>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <Clock className="w-6 h-6 text-blue-500" />
+            <div className="flex flex-col">
+              <span className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-none mb-1">الوقت الحالي</span>
+              <span className="text-xl font-bold font-mono text-slate-800 dark:text-white leading-none">
+                {new Intl.DateTimeFormat('en-GB', {
+                  timeZone: 'Asia/Baghdad',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                }).format(currentTime || new Date())}
+              </span>
+            </div>
+            {(() => {
+              const nowBgd = currentTime || new Date();
+              const dateStr = baghdadDateStr(nowBgd);
+              const dayName = arabicDayNameForDate(dateStr);
+              return (
+                <>
+                  <div className="h-10 w-px bg-slate-200 dark:bg-slate-700" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-base font-bold text-blue-600 dark:text-blue-400 leading-none mb-1">{dayName}</span>
+                    <span className="text-sm font-mono font-semibold text-slate-600 dark:text-slate-300 leading-none" dir="ltr">
+                      {dateStr}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -1255,7 +1338,7 @@ export default function AttendanceAdminSettings() {
                   <MapPin className="w-5 h-5 text-blue-500" />
                   اختر موقع العمل
                 </h2>
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2 max-h-[385px] overflow-y-auto custom-scrollbar">
                   {locations.filter(l => l.is_active).map((loc) => (
                     <button
                       key={loc.id}
@@ -1550,6 +1633,61 @@ export default function AttendanceAdminSettings() {
                 </div>
               </div>
             </div>
+
+                        {/* Smart Day Status Banner in Reports */}
+            {reportDutyInfo && (
+              <div
+                className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm no-print ${
+                  reportDutyInfo.isHolidayOrWeekend
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                    : 'bg-blue-500/10 border-blue-500/30 text-blue-900 dark:text-blue-200'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2.5 rounded-xl ${reportDutyInfo.isHolidayOrWeekend ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base">{reportDutyInfo.dayTypeLabel}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                        {reportDutyInfo.isHolidayOrWeekend ? 'مقتصر على كوادر المناوبة' : 'دوام كامل لجميع الأقسام'}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-1 opacity-90 leading-relaxed">
+                      {reportDutyInfo.isHolidayOrWeekend ? (
+                        <>
+                          الموظفون الصباحيون في عطلة رسمية. المكلفون بالدوام في هذا اليوم ({reportDutyInfo.totalScheduled}):{' '}
+                          {reportDutyInfo.scheduledEmployees.length > 0 ? (
+                            <span className="font-bold">
+                              {reportDutyInfo.scheduledEmployees.map((e, idx) => (
+                                <span key={e.id}>
+                                  {e.fullName} <span className="text-[11px] opacity-75 font-normal">({e.shiftLabel})</span>
+                                  {idx < reportDutyInfo.scheduledEmployees.length - 1 ? '، ' : ''}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            'لا توجد نوبات مناوبة مخصصة لهذا اليوم'
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          المشمولون بالدوام في هذا اليوم: <span className="font-bold">{reportDutyInfo.totalScheduled} موظفاً</span> (باستثناء المناوبين في يوم استراحتهم).
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                  <span className="text-xs font-medium">المكلفون بالدوام:</span>
+                  <span className="text-sm font-black px-3 py-1 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-200/60 dark:border-slate-700">
+                    {reportDutyInfo.totalScheduled}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Statistics Cards - ALWAYS VISIBLE */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 print-area">
@@ -1884,23 +2022,31 @@ export default function AttendanceAdminSettings() {
                             {/* Action Buttons */}
                             <td className="px-4 py-3.5 text-center">
                               {log.status === 'approved' ? (
-                                <button
-                                  onClick={() => handleRevokeDevice(log)}
-                                  className="px-3 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors inline-flex items-center gap-1"
-                                  title="إلغاء توثيق هذا الجهاز وإعادة تعيينه"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                  إلغاء التوثيق
-                                </button>
+                                canManageDevices ? (
+                                  <button
+                                    onClick={() => handleRevokeDevice(log)}
+                                    className="px-3 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors inline-flex items-center gap-1"
+                                    title="إلغاء توثيق هذا الجهاز وإعادة تعيينه"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    إلغاء التوثيق
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">معتمد</span>
+                                )
                               ) : log.status === 'pending' ? (
-                                <button
-                                  onClick={() => setActiveTab('deviceRequests')}
-                                  className="px-3 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg transition-colors inline-flex items-center gap-1"
-                                  title="الانتقال إلى تبويبة طلبات تغيير الأجهزة لاتخاذ الإجراء"
-                                >
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                  مراجعة الطلب
-                                </button>
+                                canManageDevices ? (
+                                  <button
+                                    onClick={() => setActiveTab('deviceRequests')}
+                                    className="px-3 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg transition-colors inline-flex items-center gap-1"
+                                    title="الانتقال إلى تبويبة طلبات تغيير الأجهزة لاتخاذ الإجراء"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    مراجعة الطلب
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">قيد المراجعة</span>
+                                )
                               ) : (
                                 <span className="text-xs text-slate-400">لا يوجد إجراء</span>
                               )}
@@ -1993,38 +2139,42 @@ export default function AttendanceAdminSettings() {
                           })}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => {
-                                if (window.confirm('هل أنت متأكد من اعتماد هذا الجهاز؟ ستتحول بصمات الموظف المعلقة إلى معتمدة.')) {
-                                  handleApproveDevice(req);
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
-                            >
-                              موافقة
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm('هل تريد إرسال إشعار للموظف لمراجعة الإدارة (مع إبقاء الطلب معلقاً)؟')) {
-                                  handleReviewDevice(req);
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
-                            >
-                              مراجعة الإدارة
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm('هل أنت متأكد من الرفض؟ سيتم حذف بصمات الموظف المعلقة لهذا اليوم.')) {
-                                  handleRejectDevice(req);
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-lg text-xs font-bold transition-colors"
-                            >
-                              رفض
-                            </button>
-                          </div>
+                          {canManageDevices ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('هل أنت متأكد من اعتماد هذا الجهاز؟ ستتحول بصمات الموظف المعلقة إلى معتمدة.')) {
+                                    handleApproveDevice(req);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                موافقة
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('هل تريد إرسال إشعار للموظف لمراجعة الإدارة (مع إبقاء الطلب معلقاً)؟')) {
+                                    handleReviewDevice(req);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
+                              >
+                                مراجعة الإدارة
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('هل أنت متأكد من الرفض؟ سيتم حذف بصمات الموظف المعلقة لهذا اليوم.')) {
+                                    handleRejectDevice(req);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                رفض
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-medium">للمشرف العام ومشرف البصمة فقط</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -2124,6 +2274,43 @@ export default function AttendanceAdminSettings() {
         </div>
       )}
 
+      <AnimatePresence>
+        {errorModal.show && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700"
+            >
+              <div className="p-6">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-xl font-bold text-center text-slate-800 dark:text-white mb-2">{errorModal.title}</h2>
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 p-4 rounded-xl text-sm mb-6 max-h-40 overflow-y-auto whitespace-pre-wrap">
+                  {errorModal.message}
+                </div>
+                
+                <button
+                  onClick={() => setErrorModal({ show: false, title: '', message: '' })}
+                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white py-3 rounded-xl font-bold transition-colors"
+                >
+                  حسناً، فهمت
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
+
+
+
+
+
+
+

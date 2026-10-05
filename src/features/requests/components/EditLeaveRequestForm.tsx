@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { FileText, AlertCircle, Scissors } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { DateInput } from '../../../components/ui/DateInput';
@@ -111,13 +111,6 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
 
             // إعادة توجيه طلب الإلغاء للمدير الأول في السلسلة وإشعار HR
             if (type === 'canceled') {
-                if (request.approval_chain && request.approval_chain.length > 0) {
-                    await supabase.from('leave_requests').update({
-                        current_approval_step: 1,
-                        supervisor_id: request.approval_chain[0]
-                    }).eq('id', request.id);
-                }
-                
                 // إشعار قسم الـ HR بطلب الإلغاء
                 try {
                     const { data: admins } = await supabase
@@ -145,7 +138,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
                 throw new Error(response?.message || 'فشلت عملية التعديل');
             }
 
-            onSuccess();
+            alert('تم إرسال الطلب بنجاح'); onSuccess();
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'حدث خطأ أثناء التعديل');
@@ -304,3 +297,5 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
 };
 
 export default EditLeaveRequestForm;
+
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { 
   Calendar, Clock, Sun, Sunset, Moon, ShieldCheck, 
@@ -74,7 +74,7 @@ export default function EmployeeRosterModal({
   // 7 days matrix (Sunday=0 to Saturday=6)
   const defaultDays = Array.from({ length: 7 }).map((_, i) => ({
     day_of_week: i,
-    is_rest_day: true, // Default to تعويضية
+    is_rest_day: true, // Default to استراحة
     is_morning: false,
     is_evening: false,
     is_night: false,
@@ -172,7 +172,7 @@ export default function EmployeeRosterModal({
     current.is_rest_day = isRest;
 
     if (isRest) {
-      // Turn off all shifts when marked as تعويضية
+      // Turn off all shifts when marked as استراحة
       current.is_morning = false;
       current.is_evening = false;
       current.is_night = false;
@@ -240,7 +240,7 @@ export default function EmployeeRosterModal({
   };
 
   const getShiftDescription = (d: any) => {
-    if (d.is_rest_day) return 'تعويضية (استراحة)';
+    if (d.is_rest_day) return 'استراحة';
     if (d.is_morning && d.is_evening && d.is_night) return 'نوبة كاملة 24 ساعة (08:00 إلى 08:00 ص)';
     if (d.is_morning && d.is_evening) return 'صباحي + مسائي (08:00 إلى 20:00)';
     if (d.is_evening && d.is_night) return 'مسائي + خفر (14:30 إلى 08:00 ص)';
@@ -248,7 +248,7 @@ export default function EmployeeRosterModal({
     if (d.is_morning) return 'صباحي (08:00 إلى 15:00)';
     if (d.is_evening) return 'مسائي (14:30 إلى 20:00)';
     if (d.is_night) return 'خفر (20:00 إلى 08:00 ص)';
-    return 'تعويضية';
+    return 'استراحة';
   };
 
   const handleApplyPresetWeeks = (weeks: number) => {
@@ -621,7 +621,7 @@ export default function EmployeeRosterModal({
                 <span>جدول شفتات أيام الأسبوع (يقبل أي مزيج للشفتات بما فيها الـ 24 ساعة):</span>
               </h4>
               <span className="text-[11px] text-slate-500">
-                أي يوم غير مؤشر فيه شفت يُعتبر <strong>استراحة تعويضية</strong>
+                أي يوم غير مؤشر فيه شفت يُعتبر <strong>استراحة</strong>
               </span>
             </div>
 
@@ -659,7 +659,7 @@ export default function EmployeeRosterModal({
                               className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300 cursor-pointer"
                             />
                             <span className={`text-[11px] font-bold ${isRest ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>
-                              تعويضية
+                              استراحة
                             </span>
                           </label>
 
@@ -674,7 +674,7 @@ export default function EmployeeRosterModal({
                         <div className="flex flex-wrap items-center gap-2 flex-1 md:justify-end">
                           {isRest ? (
                             <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/30 px-3 py-1 rounded-xl">
-                              تعويضية (راحة تامة بدون دوام)
+                              استراحة (راحة تامة بدون دوام)
                             </div>
                           ) : (
                             <>
@@ -775,3 +775,5 @@ export default function EmployeeRosterModal({
     </div>
   );
 }
+
+
