@@ -126,6 +126,14 @@ export function getTimesheetDayStatus(params: {
   }
 
   // ج) لديه دخول وخروج مكتملين
+  // بصمة خروج افتراضية حمراء (وُضعت آلياً بنهاية الدوام لأن عدد البصمات فردي ولم يثبت خروج نهائي)
+  if (rec.check_out_is_virtual) {
+    return {
+      text: 'بصمة خروج افتراضية',
+      badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-400 font-bold',
+      style: 'color: #e11d48; font-weight: bold;'
+    };
+  }
   if (rec.notes?.includes('خروج نهائي افتراضي')) {
     return {
       text: 'خروج افتراضي',
@@ -262,6 +270,9 @@ export function getTimesheetSmartNotes(params: {
   }
 
   // 6. بصمات افتراضية محقونة
+  if (rec.check_out_is_virtual) {
+    notes.push(`🔴 بصمة خروج افتراضية حمراء: ${rec.check_out_virtual_reason || 'لم يثبت الموظف بصمة الخروج ووُضعت بصمة بنهاية الدوام آلياً'}`);
+  }
   if (rec.notes?.includes('خروج نهائي افتراضي')) {
     notes.push('🚨 خروج نهائي افتراضي من النظام');
   }

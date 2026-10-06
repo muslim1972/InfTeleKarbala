@@ -30,6 +30,9 @@ export interface AttendanceRecord {
   time_leave_out_2?: string;
   time_leave_return_2?: string;
   raw_punches?: any; // JSONB array of punches
+  /** بصمة خروج افتراضية حمراء وُضعت آلياً بنهاية الدوام (عدد بصمات فردي ولم يثبت خروج) */
+  check_out_is_virtual?: boolean;
+  check_out_virtual_reason?: string;
   overtime_minutes?: number;
   is_auto_check_in?: boolean;
   is_auto_check_out?: boolean;

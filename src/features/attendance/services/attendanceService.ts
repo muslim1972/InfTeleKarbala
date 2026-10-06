@@ -511,11 +511,11 @@ export const fingerprintTemplateService = {
 // =============================================
 
 // ─── أدوات التاريخ المحلي لحدود يوم البصمة (توقيت بغداد UTC+3) ───
-import { 
-  determineShiftType, 
-  validateEarlyCheckIn, 
-  getBaghdadDateStr, 
-  countRealPunches 
+import {
+  determineShiftType,
+  validateEarlyCheckIn,
+  getBaghdadDateStr,
+  countRealPunches
 } from '../utils/shiftRules';
 import { 
   getServerNow, 
@@ -857,14 +857,25 @@ export const attendanceRecordService = {
       throw new Error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
     }
 
-    // 5. إذا كان الموظف مناوباً ولديه خفر ممتد: إغلاق سجل الأمس تلقائياً عند 23:59
-    if (isFollowUpOvernight && yesterdayRecord && !yesterdayRecord.check_out) {
-      const virtualOutTime = `${yesterdayDateStr}T23:59:00.000Z`;
-      const updatedNotes = mergeNote(yesterdayRecord.notes, '(خروج نهائي افتراضي)');
-      await this.saveSecure(employeeId, yesterdayRecord.id, {
-        check_out: virtualOutTime,
-        notes: updatedNotes
-      }).catch(console.warn);
+    // 5. إغلاق سجل الأمس المفتوح وفق قاعدة الزوجي/الفردي (flowcharts-attendance-1):
+    //    - فردي (داخل الدوام ولم يثبت خروج): بصمة حمراء افتراضية بنهاية الشفت + إشعارات (داخل دالة SQL الآمنة)
+    //    - زوجي (خارج المقر ولم يثبت خروج نهائي): آخر بصمة = مغادرة مبكرة → تُحاسب العقوبات بعدها
+    //    - استكمال خفر الأمس: خروج الأمس بتوقيت بصمة اليوم (بصمة حقيقية)
+    if (yesterdayRecord && !yesterdayRecord.check_out && (yesterdayRealCount > 0 || yesterdayRecord.check_in)) {
+      const baghdadHourNow = getBaghdadDate(getServerNow()).getHours();
+      const isKhafarFollowup = isFollowUpOvernight && baghdadHourNow <= 12;
+      try {
+        const { data: coResult } = await supabase.rpc('closeout_prev_day_attendance', {
+          p_employee_id: employeeId,
+          p_followup: isKhafarFollowup
+        });
+        const co = coResult as any;
+        if (co?.action === 'derived_out' && co.record) {
+          await this.enforceMandatoryPenalties(employeeId, yesterdayDateStr, co.record as AttendanceRecord);
+        }
+      } catch (e) {
+        console.warn('closeout_prev_day_attendance failed:', e);
+      }
     }
 
     const nowServer = getServerNow();
@@ -1129,16 +1140,16 @@ export const attendanceRecordService = {
 
     // Helper notification for penalties
     const sendPenaltyAlert = async (
-      penaltyType: 'time_off_30' | 'time_off_60' | 'regular_day',
+      penaltyMins: number | 'day',
       reasonText: string,
       isLate: boolean,
       minutesVal: number
     ) => {
       try {
         const empName = profile?.full_name || 'موظف';
-        const penaltyLabel = penaltyType === 'regular_day' 
-          ? 'إجازة اعتيادية إجبارية (يوم كامل)' 
-          : (penaltyType === 'time_off_60' ? 'إجازة زمنية إجبارية (ساعة كاملة)' : 'إجازة زمنية إجبارية (نصف ساعة)');
+        const penaltyLabel = penaltyMins === 'day'
+          ? 'إجازة اعتيادية إجبارية (يوم كامل)'
+          : `إجازة زمنية إجبارية (${penaltyMins >= 60 && penaltyMins % 60 === 0 ? `${penaltyMins / 60} ساعة` : `${penaltyMins} دقيقة`})`;
 
         const title = isLate ? '⚠️ تنبيه: تأخير وإجازة إجبارية' : '⚠️ تنبيه: خروج مبكر وإجازة إجبارية';
         const empContent = `تم تسجيل ${isLate ? 'تأخير' : 'خروج مبكر'} بـ (${minutesVal} دقيقة) في سجلك لتاريخ ${dateStr}، وتقييد (${penaltyLabel}) أصولياً في النظام.`;
@@ -1153,7 +1164,7 @@ export const attendanceRecordService = {
           is_read: false,
           metadata: {
             type: 'mandatory_penalty',
-            penalty_type: penaltyType,
+            penalty_type: penaltyMins,
             record_date: dateStr,
             minutes: minutesVal,
             is_late: isLate,
@@ -1185,7 +1196,7 @@ export const attendanceRecordService = {
               type: 'mandatory_penalty_supervisor',
               employee_id: employeeId,
               employee_name: empName,
-              penalty_type: penaltyType,
+              penalty_type: penaltyMins,
               record_date: dateStr,
               minutes: minutesVal,
               is_late: isLate,
@@ -1217,7 +1228,7 @@ export const attendanceRecordService = {
                 type: 'mandatory_penalty_manager',
                 employee_id: employeeId,
                 employee_name: empName,
-                penalty_type: penaltyType,
+                penalty_type: penaltyMins,
                 record_date: dateStr,
                 minutes: minutesVal,
                 is_late: isLate,
@@ -1279,7 +1290,8 @@ export const attendanceRecordService = {
           startHoursStr = nextShift.startStr;
           expectedStart.setHours(nextShift.startHour, nextShift.startMin, 0, 0);
           expectedStartMins = nextShiftMins;
-          morningGracePeriod = nextShift.type === 'morning' ? 30 : 0;
+          // المناوبون لا يشملهم السماحية الوزارية ولو كان شفتهم صباحياً
+          morningGracePeriod = 0;
         } else {
           if (daySchedule.is_evening && (checkInMinutes >= 800 && checkInMinutes < 1140)) {
             // المسائي: 14:30 - بدون أي سماحية
@@ -1297,11 +1309,11 @@ export const attendanceRecordService = {
             expectedStartMins = 20 * 60;
             morningGracePeriod = 0;
           } else {
-            // الصباحي: 08:00 - سماحية 30 دقيقة
+            // الصباحي (مناوب): 08:00 — بلا سماحية (السماحية الوزارية للصباحي الثابت فقط)
             startHoursStr = '08:00:00';
             expectedStart.setHours(8, 0, 0, 0);
             expectedStartMins = 8 * 60;
-            morningGracePeriod = 30;
+            morningGracePeriod = 0;
           }
         }
       } else {
@@ -1324,22 +1336,18 @@ export const attendanceRecordService = {
         : (checkInMinutes - expectedStartMins);
       const delayMins = rawDelayMins - morningGracePeriod;
 
-      if (delayMins >= 5) {
+      // عتبة الحساب: المناوب 5 دقائق سماحية، والصباحي الثابت يبدأ الحساب من 8:31 (السماحية الوزارية 8:00–8:30)
+      const lateTrigger = isRoster ? 5 : 1;
+      if (delayMins >= lateTrigger) {
         if (record.id && record.status !== 'late') {
           await supabase.from('attendance_records').update({ status: 'late' }).eq('id', record.id);
           record.status = 'late';
         }
-        let penaltyMins = 0;
-        let isFullDay = false;
-
-        if (delayMins <= 30) penaltyMins = 30; // تأخير 5-30 دقيقة = نصف ساعة
-        else if (delayMins <= 60) penaltyMins = 60; // تأخير 31-60 دقيقة = ساعة
-        else isFullDay = true; // أكثر من 60 دقيقة (ولغاية 120 دقيقة وما بعدها) = إجازة يوم كامل
-
+        // العقوبة = التأخير الفعلي بالدقائق (منطق flowcharts-attendance-1)،
+        // وإذا تجاوز مجموع زمنيات اليوم ساعتين تحول اليوم لإجازة اعتيادية إجبارية
+        const penaltyMins = delayMins;
         const currentTotal = calculateTotalTimeOff(lateLeave?.id);
-        if (!isFullDay && (currentTotal + penaltyMins > 120)) {
-          isFullDay = true;
-        }
+        const isFullDay = currentTotal + penaltyMins > 120;
 
         if (isFullDay) {
           if (!lateLeave || lateLeave.leave_type !== 'regular') {
@@ -1364,7 +1372,7 @@ export const attendanceRecordService = {
             });
 
             await sendPenaltyAlert(
-              'regular_day',
+              'day',
               `تأخير (${delayMins} دقيقة) - إجازة اعتيادية إجبارية`,
               true,
               delayMins
@@ -1385,7 +1393,7 @@ export const attendanceRecordService = {
               leave_start_time: startHoursStr,
               leave_end_time: endHoursStr,
               time_duration_minutes: penaltyMins,
-              reason: `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins === 30 ? 'نصف ساعة' : 'ساعة كاملة'})`,
+              reason: `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               status: 'approved',
               is_mandatory: true,
               time_off_subtype: 'shift_start',
@@ -1393,7 +1401,7 @@ export const attendanceRecordService = {
             });
 
             await sendPenaltyAlert(
-              penaltyMins === 30 ? 'time_off_30' : 'time_off_60',
+              penaltyMins,
               `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               true,
               delayMins
@@ -1403,13 +1411,13 @@ export const attendanceRecordService = {
               time_duration_minutes: penaltyMins,
               leave_start_time: startHoursStr,
               leave_end_time: endHoursStr,
-              reason: `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins === 30 ? 'نصف ساعة' : 'ساعة كاملة'})`,
+              reason: `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               time_off_subtype: 'shift_start',
               with_request: false
             }).eq('id', lateLeave.id);
 
             await sendPenaltyAlert(
-              penaltyMins === 30 ? 'time_off_30' : 'time_off_60',
+              penaltyMins,
               `تأخير (${delayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               true,
               delayMins
@@ -1455,7 +1463,8 @@ export const attendanceRecordService = {
           endHoursStr = '15:00:00';
           expectedEnd.setHours(15, 0, 0, 0);
           expectedEndMins = 15 * 60;
-          eveningGracePeriod = requestedShiftEnd ? 0 : (schedule.grace_period_minutes || 0);
+          // المناوب بلا نافذة سماحية للخروج (السماحية الوزارية للصباحي الثابت فقط)
+          eveningGracePeriod = 0;
         }
       } else {
         const endTimeStr = daySchedule?.end_time || schedule.end_time || '15:00';
@@ -1463,7 +1472,8 @@ export const attendanceRecordService = {
         endHoursStr = `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}:00`;
         expectedEnd.setHours(eh, em, 0, 0);
         expectedEndMins = eh * 60 + em;
-        eveningGracePeriod = requestedShiftEnd ? 0 : (schedule.grace_period_minutes || 0);
+        // الصباحي الثابت: نافذة الخروج 14:30–15:00 تُحتسب كاملة كأنها 15:00 (تُطبق أدناه صراحة)
+        eveningGracePeriod = 0;
       }
 
       // Offset by requested shift_end time off
@@ -1472,23 +1482,25 @@ export const attendanceRecordService = {
         expectedEndMins -= requestedShiftEnd.time_duration_minutes;
       }
 
+      // نافذة السماحية الوزارية: للجداول الثابتة المنتهية 15:00 فقط (الصباحي الثابت) —
+      // الخروج من 14:30 إلى 15:00 يُحتسب كأنه 15:00
+      let effectiveOutMins = checkOutMinutes;
+      if (!isRoster && expectedEndMins === 900 && checkOutMinutes >= 870 && checkOutMinutes < 900) {
+        effectiveOutMins = 900;
+      }
       const rawEarlyMins = (isRoster && daySchedule?.is_night)
         ? Math.floor((expectedEnd.getTime() - checkOutDate.getTime()) / 60000)
-        : (expectedEndMins - checkOutMinutes);
+        : (expectedEndMins - effectiveOutMins);
       const earlyMins = rawEarlyMins - eveningGracePeriod;
 
-      if (earlyMins >= 5) {
-        let penaltyMins = 0;
-        let isFullDay = false;
-
-        if (earlyMins <= 30) penaltyMins = 30; // خروج مبكر 5-30 دقيقة = نصف ساعة
-        else if (earlyMins <= 60) penaltyMins = 60; // خروج مبكر 31-60 دقيقة = ساعة
-        else isFullDay = true; // أكثر من 60 دقيقة = إجازة يوم كامل
-
+      // عتبة الحساب: المناوب 5 دقائق، والصباحي الثابت يبدأ التحاسب من 14:29 وما قبله
+      const earlyTrigger = isRoster ? 5 : 1;
+      if (earlyMins >= earlyTrigger) {
+        // العقوبة = النقص الفعلي بالدقائق (منطق flowcharts-attendance-1)،
+        // وإذا تجاوز مجموع زمنيات اليوم ساعتين تحول اليوم لإجازة اعتيادية إجبارية
+        const penaltyMins = earlyMins;
         const currentTotal = calculateTotalTimeOff(earlyLeave?.id);
-        if (!isFullDay && (currentTotal + penaltyMins > 120)) {
-          isFullDay = true;
-        }
+        const isFullDay = currentTotal + penaltyMins > 120;
 
         if (isFullDay) {
           if (!earlyLeave || earlyLeave.leave_type !== 'regular') {
@@ -1513,7 +1525,7 @@ export const attendanceRecordService = {
             });
 
             await sendPenaltyAlert(
-              'regular_day',
+              'day',
               `خروج مبكر (${earlyMins} دقيقة) - إجازة اعتيادية إجبارية`,
               false,
               earlyMins
@@ -1534,7 +1546,7 @@ export const attendanceRecordService = {
               leave_start_time: startHoursStr,
               leave_end_time: endHoursStr,
               time_duration_minutes: penaltyMins,
-              reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins === 30 ? 'نصف ساعة' : 'ساعة كاملة'})`,
+              reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               status: 'approved',
               is_mandatory: true,
               time_off_subtype: 'shift_end',
@@ -1542,7 +1554,7 @@ export const attendanceRecordService = {
             });
 
             await sendPenaltyAlert(
-              penaltyMins === 30 ? 'time_off_30' : 'time_off_60',
+              penaltyMins,
               `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               false,
               earlyMins
@@ -1552,13 +1564,13 @@ export const attendanceRecordService = {
               time_duration_minutes: penaltyMins,
               leave_start_time: startHoursStr,
               leave_end_time: endHoursStr,
-              reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins === 30 ? 'نصف ساعة' : 'ساعة كاملة'})`,
+              reason: `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               time_off_subtype: 'shift_end',
               with_request: false
             }).eq('id', earlyLeave.id);
 
             await sendPenaltyAlert(
-              penaltyMins === 30 ? 'time_off_30' : 'time_off_60',
+              penaltyMins,
               `خروج مبكر (${earlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyMins} دقيقة)`,
               false,
               earlyMins
@@ -1620,7 +1632,7 @@ export const attendanceRecordService = {
           } else if (daySchedule.is_night && (currentMins >= 1200 || currentMins < 480)) {
             if (currentMins > 1200) initialStatus = 'late';
           } else if (daySchedule.is_morning && currentMins >= 480 && currentMins < 870) {
-            if (currentMins > 510) initialStatus = 'late'; // 30m grace
+            if (currentMins > 480) initialStatus = 'late'; // المناوب بلا سماحية ولو كان شفته صباحياً
           }
         }
       } else {
