@@ -1035,19 +1035,16 @@ export const attendanceRecordService = {
     if (!schedule) return;
 
     const isRoster = schedule.type === 'roster';
-    const today = new Date(record.created_at || getServerNow().toISOString());
-    const bDate = getBaghdadDate(today);
-    const dayOfWeek = bDate.getDay();
+    const checkInDate = record.check_in ? new Date(record.check_in) : (record.created_at ? new Date(record.created_at) : getServerNow());
+    const today = checkInDate;
+    const bIn = getBaghdadDate(checkInDate);
+    const dayOfWeek = bIn.getDay();
 
-    let daySchedule: any = null;
-    if (isRoster) {
-      daySchedule = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-      if (!daySchedule || daySchedule.is_rest_day) return; // يوم استراحة للمناوب
-    } else {
-      const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(bDate);
-      if (schedule.weekend_days?.includes(dayName)) return;
-      if (!schedule.start_time || !schedule.end_time) return;
-    }
+    const daySchedule: any = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
+    if (daySchedule && daySchedule.is_rest_day) return; // يوم استراحة أو عطلة أسبوعية
+
+    // إذا لم يوجد جدول يومي مخصص للدوام الثابت، الجمعة والسبت عطلة افتراضية
+    if (!isRoster && !daySchedule && (dayOfWeek === 5 || dayOfWeek === 6)) return;
 
     // Fetch all approved leaves and time_offs covering dateStr
     const { data: allLeavesData } = await supabase
@@ -1244,6 +1241,7 @@ export const attendanceRecordService = {
       let expectedStart = new Date(today);
       let morningGracePeriod = 0;
       let startHoursStr = '08:00:00';
+      let expectedStartMins = 8 * 60;
 
       if (isRoster && daySchedule) {
         // ─── Flowchart 2 Roster Leave Shift Exemption ───
@@ -1280,12 +1278,14 @@ export const attendanceRecordService = {
 
           startHoursStr = nextShift.startStr;
           expectedStart.setHours(nextShift.startHour, nextShift.startMin, 0, 0);
+          expectedStartMins = nextShiftMins;
           morningGracePeriod = nextShift.type === 'morning' ? 30 : 0;
         } else {
           if (daySchedule.is_evening && (checkInMinutes >= 800 && checkInMinutes < 1140)) {
             // المسائي: 14:30 - بدون أي سماحية
             startHoursStr = '14:30:00';
             expectedStart.setHours(14, 30, 0, 0);
+            expectedStartMins = 14 * 60 + 30;
             morningGracePeriod = 0;
           } else if (daySchedule.is_night && (checkInMinutes >= 1140 || checkInMinutes < 400)) {
             // الخفر: 20:00 - بدون أي سماحية
@@ -1294,31 +1294,41 @@ export const attendanceRecordService = {
               expectedStart.setDate(expectedStart.getDate() - 1);
             }
             expectedStart.setHours(20, 0, 0, 0);
+            expectedStartMins = 20 * 60;
             morningGracePeriod = 0;
           } else {
             // الصباحي: 08:00 - سماحية 30 دقيقة
             startHoursStr = '08:00:00';
             expectedStart.setHours(8, 0, 0, 0);
+            expectedStartMins = 8 * 60;
             morningGracePeriod = 30;
           }
         }
       } else {
-        const [sh, sm] = (schedule.start_time || '08:00').split(':').map(Number);
+        const startTimeStr = daySchedule?.start_time || schedule.start_time || '08:00';
+        const [sh, sm] = startTimeStr.split(':').map(Number);
         startHoursStr = `${sh.toString().padStart(2, '0')}:${sm.toString().padStart(2, '0')}:00`;
         expectedStart.setHours(sh, sm, 0, 0);
-        morningGracePeriod = 30; // سماحية الصباحي 30 دقيقة
+        expectedStartMins = sh * 60 + sm;
+        morningGracePeriod = schedule.grace_period_minutes ?? 30; // سماحية الصباحي 30 دقيقة
       }
 
       // Offset by requested shift_start time off
       if (requestedShiftStart && requestedShiftStart.time_duration_minutes) {
         expectedStart.setMinutes(expectedStart.getMinutes() + requestedShiftStart.time_duration_minutes);
+        expectedStartMins += requestedShiftStart.time_duration_minutes;
       }
 
-      const diffMs = checkInDate.getTime() - expectedStart.getTime();
-      const rawDelayMins = Math.floor(diffMs / 60000);
+      const rawDelayMins = (isRoster && daySchedule?.is_night && checkInMinutes < 400)
+        ? (checkInMinutes + 1440) - expectedStartMins
+        : (checkInMinutes - expectedStartMins);
       const delayMins = rawDelayMins - morningGracePeriod;
 
       if (delayMins >= 5) {
+        if (record.id && record.status !== 'late') {
+          await supabase.from('attendance_records').update({ status: 'late' }).eq('id', record.id);
+          record.status = 'late';
+        }
         let penaltyMins = 0;
         let isFullDay = false;
 
@@ -1408,16 +1418,23 @@ export const attendanceRecordService = {
         }
       } else {
         if (lateLeave) await supabase.from('leave_requests').delete().eq('id', lateLeave.id);
+        if (record.id && record.status === 'late') {
+          await supabase.from('attendance_records').update({ status: 'present' }).eq('id', record.id);
+          record.status = 'present';
+        }
       }
     }
 
     // Early Check-out
     if (record.check_out) {
       const checkOutDate = new Date(record.check_out);
+      const bOut = getBaghdadDate(checkOutDate);
+      const checkOutMinutes = bOut.getHours() * 60 + bOut.getMinutes();
 
       let expectedEnd = new Date(today);
       let eveningGracePeriod = 0;
       let endHoursStr = '15:00:00';
+      let expectedEndMins = 15 * 60;
 
       if (isRoster && daySchedule) {
         if (daySchedule.is_night) {
@@ -1426,31 +1443,38 @@ export const attendanceRecordService = {
           expectedEnd = new Date(today);
           expectedEnd.setDate(expectedEnd.getDate() + 1);
           expectedEnd.setHours(8, 0, 0, 0);
+          expectedEndMins = 8 * 60;
           eveningGracePeriod = 0;
         } else if (daySchedule.is_evening) {
           // المسائي ينتهي 20:00 - بدون سماحية
           endHoursStr = '20:00:00';
           expectedEnd.setHours(20, 0, 0, 0);
+          expectedEndMins = 20 * 60;
           eveningGracePeriod = 0;
         } else {
           endHoursStr = '15:00:00';
           expectedEnd.setHours(15, 0, 0, 0);
+          expectedEndMins = 15 * 60;
           eveningGracePeriod = requestedShiftEnd ? 0 : (schedule.grace_period_minutes || 0);
         }
       } else {
-        const [eh, em] = (schedule.end_time || '15:00').split(':').map(Number);
+        const endTimeStr = daySchedule?.end_time || schedule.end_time || '15:00';
+        const [eh, em] = endTimeStr.split(':').map(Number);
         endHoursStr = `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}:00`;
         expectedEnd.setHours(eh, em, 0, 0);
+        expectedEndMins = eh * 60 + em;
         eveningGracePeriod = requestedShiftEnd ? 0 : (schedule.grace_period_minutes || 0);
       }
 
       // Offset by requested shift_end time off
       if (requestedShiftEnd && requestedShiftEnd.time_duration_minutes) {
         expectedEnd.setMinutes(expectedEnd.getMinutes() - requestedShiftEnd.time_duration_minutes);
+        expectedEndMins -= requestedShiftEnd.time_duration_minutes;
       }
 
-      const diffMs = expectedEnd.getTime() - checkOutDate.getTime();
-      const rawEarlyMins = Math.floor(diffMs / 60000);
+      const rawEarlyMins = (isRoster && daySchedule?.is_night)
+        ? Math.floor((expectedEnd.getTime() - checkOutDate.getTime()) / 60000)
+        : (expectedEndMins - checkOutMinutes);
       const earlyMins = rawEarlyMins - eveningGracePeriod;
 
       if (earlyMins >= 5) {
@@ -1600,18 +1624,19 @@ export const attendanceRecordService = {
           }
         }
       } else {
-        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(today);
-        const isWeekend = scheduleData.weekend_days?.includes(dayName);
+        const bDate = getBaghdadDate(today);
+        const dayOfWeek = bDate.getDay();
+        const daySchedule = scheduleData.days?.find((d: any) => d.day_of_week === dayOfWeek);
+        const isRestDay = daySchedule ? daySchedule.is_rest_day : (dayOfWeek === 5 || dayOfWeek === 6);
         
-        if (!isWeekend && scheduleData.start_time) {
-          const [hours, minutes] = scheduleData.start_time.split(':').map(Number);
-          const expectedStart = new Date(today);
-          expectedStart.setHours(hours, minutes, 0, 0);
+        if (!isRestDay) {
+          const startTimeStr = daySchedule?.start_time || scheduleData.start_time || '08:00';
+          const [hours, minutes] = startTimeStr.split(':').map(Number);
+          const currentMins = bDate.getHours() * 60 + bDate.getMinutes();
+          const startMins = hours * 60 + minutes;
+          const graceMins = scheduleData.grace_period_minutes ?? 30;
           
-          const gracePeriodMs = (scheduleData.grace_period_minutes || 0) * 60000;
-          const allowedStart = new Date(expectedStart.getTime() + gracePeriodMs);
-          
-          if (today > allowedStart) {
+          if (currentMins > startMins + graceMins) {
             initialStatus = 'late';
           }
         }
