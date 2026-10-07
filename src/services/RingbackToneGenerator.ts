@@ -92,14 +92,14 @@ export class RingbackToneGenerator {
                 this.currentOscillator.disconnect();
                 this.currentOscillator = null;
             }
-        } catch (e) {}
+        } catch { /* ignore stop error */ }
 
         try {
             if (this.currentGain) {
                 this.currentGain.disconnect();
                 this.currentGain = null;
             }
-        } catch (e) {}
+        } catch { /* ignore disconnect error */ }
 
         if (this.audioCtx) {
             this.audioCtx.close().catch(() => { });

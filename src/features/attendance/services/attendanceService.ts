@@ -765,7 +765,7 @@ export const attendanceRecordService = {
 
     // 1. Get today's record (تاريخ محلي وفق توقيت بغداد المعتمد على السيرفر)
     const today = getLocalDateStr();
-    let record = await this.getTodayByEmployeeId(employeeId);
+    const record = await this.getTodayByEmployeeId(employeeId);
 
     // ─── المحرك الذكي: فحص إجازات وطلبات اليوم قبل تثبيت أول بصمة حضور ───
     // (اعتيادية/مرضية → تحذير واعتماد | واجب/إيفاد → مرور مباشر | معلّق/مرفوض → إشعار مشرف)
@@ -1249,7 +1249,7 @@ export const attendanceRecordService = {
       const bIn = getBaghdadDate(checkInDate);
       const checkInMinutes = bIn.getHours() * 60 + bIn.getMinutes();
 
-      let expectedStart = new Date(today);
+      const expectedStart = new Date(today);
       let morningGracePeriod = 0;
       let startHoursStr = '08:00:00';
       let expectedStartMins = 8 * 60;

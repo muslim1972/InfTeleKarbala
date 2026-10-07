@@ -105,7 +105,9 @@ class GlobalAudioManager {
         try {
           this.stopOscillator();
           if (this.isAlertActive) this.playFallbackTone();
-        } catch (e) { }
+        } catch {
+          /* ignore loop tone error */
+        }
       };
 
       this.alertTimer = setTimeout(loopTone, 1000);
@@ -120,11 +122,11 @@ class GlobalAudioManager {
 
   private stopOscillator() {
     if (this.oscillator) {
-      try { this.oscillator.stop(); this.oscillator.disconnect(); } catch (e) { }
+      try { this.oscillator.stop(); this.oscillator.disconnect(); } catch { /* ignore stop error */ }
       this.oscillator = null;
     }
     if (this.gainNode) {
-      try { this.gainNode.disconnect(); } catch (e) { }
+      try { this.gainNode.disconnect(); } catch { /* ignore disconnect error */ }
       this.gainNode = null;
     }
     if (this.alertTimer) {
@@ -213,7 +215,7 @@ class GlobalAudioManager {
 
   private notifyListeners(): void {
     this.listeners.forEach((listener) => {
-      try { listener(); } catch (error) {}
+      try { listener(); } catch { /* ignore listener error */ }
     });
   }
 

@@ -154,7 +154,7 @@ export const TraineePollSettings = () => {
             queryClient.invalidateQueries({ queryKey: ['mediaContent'] });
 
             toast.success(newValue ? 'تم إظهار الرابط للمتدربين' : 'تم إخفاء الرابط عن المتدربين');
-        } catch (error) {
+        } catch {
             setPollLinkActive(!newValue);
             toast.error('حدث خطأ أثناء تحديث حالة الرابط');
         }

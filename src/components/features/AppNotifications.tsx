@@ -12,7 +12,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
     switch (type) {
         case 'regular': return 'إجازة اعتيادية';
         case 'sick': return 'إجازة مرضية';
-        case 'time_off': 
+        case 'time_off': {
             let label = 'إجازة زمنية';
             if (subtype === 'shift_start') label += ' (بداية الدوام)';
             else if (subtype === 'shift_end') label += ' (نهاية الدوام)';
@@ -22,6 +22,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
             else label += ' - بطلب';
             
             return label;
+        }
         case 'duty': return 'واجب';
         case 'dispatch': return 'إيفاد';
         case 'long_regular': return 'إجازة اعتيادية طويلة';
@@ -71,7 +72,7 @@ export const AppNotifications = () => {
         } else if (data && data.length > 0) {
             const validIds = data.map(r => r.supervisor_id).filter(Boolean);
             const supervisorIds = [...new Set(validIds)];
-            let supervisorMap: Record<string, string> = {};
+            const supervisorMap: Record<string, string> = {};
 
             if (supervisorIds.length > 0) {
                 const { data: supervisorsData } = await supabase
@@ -132,7 +133,7 @@ export const AppNotifications = () => {
             }).filter(Boolean);
             
             const userIds = [...new Set([...validIds, ...prevManagerIds])];
-            let profileMap: Record<string, any> = {};
+            const profileMap: Record<string, any> = {};
 
             if (userIds.length > 0) {
                 const { data: profilesData } = await supabase.rpc('get_basic_profiles', { p_user_ids: userIds });
@@ -188,7 +189,7 @@ export const AppNotifications = () => {
         } else if (data && data.length > 0) {
             const validIds = data.map(r => r.user_id).filter(Boolean);
             const userIds = [...new Set(validIds)];
-            let profileMap: Record<string, string> = {};
+            const profileMap: Record<string, string> = {};
 
             if (userIds.length > 0) {
                 const { data: profilesData } = await supabase

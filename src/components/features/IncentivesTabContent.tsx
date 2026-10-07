@@ -554,7 +554,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     const handleFieldChange = (key: keyof IncentiveRecord, value: any) => {
         if (!incentiveData) return;
         
-        let updatedData = { ...incentiveData, [key]: value };
+        const updatedData = { ...incentiveData, [key]: value };
 
         // تحديث نقاط الشهادة تلقائياً إذا تم تغيير النص
         if (key === 'certificate_text') {

@@ -78,13 +78,15 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
         const checkExistingSupervisor = async () => {
             try {
                 // 1. البحث عن مشرف IT مثبت مسبقاً في هذه المحافظة
-                let { data, error } = await supabase
+                const { data: initialData, error } = await supabase
                     .from('profiles')
                     .select('id, full_name, job_number, avatar_url, admin_role, role')
                     .eq('governorate', governorate)
                     .eq('admin_role', 'it_supervisor')
                     .limit(1)
                     .maybeSingle();
+
+                let data = initialData;
 
                 // 2. كخيار بديل: مسؤول المحافظة
                 if (!data && !error) {

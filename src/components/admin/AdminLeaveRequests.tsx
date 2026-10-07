@@ -133,9 +133,9 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
                 const allIds = [...new Set([...userIds, ...supervisorIds])];
 
-                let profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
-                let deptMap: Record<string, string> = {};
-                let engMap: Record<string, number> = {};
+                const profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
+                const deptMap: Record<string, string> = {};
+                const engMap: Record<string, number> = {};
 
                 if (allIds.length > 0) {
                     const { data: profiles } = await supabase
@@ -205,8 +205,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
                 const allIds = [...new Set([...userIds, ...supervisorIds])];
 
-                let profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
-                let deptMap: Record<string, string> = {};
+                const profileMap: Record<string, { full_name: string; job_title?: string; job_number?: string; department_id?: string; engineering_allowance?: number }> = {};
+                const deptMap: Record<string, string> = {};
 
                 if (allIds.length > 0) {
                     const { data: profiles } = await supabase
@@ -261,8 +261,8 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
                 const supervisorIds = [...new Set(data.map(r => r.supervisor_id).filter(Boolean))];
                 const allIds = [...new Set([...userIds, ...supervisorIds])];
 
-                let profileMap: Record<string, any> = {};
-                let engMap: Record<string, number> = {};
+                const profileMap: Record<string, any> = {};
+                const engMap: Record<string, number> = {};
 
                 if (allIds.length > 0) {
                     const { data: profiles } = await supabase.from('available_profiles').select('id, full_name, job_number').in('id', allIds);
@@ -304,7 +304,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             let currentDeptId = profile.department_id;
             let lastManagerId: string | null = null;
 
-            let visitedDepts = new Set<string>();
+            const visitedDepts = new Set<string>();
             while (currentDeptId && !visitedDepts.has(currentDeptId)) {
                 visitedDepts.add(currentDeptId);
                 const { data: deptData } = await supabase.rpc('get_departments_bypass_rls').select('*').eq('id', currentDeptId).single(); const dept = deptData as any;

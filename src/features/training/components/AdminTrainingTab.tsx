@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-    FileSpreadsheet, Upload, Save, X, Loader2,
+    FileSpreadsheet, Save, X, Loader2,
     ToggleLeft, ToggleRight, Clock, Trophy, Trash2,
-    ChevronDown, CheckCircle2, GraduationCap, Shield, Edit2,
+    ChevronDown, GraduationCap, Shield, Edit2,
     CheckCircle, XCircle, Search, UserPlus, UserMinus, Calendar, Printer
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -11,7 +11,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { useTrainingData } from '../hooks/useTrainingData';
 import { toast } from 'react-hot-toast';
 import type { TrainingResult, TrainingStudent } from '../types';
-import { calculateGrade, EXAM_GRADE_LABELS } from '../types';
 import { supabase } from '../../../lib/supabase';
 import { smoothScrollToId, smoothScrollToTop } from '../../../hooks/useSmoothScroll';
 import { TrainingStudentsModal } from './TrainingStudentsModal';
@@ -37,7 +36,6 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     const { user } = useAuth();
     const {
         settings, settingsLoading, updateSettings,
-        uploadFile, deleteFile, checkFileExists,
         fetchResults, fetchStudents, fetchAttemptDetails,
     } = useTrainingData();
 
@@ -57,15 +55,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     // ── Sections ──
     const [openSection, setOpenSection] = useState<'exams' | 'results' | 'course_settings' | 'student_management' | null>(null);
 
-    // ── Exam State (A & B) ──
-    const [examFileA, setExamFileA] = useState<File | null>(null);
-    const [examFileB, setExamFileB] = useState<File | null>(null);
-    const [examUploading, setExamUploading] = useState(false);
-    const [examExistingFiles, setExamExistingFiles] = useState<{ a: boolean; b: boolean }>({ a: false, b: false });
-    const [examChecking, setExamChecking] = useState(false);
-    const [examDeleting, setExamDeleting] = useState(false);
-    const examFileRefA = useRef<HTMLInputElement>(null);
-    const examFileRefB = useRef<HTMLInputElement>(null);
+
 
     // ── Settings State ──
     const [toggling, setToggling] = useState(false);
@@ -361,7 +351,6 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
         window.URL.revokeObjectURL(url);
     }, [students, results]);
 
-    const prevOpenSectionRef = useRef<string | null>(null);
     const isFirstRender = useRef(true);
 
     useEffect(() => {
@@ -427,82 +416,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
     };
 
     // ── Fixed subject key for summer training ──
-    const TRAINING_SUBJECT = 'summer_training';
 
-    // ── فحص الملفين الموجودين عند فتح قسم الاختبارات ──
-    useEffect(() => {
-        if (openSection !== 'exams') return;
-        let cancelled = false;
-        (async () => {
-            setExamChecking(true);
-            const [existsA, existsB] = await Promise.all([
-                checkFileExists('exams', `${TRAINING_SUBJECT}_A`, 'xlsx'),
-                checkFileExists('exams', `${TRAINING_SUBJECT}_B`, 'xlsx'),
-            ]);
-            if (!cancelled) {
-                setExamExistingFiles({ a: existsA, b: existsB });
-                setExamChecking(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [openSection, checkFileExists]);
-
-    // ── مقارنة محتوى ملفين للتأكد من عدم التطابق ──
-    const areFilesIdentical = async (fileA: File, fileB: File): Promise<boolean> => {
-        if (fileA.size !== fileB.size) return false;
-        const [bufA, bufB] = await Promise.all([fileA.arrayBuffer(), fileB.arrayBuffer()]);
-        const viewA = new Uint8Array(bufA);
-        const viewB = new Uint8Array(bufB);
-        return viewA.every((val, i) => val === viewB[i]);
-    };
-
-    // ── Exam Handlers (A & B) ──
-    const handleExamSave = async () => {
-        if (!examFileA || !examFileB) {
-            toast.error('يجب رفع ملفي الاختبار A و B معاً');
-            return;
-        }
-        setExamUploading(true);
-        const identical = await areFilesIdentical(examFileA, examFileB);
-        if (identical) {
-            setExamUploading(false);
-            toast.error('ملفا الاختبار A و B متطابقان! يجب أن يكونا مختلفين لتمييز الطلبة المتجاورين.');
-            return;
-        }
-        const resultA = await uploadFile('exams', `${TRAINING_SUBJECT}_A`, examFileA, 'xlsx');
-        if (!resultA.success) {
-            setExamUploading(false);
-            toast.error(`فشل رفع اختبار A: ${resultA.error || 'خطأ غير معروف'}`);
-            return;
-        }
-        const resultB = await uploadFile('exams', `${TRAINING_SUBJECT}_B`, examFileB, 'xlsx');
-        setExamUploading(false);
-        if (!resultB.success) {
-            toast.error(`تم رفع A بنجاح لكن فشل رفع اختبار B: ${resultB.error || 'خطأ غير معروف'}`);
-            return;
-        }
-        toast.success('تم رفع اختباري A و B بنجاح');
-        setExamFileA(null);
-        setExamFileB(null);
-        setExamExistingFiles({ a: true, b: true });
-        if (examFileRefA.current) examFileRefA.current.value = '';
-        if (examFileRefB.current) examFileRefB.current.value = '';
-    };
-
-    const handleExamDeleteExisting = async () => {
-        setExamDeleting(true);
-        const [successA, successB] = await Promise.all([
-            deleteFile('exams', `${TRAINING_SUBJECT}_A`, 'xlsx'),
-            deleteFile('exams', `${TRAINING_SUBJECT}_B`, 'xlsx'),
-        ]);
-        setExamDeleting(false);
-        if (successA || successB) {
-            toast.success('تم حذف ملفات الاختبار');
-            setExamExistingFiles({ a: false, b: false });
-        } else {
-            toast.error('فشل حذف الملفات');
-        }
-    };
 
     // ── Toggle Exam Active ──
     const handleToggleExam = async () => {
@@ -1326,7 +1240,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                                                     isDark ? "bg-zinc-800 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
                                                 )}
                                             >
-                                                {selectedStudentResults.map((res, idx) => (
+                                                {selectedStudentResults.map((_res, idx) => (
                                                     <option key={idx} value={idx}>المحاولة {idx + 1} {idx === selectedStudentResults.length - 1 ? '(الأخيرة)' : ''}</option>
                                                 ))}
                                             </select>
@@ -1395,7 +1309,7 @@ export const AdminTrainingTab = ({ isAdminView = false }: AdminTrainingTabProps)
                 <EditStudentModal
                     student={editingStudent}
                     onClose={() => setEditingStudent(null)}
-                    onUpdate={(updated) => {
+                    onUpdate={(_updated) => {
                         loadResults(); // Refresh results to sync everything
                         setEditingStudent(null);
                     }}

@@ -135,7 +135,7 @@ export const generateArchiveListPDF = async (
         } else {
             // Multi-page support
             let remainingHeight = contentHeight;
-            let position = margin;
+            const position = margin;
             let page = 0;
 
             while (remainingHeight > 0) {

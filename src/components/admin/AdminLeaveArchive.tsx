@@ -60,9 +60,9 @@ export function AdminLeaveArchive({ employeeId, employeeName, onPrint, isExpande
         const supIds = [...new Set(data.map(r => r.supervisor_id).filter(id => id && id.trim() !== ''))];
         const allIds = [...new Set([...userIds, ...supIds])];
 
-        let profileMap: Record<string, any> = {};
-        let engMap: Record<string, number> = {};
-        let deptMap: Record<string, string> = {};
+        const profileMap: Record<string, any> = {};
+        const engMap: Record<string, number> = {};
+        const deptMap: Record<string, string> = {};
 
         if (allIds.length > 0) {
             const { data: profiles } = await supabase.from('profiles').select('id, full_name, job_number, department_id').in('id', allIds);

@@ -98,7 +98,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
       } else if (Notification.permission === 'default') {
         try {
           await Notification.requestPermission();
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
       }
     }
 

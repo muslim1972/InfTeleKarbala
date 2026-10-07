@@ -57,15 +57,12 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     else if (canAddEmployee) baseTab = 'admin_add';
     else if (currentUser?.has_attendance_access && !isRoleEditable && currentUser?.admin_role !== 'hr' && currentUser?.admin_role !== 'finance') baseTab = 'admin_attendance';
 
-    const defaultTab = location.state?.activeTab || baseTab;
+    const defaultTab = location.state?.activeTab || (searchParams.get('tab') === 'admin_audio' ? 'admin_audio' : baseTab);
     const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
 
-    // Handle initial tab from URL
+    // Handle initial tab from URL cleanup
     useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab === 'admin_audio') {
-            setActiveTab('admin_audio');
-            // Clean up the URL
+        if (searchParams.get('tab') === 'admin_audio') {
             searchParams.delete('tab');
             setSearchParams(searchParams, { replace: true });
         }

@@ -8,7 +8,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
     switch (type) {
         case 'regular': return 'إجازة اعتيادية';
         case 'sick': return 'إجازة مرضية';
-        case 'time_off': 
+        case 'time_off': {
             let label = 'إجازة زمنية';
             if (subtype === 'shift_start') label += ' (بداية الدوام)';
             else if (subtype === 'shift_end') label += ' (نهاية الدوام)';
@@ -17,6 +17,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
             if (isMandatory) label += ' - بدون طلب';
             
             return label;
+        }
         case 'duty': return 'واجب';
         case 'dispatch': return 'إيفاد';
         case 'long_regular': return 'إجازة اعتيادية طويلة';

@@ -93,7 +93,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
             try {
                 const { data: depts } = await supabase.rpc('get_departments_bypass_rls').select('*');
                 if (depts) {
-                    let currentDept = depts.find((d: any) => d.id === emp.department_id);
+                    const currentDept = depts.find((d: any) => d.id === emp.department_id);
                     setDepartmentName(currentDept?.name || 'غير محدد');
 
                     // Find nearest manager

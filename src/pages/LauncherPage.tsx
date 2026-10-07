@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import toast from 'react-hot-toast';
 import { Login } from "./Login";
 import { GovernorateSelection } from "./GovernorateSelection";
 import { Smartphone, MonitorPlay, Download } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import { useGovernorate } from "../context/GovernorateContext";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
@@ -14,24 +13,21 @@ interface LauncherPageProps {
 }
 
 export const LauncherPage = ({ onProceed, initialShowLogin = false }: LauncherPageProps) => {
-    const { } = useAuth();
     const { theme } = useTheme();
     const { activeGovernorate } = useGovernorate();
     
     // modes: 'launcher' (choose platform) -> 'governorate' (choose city) -> 'login'
     const [mode, setMode] = useState<'launcher' | 'governorate' | 'login'>(() => {
+        if (initialShowLogin) return 'login';
         return activeGovernorate ? 'login' : 'governorate';
     });
-    const [os, setOs] = useState<'android' | 'ios' | 'desktop'>('desktop');
-
-
-
-    useEffect(() => {
+    const [os] = useState<'android' | 'ios' | 'desktop'>(() => {
+        if (typeof navigator === 'undefined') return 'desktop';
         const ua = navigator.userAgent;
-        if (/Android/i.test(ua)) setOs('android');
-        else if (/iPhone|iPad|iPod/i.test(ua)) setOs('ios');
-        else setOs('desktop');
-    }, []);
+        if (/Android/i.test(ua)) return 'android';
+        if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+        return 'desktop';
+    });
 
     const handleWebProceed = () => {
         if (onProceed) onProceed();

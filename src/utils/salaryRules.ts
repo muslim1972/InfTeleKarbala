@@ -43,7 +43,7 @@ export const SALARY_FIELDS = [
 export function getLegalAllowancePercentage(finData: any): number {
     const title = finData.job_title ? finData.job_title.trim() : '';
     const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
-    const normalizedCert = cert.replace(/[0-9%.\s\-\(\)]/g, '');
+    const normalizedCert = cert.replace(/[0-9%.\s\-()]/g, '');
 
     // العناوين القانونية المحددة بدقة
     const legalTitles = [
@@ -77,8 +77,8 @@ export function resolveApprovedPercentage(fieldKey: string, finData: any): numbe
         if (isAllowance) return 0;
     }
     if (fieldKey === 'certificate_allowance') {
-        let t = finData.certificate_text ? finData.certificate_text.trim() : '';
-        const normalized = t.replace(/[0-9%.\s\-\(\)]/g, '');
+        const t = finData.certificate_text ? finData.certificate_text.trim() : '';
+        const normalized = t.replace(/[0-9%.\s\-()]/g, '');
 
         if (normalized.includes('دكتوراه')) return 150;
         if (normalized.includes('ماجستير')) return 125;

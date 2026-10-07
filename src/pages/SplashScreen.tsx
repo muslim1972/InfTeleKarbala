@@ -6,7 +6,7 @@
  * وفوقه مصفوفة رقمية (Binary Rain) + الشعار + النصوص المتسلسلة.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSplashAudio } from '../hooks/useSplashAudio';
 import { LogoGlow } from '../components/visual/LogoGlow';
@@ -16,24 +16,38 @@ import { SplashTechVideo } from '../components/visual/SplashTechVideo';
 // ── خلفية المصفوفة الرقمية (Binary Background) ──────────
 const BINARY_STREAMS_COUNT = 50; // تقليل العدد قليلاً لتقليل التشتيت
 
-const BinaryBackground = () => {
-  const streams = useMemo(() => {
-    return Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
-      id: i,
-      left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
-      duration: Math.random() * 10 + 15,
-      // تأخير عشوائي لكي لا تنزل كل السلاسل في نفس اللحظة
-      delay: Math.random() * 12, 
-      initialY: -100, // تبدأ دائماً من خارج الشاشة من الأعلى
-      fontSize: Math.random() * 8 + 12,
-      opacity: Math.random() * 0.4 + 0.2,
-      binary: Array.from({ length: Math.floor(Math.random() * 6 + 10) }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('\n')
-    }));
-  }, []);
+const pseudo = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
 
+const PRECOMPUTED_STREAMS = Array.from({ length: BINARY_STREAMS_COUNT }).map((_, i) => ({
+  id: i,
+  left: `${(i / BINARY_STREAMS_COUNT) * 100}%`,
+  duration: pseudo(i * 1.1 + 1) * 10 + 15,
+  delay: pseudo(i * 2.3 + 2) * 12,
+  initialY: -100,
+  fontSize: pseudo(i * 3.7 + 3) * 8 + 12,
+  opacity: pseudo(i * 4.9 + 4) * 0.4 + 0.2,
+  binary: Array.from({ length: Math.floor(pseudo(i * 5.1 + 5) * 6 + 10) })
+    .map((__, j) => (pseudo(i * 17 + j * 31) > 0.5 ? '1' : '0'))
+    .join('\n')
+}));
+
+const PRECOMPUTED_PARTICLES = Array.from({ length: 30 }).map((_, i) => ({
+  id: `static-${i}`,
+  left: `${pseudo(i * 7.1 + 10) * 100}%`,
+  top: `${pseudo(i * 8.3 + 20) * 100}%`,
+  fontSize: `${pseudo(i * 9.7 + 30) * 20 + 8}px`,
+  duration: pseudo(i * 10.9 + 40) * 6 + 6,
+  delay: pseudo(i * 12.1 + 50) * 20,
+  char: pseudo(i * 13.3 + 60) > 0.5 ? '1' : '0',
+}));
+
+const BinaryBackground = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
-      {streams.map((s) => (
+      {PRECOMPUTED_STREAMS.map((s) => (
         <motion.div
           key={s.id}
           className="absolute text-sky-400 font-mono whitespace-pre leading-[1.8] blur-[0.4px]"
@@ -56,14 +70,14 @@ const BinaryBackground = () => {
       ))}
       
       {/* جسيمات متوهجة هادئة */}
-      {Array.from({ length: 30 }).map((_, i) => (
+      {PRECOMPUTED_PARTICLES.map((p) => (
         <motion.div
-          key={`static-${i}`}
+          key={p.id}
           className="absolute text-white/60 font-mono font-bold drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            fontSize: `${Math.random() * 20 + 8}px`
+            left: p.left,
+            top: p.top,
+            fontSize: p.fontSize
           }}
           initial={{ opacity: 0, scale: 0 }}
           animate={{ 
@@ -72,12 +86,12 @@ const BinaryBackground = () => {
             filter: ['blur(1px)', 'blur(0px)', 'blur(1px)']
           }}
           transition={{
-            duration: Math.random() * 6 + 6,
+            duration: p.duration,
             repeat: Infinity,
-            delay: Math.random() * 20
+            delay: p.delay
           }}
         >
-          {Math.random() > 0.5 ? '1' : '0'}
+          {p.char}
         </motion.div>
       ))}
     </div>
@@ -104,7 +118,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     // محاولة فورية
     const autoPlayed = playIntro();
     if (autoPlayed) {
-      setAudioStarted(true);
+      queueMicrotask(() => setAudioStarted(true));
     }
 
     // إذا لم ينجح التشغيل الفوري، ننتظر أن يستأنف الـ AudioContext

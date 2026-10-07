@@ -38,7 +38,7 @@ serve(async (req) => {
 
     let url = ''
     let method = 'POST'
-    let body = JSON.stringify(payload || {})
+    const body = JSON.stringify(payload || {})
 
     if (action === 'createSession') {
       url = `${BASE_URL}/sessions/new`

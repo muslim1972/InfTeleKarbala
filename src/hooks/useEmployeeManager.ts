@@ -274,7 +274,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            let passwordUpdatePayload: any = {};
+            const passwordUpdatePayload: any = {};
 
             // 1. Sync with Auth and Hash if password was provided
             if (password) {
@@ -337,7 +337,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 .eq('id', selectedEmployee.id);
             if (userError) throw userError;
 
-            const { risk_percentage, ...financialPayload } = financialData;
+            const { risk_percentage: _risk_percentage, ...financialPayload } = financialData;
             const { error: finError } = await supabase
                 .from('financial_records')
                 .upsert({
@@ -431,7 +431,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     } else if (syncData?.error) {
                         detail = syncData.error;
                     }
-                } catch (_) {}
+                } catch { /* ignore parse error */ }
                 throw new Error(detail);
             }
 
@@ -577,7 +577,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 supabase.from('leaves_details').select('*').eq('user_id', selectedEmployee.id).eq('year', selectedAdminYear)
             ]);
             setAdminRecords({ thanks: thanks.data || [], committees: committees.data || [], penalties: penalties.data || [], leaves: leaves.data || [] });
-        } catch (error) {
+        } catch {
             toast.error("فشل جلب السجلات");
         } finally {
             setLoading(false);
@@ -706,7 +706,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
     const handleFinancialChange = (key: string, value: any) => {
         if (!financialData) return;
-        let newData = { ...financialData, [key]: value };
+        const newData = { ...financialData, [key]: value };
 
         if (key === 'certificate_text') {
             let perc = 0;

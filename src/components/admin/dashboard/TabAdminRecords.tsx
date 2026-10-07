@@ -294,7 +294,7 @@ function RecordSection({ id, title, icon: Icon, color, data, onSave, onDelete, t
     };
 
     const handleSave = () => {
-        let finalItem = { ...newItem };
+        const finalItem = { ...newItem };
 
         if (type === 'leaves') {
             const now = new Date();

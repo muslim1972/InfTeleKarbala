@@ -73,7 +73,7 @@ serve(async (req: Request) => {
     if (!userData || !userData.success) {
       // تحديث Rate Limiting
       if (rlData) {
-        let updates: any = { attempts: rlData.attempts + 1, last_attempt: new Date() };
+        const updates: any = { attempts: rlData.attempts + 1, last_attempt: new Date() };
         if (updates.attempts >= 5) {
           updates.blocked_until = new Date(Date.now() + 5 * 60000); // 5 دقائق حظر
         }

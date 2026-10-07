@@ -46,26 +46,29 @@ export function useVoiceRecorder() {
   }, []);
 
   const updateWaveform = useCallback(() => {
-    if (!analyserRef.current) return;
+    const loop = () => {
+      if (!analyserRef.current) return;
 
-    const analyser = analyserRef.current;
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteTimeDomainData(dataArray);
+      const analyser = analyserRef.current;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteTimeDomainData(dataArray);
 
-    // Sample 32 points for the waveform visualization
-    const samples = 32;
-    const step = Math.floor(dataArray.length / samples);
-    const waveform: number[] = [];
-    for (let i = 0; i < samples; i++) {
-      const value = dataArray[i * step];
-      // normalize to [0,1]
-      const norm = Math.abs(value - 128) / 128;
-      // optionally boost quiet signals with a sqrt curve
-      waveform.push(Math.sqrt(norm));
-    }
+      // Sample 32 points for the waveform visualization
+      const samples = 32;
+      const step = Math.floor(dataArray.length / samples);
+      const waveform: number[] = [];
+      for (let i = 0; i < samples; i++) {
+        const value = dataArray[i * step];
+        // normalize to [0,1]
+        const norm = Math.abs(value - 128) / 128;
+        // optionally boost quiet signals with a sqrt curve
+        waveform.push(Math.sqrt(norm));
+      }
 
-    setState(prev => ({ ...prev, waveformData: waveform }));
-    animationFrameRef.current = requestAnimationFrame(updateWaveform);
+      setState(prev => ({ ...prev, waveformData: waveform }));
+      animationFrameRef.current = requestAnimationFrame(loop);
+    };
+    loop();
   }, []);
 
   const startRecording = useCallback(async () => {

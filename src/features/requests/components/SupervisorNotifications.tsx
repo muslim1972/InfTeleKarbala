@@ -69,7 +69,7 @@ export const SupervisorNotifications = () => {
             // Secondary query to fetch user profiles
             const validIds = activeRequests.map(r => r.user_id).filter(Boolean);
             const userIds = [...new Set(validIds)];
-            let profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};
+            const profileMap: Record<string, { full_name: string; job_number?: string; avatar_url?: string }> = {};
 
             if (userIds.length > 0) {
                 const { data: profilesData, error: profilesError } = await supabase

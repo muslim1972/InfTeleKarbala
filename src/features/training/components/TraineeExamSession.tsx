@@ -4,7 +4,7 @@ import { cn } from '../../../lib/utils';
 import { useTheme } from '../../../context/ThemeContext';
 import { useTrainingData } from '../hooks/useTrainingData';
 import type { MCQQuestion, TrainingStudent } from '../types';
-import { MAX_EXAM_ATTEMPTS, calculateGrade, EXAM_GRADE_LABELS } from '../types';
+import { MAX_EXAM_ATTEMPTS } from '../types';
 
 interface TraineeExamSessionProps {
     questions: MCQQuestion[];

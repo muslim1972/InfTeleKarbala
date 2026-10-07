@@ -198,7 +198,7 @@ export function useUniversalPatcher() {
 
         const norm = (s: string) => (s || '')
             .toLowerCase()
-            .replace(/[\(\)\[\]\{\}\\\/\-_\.\,:%]/g, ' ')
+            .replace(/[()[\]{}\\/\-_.,:%]/g, ' ')
             .replace(/[أإآ]/g, 'ا')
             .replace(/ة/g, 'ه')
             .replace(/ى/g, 'ي')

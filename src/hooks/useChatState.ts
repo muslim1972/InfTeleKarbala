@@ -276,7 +276,7 @@ export function useChatState(conversationId: string) {
 
     try {
       // 0. Resolve Mentions by checking participants' names in the text
-      let mentionsIds: string[] = [];
+      const mentionsIds: string[] = [];
       const { data: convData } = await supabase
         .from('conversations')
         .select('participants')

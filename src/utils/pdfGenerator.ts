@@ -62,7 +62,7 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
                     // Explicitly apply the Arabic font to the field to fix Vercel WinAnsi encode error
                     field.updateAppearances(arabicFont);
                 }
-            } catch (e) {
+            } catch {
                 // Field not in template — safe to ignore
             }
         };

@@ -30,7 +30,7 @@ export interface OtdrEvent {
   limitDb: number | null;
 }
 
-export function buildOtdrEvents(
+function buildOtdrEvents(
   home: HomeStatus,
   entities: ProjectEntities,
   labSplices: Record<string, SpliceRecord>
@@ -110,7 +110,7 @@ export interface TracePoint {
   y: number; // dB (سالب نحو الأسفل)
 }
 
-export function buildTrace(
+function buildTrace(
   home: HomeStatus,
   events: OtdrEvent[],
   pointsCount = 340

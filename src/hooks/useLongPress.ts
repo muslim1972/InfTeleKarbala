@@ -35,7 +35,9 @@ const useLongPress = (
     );
 
     const clear = useCallback(() => {
-        timeout.current && clearTimeout(timeout.current);
+        if (timeout.current) {
+            clearTimeout(timeout.current);
+        }
     }, []);
 
     const end = useCallback(() => {

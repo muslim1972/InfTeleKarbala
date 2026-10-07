@@ -17,20 +17,21 @@ export const LeavePayToggle: React.FC<LeavePayToggleProps> = ({
   balance,
   daysCount,
 }) => {
-  // Hide for specific leave types that do not affect balances
-  if (['dispatch', 'duty', 'time_off'].includes(leaveType)) {
-    return null;
-  }
-
   const isZeroBalance = balance === 0 || balance === undefined;
   const isInsufficientBalance = !isZeroBalance && balance < daysCount;
+  const isHidden = ['dispatch', 'duty', 'time_off'].includes(leaveType);
 
   // If balance is 0 or undefined, force "without pay" and disable toggle
   useEffect(() => {
-    if (isZeroBalance && withPay) {
+    if (!isHidden && isZeroBalance && withPay) {
       onToggle(false);
     }
-  }, [isZeroBalance, withPay, onToggle]);
+  }, [isHidden, isZeroBalance, withPay, onToggle]);
+
+  // Hide for specific leave types that do not affect balances
+  if (isHidden) {
+    return null;
+  }
 
   return (
     <div className="space-y-3">

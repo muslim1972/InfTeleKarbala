@@ -66,7 +66,7 @@ export const requestNotificationPermission = async () => {
     if (isInitialized && OS && OS.Notifications) {
       await OS.Notifications.requestPermission();
     }
-  } catch (err) {}
+  } catch { /* silent fail */ }
 };
 
 export const initOneSignal = async (userId: string) => {
@@ -85,7 +85,7 @@ export const initOneSignal = async (userId: string) => {
       if (nativePermission === 'default') {
         try {
           await OS.Notifications.requestPermission();
-        } catch (promptErr) {}
+        } catch { /* prompt dismissed */ }
       }
 
       OS.Notifications.addEventListener('click', (event: any) => {
@@ -99,7 +99,7 @@ export const initOneSignal = async (userId: string) => {
         }
       });
     }
-  } catch (e) {}
+  } catch { /* ignore init error */ }
 };
 
 export const checkNotificationStatus = (): NotificationPermission => {
@@ -123,7 +123,7 @@ export const ensureNotificationPermission = async (): Promise<boolean> => {
       const permission = await OS.Notifications.requestPermission();
       return permission;
     }
-  } catch (err) {}
+  } catch { /* permission request error */ }
 
   return checkNotificationStatus() === 'granted';
 };
@@ -135,5 +135,5 @@ export const logoutOneSignal = async () => {
     if (OS && OS.logout) {
       await OS.logout();
     }
-  } catch (e: any) {}
+  } catch { /* logout ignore */ }
 };

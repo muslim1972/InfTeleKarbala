@@ -84,7 +84,7 @@ const EditLeaveRequestForm: React.FC<EditLeaveRequestFormProps> = ({ request, on
         setIsSubmitting(true);
         setError(null);
         try {
-            let params: any = {
+            const params: any = {
                 p_request_id: request.id,
                 p_modification_type: type,
             };

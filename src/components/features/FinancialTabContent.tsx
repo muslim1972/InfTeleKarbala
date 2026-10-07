@@ -185,7 +185,7 @@ export const FinancialTabContent = ({
                                     </div>
                                 ) : (
                                     group.fields.map((field) => {
-                                        let val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
+                                        const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
 
                                         const displayVal = field.isMoney
                                             ? Math.round(Number(val || 0)).toLocaleString()

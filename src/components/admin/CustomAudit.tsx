@@ -86,6 +86,17 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         return data;
     }, []);
 
+    const resetAuditResults = () => {
+        setValidationState('idle');
+        setAuditResult(null);
+        setRecalcResult(null);
+        setCurrentValue(null);
+        setApprovedPercentage(null);
+        setMismatchRows([]);
+        setReportGenerated(false);
+        setProcessedCount(0);
+    };
+
     useEffect(() => {
         if (scope === 'all') {
             setSelectedEmployee(null);
@@ -97,17 +108,6 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
             resetAuditResults();
         }
     }, [scope]);
-
-    const resetAuditResults = () => {
-        setValidationState('idle');
-        setAuditResult(null);
-        setRecalcResult(null);
-        setCurrentValue(null);
-        setApprovedPercentage(null);
-        setMismatchRows([]);
-        setReportGenerated(false);
-        setProcessedCount(0);
-    };
 
     const handleSelectSuggestion = (user: any) => {
         setSelectedEmployee(user);

@@ -26,7 +26,7 @@ export const sendPushNotification = async (
       try {
         const urlObj = new URL(internalPath);
         internalPath = urlObj.pathname + urlObj.search + urlObj.hash;
-      } catch (e) { /* اتركها كما هي إذا فشل التحليل */ }
+      } catch { /* اتركها كما هي إذا فشل التحليل */ }
     }
 
     const payload = {

@@ -110,23 +110,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, []);
 
     const updateVisualizer = useCallback(() => {
-        if (analyserRef.current && isPlaying) {
-            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-            analyserRef.current.getByteFrequencyData(dataArray);
+        const loop = () => {
+            if (analyserRef.current && isPlaying) {
+                const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+                analyserRef.current.getByteFrequencyData(dataArray);
 
-            const startBin = 5;
-            const endBin = 45;
-            let sum = 0;
-            for (let i = startBin; i < endBin; i++) {
-                sum += dataArray[i];
+                const startBin = 5;
+                const endBin = 45;
+                let sum = 0;
+                for (let i = startBin; i < endBin; i++) {
+                    sum += dataArray[i];
+                }
+                const avg = sum / (endBin - startBin);
+                const normalized = Math.min(1, Math.pow(avg / 150, 0.6));
+                glowIntensity.set(normalized * 50);
+            } else if (!isPlaying) {
+                glowIntensity.set(0);
             }
-            const avg = sum / (endBin - startBin);
-            const normalized = Math.min(1, Math.pow(avg / 150, 0.6));
-            glowIntensity.set(normalized * 50);
-        } else if (!isPlaying) {
-            glowIntensity.set(0);
-        }
-        animationRef.current = requestAnimationFrame(updateVisualizer);
+            animationRef.current = requestAnimationFrame(loop);
+        };
+        loop();
     }, [isPlaying, glowIntensity]);
 
     useEffect(() => {

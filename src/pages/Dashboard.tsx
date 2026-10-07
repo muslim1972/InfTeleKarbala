@@ -41,7 +41,9 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         const stateTab = (location.state as any)?.tab;
         const targetTab = urlTab || stateTab;
         if (targetTab && ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge'].includes(targetTab)) {
-            setActiveTab(targetTab as any);
+            queueMicrotask(() => {
+                setActiveTab(prev => (prev !== targetTab ? (targetTab as any) : prev));
+            });
             if (urlTab) {
                 searchParams.delete('tab');
                 setSearchParams(searchParams, { replace: true });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
 interface Props {
@@ -36,7 +36,7 @@ const LeaveSupportingImages: React.FC<Props> = ({ onImagesChange, maxImages = 3 
         const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('order-image')
           .upload(filePath, file);
 

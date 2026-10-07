@@ -301,11 +301,11 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
         // 2. Start checking from the user's immediate department
         let currentDeptId = profile.department_id;
-        let chain: string[] = [];
-        let names: string[] = [];
+        const chain: string[] = [];
+        const names: string[] = [];
         let isTopManagerSelf = false;
 
-        let visitedDepts = new Set<string>();
+        const visitedDepts = new Set<string>();
         while (currentDeptId && !visitedDepts.has(currentDeptId)) {
           visitedDepts.add(currentDeptId);
           const { data: dept } = await supabase.rpc('get_departments_bypass_rls')

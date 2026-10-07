@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
     console.log(`OneSignal: Attempting to notify recipient ${recipientId} [Type: ${type || 'default'}]`);
     
-    let androidCategory = type === 'call' ? 'call' : 'msg';
+    const androidCategory = type === 'call' ? 'call' : 'msg';
     
     const response = await fetch('https://api.onesignal.com/notifications', {
       method: 'POST',

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { MCQQuestion, TrainingSettings, TrainingStudent, TrainingResult } from '../types';
-import { calculateGrade } from '../types';
 
 /**
  * Hook مركزي لبيانات التدريب الصيفي

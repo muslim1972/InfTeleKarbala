@@ -26,7 +26,7 @@ export const EmployeeNotifications = () => {
             // Secondary query to fetch supervisor names to avoid foreign key relation errors (PGRST200)
             const validIds = data.map(r => r.supervisor_id).filter(Boolean);
             const supervisorIds = [...new Set(validIds)];
-            let supervisorMap: Record<string, string> = {};
+            const supervisorMap: Record<string, string> = {};
 
             if (supervisorIds.length > 0) {
                 const { data: supervisorsData } = await supabase

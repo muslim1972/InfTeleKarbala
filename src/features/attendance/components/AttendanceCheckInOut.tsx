@@ -784,7 +784,7 @@ export default function AttendanceCheckInOut({
       });
     } catch (err: any) {
       // Determine exact error and register with note
-      let notes = err?.message || '(تعذر فتح الكاميرا لخلل تقني)';
+      const notes = err?.message || '(تعذر فتح الكاميرا لخلل تقني)';
 
       // Register attendance without photo
       setProcessing(true);

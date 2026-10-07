@@ -40,7 +40,7 @@ interface GovernorateSelectionProps {
 export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
-    const { setActiveGovernorate, canChangeGovernorate } = useGovernorate();
+    const { setActiveGovernorate } = useGovernorate();
     
     // البطاقات المفعلة تُجلب من قاعدة البيانات (تُفعل تلقائياً بعد أول رفع ناجح للمحافظة)
     const [activeCards, setActiveCards] = useState<Record<string, boolean>>({});

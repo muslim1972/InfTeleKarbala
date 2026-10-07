@@ -57,7 +57,6 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   }
 
   const isRegular = leaveType === 'regular' || leaveType === 'long_regular';
-  const isSick = leaveType === 'sick' || leaveType === 'long_sick';
   const isNonConsuming = leaveType === 'time_off' || leaveType === 'dispatch' || leaveType === 'duty';
 
   if (isNonConsuming) {

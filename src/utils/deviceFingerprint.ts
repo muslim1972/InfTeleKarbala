@@ -68,7 +68,7 @@ async function saveToVault(key: string, value: string): Promise<void> {
         resolve();
       }
     });
-  } catch {}
+  } catch { /* ignore idb transaction */ }
 }
 
 function getSystemLabel(): { deviceName: string; os: string; osFamily: string } {
@@ -79,9 +79,9 @@ function getSystemLabel(): { deviceName: string; os: string; osFamily: string } 
 
   if (/android/i.test(ua)) {
     osFamily = 'Android';
-    const match = ua.match(/Android\s+([0-9\.]+)/i);
+    const match = ua.match(/Android\s+([0-9.]+)/i);
     os = match ? `Android ${match[1]}` : 'Android';
-    const modelMatch = ua.match(/\;\s*([^;]+)\s+Build\//i);
+    const modelMatch = ua.match(/;\s*([^;]+)\s+Build\//i);
     if (modelMatch) {
       deviceName = modelMatch[1].trim();
     } else {
@@ -133,7 +133,7 @@ function getNormalizedGpuHardwareInfo(): string {
           .replace(/\(0x[0-9a-fA-F]+\)/gi, '')
           .replace(/OpenGL.*$/gi, '')
           .replace(/PCIe\/SSE\d*/gi, '')
-          .replace(/[\(\),]/g, ' ')
+          .replace(/[(),]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
           .toLowerCase();
@@ -141,7 +141,7 @@ function getNormalizedGpuHardwareInfo(): string {
         const cleanVendor = vendor
           .replace(/Google Inc\./gi, '')
           .replace(/Microsoft/gi, '')
-          .replace(/[\(\),]/g, ' ')
+          .replace(/[(),]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
           .toLowerCase();
@@ -149,7 +149,7 @@ function getNormalizedGpuHardwareInfo(): string {
         return `${cleanVendor}||${cleanRenderer}`;
       }
     }
-  } catch (e) {}
+  } catch { /* ignore webgl error */ }
   return 'standard-gpu';
 }
 
@@ -177,7 +177,7 @@ async function computeInitialSeed(osFamily: string): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
+  } catch {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID().replace(/-/g, '');
     }
@@ -196,7 +196,7 @@ export async function getDeviceFingerprint(): Promise<string> {
     if (lsToken && lsToken.length >= 16) {
       token = lsToken.trim();
     }
-  } catch (e) {}
+  } catch { /* ignore storage error */ }
 
   // 2. Check IndexedDB if not found in LocalStorage
   if (!token) {
@@ -205,19 +205,19 @@ export async function getDeviceFingerprint(): Promise<string> {
       if (idbToken && idbToken.length >= 16) {
         token = idbToken.trim();
         // Restore to LocalStorage
-        try { localStorage.setItem(STORAGE_KEY, token); } catch (e) {}
+        try { localStorage.setItem(STORAGE_KEY, token); } catch { /* ignore storage error */ }
       }
-    } catch (e) {}
+    } catch { /* ignore idb error */ }
   }
 
   // 3. If still not found, compute seed once and store permanently in BOTH
   if (!token) {
     token = await computeInitialSeed(osFamily);
-    try { localStorage.setItem(STORAGE_KEY, token); } catch (e) {}
-    try { await saveToVault(STORAGE_KEY, token); } catch (e) {}
+    try { localStorage.setItem(STORAGE_KEY, token); } catch { /* ignore storage error */ }
+    try { await saveToVault(STORAGE_KEY, token); } catch { /* ignore idb error */ }
   } else {
     // Cross-sync: Ensure it exists in IndexedDB as well
-    try { await saveToVault(STORAGE_KEY, token); } catch (e) {}
+    try { await saveToVault(STORAGE_KEY, token); } catch { /* ignore idb error */ }
   }
 
   return `${label} [${token}]`;
