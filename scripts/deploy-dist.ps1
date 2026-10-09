@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # نشر dist إلى VPS — مقارنة MD5 ثم رفع المتغيّرات فقط ثم تحقق
 # الاستخدام: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\deploy-dist.ps1
 # المتطلبات: PuTTY (plink/pscp) + بناء محلي طازج في dist/
@@ -7,7 +7,9 @@
 $ErrorActionPreference = 'Stop'
 $pscp = 'C:\Program Files\PuTTY\pscp.exe'
 $plink = 'C:\Program Files\PuTTY\plink.exe'
-$pw = 'mu@ITPC@2026'
+# كلمة السر من متغير البيئة VPS_PW (يُضبط مرة بـ setx) — لا تُكتب في الملفات
+$pw = $env:VPS_PW; if (-not $pw) { $pw = [Environment]::GetEnvironmentVariable('VPS_PW','User') }
+if (-not $pw) { throw 'VPS_PW غير مضبوط: setx VPS_PW "..." ثم أعد المحاولة' }
 $host_ = 'muslim@10.56.3.3'
 $localDist = 'D:\InfTeleKarbala\dist'
 $root = 'D:\InfTeleKarbala'

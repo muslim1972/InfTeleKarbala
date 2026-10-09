@@ -82,7 +82,8 @@ if (process.argv.includes('--db')) {
   const { execFileSync } = await import('node:child_process');
   const putty = 'C:\\Program Files\\PuTTY';
   let pw = process.env.VPS_PW;
-  if (!pw) { const m = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8').match(/-pw '([^']+)'/); pw = m && m[1]; }
+  if (!pw) { try { pw = execFileSync('powershell', ['-NoProfile', '-Command', "[Environment]::GetEnvironmentVariable('VPS_PW','User')"], { encoding: 'utf8' }).trim(); } catch {} }
+  if (!pw) throw new Error('VPS_PW غير مضبوط (setx VPS_PW ...)');
   const host = 'muslim@10.56.3.3';
   try {
     for (const f of ['runsql.sh', 'db-inventory.sql'])

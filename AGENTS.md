@@ -48,7 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\InfTeleKarbala\scripts\de
 4. **SQL على DB (PuTTY على VPS — ليس محلياً):**
 
 ```powershell
-& 'C:\Program Files\PuTTY\plink.exe' -batch -pw 'mu@ITPC@2026' muslim@10.56.3.3 'psql -U postgres -d postgres -f /path/script.sql'
+& 'C:\Program Files\PuTTY\plink.exe' -batch -pw $pw muslim@10.56.3.3 'psql -U postgres -d postgres -f /path/script.sql'
 ```
 
 5. **فحص تشغيلي عند الشك** (يُرفع ثم يُنفَّذ على VPS): `scripts\runtime-check.sh`
@@ -86,8 +86,10 @@ node "scripts\AI Scrept\analyze-salary-excel.mjs" "F:\صور للتجربة\نظ
 
 ## معطيات VPS
 
+- كلمة السر: `$pw = $env:VPS_PW; if (-not $pw) { $pw = [Environment]::GetEnvironmentVariable('VPS_PW','User') }` — يعمل دون إعادة تشغيل بعد setx.
+
 - التطبيق: `muslim@10.56.3.3:/home/muslim/inftelekarbala/dist` (PuTTY: plink/pscp)
-- DB على نفس VPS عبر PuTTY — user=muslim / password=mu@ITPC@2026
+- DB على نفس VPS عبر PuTTY — user=muslim / كلمة السر في متغير البيئة `VPS_PW` (لا تُكتب في أي ملف)
 - فخ quoting: PowerShell 5.1 يُسقط علامات التنصيص المزدوجة في أوامر plink البعيدة — اكتب منطق shell المعقّد في سكربت `.sh` يُرفع بـ pscp ثم يُنفَّذ.
 
 ## ضوابط ثابتة (في كل مراحل العمل)

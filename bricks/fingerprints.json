@@ -1,5 +1,5 @@
 {
- "created": "2026-10-09T20:41:41.958Z",
+ "created": "2026-10-09T21:08:41.516Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -11,7 +11,7 @@
   },
   "scripts/deploy-dist.ps1": {
    "brick": "OPS-01",
-   "sha": "9dbd58361d0a"
+   "sha": "4bd2b65400e7"
   },
   "scripts/dist-cmp-remote.sh": {
    "brick": "OPS-01",
@@ -27,7 +27,7 @@
   },
   "scripts/verify-bricks.mjs": {
    "brick": "OPS-03",
-   "sha": "83fbc7ca2c2c"
+   "sha": "57d1126fed04"
   },
   "spa_server.py": {
    "brick": "OPS-02",

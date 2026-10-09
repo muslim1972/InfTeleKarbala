@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
   last_updated: "2026-10-09"
 ---
 
@@ -23,6 +23,7 @@ metadata:
 - الردود بالعربية، موجزة. لا `setTimeout` لمزامنة الواجهة/التركيز.
 - قبل البناء: `npx tsc --noEmit -p tsconfig.app.json` — لا أخطاء جديدة في الملفات المعدلة.
 - البناء `npm run build` ثم النشر **فقط** `scripts\deploy-dist.ps1` (SAME=الكل، DIFF=0، MISSING=0) + فحص HTTP 200. لا سكربتات رفع جديدة، لا حذف chunks قديمة.
+- كلمة سر VPS: `$pw = $env:VPS_PW; if (-not $pw) { $pw = [Environment]::GetEnvironmentVariable('VPS_PW','User') }` — لا تُكتب في أي ملف أبداً.
 - SQL على VPS عبر plink: رفع الملف بـ pscp إلى `/tmp/` ثم `bash /tmp/runsql.sh /tmp/x.sql` (psql داخل حاوية supabase-db).
 - **لا تعديل منطق بلا عقد**: القاعدة تُكتب في BRICK.md (R#) بمصدرها، ويوقّع المستخدم، ثم اختبار (T#)، ثم كود.
 - **لا تفترض**: أي غموض في قاعدة عمل يُسأل عنه المستخدم ويُسجّل في «سجل القرارات».
@@ -33,7 +34,7 @@ metadata:
 ## 3. الحالة الحالية
 - **المرحلة:** M1 (الجرد) — البند 1 مكتمل، البند 2 مكتمل للنواة CORE.
 - **أُنجز:** ARCHITECTURE.md (معتمد)، BRICKS.md، هذا الـSkill، مسودة عقد BE-ATT-04، أرشفة المؤقتات، قواعد AGENTS.md.
-- ~~أولوية أمنية~~ ✓ مكتملة 2026-10-09 (المراحل 1–4). متبقٍّ: P10 فقط (تدوير كلمة سر VPS — خطوة المستخدم، ثم أنقل السكربتات إلى `$env:VPS_PW`).
+- ~~أولوية أمنية~~ ✓ مكتملة بالكامل (المراحل 1–4 + P10).
 - **⟵ العودة للخطة (إلزامي بعد الأمن):** استئناف M1 البند 2: عقود المجالات بالترتيب ATT ← LEV ← HR ← FIN ← INC ← PRO ← TRN ← COM ← MED ← FIB ← SPL، ثم البند 3 (مجلدات الجذر)، ثم M2.
 - **الخطوة التالية (M1):** ~~(1) جرد BE~~ ✓. (2) [النواة ✓؛ الباقي: ATT، LEV، HR، FIN، INC، PRO، TRN، COM، MED، FIB، SPL] عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
 
@@ -53,6 +54,7 @@ metadata:
 | 2026-10-09 | عقود وصفية للنواة: BE-CORE-02، BE-CORE-03، BE-CORE-support (01/04/05/06)، FE-CORE (01..05) + ربطها في registry (حقل contract). الحارس صار يقرأ `**T#**` أيضاً | CORE | M1 بند 2 (النواة) مكتمل |
 | 2026-10-09 | **الأمن المرحلة 2+3 مكتملة** (انظر سجل BE-CORE-03): أغلفة فحص دور `core_require_role` + سحب anon الشامل (القائمة المسموحة في الهجرة). `NOTIFY pgrst, 'reload schema'` بعد أي إنشاء/تسمية دالة. runsql.sh يقبل وسيطاً ثانياً لمستخدم DB (supabase_admin) | BE-CORE-03 | بانتظار فحص المستخدم الوظيفي |
 | 2026-10-09 | **الأمن المرحلة 4 مكتملة** (سجل BE-CORE-03): pageinspect، دوال التشخيص، سياسات RLS (إشعارات/أجهزة/ترفيع)، حجب password_hash للمتدربين، سحب TRUNCATE. نشر الواجهة أولاً (SAME=353 DIFF=0 MISSING=0، HTTP 200) ثم الهجرة. المستخدم فحص المرحلة 2+3 وظيفياً ونجحت، ووافق على قرارات الأدوار | BE-CORE-03 | بقي P10 (يحتاج المستخدم) |
+| 2026-10-10 | **P10 مُغلق:** المستخدم غيّر كلمة سر VPS (passwd) وضبط `setx VPS_PW`. أُزيلت الكلمة من AGENTS.md وdeploy-dist.ps1 والحارس؛ كلها تقرأ `VPS_PW` من العملية ثم من سجل المستخدم (لا حاجة لإعادة تشغيل). ما في `_archive` وسجل Git هو الكلمة القديمة الملغاة | OPS, BE-CORE-03 | **الأمن مكتمل** |
 | 2026-10-09 | **تصحيح صدق:** ذكرتُ سابقاً «حفظت في Git» والمقصود commit محلي فقط — لم يُدفع لـ GitHub. محاولة `git push` من الوكيل تعلق بانتظار مصادقة GitHub، فالدفع يتم من المستخدم. من الآن: أقول «commit محلي» صراحةً | OPS | |
 
 ## 5. سجل القرارات (إلحاق فقط)
@@ -80,7 +82,7 @@ metadata:
 
 ## 6.0 مشاكل أمنية/تقنية مرصودة (لا مجاملة)
 - P6 امتداد `pageinspect` في المخطط public (يكشف صفحات التخزين) — يُنقل/يُحذف في BE-CORE-03.
-- P10 كلمة سر VPS مكتوبة نصاً في AGENTS.md وملتزمة في Git — يُوصى بنقلها لمتغير بيئة `VPS_PW` ومفتاح SSH بدل كلمة السر، وتغييرها. (الحارس يقرأ `VPS_PW` أولاً.)
+- ~~P10~~ (مُغلق 2026-10-10) كلمة سر VPS مكتوبة نصاً في AGENTS.md وملتزمة في Git — يُوصى بنقلها لمتغير بيئة `VPS_PW` ومفتاح SSH بدل كلمة السر، وتغييرها. (الحارس يقرأ `VPS_PW` أولاً.)
 - P11 دالة `debug_modify_check` وبقايا `reset_test_attendance*` في الإنتاج.
 - P13 تشابكات عزل مرصودة: NotificationsBell يقرأ meeting_participants (COM)؛ مشغلات الأقسام تكتب في work_locations (ATT-07)؛ AuthContext يرفع avatar (HR)؛ لا دالة إشعار مركزية (كل مجال يحدد المشرفين بنفسه).
 - P14 دوال قراءة مكشوفة لـ anon قد تسرّب بيانات موظفين: get_available_profiles، search_available_profiles، get_basic_profiles، get_managed_employees، kiosk_get_employees، get_promotion_users، check_user_exists (تعداد أسماء).
