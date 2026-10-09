@@ -31,7 +31,9 @@
 | 2026-10-09 | **المرحلة 3 مُغلقة:** سحب anon من كل دالة DEFINER لا تلزم قبل الدخول (≈48 دالة)؛ القائمة المسموحة موثّقة في هجرة `20261009231000_core03_revoke_anon_read_rpcs.sql`. اختبار REST من الإنترنت: get_server_time/check_user_exists⇒200، get_available_profiles/rpc_sync_user_auth/delete_monthly_snapshot⇒401. |
 | ~~مفتوح~~ | ~~**المرحلة 2:** نفس الدوال ما زالت متاحة لأي موظف مسجّل (authenticated) بلا فحص دور داخلي — `rpc_sync_user_auth`، `rpc_delete_user_robust`، `delete/activate/commit_monthly_snapshot`، `clone_departments_tree`، `settle_device_change_request`. يلزم إضافة فحص دور داخل كل منها. |
 | ~~مفتوح~~ | ~~مراجعة دوال القراءة المكشوفة لـ anon (`get_available_profiles`، `search_available_profiles`، `get_basic_profiles`، `get_managed_employees`، `kiosk_get_employees`، `get_promotion_users`…) — قد تسرّب بيانات موظفين للمجهول. |
-| مفتوح | امتداد `pageinspect` في public (P6). |
+| 2026-10-09 | **المرحلة 4 مُغلقة** (هجرة `20261009233600_core03_residuals_rls_ext.sql`، بعد نشر واجهة لا تطلب الهاش SAME=353): حذف `pageinspect`؛ حذف debug_modify_check وreset_test_attendance؛ إدراج الإشعارات للمسجّل فقط (كان المجهول يستطيع إرسال إشعار مزيّف لأي موظف)؛ طلبات تغيير الجهاز لصاحبها فقط؛ نتائج الترفيع للمسجّل فقط؛ **حجب عمود password_hash للمتدربين** (كان مقروءاً لأي مجهول)؛ سحب TRUNCATE/TRIGGER/REFERENCES من anon/authenticated على كل الجداول. اختبار REST: password_hash⇒401، إشعار مجهول⇒401. |
+| مفتوح (منخفض) | قراءة عامة مقصودة: work_schedules/days، official/public_holidays، attendance_settings، governorate_cards (لازمة قبل الدخول)، sim_map_library، summer_training_settings/results (المتدرب مجهول). |
+| مفتوح (يحتاج المستخدم) | P10: كلمة سر VPS في Git — تدوير كلمة السر + متغير بيئة `VPS_PW`. |
 
 ## اختبارات العقد
 | # | السيناريو | المتوقع | يغطي |

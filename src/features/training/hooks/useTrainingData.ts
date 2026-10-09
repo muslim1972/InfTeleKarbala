@@ -143,7 +143,7 @@ export function useTrainingData() {
         try {
             const { data, error } = await supabase
                 .from('summer_training_students')
-                .select('*')
+                .select('id, full_name, username, institution_name, exam_grade, supervisor_id, created_at, training_location, trainer_name, batch_name') // بدون password_hash (محجوب على مستوى العمود — BE-CORE-03)
                 .order('created_at', { ascending: false });
             if (error) throw error;
             return data || [];

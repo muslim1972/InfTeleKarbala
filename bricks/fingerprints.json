@@ -1,9 +1,9 @@
 {
- "created": "2026-10-09T19:59:45.847Z",
+ "created": "2026-10-09T20:41:41.958Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "b7129415b22d"
+   "sha": "d0124b9d2132"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -959,7 +959,7 @@
   },
   "src/features/training/components/EditStudentModal.tsx": {
    "brick": "FE-TRN-01",
-   "sha": "a146bee6e7b7"
+   "sha": "a5263b16698a"
   },
   "src/features/training/components/SummerTrainingPage.tsx": {
    "brick": "FE-TRN-01",
@@ -991,7 +991,7 @@
   },
   "src/features/training/hooks/useTrainingData.ts": {
    "brick": "FE-TRN-01",
-   "sha": "845977306b7d"
+   "sha": "2ae35ca74db9"
   },
   "src/features/training/types.ts": {
    "brick": "FE-TRN-01",
@@ -1456,6 +1456,10 @@
   "supabase/migrations/20261009231000_core03_revoke_anon_read_rpcs.sql": {
    "brick": "BE-MIG-01",
    "sha": "58fde3a68e5b"
+  },
+  "supabase/migrations/20261009233600_core03_residuals_rls_ext.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "db847ef7051b"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

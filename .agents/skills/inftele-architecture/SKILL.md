@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
   last_updated: "2026-10-09"
 ---
 
@@ -33,7 +33,7 @@ metadata:
 ## 3. الحالة الحالية
 - **المرحلة:** M1 (الجرد) — البند 1 مكتمل، البند 2 مكتمل للنواة CORE.
 - **أُنجز:** ARCHITECTURE.md (معتمد)، BRICKS.md، هذا الـSkill، مسودة عقد BE-ATT-04، أرشفة المؤقتات، قواعد AGENTS.md.
-- ~~أولوية أمنية~~ ✓ مكتملة 2026-10-09 (المراحل 1–3). متبقٍّ أمنياً (غير عاجل): P6 pageinspect، P10 كلمة سر VPS في Git، سياسات RLS للجداول (لم تُراجع بعد).
+- ~~أولوية أمنية~~ ✓ مكتملة 2026-10-09 (المراحل 1–4). متبقٍّ: P10 فقط (تدوير كلمة سر VPS — خطوة المستخدم، ثم أنقل السكربتات إلى `$env:VPS_PW`).
 - **⟵ العودة للخطة (إلزامي بعد الأمن):** استئناف M1 البند 2: عقود المجالات بالترتيب ATT ← LEV ← HR ← FIN ← INC ← PRO ← TRN ← COM ← MED ← FIB ← SPL، ثم البند 3 (مجلدات الجذر)، ثم M2.
 - **الخطوة التالية (M1):** ~~(1) جرد BE~~ ✓. (2) [النواة ✓؛ الباقي: ATT، LEV، HR، FIN، INC، PRO، TRN، COM، MED، FIB، SPL] عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
 
@@ -52,6 +52,7 @@ metadata:
 | 2026-10-09 | **ثغرة حرجة أُغلقت (مرحلة 1):** 14 دالة DEFINER كانت متاحة لـ anon عبر النطاق العام khr-itpc.egov.iq، أخطرها `rpc_sync_user_auth` (تغيير كلمة سر أي حساب). سُحب anon بهجرة `supabase/migrations/20261009223700_core03_revoke_anon_sensitive_rpcs.sql` (+ دوال اللقطات الشهرية مالكها supabase_admin نُفذت بـ `psql -U supabase_admin`). تحقق REST: anon⇒401، get_server_time⇒200 | BE-CORE-03 | المرحلة 2 مفتوحة |
 | 2026-10-09 | عقود وصفية للنواة: BE-CORE-02، BE-CORE-03، BE-CORE-support (01/04/05/06)، FE-CORE (01..05) + ربطها في registry (حقل contract). الحارس صار يقرأ `**T#**` أيضاً | CORE | M1 بند 2 (النواة) مكتمل |
 | 2026-10-09 | **الأمن المرحلة 2+3 مكتملة** (انظر سجل BE-CORE-03): أغلفة فحص دور `core_require_role` + سحب anon الشامل (القائمة المسموحة في الهجرة). `NOTIFY pgrst, 'reload schema'` بعد أي إنشاء/تسمية دالة. runsql.sh يقبل وسيطاً ثانياً لمستخدم DB (supabase_admin) | BE-CORE-03 | بانتظار فحص المستخدم الوظيفي |
+| 2026-10-09 | **الأمن المرحلة 4 مكتملة** (سجل BE-CORE-03): pageinspect، دوال التشخيص، سياسات RLS (إشعارات/أجهزة/ترفيع)، حجب password_hash للمتدربين، سحب TRUNCATE. نشر الواجهة أولاً (SAME=353 DIFF=0 MISSING=0، HTTP 200) ثم الهجرة. المستخدم فحص المرحلة 2+3 وظيفياً ونجحت، ووافق على قرارات الأدوار | BE-CORE-03 | بقي P10 (يحتاج المستخدم) |
 | 2026-10-09 | **تصحيح صدق:** ذكرتُ سابقاً «حفظت في Git» والمقصود commit محلي فقط — لم يُدفع لـ GitHub. محاولة `git push` من الوكيل تعلق بانتظار مصادقة GitHub، فالدفع يتم من المستخدم. من الآن: أقول «commit محلي» صراحةً | OPS | |
 
 ## 5. سجل القرارات (إلحاق فقط)
@@ -67,6 +68,8 @@ metadata:
 | D8 | المخطط المعماري معتمد؛ البناء يبدأ من أساس الهيكل (M0) لا من ميزة | المستخدم 2026-10-09 |
 | D9 | المؤقتات تُؤرشف حسب النوع في `_archive/` ولا تُحذف (قيمة تاريخية لدوال DB) | المستخدم+التوصية 2026-10-09 |
 | D10 | لا مجاملة: الصحيح تقنياً يحكم، والاعتراض صريح مع البديل | المستخدم 2026-10-09 |
+| D11 | حذف الموظف: developer/it_supervisor/general فقط (ليس hr)؛ المعيار admin_role لا role='admin' | المستخدم 2026-10-09 |
+| D12 | إكمال البقايا الأمنية قبل العودة للخطة | المستخدم 2026-10-09 |
 
 ## 6. أسئلة مفتوحة (تُغلق بقرار في §5)
 - Q1 المناوب: تأخير 1–4د بلا محاسبة أم من الدقيقة 1؟

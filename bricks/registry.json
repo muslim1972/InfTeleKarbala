@@ -387,7 +387,6 @@
     "log_field_changes",
     "log_table_activity",
     "append_deleted_by",
-    "debug_modify_check",
     "append_deleted_by__impl"
    ],
    "tables": [
@@ -495,7 +494,6 @@
    "db": [
     "submit_attendance_record_secure",
     "process_daily_attendance",
-    "reset_test_attendance",
     "reset_test_attendance_today"
    ],
    "tables": [

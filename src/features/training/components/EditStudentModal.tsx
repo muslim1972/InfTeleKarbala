@@ -60,7 +60,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({ student, onC
                 .from('summer_training_students')
                 .update(updatePayload)
                 .eq('id', student.id)
-                .select()
+                .select('id, full_name, username, institution_name, exam_grade, supervisor_id, created_at, training_location, trainer_name, batch_name')
                 .maybeSingle();
 
             if (error) {
