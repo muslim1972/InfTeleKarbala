@@ -713,13 +713,28 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             const t = value.trim();
             if (t.includes('دكتوراه')) perc = 150;
             else if (t.includes('ماجستير')) perc = 125;
-            else if (t.includes('دبلوم عالي')) perc = 55;
+            else if (t.includes('دبلوم عالي') || t.includes('دبلو م عالي')) perc = 55;
             else if (t.includes('بكلوريوس') || t.includes('بكالوريوس')) perc = 45;
-            else if (t.includes('دبلوم')) perc = 35;
-            else if (t.includes('الاعدادية')) perc = 25;
-            else if (t.includes('المتوسطة') || t.includes('الابتدائية') || t.includes('يقرأ ويكتب') || t.includes('أمي')) perc = 15;
+            else if (t.includes('دبلوم') || t.includes('معهد')) perc = 35;
+            else if (t.includes('الاعدادية') || t.includes('اعدادية')) perc = 25;
+            else if (t.includes('المتوسطة') || t.includes('الابتدائية') || t.includes('يقرأ ويكتب') || t.includes('أمي') || t.includes('دون')) perc = 15;
 
             if (perc > 0 || t.includes('يقرأ') || t.includes('أمي')) newData.certificate_percentage = perc;
+        }
+
+        if (key === 'certificate_percentage') {
+            const p = Number(value);
+            if (p === 150) newData.certificate_text = 'دكتوراه';
+            else if (p === 125) newData.certificate_text = 'ماجستير';
+            else if (p === 55) newData.certificate_text = 'دبلوم عالي';
+            else if (p === 45) newData.certificate_text = 'بكالوريوس';
+            else if (p === 35) newData.certificate_text = 'دبلوم';
+            else if (p === 25) newData.certificate_text = 'الاعدادية';
+            else if (p === 15) {
+                const current = (newData.certificate_text || '').trim();
+                const isBasic = /(متوسط|ابتدائ|دون|أمي|امي|يقرأ)/.test(current);
+                if (!isBasic) newData.certificate_text = 'الابتدائية';
+            }
         }
 
         if (key === 'certificate_text' || key === 'certificate_percentage' || key === 'nominal_salary') {

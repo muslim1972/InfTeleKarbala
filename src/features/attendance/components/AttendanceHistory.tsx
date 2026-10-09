@@ -130,7 +130,7 @@ export default function AttendanceHistory({
                             {formatTime(record.check_in)}
                           </span>
                           <span> - </span>
-                          <span className={isDevicePending || record.notes?.includes('خروج نهائي افتراضي') ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
+                          <span className={isDevicePending || record.check_out_is_virtual || record.notes?.includes('خروج نهائي افتراضي') || record.notes?.includes('خروج مبكر') || record.notes?.includes('ساعات إضافية') ? 'text-red-600 font-bold' : (unverified ? 'text-rose-600 font-extrabold' : '')}>
                             {formatTime(record.check_out)}
                           </span>
                         </div>

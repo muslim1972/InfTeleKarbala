@@ -613,11 +613,21 @@ export default function Timesheets() {
           // ─── تكامل الإجازات: يوم إجازة أدى فيه الموظف دواماً → عرض الأوقات بالبرتقالي ───
           const isLeaveOvertimeDay = hasLeaveOvertimeNote(rec.notes);
           const leaveOvertimeColor = 'color: #ea580c; font-weight: bold;';
-
-          const isVirtualOut = rec.notes?.includes('خروج نهائي افتراضي');
+          const isVirtualOut = rec.notes?.includes('خروج نهائي افتراضي') || rec.check_out_is_virtual;
           const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
+          const isEarlyOut = Boolean(
+            rec.check_out && !isRestOrHoliday && (
+              (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+              (deficitMins > 0 && rec.check_out) ||
+              rec.notes?.includes('خروج مبكر')
+            )
+          );
+          const isOvertimePending = Boolean(
+            rec.notes?.includes('ساعات إضافية') ||
+            (!isVirtualOut && overtimeMins > 0)
+          );
 
-          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out || isVirtualOut) ? 'color: #e11d48; font-weight: bold;' : '';
+          const outTimeColor = (isForgotCheckout || rec.is_auto_check_out || isVirtualOut || isEarlyOut || isOvertimePending) ? 'color: #e11d48; font-weight: bold;' : '';
           const inTimeColor = (rec.status === 'late' || isVirtualIn) ? 'color: #e11d48; font-weight: bold;' : '';
           const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
           const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
@@ -1035,8 +1045,22 @@ export default function Timesheets() {
         else if (rec.check_in_location) verifyMethod = 'موقع';
         else if (rec.is_auto_check_out) verifyMethod = 'تلقائي';
 
-        const outTimeColor = (isForgotCheckout || rec.is_auto_check_out) ? 'color: #e11d48; font-weight: bold;' : '';
-        const inTimeColor = rec.status === 'late' ? 'color: #e11d48;' : '';
+        const isVirtualOut = rec.notes?.includes('خروج نهائي افتراضي') || rec.check_out_is_virtual;
+        const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
+        const isEarlyOut = Boolean(
+          rec.check_out && !isRestOrHoliday && (
+            (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+            (deficitMins > 0 && rec.check_out) ||
+            rec.notes?.includes('خروج مبكر')
+          )
+        );
+        const isOvertimePending = Boolean(
+          rec.notes?.includes('ساعات إضافية') ||
+          (!isVirtualOut && overtimeMins > 0)
+        );
+
+        const outTimeColor = (isForgotCheckout || rec.is_auto_check_out || isVirtualOut || isEarlyOut || isOvertimePending) ? 'color: #e11d48; font-weight: bold;' : '';
+        const inTimeColor = (rec.status === 'late' || isVirtualIn) ? 'color: #e11d48; font-weight: bold;' : '';
         const deficitColor = deficitMins > 0 ? 'color: #e11d48; font-weight: bold;' : '';
         const overtimeColor = overtimeMins > 0 ? 'color: #059669; font-weight: bold;' : '';
         
@@ -1421,6 +1445,22 @@ export default function Timesheets() {
                             timeLeaves: dayTimeLeaves
                           });
 
+                          const isVirtualOut = rec.notes?.includes('خروج نهائي افتراضي') || rec.check_out_is_virtual;
+                          const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
+                          const isEarlyOut = Boolean(
+                            rec.check_out && !isRestOrHoliday && (
+                              (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+                              (deficitMins > 0 && rec.check_out) ||
+                              rec.notes?.includes('خروج مبكر')
+                            )
+                          );
+                          const isOvertimePending = Boolean(
+                            rec.notes?.includes('ساعات إضافية') ||
+                            (!isVirtualOut && overtimeMins > 0)
+                          );
+                          const isLateIn = rec.status === 'late' || isVirtualIn || unverified;
+                          const isOutRed = isForgotCheckout || rec.is_auto_check_out || isVirtualOut || isEarlyOut || isOvertimePending || unverified;
+
                           return (
                             <tr key={rec.id || i} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
@@ -1457,12 +1497,12 @@ export default function Timesheets() {
                                   )}
                                 </div>
                               </td>
-                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{inTime}</td>
+                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : isLateIn ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{inTime}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveOutStr}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveReturnStr}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveOut2Str}</td>
                               <td className="px-3 py-3 text-amber-600 font-mono">{leaveReturn2Str}</td>
-                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : isForgotCheckout || unverified ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
+                              <td className={`px-3 py-3 font-mono ${isLeaveOvertimeDay ? 'text-orange-600 font-bold' : isOutRed ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>{outTime}</td>
                               <td className={`px-3 py-3 font-bold ${isLeaveOvertimeDay ? 'text-orange-600' : 'text-blue-600'}`}>{formatDurationDot(netMins)}</td>
                               <td className="px-3 py-3 font-bold text-rose-600">{deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
                               <td className={`px-3 py-3 font-bold ${isLeaveOvertimeDay ? 'text-orange-600' : 'text-emerald-600'}`}>{overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
