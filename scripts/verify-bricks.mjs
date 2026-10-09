@@ -46,7 +46,7 @@ for (const b of reg.bricks) {
     if (!fs.existsSync(c)) { errors.push(`[${b.id}] العقد مفقود: ${b.contract}`); continue; }
     const txt = fs.readFileSync(c, 'utf8');
     const rules = [...new Set([...txt.matchAll(/\*\*(R\d+)\*\*/g)].map((m) => m[1]))];
-    const testRows = txt.split('\n').filter((l) => /^\|\s*T\d+\s*\|/.test(l)).join('\n');
+    const testRows = txt.split('\n').filter((l) => /^\|\s*T\d+\s*\|/.test(l) || /\*\*T\d+\*\*/.test(l)).join('\n'); // صف جدول T# أو سطر **T#**
     const untested = rules.filter((r) => !new RegExp(`\\b${r}\\b`).test(testRows));
     if (untested.length) warns.push(`[${b.id}] قواعد بلا اختبار يذكرها (${untested.length}/${rules.length}): ${untested.join(', ')}`);
   }

@@ -1,52 +1,748 @@
 {
-  "$comment": "سجل الطابوق الآلي — يقرؤه الحارس scripts/verify-bricks.mjs. owns: ملف أو مجلد (المجلد يملك كل ما تحته). db: دوال قاعدة البيانات المملوكة. status: planned|inventoried|signed|tested|stable",
-  "version": 1,
-  "bricks": [
-    { "id": "FE-CORE-01", "name": "Shell / Router / Entry", "status": "inventoried", "owns": ["src/main.tsx", "src/App.tsx", "src/App.css", "src/index.css", "src/vite-env.d.ts", "src/assets", "src/pages/NotFound.tsx", "src/components/layout", "src/components/common/ErrorBoundary.tsx"] },
-    { "id": "FE-CORE-02", "name": "Auth / Login / Roles", "status": "inventoried", "owns": ["src/context/AuthContext.tsx", "src/pages/Login.tsx", "src/components/auth", "src/utils/permissions.ts", "src/utils/formatRoles.ts", "src/utils/deviceFingerprint.ts", "src/utils/antiSpoofing.ts"] },
-    { "id": "FE-CORE-03", "name": "Theme / Governorate / Settings", "status": "inventoried", "owns": ["src/context/ThemeContext.tsx", "src/context/GovernorateContext.tsx", "src/pages/GovernorateSelection.tsx", "src/constants/governorates.ts", "src/components/features/SettingsModal.tsx", "src/context/AccessibilityContext.tsx"] },
-    { "id": "FE-CORE-04", "name": "Supabase client / errors / cache", "status": "inventoried", "owns": ["src/lib/supabase.ts", "src/lib/errorLogger.ts", "src/lib/utils.ts", "src/cache", "src/utils/errorMessageFormatter.ts", "src/utils/formatDate.ts", "src/utils/formatters.ts", "src/utils/GeolocationManager.ts", "src/utils/arabicShaper.ts"] },
-    { "id": "FE-CORE-05", "name": "Notifications UI", "status": "inventoried", "owns": ["src/components/notifications", "src/components/features/AppNotifications.tsx", "src/services/notifications"] },
-    { "id": "FE-UI-01", "name": "Generic UI components", "status": "inventoried", "owns": ["src/components/ui", "src/components/visual/LogoGlow.tsx", "src/components/visual/ShadowTool.html", "src/components/shared/EmployeeSearch.tsx", "src/hooks/useEmployeeSearch.ts", "src/hooks/useLongPress.ts", "src/hooks/useSmoothScroll.ts", "src/components/features/StatCard.tsx", "src/components/features/TabSystem.tsx", "src/components/features/YearSlider.tsx"] },
-    { "id": "FE-SPL-01", "name": "Splash / Launcher", "status": "inventoried", "owns": ["src/pages/SplashScreen.tsx", "src/pages/SplashScreenLegacy.tsx", "src/pages/LauncherPage.tsx", "src/hooks/useSplashAudio.ts", "src/components/visual/SplashBeaconVideos.tsx", "src/components/visual/SplashTechVideo.tsx"] },
-    { "id": "FE-HR-01", "name": "Employee profile & admin dashboard", "status": "inventoried", "owns": ["src/pages/Dashboard.tsx", "src/pages/AdminDashboard.tsx", "src/pages/VisitorDashboard.tsx", "src/components/admin/dashboard", "src/components/admin/ProfileDataUpdater.tsx", "src/components/admin/DepartmentsManager.tsx", "src/components/admin/DepartmentSelector.tsx", "src/components/admin/FieldPermissionsModal.tsx", "src/components/admin/SupervisorPermissions.tsx", "src/components/admin/CustomAudit.tsx", "src/components/admin/FullAudit.tsx", "src/components/admin/HistoryViewer.tsx", "src/components/features/AdministrativeTabContent.tsx", "src/components/features/RecordList.tsx", "src/components/features/DirectivesModal.tsx", "src/hooks/useDashboardData.ts", "src/hooks/useEmployeeData.ts", "src/hooks/useEmployeeManager.ts", "src/utils/profileUtils.ts", "src/utils/auditPrintUtils.ts", "src/utils/pdfGenerator.ts", "src/utils/pdfListGenerator.ts", "src/constants/certificates.ts"] },
-    { "id": "FE-HR-02", "name": "Bulk data import (patchers)", "status": "inventoried", "owns": ["src/components/admin/DataPatcher.tsx", "src/components/admin/data-patcher", "src/components/admin/UniversalPatcher.tsx", "src/components/admin/universal-patcher", "src/hooks/useDataPatcher.ts", "src/hooks/useUniversalPatcher.ts", "src/utils/dataPatcherUtils.ts", "src/utils/universalPatcherConfig.ts"] },
-    { "id": "FE-FIN-01", "name": "Finance / salary / snapshots", "status": "inventoried", "owns": ["src/components/admin/FinancialDataUpdater.tsx", "src/components/features/FinancialCard.tsx", "src/components/features/FinancialTabContent.tsx", "src/components/features/SalaryCalculator.tsx", "src/components/snapshots", "src/context/SnapshotContext.tsx", "src/utils/salaryRules.ts", "src/utils/salaryScale.ts", "src/utils/payrollValidation.ts", "src/utils/snapshots.ts"] },
-    { "id": "FE-INC-01", "name": "Incentives", "status": "inventoried", "owns": ["src/components/features/IncentivesTabContent.tsx"] },
-    { "id": "FE-ATT-01", "name": "Attendance feature", "status": "inventoried", "owns": ["src/features/attendance", "src/lib/attendanceHelpers.ts"] },
-    { "id": "FE-ATT-02", "name": "Kiosk", "status": "inventoried", "owns": ["src/features/kiosk"] },
-    { "id": "FE-LEV-01", "name": "Requests & leaves", "status": "inventoried", "owns": ["src/features/requests", "src/components/admin/AdminLeaveArchive.tsx", "src/components/admin/AdminLeaveRequests.tsx", "src/components/admin/ApprovedRequestsCard.tsx", "src/components/admin/CanceledRequestsCard.tsx", "src/components/admin/FiveYearLeaveDetailsModal.tsx", "src/components/admin/FiveYearLeaveHistoryModal.tsx", "src/components/admin/FixLeaveBalanceModal.tsx", "src/components/admin/HRDocumentProcessingPanel.tsx", "src/components/admin/LeavePrintTemplate.tsx", "src/components/admin/LeaveTypeBadge.tsx", "src/components/admin/PendingCutApprovalsCard.tsx", "src/components/admin/RequestsTabPermissionsModal.tsx", "src/hooks/useLeavesData.ts"] },
-    { "id": "FE-PRO-01", "name": "Promotion", "status": "inventoried", "owns": ["src/features/promotion"] },
-    { "id": "FE-TRN-01", "name": "Summer training", "status": "inventoried", "owns": ["src/features/training", "src/components/features/TrainingPollsList.tsx", "src/components/features/TrainingTabContent.tsx"] },
-    { "id": "FE-COM-01", "name": "Chat & calls", "status": "inventoried", "owns": ["src/components/chat", "src/components/call", "src/context/ChatContext.tsx", "src/context/ChatSettingsContext.tsx", "src/context/CallContext.tsx", "src/hooks/useChatSettings.ts", "src/hooks/useChatState.ts", "src/hooks/useConversationDetails.ts", "src/hooks/useConversations.ts", "src/hooks/useVoiceRecorder.ts", "src/lib/chatUtils.ts", "src/services/RingbackToneGenerator.ts"] },
-    { "id": "FE-MED-01", "name": "Media / knowledge / polls / audio", "status": "inventoried", "owns": ["src/components/admin/MediaSectionEditor.tsx", "src/components/admin/PollCreator.tsx", "src/components/admin/PollStats.tsx", "src/components/admin/TipsEditor.tsx", "src/components/features/AudioHub.tsx", "src/components/features/FloatingAudioPlayer.tsx", "src/components/features/PollItem.tsx", "src/components/features/UserPolls.tsx", "src/components/features/knowledge", "src/context/KnowledgeContext.tsx", "src/hooks/useKnowledgeProgress.ts", "src/hooks/useMediaContent.ts", "src/hooks/usePolls.ts", "src/services/GlobalAudioManager.ts", "src/context/AudioContext.tsx", "src/types/knowledge.ts"] },
-    { "id": "FE-FIB-01", "name": "Fiber simulator", "status": "inventoried", "owns": ["src/features/fiber-simulator"] },
-
-    { "id": "BE-CORE-01", "name": "Server time", "status": "inventoried", "db": ["get_server_time"] },
-    { "id": "BE-CORE-02", "name": "Identity & authentication", "status": "inventoried", "db": ["authenticate_user", "change_password", "secure_change_password", "verify_password", "hash_password", "get_login_profile", "check_user_exists", "check_employee_exists_global", "rpc_handle_forgot_password", "rpc_sync_user_auth", "rpc_delete_user_auth", "rpc_delete_user_robust", "fn_sync_profile_password_to_auth", "get_auth_user_role", "check_rate_limit", "update_rate_limit"], "tables": ["login_logs", "rate_limits", "api_rate_limits", "_encryption_keys", "_internal_keys"], "edge": ["auth-login", "auth-change-password", "auth-verify-2fa", "send-2fa-email", "admin-sync-auth", "bulk-create-users"], "owns": ["supabase/functions/auth-login", "supabase/functions/auth-change-password", "supabase/functions/auth-verify-2fa", "supabase/functions/send-2fa-email", "supabase/functions/admin-sync-auth", "supabase/functions/bulk-create-users"] },
-    { "id": "BE-CORE-03", "name": "Permissions, RLS helpers, governorate isolation", "status": "inventoried", "db": ["is_admin", "is_finance_admin", "is_hr_admin", "is_media_admin", "is_privileged_user", "is_kiosk_user", "get_my_admin_role", "get_my_governorate", "gov_display_name", "media_in_my_gov", "poll_in_my_gov"], "tables": ["field_permissions", "field_user_permissions"] },
-    { "id": "BE-CORE-04", "name": "Notifications", "status": "inventoried", "tables": ["system_notifications"], "edge": ["send-notification"], "owns": ["supabase/functions/send-notification"] },
-    { "id": "BE-CORE-05", "name": "Audit & logs", "status": "inventoried", "db": ["log_field_changes", "log_table_activity", "append_deleted_by", "debug_modify_check"], "tables": ["activity_logs", "field_change_logs", "system_error_logs", "v_actor_name"] },
-    { "id": "BE-CORE-06", "name": "Departments & governorates", "status": "inventoried", "db": ["clone_departments_tree", "get_departments_bypass_rls", "enable_governorate_card", "on_department_insert_ensure_location", "sync_work_locations_on_department_rename", "ensure_work_locations_for_governorate"], "tables": ["departments", "governorate_cards"] },
-    { "id": "BE-HR-01", "name": "Employee profile & records", "status": "inventoried", "db": ["create_profile", "rpc_create_new_employee", "get_available_profiles", "get_available_profiles_by_ids", "get_basic_profiles", "get_own_profile", "get_managed_employees", "search_available_profiles", "sync_available_profiles", "update_yearly_records_counts"], "tables": ["profiles", "available_profiles", "yearly_records", "committees_details", "thanks_details", "penalties_details", "administrative_summary", "user_acknowledgments"], "buckets": ["avatar-images"] },
-    { "id": "BE-FIN-01", "name": "Finance & monthly snapshots", "status": "inventoried", "db": ["calculate_financial_totals", "sync_financial_fullname", "activate_monthly_snapshot", "commit_monthly_snapshot", "delete_monthly_snapshot", "sync_active_monthly_snapshot"], "tables": ["financial_records", "monthly_snapshots", "monthly_snapshot_profiles", "monthly_snapshot_financials"] },
-    { "id": "BE-INC-01", "name": "Incentives", "status": "inventoried", "tables": ["incentive_records", "incentive_point_values"] },
-    { "id": "BE-ATT-01", "name": "Work schedules", "status": "inventoried", "tables": ["work_schedules", "work_schedule_days"] },
-    { "id": "BE-ATT-02", "name": "Punch registration", "status": "inventoried", "db": ["submit_attendance_record_secure", "process_daily_attendance", "reset_test_attendance", "reset_test_attendance_today"], "tables": ["attendance_records", "attendance_settings", "attendance_exceptions"], "buckets": ["attendance-snapshots"] },
-    { "id": "BE-ATT-04", "name": "Roster rules engine", "status": "signed-draft", "contract": "bricks/ATT-04-roster-engine/BRICK.md", "owns": ["scripts/sql/roster_engine.sql"], "db": ["roster_evaluate_day", "roster_evaluate_all", "roster_evaluate_me", "roster_real_punches", "roster_unit_attended"] },
-    { "id": "BE-ATT-05", "name": "Daily closeout & virtual punches", "status": "inventoried", "db": ["closeout_prev_day_attendance"] },
-    { "id": "BE-ATT-06", "name": "Devices, biometrics, kiosk", "status": "inventoried", "db": ["admin_create_kiosk_device", "admin_list_kiosk_devices", "admin_regenerate_kiosk_code", "admin_set_kiosk_active", "admin_set_kiosk_password", "kiosk_activate", "kiosk_device_check", "kiosk_get_employees", "log_device_enrollment_changes", "notify_admins_new_device", "notify_device_mismatch", "on_device_change_request_settled", "settle_device_change_request", "submit_device_change_request"], "tables": ["attendance_devices", "device_change_requests", "device_enrollment_logs", "fingerprint_templates", "webauthn_credentials", "kiosk_devices", "kiosk_device_locations"] },
-    { "id": "BE-ATT-07", "name": "Work locations & holidays", "status": "inventoried", "tables": ["work_locations", "work_location_employees", "official_holidays", "public_holidays"] },
-    { "id": "BE-LEV-01", "name": "Leave requests & state machine", "status": "inventoried", "db": ["submit_leave_request", "submit_typed_leave_request", "submit_time_leave_auto_converted", "modify_leave_request", "process_leave_approval", "process_leave_cancellation", "process_hr_leave_cut", "handle_leave_state_machine", "cleanup_orphaned_leave_request", "cleanup_request_notifications_on_process", "convert_cumulative_time", "get_lifetime_leaves_usage"], "tables": ["leave_requests", "leave_history", "leaves_details", "five_year_leaves", "leave_trigger_logs"], "buckets": ["order-image"] },
-    { "id": "BE-PRO-01", "name": "Promotion", "status": "inventoried", "db": ["get_promotion_lecturers", "get_promotion_users", "search_promotion_candidates", "set_promotion_permission"], "tables": ["promotion_results", "promotion_settings"], "buckets": ["Lectures"] },
-    { "id": "BE-TRN-01", "name": "Summer training", "status": "inventoried", "db": ["authenticate_training_student", "create_training_student", "fn_hash_summer_password", "get_active_training_poll", "get_random_training_questions", "get_training_supervisors", "set_training_supervisor"], "tables": ["summer_training_questions", "summer_training_results", "summer_training_settings", "summer_training_students"] },
-    { "id": "BE-COM-01", "name": "Chat, calls, meetings", "status": "inventoried", "db": ["delete_chat_conversation", "get_or_create_supervisors_chat", "mark_chat_read", "rpc_toggle_message_reaction"], "tables": ["conversations", "messages", "calls", "call_candidates", "hr_audio_calls", "meetings", "meeting_participants"], "edge": ["handle-cloudflare-call", "livekit-token", "start-call"], "owns": ["supabase/functions/handle-cloudflare-call", "supabase/functions/livekit-token", "supabase/functions/start-call"], "buckets": ["voice-messages", "image-message", "chat-files"] },
-    { "id": "BE-MED-01", "name": "Media, knowledge, polls", "status": "inventoried", "db": ["sync_news_to_itpc"], "tables": ["media_content", "admin_tips", "admin.tips", "knowledge_progress", "polls", "poll_options", "poll_questions", "poll_responses", "poll_comments"], "buckets": ["quran", "knowledge"] },
-    { "id": "BE-FIB-01", "name": "Fiber simulator & GIS", "status": "inventoried", "db": ["get_ftth_simulator_access", "sim_is_preset_manager"], "tables": ["fiber_sim_projects", "fiber_sim_scores", "sim_map_library"], "edge": ["gis-overpass"], "owns": ["supabase/functions/gis-overpass"] },
-    { "id": "BE-MIG-01", "name": "Migrations history", "status": "inventoried", "owns": ["supabase/migrations"] },
-
-    { "id": "OPS-01", "name": "Deploy", "status": "stable", "owns": ["scripts/deploy-dist.ps1", "scripts/dist-cmp-remote.sh", "scripts/runtime-check.sh"] },
-    { "id": "OPS-02", "name": "VPS server config (local copies)", "status": "inventoried", "owns": ["spa_server.py", "kong.yml"] },
-    { "id": "OPS-03", "name": "Brick guard", "status": "tested", "owns": ["scripts/verify-bricks.mjs", "bricks/registry.json"] }
-  ]
+ "$comment": "سجل الطابوق الآلي — يقرؤه الحارس scripts/verify-bricks.mjs. owns: ملف أو مجلد (المجلد يملك كل ما تحته). db: دوال قاعدة البيانات المملوكة. status: planned|inventoried|signed|tested|stable",
+ "version": 1,
+ "bricks": [
+  {
+   "id": "FE-CORE-01",
+   "name": "Shell / Router / Entry",
+   "status": "inventoried",
+   "owns": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/App.css",
+    "src/index.css",
+    "src/vite-env.d.ts",
+    "src/assets",
+    "src/pages/NotFound.tsx",
+    "src/components/layout",
+    "src/components/common/ErrorBoundary.tsx"
+   ],
+   "contract": "bricks/FE-CORE/BRICK.md"
+  },
+  {
+   "id": "FE-CORE-02",
+   "name": "Auth / Login / Roles",
+   "status": "inventoried",
+   "owns": [
+    "src/context/AuthContext.tsx",
+    "src/pages/Login.tsx",
+    "src/components/auth",
+    "src/utils/permissions.ts",
+    "src/utils/formatRoles.ts",
+    "src/utils/deviceFingerprint.ts",
+    "src/utils/antiSpoofing.ts"
+   ],
+   "contract": "bricks/FE-CORE/BRICK.md"
+  },
+  {
+   "id": "FE-CORE-03",
+   "name": "Theme / Governorate / Settings",
+   "status": "inventoried",
+   "owns": [
+    "src/context/ThemeContext.tsx",
+    "src/context/GovernorateContext.tsx",
+    "src/pages/GovernorateSelection.tsx",
+    "src/constants/governorates.ts",
+    "src/components/features/SettingsModal.tsx",
+    "src/context/AccessibilityContext.tsx"
+   ],
+   "contract": "bricks/FE-CORE/BRICK.md"
+  },
+  {
+   "id": "FE-CORE-04",
+   "name": "Supabase client / errors / cache",
+   "status": "inventoried",
+   "owns": [
+    "src/lib/supabase.ts",
+    "src/lib/errorLogger.ts",
+    "src/lib/utils.ts",
+    "src/cache",
+    "src/utils/errorMessageFormatter.ts",
+    "src/utils/formatDate.ts",
+    "src/utils/formatters.ts",
+    "src/utils/GeolocationManager.ts",
+    "src/utils/arabicShaper.ts"
+   ],
+   "contract": "bricks/FE-CORE/BRICK.md"
+  },
+  {
+   "id": "FE-CORE-05",
+   "name": "Notifications UI",
+   "status": "inventoried",
+   "owns": [
+    "src/components/notifications",
+    "src/components/features/AppNotifications.tsx",
+    "src/services/notifications"
+   ],
+   "contract": "bricks/FE-CORE/BRICK.md"
+  },
+  {
+   "id": "FE-UI-01",
+   "name": "Generic UI components",
+   "status": "inventoried",
+   "owns": [
+    "src/components/ui",
+    "src/components/visual/LogoGlow.tsx",
+    "src/components/visual/ShadowTool.html",
+    "src/components/shared/EmployeeSearch.tsx",
+    "src/hooks/useEmployeeSearch.ts",
+    "src/hooks/useLongPress.ts",
+    "src/hooks/useSmoothScroll.ts",
+    "src/components/features/StatCard.tsx",
+    "src/components/features/TabSystem.tsx",
+    "src/components/features/YearSlider.tsx"
+   ]
+  },
+  {
+   "id": "FE-SPL-01",
+   "name": "Splash / Launcher",
+   "status": "inventoried",
+   "owns": [
+    "src/pages/SplashScreen.tsx",
+    "src/pages/SplashScreenLegacy.tsx",
+    "src/pages/LauncherPage.tsx",
+    "src/hooks/useSplashAudio.ts",
+    "src/components/visual/SplashBeaconVideos.tsx",
+    "src/components/visual/SplashTechVideo.tsx"
+   ]
+  },
+  {
+   "id": "FE-HR-01",
+   "name": "Employee profile & admin dashboard",
+   "status": "inventoried",
+   "owns": [
+    "src/pages/Dashboard.tsx",
+    "src/pages/AdminDashboard.tsx",
+    "src/pages/VisitorDashboard.tsx",
+    "src/components/admin/dashboard",
+    "src/components/admin/ProfileDataUpdater.tsx",
+    "src/components/admin/DepartmentsManager.tsx",
+    "src/components/admin/DepartmentSelector.tsx",
+    "src/components/admin/FieldPermissionsModal.tsx",
+    "src/components/admin/SupervisorPermissions.tsx",
+    "src/components/admin/CustomAudit.tsx",
+    "src/components/admin/FullAudit.tsx",
+    "src/components/admin/HistoryViewer.tsx",
+    "src/components/features/AdministrativeTabContent.tsx",
+    "src/components/features/RecordList.tsx",
+    "src/components/features/DirectivesModal.tsx",
+    "src/hooks/useDashboardData.ts",
+    "src/hooks/useEmployeeData.ts",
+    "src/hooks/useEmployeeManager.ts",
+    "src/utils/profileUtils.ts",
+    "src/utils/auditPrintUtils.ts",
+    "src/utils/pdfGenerator.ts",
+    "src/utils/pdfListGenerator.ts",
+    "src/constants/certificates.ts"
+   ]
+  },
+  {
+   "id": "FE-HR-02",
+   "name": "Bulk data import (patchers)",
+   "status": "inventoried",
+   "owns": [
+    "src/components/admin/DataPatcher.tsx",
+    "src/components/admin/data-patcher",
+    "src/components/admin/UniversalPatcher.tsx",
+    "src/components/admin/universal-patcher",
+    "src/hooks/useDataPatcher.ts",
+    "src/hooks/useUniversalPatcher.ts",
+    "src/utils/dataPatcherUtils.ts",
+    "src/utils/universalPatcherConfig.ts"
+   ]
+  },
+  {
+   "id": "FE-FIN-01",
+   "name": "Finance / salary / snapshots",
+   "status": "inventoried",
+   "owns": [
+    "src/components/admin/FinancialDataUpdater.tsx",
+    "src/components/features/FinancialCard.tsx",
+    "src/components/features/FinancialTabContent.tsx",
+    "src/components/features/SalaryCalculator.tsx",
+    "src/components/snapshots",
+    "src/context/SnapshotContext.tsx",
+    "src/utils/salaryRules.ts",
+    "src/utils/salaryScale.ts",
+    "src/utils/payrollValidation.ts",
+    "src/utils/snapshots.ts"
+   ]
+  },
+  {
+   "id": "FE-INC-01",
+   "name": "Incentives",
+   "status": "inventoried",
+   "owns": [
+    "src/components/features/IncentivesTabContent.tsx"
+   ]
+  },
+  {
+   "id": "FE-ATT-01",
+   "name": "Attendance feature",
+   "status": "inventoried",
+   "owns": [
+    "src/features/attendance",
+    "src/lib/attendanceHelpers.ts"
+   ]
+  },
+  {
+   "id": "FE-ATT-02",
+   "name": "Kiosk",
+   "status": "inventoried",
+   "owns": [
+    "src/features/kiosk"
+   ]
+  },
+  {
+   "id": "FE-LEV-01",
+   "name": "Requests & leaves",
+   "status": "inventoried",
+   "owns": [
+    "src/features/requests",
+    "src/components/admin/AdminLeaveArchive.tsx",
+    "src/components/admin/AdminLeaveRequests.tsx",
+    "src/components/admin/ApprovedRequestsCard.tsx",
+    "src/components/admin/CanceledRequestsCard.tsx",
+    "src/components/admin/FiveYearLeaveDetailsModal.tsx",
+    "src/components/admin/FiveYearLeaveHistoryModal.tsx",
+    "src/components/admin/FixLeaveBalanceModal.tsx",
+    "src/components/admin/HRDocumentProcessingPanel.tsx",
+    "src/components/admin/LeavePrintTemplate.tsx",
+    "src/components/admin/LeaveTypeBadge.tsx",
+    "src/components/admin/PendingCutApprovalsCard.tsx",
+    "src/components/admin/RequestsTabPermissionsModal.tsx",
+    "src/hooks/useLeavesData.ts"
+   ]
+  },
+  {
+   "id": "FE-PRO-01",
+   "name": "Promotion",
+   "status": "inventoried",
+   "owns": [
+    "src/features/promotion"
+   ]
+  },
+  {
+   "id": "FE-TRN-01",
+   "name": "Summer training",
+   "status": "inventoried",
+   "owns": [
+    "src/features/training",
+    "src/components/features/TrainingPollsList.tsx",
+    "src/components/features/TrainingTabContent.tsx"
+   ]
+  },
+  {
+   "id": "FE-COM-01",
+   "name": "Chat & calls",
+   "status": "inventoried",
+   "owns": [
+    "src/components/chat",
+    "src/components/call",
+    "src/context/ChatContext.tsx",
+    "src/context/ChatSettingsContext.tsx",
+    "src/context/CallContext.tsx",
+    "src/hooks/useChatSettings.ts",
+    "src/hooks/useChatState.ts",
+    "src/hooks/useConversationDetails.ts",
+    "src/hooks/useConversations.ts",
+    "src/hooks/useVoiceRecorder.ts",
+    "src/lib/chatUtils.ts",
+    "src/services/RingbackToneGenerator.ts"
+   ]
+  },
+  {
+   "id": "FE-MED-01",
+   "name": "Media / knowledge / polls / audio",
+   "status": "inventoried",
+   "owns": [
+    "src/components/admin/MediaSectionEditor.tsx",
+    "src/components/admin/PollCreator.tsx",
+    "src/components/admin/PollStats.tsx",
+    "src/components/admin/TipsEditor.tsx",
+    "src/components/features/AudioHub.tsx",
+    "src/components/features/FloatingAudioPlayer.tsx",
+    "src/components/features/PollItem.tsx",
+    "src/components/features/UserPolls.tsx",
+    "src/components/features/knowledge",
+    "src/context/KnowledgeContext.tsx",
+    "src/hooks/useKnowledgeProgress.ts",
+    "src/hooks/useMediaContent.ts",
+    "src/hooks/usePolls.ts",
+    "src/services/GlobalAudioManager.ts",
+    "src/context/AudioContext.tsx",
+    "src/types/knowledge.ts"
+   ]
+  },
+  {
+   "id": "FE-FIB-01",
+   "name": "Fiber simulator",
+   "status": "inventoried",
+   "owns": [
+    "src/features/fiber-simulator"
+   ]
+  },
+  {
+   "id": "BE-CORE-01",
+   "name": "Server time",
+   "status": "inventoried",
+   "db": [
+    "get_server_time"
+   ],
+   "contract": "bricks/BE-CORE-support/BRICK.md"
+  },
+  {
+   "id": "BE-CORE-02",
+   "name": "Identity & authentication",
+   "status": "inventoried",
+   "db": [
+    "authenticate_user",
+    "change_password",
+    "secure_change_password",
+    "verify_password",
+    "hash_password",
+    "get_login_profile",
+    "check_user_exists",
+    "check_employee_exists_global",
+    "rpc_handle_forgot_password",
+    "rpc_sync_user_auth",
+    "rpc_delete_user_auth",
+    "rpc_delete_user_robust",
+    "fn_sync_profile_password_to_auth",
+    "get_auth_user_role",
+    "check_rate_limit",
+    "update_rate_limit"
+   ],
+   "tables": [
+    "login_logs",
+    "rate_limits",
+    "api_rate_limits",
+    "_encryption_keys",
+    "_internal_keys"
+   ],
+   "edge": [
+    "auth-login",
+    "auth-change-password",
+    "auth-verify-2fa",
+    "send-2fa-email",
+    "admin-sync-auth",
+    "bulk-create-users"
+   ],
+   "owns": [
+    "supabase/functions/auth-login",
+    "supabase/functions/auth-change-password",
+    "supabase/functions/auth-verify-2fa",
+    "supabase/functions/send-2fa-email",
+    "supabase/functions/admin-sync-auth",
+    "supabase/functions/bulk-create-users"
+   ],
+   "contract": "bricks/BE-CORE-02-auth/BRICK.md"
+  },
+  {
+   "id": "BE-CORE-03",
+   "name": "Permissions, RLS helpers, governorate isolation",
+   "status": "inventoried",
+   "db": [
+    "is_admin",
+    "is_finance_admin",
+    "is_hr_admin",
+    "is_media_admin",
+    "is_privileged_user",
+    "is_kiosk_user",
+    "get_my_admin_role",
+    "get_my_governorate",
+    "gov_display_name",
+    "media_in_my_gov",
+    "poll_in_my_gov"
+   ],
+   "tables": [
+    "field_permissions",
+    "field_user_permissions"
+   ],
+   "contract": "bricks/BE-CORE-03-permissions/BRICK.md"
+  },
+  {
+   "id": "BE-CORE-04",
+   "name": "Notifications",
+   "status": "inventoried",
+   "tables": [
+    "system_notifications"
+   ],
+   "edge": [
+    "send-notification"
+   ],
+   "owns": [
+    "supabase/functions/send-notification"
+   ],
+   "contract": "bricks/BE-CORE-support/BRICK.md"
+  },
+  {
+   "id": "BE-CORE-05",
+   "name": "Audit & logs",
+   "status": "inventoried",
+   "db": [
+    "log_field_changes",
+    "log_table_activity",
+    "append_deleted_by",
+    "debug_modify_check"
+   ],
+   "tables": [
+    "activity_logs",
+    "field_change_logs",
+    "system_error_logs",
+    "v_actor_name"
+   ],
+   "contract": "bricks/BE-CORE-support/BRICK.md"
+  },
+  {
+   "id": "BE-CORE-06",
+   "name": "Departments & governorates",
+   "status": "inventoried",
+   "db": [
+    "clone_departments_tree",
+    "get_departments_bypass_rls",
+    "enable_governorate_card",
+    "on_department_insert_ensure_location",
+    "sync_work_locations_on_department_rename",
+    "ensure_work_locations_for_governorate"
+   ],
+   "tables": [
+    "departments",
+    "governorate_cards"
+   ],
+   "contract": "bricks/BE-CORE-support/BRICK.md"
+  },
+  {
+   "id": "BE-HR-01",
+   "name": "Employee profile & records",
+   "status": "inventoried",
+   "db": [
+    "create_profile",
+    "rpc_create_new_employee",
+    "get_available_profiles",
+    "get_available_profiles_by_ids",
+    "get_basic_profiles",
+    "get_own_profile",
+    "get_managed_employees",
+    "search_available_profiles",
+    "sync_available_profiles",
+    "update_yearly_records_counts"
+   ],
+   "tables": [
+    "profiles",
+    "available_profiles",
+    "yearly_records",
+    "committees_details",
+    "thanks_details",
+    "penalties_details",
+    "administrative_summary",
+    "user_acknowledgments"
+   ],
+   "buckets": [
+    "avatar-images"
+   ]
+  },
+  {
+   "id": "BE-FIN-01",
+   "name": "Finance & monthly snapshots",
+   "status": "inventoried",
+   "db": [
+    "calculate_financial_totals",
+    "sync_financial_fullname",
+    "activate_monthly_snapshot",
+    "commit_monthly_snapshot",
+    "delete_monthly_snapshot",
+    "sync_active_monthly_snapshot"
+   ],
+   "tables": [
+    "financial_records",
+    "monthly_snapshots",
+    "monthly_snapshot_profiles",
+    "monthly_snapshot_financials"
+   ]
+  },
+  {
+   "id": "BE-INC-01",
+   "name": "Incentives",
+   "status": "inventoried",
+   "tables": [
+    "incentive_records",
+    "incentive_point_values"
+   ]
+  },
+  {
+   "id": "BE-ATT-01",
+   "name": "Work schedules",
+   "status": "inventoried",
+   "tables": [
+    "work_schedules",
+    "work_schedule_days"
+   ]
+  },
+  {
+   "id": "BE-ATT-02",
+   "name": "Punch registration",
+   "status": "inventoried",
+   "db": [
+    "submit_attendance_record_secure",
+    "process_daily_attendance",
+    "reset_test_attendance",
+    "reset_test_attendance_today"
+   ],
+   "tables": [
+    "attendance_records",
+    "attendance_settings",
+    "attendance_exceptions"
+   ],
+   "buckets": [
+    "attendance-snapshots"
+   ]
+  },
+  {
+   "id": "BE-ATT-04",
+   "name": "Roster rules engine",
+   "status": "signed-draft",
+   "contract": "bricks/ATT-04-roster-engine/BRICK.md",
+   "owns": [
+    "scripts/sql/roster_engine.sql"
+   ],
+   "db": [
+    "roster_evaluate_day",
+    "roster_evaluate_all",
+    "roster_evaluate_me",
+    "roster_real_punches",
+    "roster_unit_attended"
+   ]
+  },
+  {
+   "id": "BE-ATT-05",
+   "name": "Daily closeout & virtual punches",
+   "status": "inventoried",
+   "db": [
+    "closeout_prev_day_attendance"
+   ]
+  },
+  {
+   "id": "BE-ATT-06",
+   "name": "Devices, biometrics, kiosk",
+   "status": "inventoried",
+   "db": [
+    "admin_create_kiosk_device",
+    "admin_list_kiosk_devices",
+    "admin_regenerate_kiosk_code",
+    "admin_set_kiosk_active",
+    "admin_set_kiosk_password",
+    "kiosk_activate",
+    "kiosk_device_check",
+    "kiosk_get_employees",
+    "log_device_enrollment_changes",
+    "notify_admins_new_device",
+    "notify_device_mismatch",
+    "on_device_change_request_settled",
+    "settle_device_change_request",
+    "submit_device_change_request"
+   ],
+   "tables": [
+    "attendance_devices",
+    "device_change_requests",
+    "device_enrollment_logs",
+    "fingerprint_templates",
+    "webauthn_credentials",
+    "kiosk_devices",
+    "kiosk_device_locations"
+   ]
+  },
+  {
+   "id": "BE-ATT-07",
+   "name": "Work locations & holidays",
+   "status": "inventoried",
+   "tables": [
+    "work_locations",
+    "work_location_employees",
+    "official_holidays",
+    "public_holidays"
+   ]
+  },
+  {
+   "id": "BE-LEV-01",
+   "name": "Leave requests & state machine",
+   "status": "inventoried",
+   "db": [
+    "submit_leave_request",
+    "submit_typed_leave_request",
+    "submit_time_leave_auto_converted",
+    "modify_leave_request",
+    "process_leave_approval",
+    "process_leave_cancellation",
+    "process_hr_leave_cut",
+    "handle_leave_state_machine",
+    "cleanup_orphaned_leave_request",
+    "cleanup_request_notifications_on_process",
+    "convert_cumulative_time",
+    "get_lifetime_leaves_usage"
+   ],
+   "tables": [
+    "leave_requests",
+    "leave_history",
+    "leaves_details",
+    "five_year_leaves",
+    "leave_trigger_logs"
+   ],
+   "buckets": [
+    "order-image"
+   ]
+  },
+  {
+   "id": "BE-PRO-01",
+   "name": "Promotion",
+   "status": "inventoried",
+   "db": [
+    "get_promotion_lecturers",
+    "get_promotion_users",
+    "search_promotion_candidates",
+    "set_promotion_permission"
+   ],
+   "tables": [
+    "promotion_results",
+    "promotion_settings"
+   ],
+   "buckets": [
+    "Lectures"
+   ]
+  },
+  {
+   "id": "BE-TRN-01",
+   "name": "Summer training",
+   "status": "inventoried",
+   "db": [
+    "authenticate_training_student",
+    "create_training_student",
+    "fn_hash_summer_password",
+    "get_active_training_poll",
+    "get_random_training_questions",
+    "get_training_supervisors",
+    "set_training_supervisor"
+   ],
+   "tables": [
+    "summer_training_questions",
+    "summer_training_results",
+    "summer_training_settings",
+    "summer_training_students"
+   ]
+  },
+  {
+   "id": "BE-COM-01",
+   "name": "Chat, calls, meetings",
+   "status": "inventoried",
+   "db": [
+    "delete_chat_conversation",
+    "get_or_create_supervisors_chat",
+    "mark_chat_read",
+    "rpc_toggle_message_reaction"
+   ],
+   "tables": [
+    "conversations",
+    "messages",
+    "calls",
+    "call_candidates",
+    "hr_audio_calls",
+    "meetings",
+    "meeting_participants"
+   ],
+   "edge": [
+    "handle-cloudflare-call",
+    "livekit-token",
+    "start-call"
+   ],
+   "owns": [
+    "supabase/functions/handle-cloudflare-call",
+    "supabase/functions/livekit-token",
+    "supabase/functions/start-call"
+   ],
+   "buckets": [
+    "voice-messages",
+    "image-message",
+    "chat-files"
+   ]
+  },
+  {
+   "id": "BE-MED-01",
+   "name": "Media, knowledge, polls",
+   "status": "inventoried",
+   "db": [
+    "sync_news_to_itpc"
+   ],
+   "tables": [
+    "media_content",
+    "admin_tips",
+    "admin.tips",
+    "knowledge_progress",
+    "polls",
+    "poll_options",
+    "poll_questions",
+    "poll_responses",
+    "poll_comments"
+   ],
+   "buckets": [
+    "quran",
+    "knowledge"
+   ]
+  },
+  {
+   "id": "BE-FIB-01",
+   "name": "Fiber simulator & GIS",
+   "status": "inventoried",
+   "db": [
+    "get_ftth_simulator_access",
+    "sim_is_preset_manager"
+   ],
+   "tables": [
+    "fiber_sim_projects",
+    "fiber_sim_scores",
+    "sim_map_library"
+   ],
+   "edge": [
+    "gis-overpass"
+   ],
+   "owns": [
+    "supabase/functions/gis-overpass"
+   ]
+  },
+  {
+   "id": "BE-MIG-01",
+   "name": "Migrations history",
+   "status": "inventoried",
+   "owns": [
+    "supabase/migrations"
+   ]
+  },
+  {
+   "id": "OPS-01",
+   "name": "Deploy",
+   "status": "stable",
+   "owns": [
+    "scripts/deploy-dist.ps1",
+    "scripts/dist-cmp-remote.sh",
+    "scripts/runtime-check.sh"
+   ]
+  },
+  {
+   "id": "OPS-02",
+   "name": "VPS server config (local copies)",
+   "status": "inventoried",
+   "owns": [
+    "spa_server.py",
+    "kong.yml"
+   ]
+  },
+  {
+   "id": "OPS-03",
+   "name": "Brick guard",
+   "status": "tested",
+   "owns": [
+    "scripts/verify-bricks.mjs",
+    "bricks/registry.json"
+   ]
+  }
+ ]
 }

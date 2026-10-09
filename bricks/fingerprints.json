@@ -1,9 +1,9 @@
 {
- "created": "2026-10-09T19:26:22.496Z",
+ "created": "2026-10-09T19:39:19.552Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "40c14c03e766"
+   "sha": "e268084591d3"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -27,7 +27,7 @@
   },
   "scripts/verify-bricks.mjs": {
    "brick": "OPS-03",
-   "sha": "cf71c31ac1ee"
+   "sha": "83fbc7ca2c2c"
   },
   "spa_server.py": {
    "brick": "OPS-02",
@@ -1444,6 +1444,10 @@
   "supabase/migrations/20261008170000_sync_certificate_percentage_and_text.sql": {
    "brick": "BE-MIG-01",
    "sha": "d600d80d9829"
+  },
+  "supabase/migrations/20261009223700_core03_revoke_anon_sensitive_rpcs.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "db24450660de"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

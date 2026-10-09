@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   last_updated: "2026-10-09"
 ---
 
@@ -31,9 +31,10 @@ metadata:
 - الأمن: الحفاظ على صفر ثغرات ZAP؛ دوال DB الداخلية `REVOKE` من anon/authenticated، والمكشوف للعميل غلاف `SECURITY DEFINER` يتحقق من `auth.uid()`.
 
 ## 3. الحالة الحالية
-- **المرحلة:** M1 (الجرد) — البند 1 (جرد BE) مكتمل.
+- **المرحلة:** M1 (الجرد) — البند 1 مكتمل، البند 2 مكتمل للنواة CORE.
 - **أُنجز:** ARCHITECTURE.md (معتمد)، BRICKS.md، هذا الـSkill، مسودة عقد BE-ATT-04، أرشفة المؤقتات، قواعد AGENTS.md.
-- **الخطوة التالية (M1):** ~~(1) جرد BE~~ ✓. (2) عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
+- **أولوية أمنية قبل أي شيء:** BE-CORE-03 المرحلة 2 (فحص دور داخل الدوال الإدارية) + مراجعة دوال القراءة المكشوفة لـ anon — بانتظار موافقة المستخدم.
+- **الخطوة التالية (M1):** ~~(1) جرد BE~~ ✓. (2) [النواة ✓؛ الباقي: ATT، LEV، HR، FIN، INC، PRO، TRN، COM، MED، FIB، SPL] عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
 
 ## 4. سجل التقدم (إلحاق فقط)
 | التاريخ | الخطوة | الطابوقة | ملاحظة |
@@ -47,6 +48,8 @@ metadata:
 | 2026-10-09 | commit + وسم `m0-foundation` | OPS | |
 | 2026-10-09 | الحارس `scripts/verify-bricks.mjs` + `bricks/registry.json` (23 طابوقة، تغطية src 100% = 301 ملف) + `bricks/fingerprints.json` (309 بصمة). اختُبر: كشف ملكية مزدوجة حقيقية، وكشف فقدان shiftRules.ts باسم FE-ATT-01. أُضيف كخطوة 0 في سير النشر | OPS-03 | M0 مكتمل |
 | 2026-10-09 | M1 جرد BE: 21 طابوقة خلفية في registry.json (حقول db/tables/edge/buckets). الحارس `--db` يقارن مع الخادم: db=108/108، tables=74/74، buckets=9/9. اختُبر سلبياً (دالة وهمية ⇒ فشل باسم الطابوقة). أدوات `scripts/ops/runsql.sh` و`db-inventory.sql` (لا تعتمد على /tmp). `CLAUDE.md`/`GEMINI.md` تحيل لـ AGENTS.md لأي وكيل | OPS-03, BE-* | M1 بند 1 مكتمل |
+| 2026-10-09 | **ثغرة حرجة أُغلقت (مرحلة 1):** 14 دالة DEFINER كانت متاحة لـ anon عبر النطاق العام khr-itpc.egov.iq، أخطرها `rpc_sync_user_auth` (تغيير كلمة سر أي حساب). سُحب anon بهجرة `supabase/migrations/20261009223700_core03_revoke_anon_sensitive_rpcs.sql` (+ دوال اللقطات الشهرية مالكها supabase_admin نُفذت بـ `psql -U supabase_admin`). تحقق REST: anon⇒401، get_server_time⇒200 | BE-CORE-03 | المرحلة 2 مفتوحة |
+| 2026-10-09 | عقود وصفية للنواة: BE-CORE-02، BE-CORE-03، BE-CORE-support (01/04/05/06)، FE-CORE (01..05) + ربطها في registry (حقل contract). الحارس صار يقرأ `**T#**` أيضاً | CORE | M1 بند 2 (النواة) مكتمل |
 
 ## 5. سجل القرارات (إلحاق فقط)
 | # | القرار | المصدر |
@@ -73,6 +76,9 @@ metadata:
 - P6 امتداد `pageinspect` في المخطط public (يكشف صفحات التخزين) — يُنقل/يُحذف في BE-CORE-03.
 - P10 كلمة سر VPS مكتوبة نصاً في AGENTS.md وملتزمة في Git — يُوصى بنقلها لمتغير بيئة `VPS_PW` ومفتاح SSH بدل كلمة السر، وتغييرها. (الحارس يقرأ `VPS_PW` أولاً.)
 - P11 دالة `debug_modify_check` وبقايا `reset_test_attendance*` في الإنتاج.
+- P13 تشابكات عزل مرصودة: NotificationsBell يقرأ meeting_participants (COM)؛ مشغلات الأقسام تكتب في work_locations (ATT-07)؛ AuthContext يرفع avatar (HR)؛ لا دالة إشعار مركزية (كل مجال يحدد المشرفين بنفسه).
+- P14 دوال قراءة مكشوفة لـ anon قد تسرّب بيانات موظفين: get_available_profiles، search_available_profiles، get_basic_profiles، get_managed_employees، kiosk_get_employees، get_promotion_users، check_user_exists (تعداد أسماء).
+- P15 فخ: دوال مالكها supabase_admin لا يستطيع postgres تعديل صلاحياتها — نفّذ بـ `docker exec -i supabase-db psql -U supabase_admin`.
 - P12 overloads: submit_leave_request×3، modify_leave_request×2، process_leave_approval×2، set_promotion_permission×2، authenticate_training_student×2.
 
 ## 6.1 كيف يعمل الحارس (OPS-03)
