@@ -1,0 +1,1241 @@
+{
+ "created": "2026-10-09T19:12:54.943Z",
+ "files": {
+  "bricks/registry.json": {
+   "brick": "OPS-03",
+   "sha": "887d988e09a1"
+  },
+  "kong.yml": {
+   "brick": "OPS-02",
+   "sha": "3bc0a1b4aafc"
+  },
+  "scripts/deploy-dist.ps1": {
+   "brick": "OPS-01",
+   "sha": "9dbd58361d0a"
+  },
+  "scripts/dist-cmp-remote.sh": {
+   "brick": "OPS-01",
+   "sha": "45fc94f3c7eb"
+  },
+  "scripts/runtime-check.sh": {
+   "brick": "OPS-01",
+   "sha": "938dc62f08fb"
+  },
+  "scripts/sql/roster_engine.sql": {
+   "brick": "BE-ATT-04",
+   "sha": "4d07db51b346"
+  },
+  "scripts/verify-bricks.mjs": {
+   "brick": "OPS-03",
+   "sha": "acc3a2230386"
+  },
+  "spa_server.py": {
+   "brick": "OPS-02",
+   "sha": "4ed54ee9f9df"
+  },
+  "src/App.css": {
+   "brick": "FE-CORE-01",
+   "sha": "72aea15a6873"
+  },
+  "src/App.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "b21910b6f570"
+  },
+  "src/assets/react.svg": {
+   "brick": "FE-CORE-01",
+   "sha": "f505ddc8ebe5"
+  },
+  "src/cache/CacheConfig.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "b55eab99e493"
+  },
+  "src/cache/CacheManager.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "55685e362682"
+  },
+  "src/components/admin/AdminLeaveArchive.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "833dae181867"
+  },
+  "src/components/admin/AdminLeaveRequests.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "db6b8688d28f"
+  },
+  "src/components/admin/ApprovedRequestsCard.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "fe59e5d9bcd2"
+  },
+  "src/components/admin/CanceledRequestsCard.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "c1a895cd655a"
+  },
+  "src/components/admin/CustomAudit.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "ab6d6b54213a"
+  },
+  "src/components/admin/DataPatcher.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "f54ea75e0b31"
+  },
+  "src/components/admin/DepartmentSelector.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "34f5d8735002"
+  },
+  "src/components/admin/DepartmentsManager.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "b3551573a811"
+  },
+  "src/components/admin/FieldPermissionsModal.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "1eb0778e6792"
+  },
+  "src/components/admin/FinancialDataUpdater.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "aa07b417f445"
+  },
+  "src/components/admin/FiveYearLeaveDetailsModal.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "8c7264db8f90"
+  },
+  "src/components/admin/FiveYearLeaveHistoryModal.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "ff2bc7078ec9"
+  },
+  "src/components/admin/FixLeaveBalanceModal.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "3b7d136b23e3"
+  },
+  "src/components/admin/FullAudit.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "267190189883"
+  },
+  "src/components/admin/HRDocumentProcessingPanel.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "85269f106eb4"
+  },
+  "src/components/admin/HistoryViewer.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "ccf3fa719ea0"
+  },
+  "src/components/admin/LeavePrintTemplate.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "f1960368b91a"
+  },
+  "src/components/admin/LeaveTypeBadge.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "d0db85e61d8e"
+  },
+  "src/components/admin/MediaSectionEditor.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "d70fa4aab1be"
+  },
+  "src/components/admin/PendingCutApprovalsCard.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "e8b07a0f89cf"
+  },
+  "src/components/admin/PollCreator.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "31ea910dab29"
+  },
+  "src/components/admin/PollStats.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "26e3e0753719"
+  },
+  "src/components/admin/ProfileDataUpdater.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "76f2ea03fd05"
+  },
+  "src/components/admin/RequestsTabPermissionsModal.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "0b446e17124c"
+  },
+  "src/components/admin/SupervisorPermissions.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "726ec60c0adc"
+  },
+  "src/components/admin/TipsEditor.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "4e03f8b82601"
+  },
+  "src/components/admin/UniversalPatcher.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "d9d57ac6144e"
+  },
+  "src/components/admin/dashboard/CapacitiesIframe.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "2c1fb13baf9a"
+  },
+  "src/components/admin/dashboard/DashboardHeader.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "531b810a7186"
+  },
+  "src/components/admin/dashboard/TabAddEmployee.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "971f59bde91d"
+  },
+  "src/components/admin/dashboard/TabAdminRecords.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "a6ec4b048e9f"
+  },
+  "src/components/admin/dashboard/TabManageEmployees.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "fab3a46b6dbc"
+  },
+  "src/components/admin/data-patcher/ManualStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "559c2de502a7"
+  },
+  "src/components/admin/data-patcher/MappingStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "8bd3c8d45d6e"
+  },
+  "src/components/admin/data-patcher/PreviewStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "6b8556fe770d"
+  },
+  "src/components/admin/data-patcher/UploadStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "0ed911459018"
+  },
+  "src/components/admin/universal-patcher/UP_ConfigStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "f811fa295720"
+  },
+  "src/components/admin/universal-patcher/UP_ItSupervisorField.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "ce348e4906d1"
+  },
+  "src/components/admin/universal-patcher/UP_PreviewStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "534442703a82"
+  },
+  "src/components/admin/universal-patcher/UP_UploadStep.tsx": {
+   "brick": "FE-HR-02",
+   "sha": "6bc30edc6032"
+  },
+  "src/components/auth/AdminRoleSelector.tsx": {
+   "brick": "FE-CORE-02",
+   "sha": "1c5aa7610a9f"
+  },
+  "src/components/call/CallOverlay.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "9dfee1946f09"
+  },
+  "src/components/call/CallOverlayWrapper.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "749eb93b8fc2"
+  },
+  "src/components/chat/AudioPlayer.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "7af99d50ccfd"
+  },
+  "src/components/chat/ChatLayout.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "b79b3ff49d1a"
+  },
+  "src/components/chat/ChatScreen.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "1ade4c4fbdca"
+  },
+  "src/components/chat/ConversationItem.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "21f96e44237e"
+  },
+  "src/components/chat/ConversationList.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "06813f2a1805"
+  },
+  "src/components/chat/MessageBubble.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "35bd57901636"
+  },
+  "src/components/chat/MessageInfoModal.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "6fa243df93bd"
+  },
+  "src/components/chat/MessageInput.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "fe444a04376f"
+  },
+  "src/components/chat/MessageList.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "3476c2728c03"
+  },
+  "src/components/chat/NewChatModal.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "39a33caac70e"
+  },
+  "src/components/chat/SelectionHeader.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "590daad2b0ad"
+  },
+  "src/components/chat/bubbles/FileMessage.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "3cf301474d77"
+  },
+  "src/components/chat/bubbles/ImageMessage.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "74dddd71343b"
+  },
+  "src/components/chat/bubbles/TextMessage.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "cb5736e06e03"
+  },
+  "src/components/chat/inputs/FilePreviewInput.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "025a213fb22f"
+  },
+  "src/components/chat/inputs/ImagePreviewInput.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "012fb3fb9442"
+  },
+  "src/components/chat/inputs/TextInput.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "1b97d6a77244"
+  },
+  "src/components/chat/inputs/VoiceRecorderInput.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "06141ab35e9a"
+  },
+  "src/components/common/ErrorBoundary.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "12f547a73e55"
+  },
+  "src/components/features/AdministrativeTabContent.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "c795dd8864e5"
+  },
+  "src/components/features/AppNotifications.tsx": {
+   "brick": "FE-CORE-05",
+   "sha": "063ff2a14a6a"
+  },
+  "src/components/features/AudioHub.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "5f0195bf067f"
+  },
+  "src/components/features/DirectivesModal.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "f2c767e24406"
+  },
+  "src/components/features/FinancialCard.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "d7c486dd5455"
+  },
+  "src/components/features/FinancialTabContent.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "d03ae510ec4d"
+  },
+  "src/components/features/FloatingAudioPlayer.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "57a3540d0723"
+  },
+  "src/components/features/IncentivesTabContent.tsx": {
+   "brick": "FE-INC-01",
+   "sha": "28f1f7f85093"
+  },
+  "src/components/features/PollItem.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "793351622b82"
+  },
+  "src/components/features/RecordList.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "defd77d83f30"
+  },
+  "src/components/features/SalaryCalculator.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "539b1e7be0bc"
+  },
+  "src/components/features/SettingsModal.tsx": {
+   "brick": "FE-CORE-03",
+   "sha": "a2a7f9dd06c7"
+  },
+  "src/components/features/StatCard.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "445ef9923351"
+  },
+  "src/components/features/TabSystem.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "12ea847d9cc5"
+  },
+  "src/components/features/TrainingPollsList.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "a72980f3c30c"
+  },
+  "src/components/features/TrainingTabContent.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "94d713b8fb3d"
+  },
+  "src/components/features/UserPolls.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "5da6f2b6d9a6"
+  },
+  "src/components/features/YearSlider.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "db4d892c027c"
+  },
+  "src/components/features/knowledge/KnowledgeTabContent.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "c83c1c46232c"
+  },
+  "src/components/features/knowledge/LessonSeries.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "2803884ae60f"
+  },
+  "src/components/features/knowledge/LessonViewer.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "765509f36848"
+  },
+  "src/components/features/knowledge/LevelPlacementQuiz.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "20fd4ed33aec"
+  },
+  "src/components/layout/AppFooter.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "740d8ab7fc49"
+  },
+  "src/components/layout/AppHeader.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "5e25d7ec8530"
+  },
+  "src/components/layout/GlobalElements.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "70c693bc71f9"
+  },
+  "src/components/layout/HeaderMenu.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "a01c36836e2d"
+  },
+  "src/components/layout/Layout.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "25f94a1f864a"
+  },
+  "src/components/notifications/NotificationHistoryModal.tsx": {
+   "brick": "FE-CORE-05",
+   "sha": "cbadb1af1f21"
+  },
+  "src/components/notifications/NotificationsBell.tsx": {
+   "brick": "FE-CORE-05",
+   "sha": "65c33ebf5921"
+  },
+  "src/components/shared/EmployeeSearch.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "1df8bfea41cc"
+  },
+  "src/components/snapshots/SnapshotBrowser.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "ab28ce25ce6a"
+  },
+  "src/components/snapshots/SnapshotNamePicker.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "37d9aeedd84c"
+  },
+  "src/components/ui/AccordionSection.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "635550bc97d4"
+  },
+  "src/components/ui/Button.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "96c1de3398ea"
+  },
+  "src/components/ui/Card.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "07e574d926e1"
+  },
+  "src/components/ui/DateInput.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "6a1da3609fa0"
+  },
+  "src/components/ui/DeveloperCV.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "152dfd3845d7"
+  },
+  "src/components/ui/GlassCard.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "3cac4200672e"
+  },
+  "src/components/ui/Input.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "f5f37a7da23a"
+  },
+  "src/components/ui/Label.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "ff8d3015c196"
+  },
+  "src/components/ui/ScrollableTabs.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "10ebb380075c"
+  },
+  "src/components/ui/Select.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "b2ba658b704a"
+  },
+  "src/components/ui/ThemeToggleFloating.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "46c0e7cda7a6"
+  },
+  "src/components/ui/TipsMarquee.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "16d9d35d1cef"
+  },
+  "src/components/ui/ToggleSwitch.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "35e0667e11fa"
+  },
+  "src/components/visual/LogoGlow.tsx": {
+   "brick": "FE-UI-01",
+   "sha": "4aa53cfa1da4"
+  },
+  "src/components/visual/ShadowTool.html": {
+   "brick": "FE-UI-01",
+   "sha": "236b66869342"
+  },
+  "src/components/visual/SplashBeaconVideos.tsx": {
+   "brick": "FE-SPL-01",
+   "sha": "4d842d791346"
+  },
+  "src/components/visual/SplashTechVideo.tsx": {
+   "brick": "FE-SPL-01",
+   "sha": "f77e61680780"
+  },
+  "src/constants/certificates.ts": {
+   "brick": "FE-HR-01",
+   "sha": "719d966e00b9"
+  },
+  "src/constants/governorates.ts": {
+   "brick": "FE-CORE-03",
+   "sha": "d9ef0d040347"
+  },
+  "src/context/AccessibilityContext.tsx": {
+   "brick": "FE-CORE-03",
+   "sha": "6cf6134499a3"
+  },
+  "src/context/AudioContext.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "9d73018ba4e8"
+  },
+  "src/context/AuthContext.tsx": {
+   "brick": "FE-CORE-02",
+   "sha": "115528e7a954"
+  },
+  "src/context/CallContext.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "d236ef3d7af2"
+  },
+  "src/context/ChatContext.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "cdc74eee4efd"
+  },
+  "src/context/ChatSettingsContext.tsx": {
+   "brick": "FE-COM-01",
+   "sha": "6d61ee2d56bc"
+  },
+  "src/context/GovernorateContext.tsx": {
+   "brick": "FE-CORE-03",
+   "sha": "e602a6964ee0"
+  },
+  "src/context/KnowledgeContext.tsx": {
+   "brick": "FE-MED-01",
+   "sha": "138d36e3d587"
+  },
+  "src/context/SnapshotContext.tsx": {
+   "brick": "FE-FIN-01",
+   "sha": "c6f93b419150"
+  },
+  "src/context/ThemeContext.tsx": {
+   "brick": "FE-CORE-03",
+   "sha": "47d2e8badde3"
+  },
+  "src/features/attendance/components/AdminAttendanceDashboard.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "2efd91f439a4"
+  },
+  "src/features/attendance/components/AttendanceAdminSettings.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "445c04de7798"
+  },
+  "src/features/attendance/components/AttendanceCheckInOut.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "01624ebd336a"
+  },
+  "src/features/attendance/components/AttendanceDashboard.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "2b85f1522f05"
+  },
+  "src/features/attendance/components/AttendanceHistory.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "16778e229c18"
+  },
+  "src/features/attendance/components/AttendanceStatistics.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "2ad791649376"
+  },
+  "src/features/attendance/components/BiometricEnrollment.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "e1c497480885"
+  },
+  "src/features/attendance/components/EmployeeRosterModal.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "c677d1cee9a3"
+  },
+  "src/features/attendance/components/FaceEnrollment.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "e3cc2a7e65ef"
+  },
+  "src/features/attendance/components/HolidaysTab.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "5e1c1c5c8788"
+  },
+  "src/features/attendance/components/LiveAttendanceBoard.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "0a145a2680eb"
+  },
+  "src/features/attendance/components/Timesheets.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "0b6075f7d8ce"
+  },
+  "src/features/attendance/components/WorkScheduleForm.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "914f388b4483"
+  },
+  "src/features/attendance/components/WorkSchedulesTab.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "ebe2c3c1fb5e"
+  },
+  "src/features/attendance/hooks/useAttendance.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "3395a7733296"
+  },
+  "src/features/attendance/hooks/useCamera.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "0f8c461afd74"
+  },
+  "src/features/attendance/hooks/useFaceDetection.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "6adc0b53f931"
+  },
+  "src/features/attendance/hooks/useLiveAttendance.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "f780308823f9"
+  },
+  "src/features/attendance/hooks/useServerTime.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "bc45d7b604bc"
+  },
+  "src/features/attendance/index.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "b0b742bad422"
+  },
+  "src/features/attendance/services/attendanceRequestEngine.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "d5458d0b0a00"
+  },
+  "src/features/attendance/services/attendanceService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "f325cc76584e"
+  },
+  "src/features/attendance/services/geofenceService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "d31ecaf056cb"
+  },
+  "src/features/attendance/services/leaveIntegrationService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "1138ee6629ae"
+  },
+  "src/features/attendance/services/rosterReminderService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "58af4751547b"
+  },
+  "src/features/attendance/services/serverTimeService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "c2ad253e94f6"
+  },
+  "src/features/attendance/services/timesheetService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "bad88c55e7b6"
+  },
+  "src/features/attendance/services/webauthnService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "7833983635a5"
+  },
+  "src/features/attendance/services/workLocationService.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "d4650563acc4"
+  },
+  "src/features/attendance/types.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "2fba144dbf75"
+  },
+  "src/features/attendance/utils/attendanceCalc.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "741ade724c24"
+  },
+  "src/features/attendance/utils/imageEnhancement.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "1e78b5427f54"
+  },
+  "src/features/attendance/utils/punchCategorizer.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "29ad6542e310"
+  },
+  "src/features/attendance/utils/shiftRules.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "6f0357f1c626"
+  },
+  "src/features/attendance/utils/snapshotStorage.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "4269a6804b44"
+  },
+  "src/features/attendance/utils/testEnvironment.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "220bbed9550a"
+  },
+  "src/features/attendance/utils/timesheetStatusHelper.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "272bb710563c"
+  },
+  "src/features/fiber-simulator/FiberSimulatorLauncher.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "7e9cc2be7c60"
+  },
+  "src/features/fiber-simulator/FiberSimulatorWorkspace.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "07388c745361"
+  },
+  "src/features/fiber-simulator/data/maps/alley-16.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "666bb8e2bbfc"
+  },
+  "src/features/fiber-simulator/data/maps/registry.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "b3e769071fe5"
+  },
+  "src/features/fiber-simulator/data/materials.catalog.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "2e96e3db321d"
+  },
+  "src/features/fiber-simulator/education/build-order.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "5518df1645de"
+  },
+  "src/features/fiber-simulator/education/element-info.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "c769a6ce6bb6"
+  },
+  "src/features/fiber-simulator/education/training-paths.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "13f257871e07"
+  },
+  "src/features/fiber-simulator/engine/boq.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "ff436699c8ae"
+  },
+  "src/features/fiber-simulator/engine/geometry.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "1e6fcdd803d8"
+  },
+  "src/features/fiber-simulator/engine/physics.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "ac8aaa944468"
+  },
+  "src/features/fiber-simulator/engine/rules.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "3e48dfe5e81b"
+  },
+  "src/features/fiber-simulator/engine/scoring.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "28cd86785f73"
+  },
+  "src/features/fiber-simulator/export/boq-export.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "33b0da5a66ea"
+  },
+  "src/features/fiber-simulator/gis/GisImporter.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "c2ffc279437e"
+  },
+  "src/features/fiber-simulator/gis/geojsonToSimMap.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "e17cbdff9bae"
+  },
+  "src/features/fiber-simulator/gis/gis-maps.store.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "55deb094d45b"
+  },
+  "src/features/fiber-simulator/gis/sim-map-library.service.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "3e7ea4af86a0"
+  },
+  "src/features/fiber-simulator/security/feature-gate.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "aef6da4e24a3"
+  },
+  "src/features/fiber-simulator/security/ftthAccess.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "d33decd257ac"
+  },
+  "src/features/fiber-simulator/security/useFtthSimulatorAccess.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "8bdab2b7febd"
+  },
+  "src/features/fiber-simulator/services/scores.service.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "fdf4b7de349e"
+  },
+  "src/features/fiber-simulator/session-reset.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "a13569565a16"
+  },
+  "src/features/fiber-simulator/store/education.store.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "9bb2b1dfb359"
+  },
+  "src/features/fiber-simulator/store/lab.store.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "26dd9255aca2"
+  },
+  "src/features/fiber-simulator/store/simulator.store.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "23db16b143b8"
+  },
+  "src/features/fiber-simulator/types.ts": {
+   "brick": "FE-FIB-01",
+   "sha": "5caec966588e"
+  },
+  "src/features/fiber-simulator/ui/OnboardingTour.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "a5d9fa1df412"
+  },
+  "src/features/fiber-simulator/ui/OtdrPanel.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "c27627a11d24"
+  },
+  "src/features/fiber-simulator/ui/SimCanvas.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "7121087da50f"
+  },
+  "src/features/fiber-simulator/ui/SimInspector.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "785db260965e"
+  },
+  "src/features/fiber-simulator/ui/SimToolbar.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "8ed53c02549c"
+  },
+  "src/features/fiber-simulator/ui/SplicingLab.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "4134202f9a01"
+  },
+  "src/features/fiber-simulator/ui/TestingPanel.tsx": {
+   "brick": "FE-FIB-01",
+   "sha": "7bdef0921b0e"
+  },
+  "src/features/kiosk/KioskAdminPanel.tsx": {
+   "brick": "FE-ATT-02",
+   "sha": "66d95fef2ad1"
+  },
+  "src/features/kiosk/KioskCapture.tsx": {
+   "brick": "FE-ATT-02",
+   "sha": "a7071b8cb94b"
+  },
+  "src/features/kiosk/KioskPage.tsx": {
+   "brick": "FE-ATT-02",
+   "sha": "e1aa3da7a132"
+  },
+  "src/features/kiosk/kioskService.ts": {
+   "brick": "FE-ATT-02",
+   "sha": "4983bf9e119b"
+  },
+  "src/features/promotion/PromotionCoursesPage.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "24df1b986aa9"
+  },
+  "src/features/promotion/components/AdminPromotionTab.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "4dd4d2ff558b"
+  },
+  "src/features/promotion/components/BranchSelector.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "5869b3228b22"
+  },
+  "src/features/promotion/components/CurriculaTab.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "c0cfb46e8875"
+  },
+  "src/features/promotion/components/ExamSession.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "4bf121674f65"
+  },
+  "src/features/promotion/components/ExamTab.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "707aae24adc0"
+  },
+  "src/features/promotion/components/PromotionPermissionsModal.tsx": {
+   "brick": "FE-PRO-01",
+   "sha": "c8e2976bb628"
+  },
+  "src/features/promotion/hooks/usePromotionData.ts": {
+   "brick": "FE-PRO-01",
+   "sha": "2ec8cec10d63"
+  },
+  "src/features/promotion/types.ts": {
+   "brick": "FE-PRO-01",
+   "sha": "7a3c46cf3caa"
+  },
+  "src/features/requests/RequestsPage.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "0dfd6075a877"
+  },
+  "src/features/requests/components/ApprovalModal.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "86adf92553c1"
+  },
+  "src/features/requests/components/DutyRequestForm.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "6cd979d8f14a"
+  },
+  "src/features/requests/components/EditLeaveRequestForm.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "4f9978791522"
+  },
+  "src/features/requests/components/EmployeeNotifications.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "1d4a0c71c88d"
+  },
+  "src/features/requests/components/HRLeaveNotifications.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "e96a41231e1c"
+  },
+  "src/features/requests/components/LeaveBalanceCard.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "60fd2e6e027d"
+  },
+  "src/features/requests/components/LeavePayToggle.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "c8a6c2d464c1"
+  },
+  "src/features/requests/components/LeaveRequestForm.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "1cfd88762f10"
+  },
+  "src/features/requests/components/LeaveSupportingImages.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "42cfe32458fc"
+  },
+  "src/features/requests/components/LeaveTypeInfoAlert.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "41dc04e841dd"
+  },
+  "src/features/requests/components/LeaveTypeSelector.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "33f09aa6e7ca"
+  },
+  "src/features/requests/components/RequestsTabContent.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "875d6b0f2852"
+  },
+  "src/features/requests/components/SupervisorNotifications.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "5801c3b2d6c1"
+  },
+  "src/features/requests/components/SupervisorSelector.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "870b48952711"
+  },
+  "src/features/requests/components/TimeOffRequestForm.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "84859e94fbb7"
+  },
+  "src/features/requests/components/requestTypes.ts": {
+   "brick": "FE-LEV-01",
+   "sha": "7f87e920f8d3"
+  },
+  "src/features/requests/pages/LeaveRequestPage.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "810af862d579"
+  },
+  "src/features/training/components/AdminTrainingTab.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "e975e10a97b6"
+  },
+  "src/features/training/components/EditStudentModal.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "a146bee6e7b7"
+  },
+  "src/features/training/components/SummerTrainingPage.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "e963261ee61f"
+  },
+  "src/features/training/components/TraineeExamSession.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "05f2cb0a86ba"
+  },
+  "src/features/training/components/TraineeExamTab.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "be78fdf51bb0"
+  },
+  "src/features/training/components/TraineeLoginPage.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "2a0859dac221"
+  },
+  "src/features/training/components/TraineePollLink.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "e5fb8afa094b"
+  },
+  "src/features/training/components/TraineePollSettings.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "ca6d6281df63"
+  },
+  "src/features/training/components/TrainingStudentsModal.tsx": {
+   "brick": "FE-TRN-01",
+   "sha": "73cdb1f1023e"
+  },
+  "src/features/training/hooks/useTrainingData.ts": {
+   "brick": "FE-TRN-01",
+   "sha": "845977306b7d"
+  },
+  "src/features/training/types.ts": {
+   "brick": "FE-TRN-01",
+   "sha": "888d41370af9"
+  },
+  "src/hooks/useChatSettings.ts": {
+   "brick": "FE-COM-01",
+   "sha": "715a481b558a"
+  },
+  "src/hooks/useChatState.ts": {
+   "brick": "FE-COM-01",
+   "sha": "c07697c215f0"
+  },
+  "src/hooks/useConversationDetails.ts": {
+   "brick": "FE-COM-01",
+   "sha": "e5ea591f1826"
+  },
+  "src/hooks/useConversations.ts": {
+   "brick": "FE-COM-01",
+   "sha": "767bdf1a1154"
+  },
+  "src/hooks/useDashboardData.ts": {
+   "brick": "FE-HR-01",
+   "sha": "61310a006397"
+  },
+  "src/hooks/useDataPatcher.ts": {
+   "brick": "FE-HR-02",
+   "sha": "f55aefc0fa96"
+  },
+  "src/hooks/useEmployeeData.ts": {
+   "brick": "FE-HR-01",
+   "sha": "2b0ff1293245"
+  },
+  "src/hooks/useEmployeeManager.ts": {
+   "brick": "FE-HR-01",
+   "sha": "2bd50890985e"
+  },
+  "src/hooks/useEmployeeSearch.ts": {
+   "brick": "FE-UI-01",
+   "sha": "a1c8d03b71c6"
+  },
+  "src/hooks/useKnowledgeProgress.ts": {
+   "brick": "FE-MED-01",
+   "sha": "ccb7186cc2bf"
+  },
+  "src/hooks/useLeavesData.ts": {
+   "brick": "FE-LEV-01",
+   "sha": "54d90d4940be"
+  },
+  "src/hooks/useLongPress.ts": {
+   "brick": "FE-UI-01",
+   "sha": "e27234820941"
+  },
+  "src/hooks/useMediaContent.ts": {
+   "brick": "FE-MED-01",
+   "sha": "9e28b1a58c1d"
+  },
+  "src/hooks/usePolls.ts": {
+   "brick": "FE-MED-01",
+   "sha": "e47c802b0e22"
+  },
+  "src/hooks/useSmoothScroll.ts": {
+   "brick": "FE-UI-01",
+   "sha": "8052da1eba2f"
+  },
+  "src/hooks/useSplashAudio.ts": {
+   "brick": "FE-SPL-01",
+   "sha": "de7037e88bbc"
+  },
+  "src/hooks/useUniversalPatcher.ts": {
+   "brick": "FE-HR-02",
+   "sha": "98b97a46a37c"
+  },
+  "src/hooks/useVoiceRecorder.ts": {
+   "brick": "FE-COM-01",
+   "sha": "d4b3fcb84f2a"
+  },
+  "src/index.css": {
+   "brick": "FE-CORE-01",
+   "sha": "d757f9e5de1b"
+  },
+  "src/lib/attendanceHelpers.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "ee6d23f17d7b"
+  },
+  "src/lib/chatUtils.ts": {
+   "brick": "FE-COM-01",
+   "sha": "371db2d7442b"
+  },
+  "src/lib/errorLogger.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "ac8a5c4e84ec"
+  },
+  "src/lib/supabase.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "05b28a2cd7ad"
+  },
+  "src/lib/utils.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "5336e244d4a9"
+  },
+  "src/main.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "7f06fce54504"
+  },
+  "src/pages/AdminDashboard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "9b4ada396feb"
+  },
+  "src/pages/Dashboard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "d88a4396d402"
+  },
+  "src/pages/GovernorateSelection.tsx": {
+   "brick": "FE-CORE-03",
+   "sha": "c95dfc8b7765"
+  },
+  "src/pages/LauncherPage.tsx": {
+   "brick": "FE-SPL-01",
+   "sha": "325e8e3b4326"
+  },
+  "src/pages/Login.tsx": {
+   "brick": "FE-CORE-02",
+   "sha": "2469bca7d368"
+  },
+  "src/pages/NotFound.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "d48cf56a5e46"
+  },
+  "src/pages/SplashScreen.tsx": {
+   "brick": "FE-SPL-01",
+   "sha": "28314948ec4e"
+  },
+  "src/pages/SplashScreenLegacy.tsx": {
+   "brick": "FE-SPL-01",
+   "sha": "c64a38106a21"
+  },
+  "src/pages/VisitorDashboard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "d0e3d7b04230"
+  },
+  "src/services/GlobalAudioManager.ts": {
+   "brick": "FE-MED-01",
+   "sha": "e8425135e33c"
+  },
+  "src/services/RingbackToneGenerator.ts": {
+   "brick": "FE-COM-01",
+   "sha": "98bd8f1c6735"
+  },
+  "src/services/notifications/OneSignalService.ts": {
+   "brick": "FE-CORE-05",
+   "sha": "9b59dfdfd97d"
+  },
+  "src/services/notifications/PushService.ts": {
+   "brick": "FE-CORE-05",
+   "sha": "52ef1348617f"
+  },
+  "src/services/notifications/index.ts": {
+   "brick": "FE-CORE-05",
+   "sha": "e083f7af3a53"
+  },
+  "src/types/knowledge.ts": {
+   "brick": "FE-MED-01",
+   "sha": "579fcce41f47"
+  },
+  "src/utils/GeolocationManager.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "70980e23ef8c"
+  },
+  "src/utils/antiSpoofing.ts": {
+   "brick": "FE-CORE-02",
+   "sha": "6473392999da"
+  },
+  "src/utils/arabicShaper.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "615a5e8aeb05"
+  },
+  "src/utils/auditPrintUtils.ts": {
+   "brick": "FE-HR-01",
+   "sha": "5e77c72a48cc"
+  },
+  "src/utils/dataPatcherUtils.ts": {
+   "brick": "FE-HR-02",
+   "sha": "0a6540a2402e"
+  },
+  "src/utils/deviceFingerprint.ts": {
+   "brick": "FE-CORE-02",
+   "sha": "9d5727c9ac5a"
+  },
+  "src/utils/errorMessageFormatter.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "7e862864a0b7"
+  },
+  "src/utils/formatDate.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "b8b80343ece8"
+  },
+  "src/utils/formatRoles.ts": {
+   "brick": "FE-CORE-02",
+   "sha": "5ee92debab6e"
+  },
+  "src/utils/formatters.ts": {
+   "brick": "FE-CORE-04",
+   "sha": "9a7b642899d8"
+  },
+  "src/utils/payrollValidation.ts": {
+   "brick": "FE-FIN-01",
+   "sha": "ef305fad2e6b"
+  },
+  "src/utils/pdfGenerator.ts": {
+   "brick": "FE-HR-01",
+   "sha": "f16e26c2be0c"
+  },
+  "src/utils/pdfListGenerator.ts": {
+   "brick": "FE-HR-01",
+   "sha": "a8655c23cd6c"
+  },
+  "src/utils/permissions.ts": {
+   "brick": "FE-CORE-02",
+   "sha": "280b6e8d9a80"
+  },
+  "src/utils/profileUtils.ts": {
+   "brick": "FE-HR-01",
+   "sha": "c3f2cddc7706"
+  },
+  "src/utils/salaryRules.ts": {
+   "brick": "FE-FIN-01",
+   "sha": "dacd6e2c8f89"
+  },
+  "src/utils/salaryScale.ts": {
+   "brick": "FE-FIN-01",
+   "sha": "aa69c0f1fd83"
+  },
+  "src/utils/snapshots.ts": {
+   "brick": "FE-FIN-01",
+   "sha": "0d83542a469e"
+  },
+  "src/utils/universalPatcherConfig.ts": {
+   "brick": "FE-HR-02",
+   "sha": "1f700a3eadb8"
+  },
+  "src/vite-env.d.ts": {
+   "brick": "FE-CORE-01",
+   "sha": "bfb90e81a8f7"
+  }
+ }
+}
