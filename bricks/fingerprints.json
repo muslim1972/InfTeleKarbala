@@ -1,9 +1,9 @@
 {
- "created": "2026-10-09T19:12:54.943Z",
+ "created": "2026-10-09T19:26:22.496Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "887d988e09a1"
+   "sha": "40c14c03e766"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -27,7 +27,7 @@
   },
   "scripts/verify-bricks.mjs": {
    "brick": "OPS-03",
-   "sha": "acc3a2230386"
+   "sha": "cf71c31ac1ee"
   },
   "spa_server.py": {
    "brick": "OPS-02",
@@ -1236,6 +1236,230 @@
   "src/vite-env.d.ts": {
    "brick": "FE-CORE-01",
    "sha": "bfb90e81a8f7"
+  },
+  "supabase/functions/admin-sync-auth/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "db8ab53e9441"
+  },
+  "supabase/functions/auth-change-password/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "8dd03691d655"
+  },
+  "supabase/functions/auth-login/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "8dda2d43eb37"
+  },
+  "supabase/functions/auth-verify-2fa/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "91e308fd2c42"
+  },
+  "supabase/functions/bulk-create-users/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "afe9ecfd0601"
+  },
+  "supabase/functions/handle-cloudflare-call/index.ts": {
+   "brick": "BE-COM-01",
+   "sha": "cf307d073484"
+  },
+  "supabase/functions/livekit-token/index.ts": {
+   "brick": "BE-COM-01",
+   "sha": "5e0904db50f1"
+  },
+  "supabase/functions/send-2fa-email/index.ts": {
+   "brick": "BE-CORE-02",
+   "sha": "ceb2f8bd9935"
+  },
+  "supabase/functions/send-notification/index.ts": {
+   "brick": "BE-CORE-04",
+   "sha": "5bc467048041"
+  },
+  "supabase/functions/start-call/index.ts": {
+   "brick": "BE-COM-01",
+   "sha": "71c66220a13c"
+  },
+  "supabase/migrations/20260716000000_init.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "da39a3ee5e6b"
+  },
+  "supabase/migrations/20260725000001_typed_leave_columns.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "6c77039b7c6f"
+  },
+  "supabase/migrations/20260725000002_submit_typed_leave_request.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "317fe63556b9"
+  },
+  "supabase/migrations/20260725000003_update_state_machine.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "2288e4cd4b5b"
+  },
+  "supabase/migrations/20260725000004_convert_cumulative_time.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "dac09e526f83"
+  },
+  "supabase/migrations/20260726000001_order_image_bucket_policies.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "579c17bad122"
+  },
+  "supabase/migrations/20260726000002_fix_submit_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "00d9d00e5f7a"
+  },
+  "supabase/migrations/20260726000003_fix_notifications_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "53e3fc0be9ab"
+  },
+  "supabase/migrations/20260726000004_fix_process_approval_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "8540523459df"
+  },
+  "supabase/migrations/20260726000005_fix_modify_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "ffad1a8c7d83"
+  },
+  "supabase/migrations/20260726000006_add_is_read_by_hr.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "1f39786747ab"
+  },
+  "supabase/migrations/20260726000007_add_sick_and_unpaid_balances.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "981f3710e249"
+  },
+  "supabase/migrations/20260726000008_update_state_machine_sick_unpaid.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "938699244fe0"
+  },
+  "supabase/migrations/20260727000001_add_cancellation_reason.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "524b74129c49"
+  },
+  "supabase/migrations/20260727000002_fix_modify_rpc_cancellation.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "af47b703bedf"
+  },
+  "supabase/migrations/20260728000001_duty_fields_and_biometric_role.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "67053093929c"
+  },
+  "supabase/migrations/20260728000001_fix_notification_titles.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "81833d3e8ff7"
+  },
+  "supabase/migrations/20260730000000_add_is_mandatory.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "588c38a92040"
+  },
+  "supabase/migrations/20260731000000_submit_device_change_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "f3f237cd4173"
+  },
+  "supabase/migrations/20260803000000_time_off_subtypes.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "3172249cf0f1"
+  },
+  "supabase/migrations/20260803000001_update_rpc_time_off.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "0d7180860bc3"
+  },
+  "supabase/migrations/20260813000000_update_device_mismatch_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "34a4e3e36bdc"
+  },
+  "supabase/migrations/20260822000000_fiber_sim_tables.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "7200168fdd49"
+  },
+  "supabase/migrations/20260824000000_fiber_sim_projects_names.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "ed3dd5b8ec3a"
+  },
+  "supabase/migrations/20260826000000_time_leave_auto_convert.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "230337a69a24"
+  },
+  "supabase/migrations/20260904_secure_attendance_and_rls.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "bc49ee9b2ab4"
+  },
+  "supabase/migrations/20260904_secure_geofencing_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "5dc0dc56e503"
+  },
+  "supabase/migrations/20260905_fix_crypto_functions.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "29bb6619a59d"
+  },
+  "supabase/migrations/20260909_enforce_server_time_attendance.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "96704ae105a8"
+  },
+  "supabase/migrations/20260917120000_fiber_sim_projects_map_data.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "3aa0adad2d80"
+  },
+  "supabase/migrations/20260919120000_sim_osm_presets.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "226647a5ae48"
+  },
+  "supabase/migrations/20260919130000_sim_map_library.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "eb223eebba03"
+  },
+  "supabase/migrations/20260919140000_fix_sim_rls_owner_only.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "b48242a932ab"
+  },
+  "supabase/migrations/20260929120000_fix_approval_step_loop.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "12e7ae360a4f"
+  },
+  "supabase/migrations/20260929130000_notif_cleanup_trigger.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "16a1e9570f9e"
+  },
+  "supabase/migrations/20260929150000_kiosk_setup.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "3cad4681b5e3"
+  },
+  "supabase/migrations/20261002120000_reset_test_attendance_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "0fa61ebb6d78"
+  },
+  "supabase/migrations/20261004000000_fix_device_mismatch_notifications.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "8e48fef55a27"
+  },
+  "supabase/migrations/20261004010000_exclude_developer_and_first_to_act.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "2561d8813fa8"
+  },
+  "supabase/migrations/20261006130000_red_virtual_closeout.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "065fe8c8bb5a"
+  },
+  "supabase/migrations/20261007190000_overtime_virtual_replacement.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "9f568d6747da"
+  },
+  "supabase/migrations/20261008170000_sync_certificate_percentage_and_text.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "d600d80d9829"
+  },
+  "supabase/migrations/handle_leave_state_machine.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "f059bf73179d"
+  },
+  "supabase/migrations/modify_leave_request_final.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "7a113da45981"
+  },
+  "supabase/migrations/modify_leave_request_fix_overload.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "563aa47cf7a7"
+  },
+  "supabase/migrations/modify_leave_request_v2.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "96be52999470"
   }
  }
 }

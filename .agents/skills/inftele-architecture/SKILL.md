@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   last_updated: "2026-10-09"
 ---
 
@@ -31,9 +31,9 @@ metadata:
 - الأمن: الحفاظ على صفر ثغرات ZAP؛ دوال DB الداخلية `REVOKE` من anon/authenticated، والمكشوف للعميل غلاف `SECURITY DEFINER` يتحقق من `auth.uid()`.
 
 ## 3. الحالة الحالية
-- **المرحلة:** M0 مكتمل ← M1 (الجرد) التالي.
+- **المرحلة:** M1 (الجرد) — البند 1 (جرد BE) مكتمل.
 - **أُنجز:** ARCHITECTURE.md (معتمد)، BRICKS.md، هذا الـSkill، مسودة عقد BE-ATT-04، أرشفة المؤقتات، قواعد AGENTS.md.
-- **الخطوة التالية (M1):** (1) جرد BE: نسبة كل دالة/جدول/مشغل/Edge/bucket لطابوقة في registry.json (حقل db) + فحص الحارس لوجودها على الخادم. (2) عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
+- **الخطوة التالية (M1):** ~~(1) جرد BE~~ ✓. (2) عقد وصفي مختصر BRICK.md لكل طابوقة FE/BE (ما هو قائم فعلاً، الواجهة العامة، الاعتماديات). (3) جرد مجلدات الجذر المتبقية (Q5).
 
 ## 4. سجل التقدم (إلحاق فقط)
 | التاريخ | الخطوة | الطابوقة | ملاحظة |
@@ -46,6 +46,7 @@ metadata:
 | 2026-10-09 | AGENTS.md: شرط «لا مجاملة» + قاعدة المؤقتات | OPS | |
 | 2026-10-09 | commit + وسم `m0-foundation` | OPS | |
 | 2026-10-09 | الحارس `scripts/verify-bricks.mjs` + `bricks/registry.json` (23 طابوقة، تغطية src 100% = 301 ملف) + `bricks/fingerprints.json` (309 بصمة). اختُبر: كشف ملكية مزدوجة حقيقية، وكشف فقدان shiftRules.ts باسم FE-ATT-01. أُضيف كخطوة 0 في سير النشر | OPS-03 | M0 مكتمل |
+| 2026-10-09 | M1 جرد BE: 21 طابوقة خلفية في registry.json (حقول db/tables/edge/buckets). الحارس `--db` يقارن مع الخادم: db=108/108، tables=74/74، buckets=9/9. اختُبر سلبياً (دالة وهمية ⇒ فشل باسم الطابوقة). أدوات `scripts/ops/runsql.sh` و`db-inventory.sql` (لا تعتمد على /tmp). `CLAUDE.md`/`GEMINI.md` تحيل لـ AGENTS.md لأي وكيل | OPS-03, BE-* | M1 بند 1 مكتمل |
 
 ## 5. سجل القرارات (إلحاق فقط)
 | # | القرار | المصدر |
@@ -68,11 +69,18 @@ metadata:
 - ~~Q4~~ أُغلق بـ D9.
 - Q5 مجلدات جذر مؤقتة متبقية (tmp/, scratch/, .work/, sql-files/, database/, pg/, pg17/) — تُجرد في M1.
 
+## 6.0 مشاكل أمنية/تقنية مرصودة (لا مجاملة)
+- P6 امتداد `pageinspect` في المخطط public (يكشف صفحات التخزين) — يُنقل/يُحذف في BE-CORE-03.
+- P10 كلمة سر VPS مكتوبة نصاً في AGENTS.md وملتزمة في Git — يُوصى بنقلها لمتغير بيئة `VPS_PW` ومفتاح SSH بدل كلمة السر، وتغييرها. (الحارس يقرأ `VPS_PW` أولاً.)
+- P11 دالة `debug_modify_check` وبقايا `reset_test_attendance*` في الإنتاج.
+- P12 overloads: submit_leave_request×3، modify_leave_request×2، process_leave_approval×2، set_promotion_permission×2، authenticate_training_student×2.
+
 ## 6.1 كيف يعمل الحارس (OPS-03)
 - `registry.json`: لكل طابوقة `owns` (ملف أو مجلد) و`db` (دوال) و`contract`.
 - أخطاء تُفشل: ملف مملوك مفقود، ملكية مزدوجة، عقد مفقود، ملف مسجل في البصمات اختفى (مع أمر الاسترجاع).
 - تحذيرات: ملف src غير منسوب، قاعدة R# لا يذكرها أي صف اختبار T#، ملفات تغيّرت عن البصمة.
 - ملف جديد ⇒ أضفه لطابوقته في registry.json. بعد اعتماد تغيير ⇒ `--snapshot`.
+- `--db`: يرفع `scripts/ops/*` إلى /tmp ويقارن الدوال/الجداول/buckets المسجلة بالخادم. دالة/جدول جديد في DB ⇒ أضفه لحقل db/tables لطابوقته.
 
 ## 7. فخاخ معروفة
 - PowerShell 5.1 يُسقط التنصيص المزدوج في أوامر plink — اكتب منطق shell في ملف `.sh`.
