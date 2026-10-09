@@ -18,7 +18,6 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
-import { useTestEnvironment } from '../../attendance/utils/testEnvironment';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type TimeOffSubtype = 'mid_shift' | 'shift_start' | 'shift_end';
@@ -107,7 +106,6 @@ interface ManagerInfo {
 
 const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const { isTest } = useTestEnvironment();
 
   // تاريخ اليوم بالتوقيت المحلي (وليس UTC) لتفادي انزياح التاريخ ليلاً
   const now0 = new Date();
@@ -405,7 +403,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       return false;
     }
     // 2) منع التواريخ الماضية نهائياً (اليوم الحالي والأيام القادمة مسموحة)
-    if (requestDate < todayStr && !isTest) {
+    if (requestDate < todayStr) {
       setError('لا يمكن تقديم إجازة زمنية لتاريخ ماضٍ.');
       return false;
     }
@@ -422,7 +420,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     // (التحذيرات المبكرة بالفعل ظاهرة للمستخدم — نتركها ونتجاوز التدقّقات الصارمة في بيئة التجربة)
 
     // Validate leave time is within shift
-    if (config.showLeaveTime && !isTest) {
+    if (config.showLeaveTime) {
       const leaveMins = getRelativeMins(leaveTime, shiftStart, shiftEnd);
       const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
       const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
@@ -437,7 +435,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
 
     // Validate return time is within shift
-    if (config.showReturnTime && !isTest) {
+    if (config.showReturnTime) {
       const retMins = getRelativeMins(returnTime, shiftStart, shiftEnd);
       const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
       const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
@@ -452,13 +450,13 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
 
     // Validate return is after leave (يتم تجاوزه في بيئة التجربة إذا وُجدت تحذيرات)
-    if (durationMinutes <= 0 && !isTest) {
+    if (durationMinutes <= 0) {
       setError('ساعة العودة يجب أن تكون بعد ساعة المغادرة');
       return false;
     }
 
     // 4) منع طلب إجازة تبدأ في الماضي — لطلبات اليوم الحالي فقط
-    if (requestDate === todayStr && !isTest) {
+    if (requestDate === todayStr) {
       const now = new Date();
       const nowClockLocal = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const leaveDT = new Date(`${requestDate}T${effectiveLeaveTime}:00`);
@@ -471,7 +469,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     // عطلة نهاية الأسبوع: يظهر التحذير في المربع العلوي طالما بقي التاريخ. في بيئة التجربة
     // نقبله لو المستخدم أصر، إلا في الوضع العادي يُرفض نهائياً.
-    if (isWeekend(requestDate) && !isTest) {
+    if (isWeekend(requestDate)) {
       setError('تاريخ الإجازة المحدد يقع في أيام العطلة الرسمية (الجمعة والسبت) — اختر يوماً آخر.');
       return false;
     }
@@ -481,7 +479,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     }
     setError(null);
     return true;
-  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr, isTest, effectiveLeaveTime]);
+  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr, effectiveLeaveTime]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -907,27 +905,18 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
         {/* ── لوحة التحذيرات المبكرة — تظهر لحظة الإدخال بدون انتظار الإرسال ── */}
         {warnings.length > 0 && (
-          <div className={`p-3 rounded-xl border text-sm space-y-1.5 ${
-            isTest
-              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300'
-              : 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800/50 text-orange-800 dark:text-orange-300'
-          }`}>
+          <div className="p-3 rounded-xl border text-sm space-y-1.5 bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800/50 text-orange-800 dark:text-orange-300">
             <div className="flex items-start gap-2">
               <AlertTriangle size={18} className="shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className={`font-bold mb-1 ${isTest ? 'text-amber-800 dark:text-amber-200' : ''}`}>
-                  {isTest ? 'بيئة الفحص: اعتراضات النظام (تُقبَل للتجربة رغمها)' : 'النظام يعترض على ما يلي:'}
+                <p className="font-bold mb-1">
+                  'النظام يعترض على ما يلي:'
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-xs leading-relaxed">
                   {warnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
-                {isTest && (
-                  <p className="mt-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                    ملاحظة: هذه الرسائل هي نفسها التي يراها المستخدم الحقيقي وتمنع الرفع عنده — أما في بيئة الفحص فهناك تجاوز للسماح لك برؤيتها ورؤية ما يرسله الطلب للمشرفين.
-                  </p>
-                )}
               </div>
             </div>
           </div>

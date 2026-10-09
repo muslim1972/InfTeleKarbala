@@ -496,8 +496,7 @@
       "status": "inventoried",
       "db": [
         "submit_attendance_record_secure",
-        "process_daily_attendance",
-        "reset_test_attendance_today"
+        "process_daily_attendance"
       ],
       "tables": [
         "attendance_records",

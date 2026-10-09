@@ -22,13 +22,12 @@ import {
   LogIn, LogOut, MapPin, CheckCircle,
   AlertTriangle, RefreshCw, Camera,
   ShieldCheck, X, User, Clock, XCircle,
-  ChevronDown, ChevronUp, Radio, Laptop, Smartphone, Eraser, FileText, Trash2, Fingerprint
+  ChevronDown, ChevronUp, Radio, Laptop, Smartphone, FileText, Trash2, Fingerprint
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import { type LocationTelemetryResult } from '../../../utils/antiSpoofing';
 import { useAuth } from '../../../context/AuthContext';
-import { useTestEnvironment } from '../utils/testEnvironment';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
@@ -69,7 +68,6 @@ export default function AttendanceCheckInOut({
 }: AttendanceCheckInOutProps) {
   const { registerPunch } = useAttendance(employeeId);
   const { user } = useAuth();
-  const { isTest, canResetPunches, resetPunches } = useTestEnvironment();
   const { isTampered, tamperInfo, forceSync } = useServerTime();
   const [showEnrollment, setShowEnrollment] = useState(false);
   const isEnrolled = !!user?.face_descriptor;
@@ -100,7 +98,6 @@ export default function AttendanceCheckInOut({
 
   // ─── مهلة الأمان (3 دقائق = 180 ثانية) بين البصمات لمنع التكرار العرضي ───
   const [nowTick, setNowTick] = useState(Date.now());
-  const [cooldownBypassed, setCooldownBypassed] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -116,10 +113,10 @@ export default function AttendanceCheckInOut({
   }, [todayAttendance?.raw_punches]);
 
   const cooldownRemaining = useMemo(() => {
-    if (!lastPunchTime || cooldownBypassed) return 0;
+    if (!lastPunchTime) return 0;
     const elapsed = Math.floor((nowTick - lastPunchTime) / 1000);
     return Math.max(0, 180 - elapsed);
-  }, [lastPunchTime, nowTick, cooldownBypassed]);
+  }, [lastPunchTime, nowTick]);
 
   const isCooldownActive = cooldownRemaining > 0;
 
@@ -158,7 +155,7 @@ export default function AttendanceCheckInOut({
 
   // حظر تسجيل البصمة الإضافية إذا كان الجهاز غير معتمد ولديه بصمة سابقة
   const isBlockedByUnapprovedDevice = Boolean(
-    !isTest && hasExistingPunches && (
+    hasExistingPunches && (
       isCurrentDeviceAuthorized === false || todayAttendance?.is_device_pending
     )
   );
@@ -251,7 +248,7 @@ export default function AttendanceCheckInOut({
   // ---- Geofence Logic with Anti-Spoofing & Telemetry ----
   const verifyLocationAndGeofence = useCallback(async (showToast = false): Promise<boolean> => {
     // أثناء مهلة الأمان (3 دقائق)، لا يُعاد فحص الموقع ولا تُستنزف الموارد أبداً
-    if (isCooldownActiveRef.current && !isTest) {
+    if (isCooldownActiveRef.current) {
       setLoadingLocation(false);
       return isAllowedRef.current;
     }
@@ -259,15 +256,6 @@ export default function AttendanceCheckInOut({
     setLoadingLocation(true);
     setGeofenceChecked(false);
     try {
-      if (isTest) {
-        setIsAllowed(true);
-        lastLocationCheckTimeRef.current = Date.now();
-        setLocationText('بيئة تجريبية - الموقع الفعلي متجاوز');
-        setGeofenceChecked(true);
-        if (showToast) toast.success('تم تخطي فحص الموقع (بيئة تجريبية)', { id: 'geo-verify' });
-        setLoadingLocation(false);
-        return true;
-      }
 
       if (showToast) toast.loading('جاري فحص وتدقيق إحداثيات الموقع الجغرافي...', { id: 'geo-verify' });
       const { position, telemetry: telResult } = await geolocationManager.getCurrentPositionWithTelemetry();
@@ -333,7 +321,7 @@ export default function AttendanceCheckInOut({
     } finally {
       setLoadingLocation(false);
     }
-  }, [employeeId, isTest]);
+  }, [employeeId]);
 
   // فحص الموقع الأولي عند تحميل الواجهة
   useEffect(() => {
@@ -459,7 +447,6 @@ export default function AttendanceCheckInOut({
         toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
       }
 
-      setCooldownBypassed(false);
       onAttendanceUpdate();
       loadLeaveContext();
     } catch (err: any) {
@@ -491,7 +478,6 @@ export default function AttendanceCheckInOut({
       } else {
         toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
       }
-      setCooldownBypassed(false);
       onAttendanceUpdate();
       loadLeaveContext();
     } catch (err: any) {
@@ -811,7 +797,6 @@ export default function AttendanceCheckInOut({
           throw regErr;
         }
 
-        setCooldownBypassed(false);
         onAttendanceUpdate();
         loadLeaveContext();
         setAlertInfo({ show: true, action });
@@ -845,40 +830,6 @@ export default function AttendanceCheckInOut({
 
   return (
     <div className="space-y-6">
-      {/* ========== Test Environment Controls ========== */}
-      {isTest && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20 p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
-        >
-          <div>
-            <h4 className="font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" />
-              بيئة الفحص التجريبية مفعلة
-            </h4>
-            <p className="text-sm text-indigo-700/80 dark:text-indigo-400/80 mt-1">
-              أنت الآن في وضع الاختبار. قيود الموقع الجغرافي ملغاة مؤقتاً لتسهيل الفحص.
-            </p>
-          </div>
-          {canResetPunches && (
-            <button
-              onClick={async () => {
-                const success = await resetPunches(employeeId);
-                if (success) {
-                  onAttendanceUpdate();
-                  window.location.reload();
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95"
-            >
-              <Eraser className="w-4 h-4" />
-              تصفير البصمات والبدأ من جديد
-            </button>
-          )}
-        </motion.div>
-      )}
-
       {/* ========== Actions Card ========== */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -938,15 +889,6 @@ export default function AttendanceCheckInOut({
                     </p>
                   </div>
                 </div>
-                {isTest && (
-                  <button
-                    type="button"
-                    onClick={() => setCooldownBypassed(true)}
-                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm shrink-0 active:scale-95"
-                  >
-                    تخطي المهلة (فحص تجريبي)
-                  </button>
-                )}
               </div>
             )}
 
@@ -968,7 +910,7 @@ export default function AttendanceCheckInOut({
             {/* الأزرار الذكية حسب حالة الموظف الدقيقة */}
             {(() => {
               const isBaseDisabled = loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed;
-              const isActionDisabled = isBaseDisabled || (isCooldownActive && !isTest) || isBlockedByUnapprovedDevice;
+              const isActionDisabled = isBaseDisabled || (isCooldownActive) || isBlockedByUnapprovedDevice;
 
               return (
                 <button
@@ -988,7 +930,7 @@ export default function AttendanceCheckInOut({
                 >
                   <Fingerprint className={`w-8 h-8 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
                   <span className="text-xl">
-                    {isCooldownActive && !isTest 
+                    {isCooldownActive 
                       ? `مهلة الأمان (${cooldownRemaining} ث)` 
                       : isBlockedByUnapprovedDevice
                         ? 'جهاز غير معتمد - يرجى مراجعة المسؤول'
@@ -1140,7 +1082,7 @@ export default function AttendanceCheckInOut({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className={`rounded-2xl shadow-lg border p-6 flex flex-col md:flex-row items-center justify-between gap-4 transition-colors ${
-          isCooldownActive && !isTest
+          isCooldownActive
             ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/30'
             : loadingLocation 
               ? 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700' 
@@ -1151,7 +1093,7 @@ export default function AttendanceCheckInOut({
       >
         <div className="flex items-center gap-4 text-center md:text-right">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-            isCooldownActive && !isTest
+            isCooldownActive
               ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
               : loadingLocation
                 ? 'bg-slate-200 text-slate-500 animate-pulse'
@@ -1159,7 +1101,7 @@ export default function AttendanceCheckInOut({
                   ? 'bg-emerald-500 text-white'
                   : 'bg-rose-500 text-white'
           }`}>
-            {isCooldownActive && !isTest ? (
+            {isCooldownActive ? (
               <ShieldCheck className="w-6 h-6" />
             ) : loadingLocation ? (
               <RefreshCw className="w-6 h-6 animate-spin" />
@@ -1171,7 +1113,7 @@ export default function AttendanceCheckInOut({
           </div>
           <div>
             <h3 className="font-bold text-lg leading-tight">
-              {isCooldownActive && !isTest
+              {isCooldownActive
                 ? 'الموقع الجغرافي موثق (مهلة الأمان نشطة)'
                 : loadingLocation 
                   ? 'جاري التحقق من موقعك الحالي...' 
@@ -1182,7 +1124,7 @@ export default function AttendanceCheckInOut({
                       : 'أنت خارج نطاق العمل المسموح'}
             </h3>
             <p className="text-sm mt-1 text-slate-500 dark:text-slate-400">
-              {isCooldownActive && !isTest
+              {isCooldownActive
                 ? `تم تسجيل حركتك بنجاح وموقعك معتمد. يُرجى انتظار انتهاء مهلة الأمان (${cooldownRemaining} ثانية) قبل أية محاولة جديدة.`
                 : loadingLocation 
                   ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
@@ -1199,7 +1141,7 @@ export default function AttendanceCheckInOut({
 
         <button
           onClick={() => verifyLocationAndGeofence(true)}
-          disabled={loadingLocation || (isCooldownActive && !isTest)}
+          disabled={loadingLocation || (isCooldownActive)}
           className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-slate-700 dark:text-slate-300"
         >
           <RefreshCw className={`w-4 h-4 ${loadingLocation ? 'animate-spin' : ''}`} />

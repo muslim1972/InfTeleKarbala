@@ -1,9 +1,9 @@
 {
- "created": "2026-10-09T21:22:11.994Z",
+ "created": "2026-10-09T22:34:44.138Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "f7fcf6cad1c7"
+   "sha": "6c97b89e0a40"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -555,7 +555,7 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "01624ebd336a"
+   "sha": "f8c419c40675"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
@@ -684,10 +684,6 @@
   "src/features/attendance/utils/snapshotStorage.ts": {
    "brick": "FE-ATT-01",
    "sha": "4269a6804b44"
-  },
-  "src/features/attendance/utils/testEnvironment.ts": {
-   "brick": "FE-ATT-01",
-   "sha": "220bbed9550a"
   },
   "src/features/attendance/utils/timesheetStatusHelper.ts": {
    "brick": "FE-ATT-01",
@@ -943,7 +939,7 @@
   },
   "src/features/requests/components/TimeOffRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "84859e94fbb7"
+   "sha": "c434c37de9a0"
   },
   "src/features/requests/components/requestTypes.ts": {
    "brick": "FE-LEV-01",
@@ -1460,6 +1456,10 @@
   "supabase/migrations/20261009233600_core03_residuals_rls_ext.sql": {
    "brick": "BE-MIG-01",
    "sha": "db847ef7051b"
+  },
+  "supabase/migrations/20261010013500_drop_test_env.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "2b548e537eb4"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

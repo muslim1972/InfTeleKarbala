@@ -18,7 +18,7 @@
 
 ## 2. الواجهة العامة (Public API)
 - RPC: `submit_attendance_record_secure(emp, record_id, updates)`، `closeout_prev_day_attendance(emp, followup)`، `roster_evaluate_me()`، دوال الكشك `kiosk_activate`/`kiosk_device_check` (anon — ضمن allowlist ما قبل الدخول)، `kiosk_get_employees`، `admin_*kiosk*` (admin_role)، `submit_device_change_request`، `settle_device_change_request` (يفرض `auth.uid()`).
-- FE: `registerPunch` و`enforceMandatoryPenalties` في `attendanceService.ts`؛ خدمات: `attendanceCalc`, `punchCategorizer`, `shiftRules`, `timesheetStatusHelper`, `serverTimeService`, `webauthnService`, `geofenceService`, `workLocationService`, `rosterReminderService`, `snapshotStorage`, `leaveIntegrationService`, `testEnvironment`.
+- FE: `registerPunch` و`enforceMandatoryPenalties` في `attendanceService.ts`؛ خدمات: `attendanceCalc`, `punchCategorizer`, `shiftRules`, `timesheetStatusHelper`, `serverTimeService`, `webauthnService`, `geofenceService`, `workLocationService`, `rosterReminderService`, `snapshotStorage`, `leaveIntegrationService`.
 
 ## 3. القواعد (R#) — كما هي الآن
 | R# | القاعدة |
@@ -56,5 +56,5 @@
 - **P-ATT-5:** `registerPunch` يُستدعى من 3 مداخل (`AttendanceCheckInOut`, `useAttendance`, `KioskCapture`).
 - **P-ATT-6:** مشغّلات الأقسام تكتب في `work_locations` (تشابك مع HR/CORE).
 - **P-ATT-7:** لا دالة إشعار مركزية؛ كل نطاق يحدد المسؤولين بنفسه.
-- **P-ATT-8:** `reset_test_attendance_today` سُحبت من authenticated (أمنياً) ⇒ زر إعادة الضبط في `testEnvironment.ts` لا يعمل.
+- **P-ATT-8 (مُغلقة 2026-10-10):** أُزيلت بيئة الفحص التجريبية كلياً: حُذف `testEnvironment.ts` وكل تجاوزاته (السياج الجغرافي، مهلة الأمان، حظر الجهاز غير المعتمد، قيود طلبات الإجازة) من `AttendanceCheckInOut.tsx` و`TimeOffRequestForm.tsx`، مع هجرة `20261010013500_drop_test_env.sql` (DROP `reset_test_attendance_today`).
 - **P-ATT-9:** خطأ تسمية متأخر/مبكر (مذكور سابقاً) — يُعالج في M3.
