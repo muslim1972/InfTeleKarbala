@@ -311,7 +311,9 @@
     "fn_sync_profile_password_to_auth",
     "get_auth_user_role",
     "check_rate_limit",
-    "update_rate_limit"
+    "update_rate_limit",
+    "rpc_sync_user_auth__impl",
+    "rpc_delete_user_robust__impl"
    ],
    "tables": [
     "login_logs",
@@ -353,7 +355,8 @@
     "get_my_governorate",
     "gov_display_name",
     "media_in_my_gov",
-    "poll_in_my_gov"
+    "poll_in_my_gov",
+    "core_require_role"
    ],
    "tables": [
     "field_permissions",
@@ -384,7 +387,8 @@
     "log_field_changes",
     "log_table_activity",
     "append_deleted_by",
-    "debug_modify_check"
+    "debug_modify_check",
+    "append_deleted_by__impl"
    ],
    "tables": [
     "activity_logs",
@@ -404,7 +408,8 @@
     "enable_governorate_card",
     "on_department_insert_ensure_location",
     "sync_work_locations_on_department_rename",
-    "ensure_work_locations_for_governorate"
+    "ensure_work_locations_for_governorate",
+    "clone_departments_tree__impl"
    ],
    "tables": [
     "departments",
@@ -452,7 +457,11 @@
     "activate_monthly_snapshot",
     "commit_monthly_snapshot",
     "delete_monthly_snapshot",
-    "sync_active_monthly_snapshot"
+    "sync_active_monthly_snapshot",
+    "activate_monthly_snapshot__impl",
+    "commit_monthly_snapshot__impl",
+    "delete_monthly_snapshot__impl",
+    "sync_active_monthly_snapshot__impl"
    ],
    "tables": [
     "financial_records",
@@ -540,7 +549,8 @@
     "notify_device_mismatch",
     "on_device_change_request_settled",
     "settle_device_change_request",
-    "submit_device_change_request"
+    "submit_device_change_request",
+    "settle_device_change_request__impl"
    ],
    "tables": [
     "attendance_devices",

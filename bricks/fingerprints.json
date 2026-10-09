@@ -1,9 +1,9 @@
 {
- "created": "2026-10-09T19:39:19.552Z",
+ "created": "2026-10-09T19:59:45.847Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "e268084591d3"
+   "sha": "b7129415b22d"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -1448,6 +1448,14 @@
   "supabase/migrations/20261009223700_core03_revoke_anon_sensitive_rpcs.sql": {
    "brick": "BE-MIG-01",
    "sha": "db24450660de"
+  },
+  "supabase/migrations/20261009230000_core03_role_guards_admin_rpcs.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "09017f33b7a7"
+  },
+  "supabase/migrations/20261009231000_core03_revoke_anon_read_rpcs.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "58fde3a68e5b"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",
