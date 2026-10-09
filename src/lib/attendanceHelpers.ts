@@ -437,3 +437,19 @@ export async function fetchTrueAbsentCount(dateStr: string, gov: string): Promis
   const stats = await fetchDailyAttendanceStats(dateStr, gov);
   return stats.absentCount;
 }
+
+/** فحص خفيف لنوع اليوم (عطلة نهاية أسبوع/رسمية) — بديل fetchDailyAttendanceStats في مسار تسجيل البصمة */
+export async function fetchDayType(dateStr: string): Promise<{ isHolidayOrWeekend: boolean; dayTypeLabel: string }> {
+  const dayOfWeek = new Date(`T00:00:00+03:00`).getDay();
+  const dayNamesEng = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayNamesArabic = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const [settingsRes, holidaysRes] = await Promise.all([
+    supabase.from('attendance_settings').select('weekend_days').limit(1).single(),
+    supabase.from('official_holidays').select('name').lte('start_date', dateStr).gte('end_date', dateStr).limit(1),
+  ]);
+  const weekendDays: string[] = settingsRes.data?.weekend_days || ['Friday', 'Saturday'];
+  const holiday = holidaysRes.data && holidaysRes.data.length > 0 ? holidaysRes.data[0] : null;
+  const isWeekend = weekendDays.includes(dayNamesEng[dayOfWeek]);
+  const dayTypeLabel = holiday ? `عطلة رسمية: ${holiday.name}` : isWeekend ? `عطلة نهاية الأسبوع (${dayNamesArabic[dayOfWeek]})` : `دوام رسمي اعتيادي (${dayNamesArabic[dayOfWeek]})`;
+  return { isHolidayOrWeekend: isWeekend || !!holiday, dayTypeLabel };
+}

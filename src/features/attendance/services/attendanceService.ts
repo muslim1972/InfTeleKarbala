@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase';
+﻿import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
 import {
   evaluateTimeLeavePunches,
@@ -809,7 +809,7 @@ export const attendanceRecordService = {
     const shiftType = determineShiftType(profile, workSchedule);
 
     if (!isRestDay && shiftType !== 'shift') {
-        const { isHolidayOrWeekend, dayTypeLabel } = await import('../../../lib/attendanceHelpers').then(m => m.fetchDailyAttendanceStats(today, 'all'));
+        const { isHolidayOrWeekend, dayTypeLabel } = await import('../../../lib/attendanceHelpers').then(m => m.fetchDayType(today));
         if (isHolidayOrWeekend) {
             isRestDay = true;
             if (!record && !bypassLeaveWarning) {
@@ -1067,6 +1067,11 @@ export const attendanceRecordService = {
     if (!schedule) return;
 
     const isRoster = schedule.type === 'roster';
+    if (isRoster) {
+      // المناوب: المحاسبة لكل شفت مستقل تتم داخل قاعدة البيانات (roster_evaluate_day) وتعمل أيضاً بالجدولة كل دقيقة
+      await supabase.rpc('roster_evaluate_me');
+      return;
+    }
     const checkInDate = record.check_in ? new Date(record.check_in) : (record.created_at ? new Date(record.created_at) : getServerNow());
     const today = checkInDate;
     const bIn = getBaghdadDate(checkInDate);

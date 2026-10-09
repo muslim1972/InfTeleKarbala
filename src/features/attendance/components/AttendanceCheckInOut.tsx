@@ -403,7 +403,11 @@ export default function AttendanceCheckInOut({
       }
       handleStopCamera();
 
-      const upload = await uploadSnapshot(base64Data, 'snapshot');
+      const deadline = AbortSignal.timeout(8000);
+      const timeoutResult = new Promise<{ url?: string; error?: string }>((resolve) => {
+        deadline.addEventListener('abort', () => resolve({ error: 'تجاوز مهلة الرفع (8 ثوانٍ)' }), { once: true });
+      });
+      const upload = await Promise.race([uploadSnapshot(base64Data, 'snapshot'), timeoutResult]);
       return upload.url
         ? { url: upload.url }
         : { notes: `(فشل رفع الصورة للسحابة: ${upload.error || 'سبب غير معروف'})` };
