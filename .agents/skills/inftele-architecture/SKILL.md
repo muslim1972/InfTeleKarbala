@@ -104,3 +104,8 @@ metadata:
 - `vite build` لا يفحص الأنواع.
 - psql المباشر على 5432 يفشل (Supavisor) — استخدم runsql.sh.
 - في plpgsql: `arr || 'نص'` يفشل؛ استخدم `array_append(arr, 'نص'::text)`.
+
+### 2026-10-10 — M1 بند2: عقد ATT
+- كُتب `bricks/ATT/BRICK.md` (مسودة) يغطي BE-ATT-01/02/05/06/07 و FE-ATT-01/02؛ رُبط في registry. الحارس ناجح.
+- مشكلات موثقة P-ATT-1..9 (تكرار المنطق، 3 مصادر سماح، process_daily_attendance ميتة، وصول مباشر من 7 ملفات، reset_test معطّل).
+- التالي: انتظار توقيع ATT + أسئلة Q1–Q3، ثم عقد LEV.
