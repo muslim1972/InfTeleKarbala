@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCircle } from 'lucide-react';
+import { Bell, X, CheckCircle, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useGovernorate } from '../../context/GovernorateContext';
 import { isDeveloperLevel } from '../../utils/permissions';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
+import { NotificationHistoryModal } from '../notifications/NotificationHistoryModal';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
 import { toast } from 'react-hot-toast';
 
@@ -35,6 +36,7 @@ export const AppNotifications = () => {
     const { user } = useAuth();
     const { activeGovernorate } = useGovernorate();
     const [showModal, setShowModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     // Badge Counts
     const [employeeUnreadCount, setEmployeeUnreadCount] = useState(0);
@@ -443,9 +445,19 @@ export const AppNotifications = () => {
                                 <Bell size={20} />
                                 الإشعارات ({totalNotifications})
                             </h3>
-                            <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-xl transition">
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowHistoryModal(true)}
+                                    className="bg-indigo-700 hover:bg-indigo-800 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition border border-indigo-500/50 shadow-sm"
+                                    title="استعراض مخزن وسجل الحركات"
+                                >
+                                    <Clock size={14} />
+                                    <span>السجل</span>
+                                </button>
+                                <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-xl transition">
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* List */}
@@ -755,6 +767,13 @@ export const AppNotifications = () => {
                     onProcessed={() => {
                         fetchSupervisorNotifications();
                     }}
+                />
+            )}
+
+            {/* مخزن وسجل حركات الإشعارات */}
+            {showHistoryModal && (
+                <NotificationHistoryModal
+                    onClose={() => setShowHistoryModal(false)}
                 />
             )}
         </>
