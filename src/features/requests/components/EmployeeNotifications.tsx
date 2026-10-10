@@ -33,7 +33,7 @@ export const EmployeeNotifications = () => {
                     .rpc('get_basic_profiles', { p_user_ids: supervisorIds });
 
                 if (supervisorsData) {
-                    supervisorsData.forEach(sup => {
+                    supervisorsData.forEach((sup: any) => {
                         supervisorMap[sup.id] = sup.full_name;
                     });
                 }

@@ -47,16 +47,17 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
 
     useEffect(() => {
         let isMounted = true;
-        supabase.from('governorate_cards').select('id, is_active')
-            .then(({ data }) => {
+        const fetchCards = async () => {
+            try {
+                const { data } = await supabase.from('governorate_cards').select('id, is_active');
                 if (isMounted && data) {
                     setActiveCards(Object.fromEntries(data.map(c => [c.id, c.is_active])));
                 }
-            })
-            .catch(err => {
+            } catch (err) {
                 console.warn("Could not fetch governorate_cards:", err);
-            });
-
+            }
+        };
+        fetchCards();
         return () => {
             isMounted = false;
         };

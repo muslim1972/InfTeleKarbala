@@ -373,7 +373,8 @@
       "db": [
         "core_resolve_approval_chain",
         "core_dispatch_request_notifications",
-        "core_settle_request_approval"
+        "core_settle_request_approval",
+        "core_enforce_governorate_notification_isolation"
       ],
       "tables": [
         "system_notifications",
@@ -734,6 +735,35 @@
       "status": "inventoried",
       "owns": [
         "supabase/migrations"
+      ]
+    },
+    {
+      "id": "BE-CAP-01",
+      "name": "Capacities & Informatics (itpc schema)",
+      "status": "inventoried",
+      "db": [
+        "itpc.get_my_role",
+        "itpc.fn_audit_demand_letters",
+        "itpc.sync_capacities_user_on_profile_change",
+        "itpc.check_last_admin",
+        "itpc.get_installment_schedule_and_alerts"
+      ],
+      "tables": [
+        "itpc.app_news",
+        "itpc.official_book_records",
+        "itpc.organization_services",
+        "itpc.organizations",
+        "itpc.payments",
+        "itpc.provider_companies",
+        "itpc.provider_subscriptions",
+        "itpc.service_contract_periods",
+        "itpc.service_items",
+        "itpc.service_ranges",
+        "itpc.demand_letter_logs",
+        "itpc.contract_demand_letters",
+        "itpc.provider_subscription_price_history",
+        "itpc.users",
+        "itpc.service_suspensions"
       ]
     },
     {

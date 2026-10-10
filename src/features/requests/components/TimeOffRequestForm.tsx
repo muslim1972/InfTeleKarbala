@@ -258,48 +258,38 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         // حفظ معرف الدوام — أوقات اليوم تُحمَّل عبر effect مستقل (حسب التاريخ المختار)
         if (!cancelled) setWorkScheduleId(profile?.work_schedule_id ?? null);
 
-        if (!profile?.department_id || cancelled) return;
+        if (cancelled) return;
 
-        // Load manager hierarchy
-        let currentDeptId: string | null = profile.department_id;
-        const chain: string[] = [];
-        const names: string[] = [];
-        let isTopManagerSelf = false;
-        const visited = new Set<string>();
+        // استدعاء دالة العقل المركزي لحساب سلسلة الصعود الهرمي
+        const { data: chainRows, error: chainErr } = await supabase
+          .rpc('core_resolve_approval_chain', { p_user_id: user.id });
 
-        while (currentDeptId && !visited.has(currentDeptId)) {
-          visited.add(currentDeptId);
-          const { data: dept } = await supabase
-            .rpc('get_departments_bypass_rls')
-            .select('id, name, manager_id, parent_id, level')
-            .eq('id', currentDeptId)
-            .single();
-
-          if (!dept || cancelled) break;
-
-          if (dept.manager_id && dept.manager_id !== user.id) {
-            if (!chain.includes(dept.manager_id)) {
-              chain.push(dept.manager_id);
-              names.push(dept.name);
-            }
-          } else if (dept.manager_id === user.id && !dept.parent_id) {
-            isTopManagerSelf = true;
-          }
-
-          if (dept.level <= 3 && dept.manager_id !== user.id) break;
-          currentDeptId = dept.parent_id;
+        if (chainErr) {
+          console.error("TimeOffRequestForm: Error calling core_resolve_approval_chain:", chainErr);
+          setLoadingManager(false);
+          return;
         }
 
         if (cancelled) return;
 
-        if (chain.length > 0) {
-          setManagerInfo({ id: chain[0], name: names.join(' ⬅️ '), names, isTopManagerSelf: false });
+        if (chainRows && chainRows.length > 0) {
+          const chain = chainRows.map((r: any) => r.manager_id);
+          const names = chainRows.map((r: any) => `مدير ${r.dept_name}`);
+          const displayNames = names.join(' ⬅️ ');
+          const isTopSelf = chain.length === 1 && chain[0] === user.id;
+
+          setManagerInfo({
+            id: chain[0],
+            name: isTopSelf ? 'نفسه (مسؤول أعلى)' : displayNames,
+            names: names,
+            isTopManagerSelf: isTopSelf
+          });
           setSupervisorId(chain[0]);
           setApprovalChain(chain);
-        } else if (isTopManagerSelf) {
-          setManagerInfo({ id: user.id, name: 'نفسه (مسؤول أعلى)', isTopManagerSelf: true });
-          setSupervisorId(user.id);
-          setApprovalChain([user.id]);
+        } else {
+          setManagerInfo(null);
+          setSupervisorId(null);
+          setApprovalChain([]);
         }
       } catch (e) {
         console.error('TimeOffRequestForm: fetchManagerAndSchedule error', e);

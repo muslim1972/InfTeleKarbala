@@ -80,7 +80,7 @@ export const SupervisorNotifications = () => {
                 }
 
                 if (profilesData) {
-                    profilesData.forEach(p => {
+                    profilesData.forEach((p: any) => {
                         profileMap[p.id] = p;
                     });
                 }

@@ -79,7 +79,7 @@ export const AppNotifications = () => {
             if (supervisorIds.length > 0) {
                 const { data: supervisorsData } = await supabase
                     .rpc('get_basic_profiles', { p_user_ids: supervisorIds });
-                if (supervisorsData) supervisorsData.forEach(sup => { supervisorMap[sup.id] = sup.full_name; });
+                if (supervisorsData) supervisorsData.forEach((sup: any) => { supervisorMap[sup.id] = sup.full_name; });
             }
 
             const formattedData = data.map(item => ({

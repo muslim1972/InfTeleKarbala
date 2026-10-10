@@ -102,7 +102,11 @@ export const rosterReminderService = {
           }
         }));
 
-        await supabase.from('system_notifications').insert(notifRows).catch(console.warn);
+        try {
+          await supabase.from('system_notifications').insert(notifRows);
+        } catch (e) {
+          console.warn(e);
+        }
 
         // 2. إرسال OneSignal Push Notification
         const pushPromises = supervisorIds.map(supId =>

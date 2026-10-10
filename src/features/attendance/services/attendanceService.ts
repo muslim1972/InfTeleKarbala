@@ -19,27 +19,25 @@ import type {
 } from '../types';
 import { getBaghdadDate } from '../utils/shiftRules';
 
-async function notifyAdminsForDeviceChange(employeeName: string) {
+async function notifyAdminsForDeviceChange(employeeName: string, employeeGov: string = 'karbala') {
   try {
     await supabase.rpc('notify_admins_new_device', { p_employee_name: employeeName });
 
     const supervisorIdsSet = new Set<string>();
     try {
-      const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
-      if (rpcProfiles && Array.isArray(rpcProfiles)) {
-        rpcProfiles.forEach((p: any) => {
-          if (
-            p.admin_role === 'general' ||
-            p.admin_role === 'developer' ||
-            p.admin_role === 'biometric' ||
-            p.admin_role === 'attendance_supervisor'
-          ) {
-            if (p.id) supervisorIdsSet.add(p.id);
-          }
+      const targetGov = employeeGov || 'karbala';
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('governorate', targetGov)
+        .in('admin_role', ['general', 'developer', 'biometric', 'attendance_supervisor']);
+      if (admins && Array.isArray(admins)) {
+        admins.forEach((p: any) => {
+          if (p.id) supervisorIdsSet.add(p.id);
         });
       }
     } catch (e) {
-      console.error('Error fetching via get_available_profiles:', e);
+      console.error('Error fetching admins for device change:', e);
     }
 
     const supervisorIds = Array.from(supervisorIdsSet);
@@ -62,14 +60,13 @@ async function collectSupervisorIds(employeeId: string): Promise<string[]> {
   const supervisorIdsSet = new Set<string>();
   try {
     const { data: empProfile } = await supabase.from('profiles').select('governorate, department_id').eq('id', employeeId).single();
-    if (empProfile?.governorate) {
-      const { data: admins } = await supabase.from('profiles')
-        .select('id')
-        .eq('governorate', empProfile.governorate)
-        .in('admin_role', ['general', 'developer', 'biometric', 'attendance_supervisor']);
-      if (admins) {
-        admins.forEach(a => supervisorIdsSet.add(a.id));
-      }
+    const targetGov = empProfile?.governorate || 'karbala';
+    const { data: admins } = await supabase.from('profiles')
+      .select('id')
+      .eq('governorate', targetGov)
+      .in('admin_role', ['general', 'developer', 'biometric', 'attendance_supervisor']);
+    if (admins) {
+      admins.forEach(a => supervisorIdsSet.add(a.id));
     }
 
     if (empProfile?.department_id) {
@@ -384,15 +381,13 @@ async function notifySupervisorsOfDeviceMismatch(
         employeeGov = userProfile.governorate;
       }
 
-      let query = supabase
+      const targetGov = userProfile?.governorate || 'karbala';
+      const query = supabase
         .from('profiles')
         .select('id')
         .in('admin_role', ['general', 'biometric'])
+        .eq('governorate', targetGov)
         .neq('id', employeeId);
-
-      if (employeeGov) {
-        query = query.eq('governorate', employeeGov);
-      }
 
       const { data: directProfiles } = await query;
 
@@ -1196,17 +1191,13 @@ export const attendanceRecordService = {
         sendPushNotification(employeeId, empContent, { title }).catch(console.warn);
 
         // 2. Notify Biometric Supervisors only (not finance)
-        let supQuery = supabase
+        const targetGov = profile?.governorate || 'karbala';
+        const { data: sups } = await supabase
           .from('profiles')
           .select('id')
           .in('admin_role', ['biometric', 'attendance_supervisor', 'general'])
+          .eq('governorate', targetGov)
           .neq('id', employeeId);
-
-        if (profile?.governorate) {
-          supQuery = supQuery.eq('governorate', profile.governorate);
-        }
-
-        const { data: sups } = await supQuery;
         if (sups && sups.length > 0) {
           const rows = sups.map(s => ({
             recipient_id: s.id,
@@ -1439,13 +1430,13 @@ export const attendanceRecordService = {
               // إشعار مسؤول البصمة
               const empName = profile?.full_name || 'موظف';
               const supMsg = `الموظف (${empName}) سجل بصمة انصراف بعد نهاية الدوام (${otNote}) لتاريخ ${dateStr}. البصمة باللون الأحمر بانتظار المراجعة والقرار.`;
-              let supQuery = supabase
+              const targetGov = profile?.governorate || 'karbala';
+              const { data: sups } = await supabase
                 .from('profiles')
                 .select('id')
                 .in('admin_role', ['biometric', 'attendance_supervisor', 'general'])
+                .eq('governorate', targetGov)
                 .neq('id', employeeId);
-              if (profile?.governorate) supQuery = supQuery.eq('governorate', profile.governorate);
-              const { data: sups } = await supQuery;
               if (sups && sups.length > 0) {
                 const rows = sups.map(s => ({
                   recipient_id: s.id,

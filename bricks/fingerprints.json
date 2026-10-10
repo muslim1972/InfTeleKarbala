@@ -1,9 +1,9 @@
 {
- "created": "2026-10-10T00:29:30.787Z",
+ "created": "2026-10-10T23:35:47.524Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "6c97b89e0a40"
+   "sha": "cfa4d83bfa01"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -307,7 +307,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "c5a563312ab1"
+   "sha": "f21093d376aa"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -631,7 +631,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "49e9b80a71c4"
+   "sha": "87c85251e152"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -643,7 +643,7 @@
   },
   "src/features/attendance/services/rosterReminderService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "58af4751547b"
+   "sha": "4485477485c0"
   },
   "src/features/attendance/services/serverTimeService.ts": {
    "brick": "FE-ATT-01",
@@ -887,7 +887,7 @@
   },
   "src/features/requests/components/DutyRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "6cd979d8f14a"
+   "sha": "4f697fedc992"
   },
   "src/features/requests/components/EditLeaveRequestForm.tsx": {
    "brick": "FE-LEV-01",
@@ -895,7 +895,7 @@
   },
   "src/features/requests/components/EmployeeNotifications.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "1d4a0c71c88d"
+   "sha": "58857d05c13a"
   },
   "src/features/requests/components/HRLeaveNotifications.tsx": {
    "brick": "FE-LEV-01",
@@ -911,7 +911,7 @@
   },
   "src/features/requests/components/LeaveRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "1cfd88762f10"
+   "sha": "0e3b3fe41d27"
   },
   "src/features/requests/components/LeaveSupportingImages.tsx": {
    "brick": "FE-LEV-01",
@@ -931,7 +931,7 @@
   },
   "src/features/requests/components/SupervisorNotifications.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "5801c3b2d6c1"
+   "sha": "db917f221935"
   },
   "src/features/requests/components/SupervisorSelector.tsx": {
    "brick": "FE-LEV-01",
@@ -939,7 +939,7 @@
   },
   "src/features/requests/components/TimeOffRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "c434c37de9a0"
+   "sha": "eb579ff75d85"
   },
   "src/features/requests/components/requestTypes.ts": {
    "brick": "FE-LEV-01",
@@ -1103,7 +1103,7 @@
   },
   "src/pages/GovernorateSelection.tsx": {
    "brick": "FE-CORE-03",
-   "sha": "c95dfc8b7765"
+   "sha": "4030b6719215"
   },
   "src/pages/LauncherPage.tsx": {
    "brick": "FE-SPL-01",
@@ -1460,6 +1460,14 @@
   "supabase/migrations/20261010013500_drop_test_env.sql": {
    "brick": "BE-MIG-01",
    "sha": "2b548e537eb4"
+  },
+  "supabase/migrations/20261011020000_core_internal_notification_engine.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "12ddacc236f4"
+  },
+  "supabase/migrations/20261011023000_governorate_notification_barrier.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "b9e33e310d82"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",
