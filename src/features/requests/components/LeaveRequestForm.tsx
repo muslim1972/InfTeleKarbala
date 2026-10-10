@@ -292,66 +292,30 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       if (!user) return;
       try {
         setLoadingManager(true);
-        // 1. Fetch user profile's department_id
-        const { data: profile } = await supabase.from('profiles').select('department_id').eq('id', user.id).single();
-        if (!profile?.department_id) {
+        // استدعاء دالة العقل المركزي لحساب سلسلة الصعود الهرمي NTF-R01..02
+        const { data: chainRows, error: chainErr } = await supabase
+          .rpc('core_resolve_approval_chain', { p_user_id: user.id });
+
+        if (chainErr) {
+          console.error("Error calling core_resolve_approval_chain:", chainErr);
           setLoadingManager(false);
           return;
         }
 
-        // 2. Start checking from the user's immediate department
-        let currentDeptId = profile.department_id;
-        const chain: string[] = [];
-        const names: string[] = [];
-        let isTopManagerSelf = false;
-
-        const visitedDepts = new Set<string>();
-        while (currentDeptId && !visitedDepts.has(currentDeptId)) {
-          visitedDepts.add(currentDeptId);
-          const { data: dept } = await supabase.rpc('get_departments_bypass_rls')
-            .select(`
-              id, name, manager_id, parent_id, level,
-              profiles:manager_id(full_name)
-            `)
-            .eq('id', currentDeptId).single();
-
-          if (!dept) break;
-
-          // If the manager of this department is NOT the user requesting leave
-          // AND the manager ID exists, add to our chain!
-          if (dept.manager_id && dept.manager_id !== user.id) {
-            if (!chain.includes(dept.manager_id)) {
-              chain.push(dept.manager_id);
-              names.push('مدير ' + dept.name);
-            }
-          } else if (dept.manager_id === user.id) {
-            // User is the manager of this node.
-            if (!dept.parent_id) {
-                isTopManagerSelf = true;
-            }
-          }
-
-          // Stop condition:
-          // If we reached a department of Level 3 (القسم) or higher (2, 1)
-          // AND the user is NOT the manager of this level (if they are, we must escalate to parent)
-          if (dept.level <= 3 && dept.manager_id !== user.id) {
-            break;
-          }
-
-          currentDeptId = dept.parent_id;
-        }
-
-        if (chain.length > 0) {
-          // Join names for fallback/old usage, but also pass the array for new multi-line UI
+        if (chainRows && chainRows.length > 0) {
+          const chain = chainRows.map((r: any) => r.manager_id);
+          const names = chainRows.map((r: any) => `مدير ${r.dept_name}`);
           const displayNames = names.join(' ⬅️ ');
-          setManagerInfo({ id: chain[0], name: displayNames, names: names, isTopManagerSelf: false });
-          setFormData(prev => ({ ...prev, supervisorId: chain[0], approvalChain: chain }));
-        } else if (isTopManagerSelf) {
-          // We reached the absolute top of the tree AND the user is the top manager!
-          setManagerInfo({ id: user.id, name: 'نفسه (مسؤول أعلى)', isTopManagerSelf: true });
-          setFormData(prev => ({ ...prev, supervisorId: user.id, approvalChain: [user.id] }));
-        }
+          const isTopSelf = chain.length === 1 && chain[0] === user.id;
 
+          setManagerInfo({
+            id: chain[0],
+            name: isTopSelf ? 'نفسه (مسؤول أعلى)' : displayNames,
+            names: names,
+            isTopManagerSelf: isTopSelf
+          });
+          setFormData(prev => ({ ...prev, supervisorId: chain[0], approvalChain: chain }));
+        }
       } catch (err) {
         console.error("Error fetching manager for routing:", err);
       } finally {

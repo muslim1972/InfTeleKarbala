@@ -370,8 +370,14 @@
       "id": "BE-CORE-04",
       "name": "Notifications",
       "status": "inventoried",
+      "db": [
+        "core_resolve_approval_chain",
+        "core_dispatch_request_notifications",
+        "core_settle_request_approval"
+      ],
       "tables": [
-        "system_notifications"
+        "system_notifications",
+        "notification_audit_log"
       ],
       "edge": [
         "send-notification"
