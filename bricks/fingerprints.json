@@ -1,5 +1,5 @@
 {
- "created": "2026-10-09T22:34:44.138Z",
+ "created": "2026-10-10T00:29:30.787Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -307,7 +307,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "063ff2a14a6a"
+   "sha": "c5a563312ab1"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -631,7 +631,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "f325cc76584e"
+   "sha": "49e9b80a71c4"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
