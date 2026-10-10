@@ -1,4 +1,4 @@
-﻿import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
 import {
   evaluateTimeLeavePunches,
@@ -1351,26 +1351,26 @@ export const attendanceRecordService = {
         if (checkInMinutes <= graceEndMins) {
           // سماحية الحضور (08:00 إلى 08:30): حضور نظامي بلا عقوبة
           morningPenalty = 0;
-        } else if (checkInMinutes <= expectedStartMins + 59) {
-          // الشريحة الأولى (08:31 إلى 08:59): زمنية نصف ساعة (30 دقيقة)
+        } else if (checkInMinutes <= expectedStartMins + 60) {
+          // الشريحة الأولى (08:31 إلى 09:00): زمنية نصف ساعة (30 دقيقة)
           morningPenalty = 30;
           morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (30 دقيقة)`;
           morningStartStr = formatHMS(expectedStartMins);
           morningEndStr = formatHMS(expectedStartMins + 30);
-        } else if (checkInMinutes <= expectedStartMins + 89) {
-          // الشريحة الثانية (09:00 إلى 09:29): زمنية ساعة كاملة (60 دقيقة)
+        } else if (checkInMinutes <= expectedStartMins + 90) {
+          // الشريحة الثانية (09:01 إلى 09:30): زمنية ساعة كاملة (60 دقيقة)
           morningPenalty = 60;
           morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (ساعة كاملة)`;
           morningStartStr = formatHMS(expectedStartMins);
           morningEndStr = formatHMS(expectedStartMins + 60);
-        } else if (checkInMinutes <= expectedStartMins + 119) {
-          // الشريحة الثالثة (09:30 إلى 09:59): زمنية ساعتان (120 دقيقة)
+        } else if (checkInMinutes <= expectedStartMins + 120) {
+          // الشريحة الثالثة (09:31 إلى 10:00): زمنية ساعتان (120 دقيقة)
           morningPenalty = 120;
           morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (ساعتان كاملتان)`;
           morningStartStr = formatHMS(expectedStartMins);
           morningEndStr = formatHMS(expectedStartMins + 120);
         } else {
-          // الشريحة الرابعة (10:00 فما بعد): إجازة اعتيادية إجبارية يوم كامل
+          // الشريحة الرابعة (10:01 فما بعد): إجازة اعتيادية إجبارية يوم كامل
           morningPenalty = 'day';
           morningReason = `تأخير صباحي (${formatHM(checkInMinutes)} - تجاوز 10:00) - إجازة اعتيادية إجبارية (يوم كامل)`;
         }
@@ -1463,28 +1463,28 @@ export const attendanceRecordService = {
           // خروج مبكر قبل 14:30
           eveningEarlyMinutes = expectedEndMins - checkOutMinutes;
 
-          if (checkOutMinutes >= expectedEndMins - 59) {
-            // الشريحة الأولى (14:01 إلى 14:29): زمنية نصف ساعة (30 دقيقة)
+          if (checkOutMinutes >= expectedEndMins - 60) {
+            // الشريحة الأولى (14:00 إلى 14:29): زمنية نصف ساعة (30 دقيقة)
             eveningPenalty = 30;
             eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (30 دقيقة)`;
             eveningStartStr = formatHMS(expectedEndMins - 30);
             eveningEndStr = formatHMS(expectedEndMins);
-          } else if (checkOutMinutes >= expectedEndMins - 89) {
-            // الشريحة الثانية (13:31 إلى 14:00): زمنية ساعة كاملة (60 دقيقة)
+          } else if (checkOutMinutes >= expectedEndMins - 90) {
+            // الشريحة الثانية (13:30 إلى 13:59): زمنية ساعة كاملة (60 دقيقة)
             eveningPenalty = 60;
             eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (ساعة كاملة)`;
             eveningStartStr = formatHMS(expectedEndMins - 60);
             eveningEndStr = formatHMS(expectedEndMins);
-          } else if (checkOutMinutes >= expectedEndMins - 119) {
-            // الشريحة الثالثة (13:01 إلى 13:30): زمنية ساعتان (120 دقيقة)
+          } else if (checkOutMinutes >= expectedEndMins - 120) {
+            // الشريحة الثالثة (13:00 إلى 13:29): زمنية ساعتان (120 دقيقة)
             eveningPenalty = 120;
             eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (ساعتان كاملتان)`;
             eveningStartStr = formatHMS(expectedEndMins - 120);
             eveningEndStr = formatHMS(expectedEndMins);
           } else {
-            // الشريحة الرابعة (13:00 وما قبلها): إجازة اعتيادية إجبارية يوم كامل
+            // الشريحة الرابعة (قبل 13:00 - أي 12:59 وما قبل): إجازة اعتيادية إجبارية يوم كامل
             eveningPenalty = 'day';
-            eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)} - 13:00 أو قبلها) - إجازة اعتيادية إجبارية (يوم كامل)`;
+            eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)} - قبل 13:00) - إجازة اعتيادية إجبارية (يوم كامل)`;
           }
         }
       }
