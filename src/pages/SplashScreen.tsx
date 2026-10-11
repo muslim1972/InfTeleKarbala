@@ -112,7 +112,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         aria-label="مقدمة نظام الإدارة الموحد - شبكة العراق"
         onEnded={handleEnded}
         onError={handleError}
-        className="absolute inset-0 h-full w-full object-contain pointer-events-none"
+        className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
       />
 
       {/* زر تخطي العرض فقط */}
