@@ -1,16 +1,27 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SkipForward } from 'lucide-react';
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
-const VIDEO_SRC = '/media/ITPC_Concept_C_IraqNetwork_25s.mp4';
-const POSTER_SRC = '/media/ITPC_Concept_C_IraqNetwork_25s.jpg';
+const DESKTOP_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_25s.mp4';
+const DESKTOP_POSTER = '/media/ITPC_Concept_C_IraqNetwork_25s.jpg';
+const MOBILE_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4';
+const MOBILE_POSTER = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.jpg';
 
 export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isTerminatedRef = useRef(false);
+
+  // الكشف عن الشاشة الطولية (الموبايل) لاختيار الفيديو الطولي المناسب
+  const [isPortrait] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < window.innerHeight;
+  });
+
+  const videoSrc = isPortrait ? MOBILE_VIDEO : DESKTOP_VIDEO;
+  const posterSrc = isPortrait ? MOBILE_POSTER : DESKTOP_POSTER;
 
   // إيقاف وتفريغ الفيديو والصوت نهائياً وفورياً لقطع أي تدفق صوتي
   const stopAndCleanupVideo = useCallback(() => {
@@ -104,15 +115,19 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     >
       <video
         ref={videoRef}
-        src={VIDEO_SRC}
-        poster={POSTER_SRC}
+        src={videoSrc}
+        poster={posterSrc}
         playsInline
         preload="auto"
         disablePictureInPicture
         aria-label="مقدمة نظام الإدارة الموحد - شبكة العراق"
         onEnded={handleEnded}
         onError={handleError}
-        className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+        className={
+          isPortrait
+            ? "absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+            : "absolute inset-0 h-full w-full object-contain pointer-events-none"
+        }
       />
 
       {/* زر تخطي العرض فقط */}

@@ -1,5 +1,5 @@
 {
- "created": "2026-10-11T01:27:38.183Z",
+ "created": "2026-10-11T01:51:25.659Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -1119,7 +1119,7 @@
   },
   "src/pages/SplashScreen.tsx": {
    "brick": "FE-SPL-01",
-   "sha": "bdcbb80c9241"
+   "sha": "cf14bc7e0581"
   },
   "src/pages/SplashScreenLegacy.tsx": {
    "brick": "FE-SPL-01",
