@@ -246,21 +246,9 @@ function projectCollection(fc: { features: unknown[] }): Projected {
         if (ring.length >= 4) rawBuildings.push({ ring, props });
         else skipped++;
       }
-    } else if (geom.type === 'LineString') {
-      const coords = geom.coordinates as unknown[];
-      if (!Array.isArray(coords)) { skipped++; continue; }
-      const pts: [number, number][] = [];
-      for (const c of coords) {
-        const p = asPos(c);
-        if (!p) { pts.length = 0; break; }
-        pts.push(p);
-        lons.push(p[0]);
-        lats.push(p[1]);
-      }
-      if (pts.length >= GIS_LIMITS.minRoadPoints) rawRoads.push({ pts, props });
-      else skipped++;
     } else if (geom.type === 'MultiLineString') {
-      /* MultiLineString: كل خط داخلي يتحول إلى طريق مستقل */
+      /* MultiLineString: كل خط داخلي يتحول إلى طريق مستقل،
+         والخط المغلق (أول نقطة ≈ آخر نقطة) يتحول إلى مبنى */
       const lines = geom.coordinates as unknown[];
       if (!Array.isArray(lines)) { skipped++; continue; }
       for (const line of lines) {
@@ -273,8 +261,45 @@ function projectCollection(fc: { features: unknown[] }): Projected {
           lons.push(p[0]);
           lats.push(p[1]);
         }
-        if (pts.length >= GIS_LIMITS.minRoadPoints) rawRoads.push({ pts, props });
-        else skipped++;
+        if (pts.length >= GIS_LIMITS.minRoadPoints) {
+          /* هل الخط مغلق؟ (أول نقطة ≈ آخر نقطة) */
+          const first = pts[0];
+          const last = pts[pts.length - 1];
+          const isClosed =
+            Math.abs(first[0] - last[0]) < 1e-9 && Math.abs(first[1] - last[1]) < 1e-9;
+          if (isClosed && pts.length >= 4) {
+            rawBuildings.push({ ring: pts, props });
+          } else {
+            rawRoads.push({ pts, props });
+          }
+        } else {
+          skipped++;
+        }
+      }
+    } else if (geom.type === 'LineString') {
+      const coords = geom.coordinates as unknown[];
+      if (!Array.isArray(coords)) { skipped++; continue; }
+      const pts: [number, number][] = [];
+      for (const c of coords) {
+        const p = asPos(c);
+        if (!p) { pts.length = 0; break; }
+        pts.push(p);
+        lons.push(p[0]);
+        lats.push(p[1]);
+      }
+      if (pts.length >= GIS_LIMITS.minRoadPoints) {
+        /* هل الخط مغلق؟ (أول نقطة ≈ آخر نقطة) */
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        const isClosed =
+          Math.abs(first[0] - last[0]) < 1e-9 && Math.abs(first[1] - last[1]) < 1e-9;
+        if (isClosed && pts.length >= 4) {
+          rawBuildings.push({ ring: pts, props });
+        } else {
+          rawRoads.push({ pts, props });
+        }
+      } else {
+        skipped++;
       }
     } else if (geom.type === 'Point') {
       /* Point: يتحول إلى مبنى صغير (مربع 4×4م) */
@@ -537,8 +562,8 @@ export function geoJsonToSimMap(
 
   /* 3) الإسقاط إلى متر محلي */
   const proj = projectCollection(parsed);
-  if (proj.buildings.length === 0)
-    throw new GisImportError('لا توجد مبانٍ صالحة (Polygon مغلقة بمساحة كافية)');
+  if (proj.buildings.length === 0 && proj.roads.length === 0)
+    throw new GisImportError('لا توجد مبانٍ أو طرق صالحة في الملف');
 
   /* 4) حدود الخريطة = اتحاد كل العناصر (مبانٍ وطرق) — لا قصّ
      للأطراف: المستخدم يصغّر لرؤية الكل ويكبّر على منطقة عمله. */
@@ -555,8 +580,7 @@ export function geoJsonToSimMap(
 
   /* 6) المباني بنقاط دخول ذكية */
   const { items: buildings, skipped } = buildBuildings(proj.buildings, roads);
-  if (buildings.length === 0)
-    throw new GisImportError('لا توجد مبانٍ صالحة (Polygon مغلقة بمساحة كافية)');
+  /* السماح بخرائط طرق فقط (بلا مبانٍ) — قد يكون المستخدم يريد إضافة مباني يدوياً */
 
   /* 7) أبعاد الخريطة = الحدود الكاملة + الإزاحة لنظام محلي (0,0) */
   const widthM = Math.max(40, Math.ceil(bounds.w));
@@ -610,6 +634,8 @@ export function geoJsonToSimMap(
   if (decimated)
     warnings.push(`بعض المباني اختُزلت رؤوسها إلى ${GIS_LIMITS.maxRingPoints} للحفاظ على الأداء`);
   if (roads.length === 0) warnings.push('لا توجد طرق — سيعتمد ربط نقاط الدخول على أقرب محيط');
+  if (buildings.length === 0)
+    warnings.push('لا توجد مبانٍ في هذا الملف — ستظهر الطرق فقط، أضف المباني يدوياً أو استورد ملفاً يحتوي مبانٍ');
   if (roads.length > 0)
     warnings.push('تُعرض الأطراف كاملةً — استخدم التصغير لرؤية الكل والتكبير على منطقة العمل');
 
