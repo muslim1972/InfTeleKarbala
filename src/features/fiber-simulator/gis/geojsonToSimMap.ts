@@ -188,6 +188,7 @@ interface Projected {
   roads: { pts: Vec2[]; props: Record<string, unknown> }[];
   w: number;
   h: number;
+  pointCount: number;
 }
 
 /**
@@ -202,6 +203,7 @@ function projectCollection(fc: { features: unknown[] }): Projected {
   const rawRoads: { pts: [number, number][]; props: Record<string, unknown> }[] = [];
 
   let skipped = 0;
+  let pointCount = 0;
 
   for (const f of fc.features) {
     if (typeof f !== 'object' || f === null) { skipped++; continue; }
@@ -225,6 +227,25 @@ function projectCollection(fc: { features: unknown[] }): Projected {
       }
       if (ring.length >= 4) rawBuildings.push({ ring, props });
       else skipped++;
+    } else if (geom.type === 'MultiPolygon') {
+      /* MultiPolygon: كل مضلع داخلي يتحول إلى مبنى مستقل */
+      const polys = geom.coordinates as unknown[];
+      if (!Array.isArray(polys)) { skipped++; continue; }
+      for (const poly of polys) {
+        if (!Array.isArray(poly) || poly.length === 0) { skipped++; continue; }
+        const shell = poly[0];
+        if (!Array.isArray(shell)) { skipped++; continue; }
+        const ring: [number, number][] = [];
+        for (const c of shell) {
+          const p = asPos(c);
+          if (!p) { ring.length = 0; break; }
+          ring.push(p);
+          lons.push(p[0]);
+          lats.push(p[1]);
+        }
+        if (ring.length >= 4) rawBuildings.push({ ring, props });
+        else skipped++;
+      }
     } else if (geom.type === 'LineString') {
       const coords = geom.coordinates as unknown[];
       if (!Array.isArray(coords)) { skipped++; continue; }
@@ -238,8 +259,43 @@ function projectCollection(fc: { features: unknown[] }): Projected {
       }
       if (pts.length >= GIS_LIMITS.minRoadPoints) rawRoads.push({ pts, props });
       else skipped++;
+    } else if (geom.type === 'MultiLineString') {
+      /* MultiLineString: كل خط داخلي يتحول إلى طريق مستقل */
+      const lines = geom.coordinates as unknown[];
+      if (!Array.isArray(lines)) { skipped++; continue; }
+      for (const line of lines) {
+        if (!Array.isArray(line)) { skipped++; continue; }
+        const pts: [number, number][] = [];
+        for (const c of line) {
+          const p = asPos(c);
+          if (!p) { pts.length = 0; break; }
+          pts.push(p);
+          lons.push(p[0]);
+          lats.push(p[1]);
+        }
+        if (pts.length >= GIS_LIMITS.minRoadPoints) rawRoads.push({ pts, props });
+        else skipped++;
+      }
+    } else if (geom.type === 'Point') {
+      /* Point: يتحول إلى مبنى صغير (مربع 4×4م) */
+      const p = asPos(geom.coordinates);
+      if (!p) { skipped++; continue; }
+      lons.push(p[0]);
+      lats.push(p[1]);
+      pointCount++;
+      /* مربع 4×4م حول النقطة */
+      const dLat = 2 / 110574;
+      const dLon = 2 / ((111320 * Math.cos((p[1] * Math.PI) / 180)) || 1);
+      const ring: [number, number][] = [
+        [p[0] - dLon, p[1] - dLat],
+        [p[0] + dLon, p[1] - dLat],
+        [p[0] + dLon, p[1] + dLat],
+        [p[0] - dLon, p[1] + dLat],
+        [p[0] - dLon, p[1] - dLat],
+      ];
+      rawBuildings.push({ ring, props });
     } else {
-      /* MultiPolygon / Point / GeometryCollection — نتجاوزها بأمان */
+      /* GeometryCollection / أنواع أخرى — نتجاوزها بأمان */
       skipped++;
     }
   }
@@ -280,6 +336,7 @@ function projectCollection(fc: { features: unknown[] }): Projected {
     roads,
     w: (maxLon - minLon) * mPerLon,
     h: (maxLat - minLat) * mPerLat,
+    pointCount,
   };
 }
 
@@ -547,6 +604,8 @@ export function geoJsonToSimMap(
 
   const warnings: string[] = [];
   if (skipped > 0) warnings.push(`تخطّي ${skipped} عنصراً غير صالح (مساحة صغيرة أو إحداثيات ناقصة)`);
+  if (proj.pointCount > 0)
+    warnings.push(`تحويل ${proj.pointCount} نقطة إلى مباني صغيرة (4×4م) — النقاط لا تمثل مباني حقيقية`);
   const decimated = proj.buildings.some((b) => b.ring.length >= GIS_LIMITS.maxRingPoints);
   if (decimated)
     warnings.push(`بعض المباني اختُزلت رؤوسها إلى ${GIS_LIMITS.maxRingPoints} للحفاظ على الأداء`);
