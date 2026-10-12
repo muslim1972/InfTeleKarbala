@@ -103,8 +103,13 @@
         "src/pages/LauncherPage.tsx",
         "src/hooks/useSplashAudio.ts",
         "src/components/visual/SplashBeaconVideos.tsx",
-        "src/components/visual/SplashTechVideo.tsx"
-      ]
+        "src/components/visual/SplashTechVideo.tsx",
+        "public/media/ITPC_Concept_C_IraqNetwork_25s.mp4",
+        "public/media/ITPC_Concept_C_IraqNetwork_25s.jpg",
+        "public/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4",
+        "public/media/ITPC_Concept_C_IraqNetwork_portrait_25s.jpg"
+      ],
+      "contract": "bricks/FE-SPL-01/BRICK.md"
     },
     {
       "id": "FE-HR-01",

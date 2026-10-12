@@ -9,16 +9,24 @@ const DESKTOP_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_25s.mp4';
 const DESKTOP_POSTER = '/media/ITPC_Concept_C_IraqNetwork_25s.jpg';
 const MOBILE_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4';
 const MOBILE_POSTER = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.jpg';
+const MOBILE_PORTRAIT_QUERY = '(orientation: portrait) and (max-width: 767px)';
 
 export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isTerminatedRef = useRef(false);
 
-  // الكشف عن الشاشة الطولية (الموبايل) لاختيار الفيديو الطولي المناسب
-  const [isPortrait] = useState(() => {
+  // فيديو الهاتف مخصص للشاشات الصغيرة الطولية؛ التابلت يستخدم النسخة العريضة.
+  const [isPortrait, setIsPortrait] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.innerWidth < window.innerHeight;
+    return window.matchMedia(MOBILE_PORTRAIT_QUERY).matches;
   });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_PORTRAIT_QUERY);
+    const updateOrientation = () => setIsPortrait(mediaQuery.matches);
+    mediaQuery.addEventListener('change', updateOrientation);
+    return () => mediaQuery.removeEventListener('change', updateOrientation);
+  }, []);
 
   const videoSrc = isPortrait ? MOBILE_VIDEO : DESKTOP_VIDEO;
   const posterSrc = isPortrait ? MOBILE_POSTER : DESKTOP_POSTER;
@@ -73,12 +81,12 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     onComplete();
   }, [stopAndCleanupVideo, onComplete]);
 
-  // تشغيل الفيديو التلقائي وتنظيفه عند مغادرة المكون
+  // تشغيل الفيديو عند التحميل أو تبديل النسخة بسبب تغيير حجم/اتجاه الشاشة.
   useEffect(() => {
     const video = videoRef.current;
     if (!video || isTerminatedRef.current) return;
 
-    // محاولة التشغيل بالصوت المدمج
+    video.load();
     video.muted = false;
     const playPromise = video.play();
     if (playPromise !== undefined) {
@@ -90,10 +98,10 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       });
     }
 
-    return () => {
-      stopAndCleanupVideo();
-    };
-  }, [stopAndCleanupVideo]);
+  }, [videoSrc]);
+
+  // تنظيف الوسائط عند مغادرة المكون فقط، لا عند تبديل نسخة الفيديو.
+  useEffect(() => () => stopAndCleanupVideo(), [stopAndCleanupVideo]);
 
   // دعم لوحة المفاتيح: Escape أو Enter للتخطي الفوري
   useEffect(() => {
@@ -113,6 +121,13 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       dir="rtl"
       onClick={handleSkip}
     >
+      {isPortrait && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 scale-110 bg-cover bg-center opacity-40 blur-2xl pointer-events-none"
+          style={{ backgroundImage: `url("${posterSrc}")` }}
+        />
+      )}
       <video
         ref={videoRef}
         src={videoSrc}
@@ -125,7 +140,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         onError={handleError}
         className={
           isPortrait
-            ? "absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+            ? "absolute inset-0 h-full w-full object-contain object-center pointer-events-none"
             : "absolute inset-0 h-full w-full object-contain pointer-events-none"
         }
       />

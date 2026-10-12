@@ -1,13 +1,29 @@
 {
- "created": "2026-10-11T01:51:25.659Z",
+ "created": "2026-10-11T19:31:01.387Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "cfa4d83bfa01"
+   "sha": "d474ca64852a"
   },
   "kong.yml": {
    "brick": "OPS-02",
    "sha": "3bc0a1b4aafc"
+  },
+  "public/media/ITPC_Concept_C_IraqNetwork_25s.jpg": {
+   "brick": "FE-SPL-01",
+   "sha": "81c6c20809df"
+  },
+  "public/media/ITPC_Concept_C_IraqNetwork_25s.mp4": {
+   "brick": "FE-SPL-01",
+   "sha": "4a323e4459d8"
+  },
+  "public/media/ITPC_Concept_C_IraqNetwork_portrait_25s.jpg": {
+   "brick": "FE-SPL-01",
+   "sha": "9f059f9297c1"
+  },
+  "public/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4": {
+   "brick": "FE-SPL-01",
+   "sha": "9012544f3640"
   },
   "scripts/deploy-dist.ps1": {
    "brick": "OPS-01",
@@ -1119,7 +1135,7 @@
   },
   "src/pages/SplashScreen.tsx": {
    "brick": "FE-SPL-01",
-   "sha": "cf14bc7e0581"
+   "sha": "ed18e6176fa3"
   },
   "src/pages/SplashScreenLegacy.tsx": {
    "brick": "FE-SPL-01",
