@@ -107,32 +107,41 @@ export const workLocationService = {
   },
 
   /**
-   * Finds the assigned location of an employee
+   * Finds the assigned location of an employee (returns the latest assigned location if multiple exist)
    */
   async getEmployeeLocation(employeeId: string): Promise<string | null> {
     const { data, error } = await supabase
       .from('work_location_employees')
       .select('location_id')
       .eq('employee_id', employeeId)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
     if (error) throw error;
-    return data?.location_id || null;
+    return (data && data.length > 0) ? data[0].location_id : null;
   },
 
   /**
-   * Assigns an employee to a work location and optionally sets their work schedule
+   * Assigns an employee to a work location and optionally sets their work schedule.
+   * Enforces strict single-location policy: removes any prior location assignments before linking to the new one.
    */
   async assignEmployee(locationId: string, employeeId: string, workScheduleId?: string | null): Promise<void> {
-    // 1. Link to location
+    // 1. Remove any previous location assignments to prevent duplicate or conflicting links
+    const { error: delError } = await supabase
+      .from('work_location_employees')
+      .delete()
+      .eq('employee_id', employeeId);
+    if (delError) throw delError;
+
+    // 2. Link to the new location
     const { error: locError } = await supabase
       .from('work_location_employees')
-      .upsert({
+      .insert({
         location_id: locationId,
         employee_id: employeeId
-      }, { onConflict: 'location_id,employee_id' });
+      });
     if (locError) throw locError;
 
-    // 2. Set work schedule in profiles
+    // 3. Set work schedule in profiles if provided
     if (workScheduleId !== undefined) {
       const { error: profError } = await supabase
         .from('profiles')

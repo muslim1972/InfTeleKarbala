@@ -34,14 +34,14 @@ import { useFaceDetection } from '../hooks/useFaceDetection';
 import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancement';
 import { formatArabicErrorMessage } from '../../../utils/errorMessageFormatter';
 import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
-import { determineShiftType, validateEarlyCheckIn } from '../utils/shiftRules';
+import { determineShiftType, validateEarlyCheckIn, getBaghdadDate } from '../utils/shiftRules';
 import { getServerNow } from '../services/serverTimeService';
 import { useServerTime } from '../hooks/useServerTime';
 
 // ============================================
 // Manual Capture Variables
 // ============================================
-const CAMERA_TIMEOUT_S = 30;
+const CAMERA_TIMEOUT_S = 45;
 
 interface CameraState {
   capturing: boolean;
@@ -112,31 +112,96 @@ export default function AttendanceCheckInOut({
     return last?.time ? new Date(last.time).getTime() : 0;
   }, [todayAttendance?.raw_punches]);
 
+  const [hasConnectedShifts, setHasConnectedShifts] = useState(false);
+
+  useEffect(() => {
+    async function checkConnectedShifts() {
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('work_schedule_id')
+          .eq('id', employeeId)
+          .maybeSingle();
+
+        if (prof?.work_schedule_id) {
+          const { data: sched } = await supabase
+            .from('work_schedules')
+            .select('type, name, work_schedule_days(*)')
+            .eq('id', prof.work_schedule_id)
+            .maybeSingle();
+
+          const isRoster = Boolean(sched && (sched.type === 'roster' || (sched.name || '').includes('مناوب') || (sched.name || '').includes('خفر')));
+          const days = sched?.work_schedule_days;
+          if (isRoster && Array.isArray(days)) {
+            const bDate = getBaghdadDate();
+            const dow = bDate.getDay();
+            const todayDay = days.find((d: any) => d.day_of_week === dow);
+            if (todayDay) {
+              const activeCount = [todayDay.is_morning, todayDay.is_evening, todayDay.is_night].filter(Boolean).length;
+              if (activeCount > 1) {
+                setHasConnectedShifts(true);
+                return;
+              }
+            }
+          }
+        }
+        setHasConnectedShifts(false);
+      } catch (e) {
+        console.warn('Error checking connected shifts:', e);
+      }
+    }
+    checkConnectedShifts();
+  }, [employeeId]);
+
   const cooldownRemaining = useMemo(() => {
     if (!lastPunchTime) return 0;
     const elapsed = Math.floor((nowTick - lastPunchTime) / 1000);
-    return Math.max(0, 180 - elapsed);
-  }, [lastPunchTime, nowTick]);
+    const cooldownDuration = hasConnectedShifts ? 60 : 180;
+    return Math.max(0, cooldownDuration - elapsed);
+  }, [lastPunchTime, nowTick, hasConnectedShifts]);
 
   const isCooldownActive = cooldownRemaining > 0;
 
-  // ─── التحقق من اعتماد الجهاز الحالي لمنع تثبيت بصمة ثانية من جهاز غير معتمد ───
+  // ─── التحقق من اعتماد الجهاز الحالي وإدارة طلبات اعتماد الأجهزة البديلة ───
   const [isCurrentDeviceAuthorized, setIsCurrentDeviceAuthorized] = useState<boolean | null>(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
+  const [primaryDeviceName, setPrimaryDeviceName] = useState<string>('');
+  const [pendingDeviceRequest, setPendingDeviceRequest] = useState<any | null>(null);
+  const [isSubmittingDeviceRequest, setIsSubmittingDeviceRequest] = useState(false);
 
   const checkCurrentDevice = useCallback(async () => {
     try {
-      const currentDeviceId = await getDeviceFingerprint();
+      const dev = await getDeviceFingerprint();
+      setCurrentDeviceId(dev);
       const { data: prof } = await supabase
         .from('profiles')
         .select('primary_device_id')
         .eq('id', employeeId)
         .maybeSingle();
 
+      setPrimaryDeviceName(prof?.primary_device_id || '');
+
       if (!prof?.primary_device_id) {
         setIsCurrentDeviceAuthorized(true);
+        setPendingDeviceRequest(null);
       } else {
-        const isAuth = isSameDevice(prof.primary_device_id, currentDeviceId);
+        const isAuth = isSameDevice(prof.primary_device_id, dev);
         setIsCurrentDeviceAuthorized(isAuth);
+
+        if (!isAuth) {
+          const { data: pendingReq } = await supabase
+            .from('device_change_requests')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          setPendingDeviceRequest(pendingReq || null);
+        } else {
+          setPendingDeviceRequest(null);
+        }
       }
     } catch (e) {
       console.warn('Error checking device authorization:', e);
@@ -144,9 +209,73 @@ export default function AttendanceCheckInOut({
     }
   }, [employeeId]);
 
+  const handleRequestDeviceApproval = async () => {
+    if (!currentDeviceId || isSubmittingDeviceRequest) return;
+    setIsSubmittingDeviceRequest(true);
+    try {
+      const { error } = await supabase.rpc('submit_device_change_request', {
+        p_employee_id: employeeId,
+        p_old_device_id: primaryDeviceName || 'unknown',
+        p_new_device_id: currentDeviceId
+      });
+
+      if (error) throw error;
+
+      toast.success('تم إرسال طلب اعتماد هذا الجهاز إلى مسؤول البصمة بنجاح');
+
+      const { data: pendingReq } = await supabase
+        .from('device_change_requests')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setPendingDeviceRequest(pendingReq || null);
+    } catch (err: any) {
+      console.error('Error submitting device change request:', err);
+      toast.error(err?.message || 'تعذر إرسال طلب اعتماد الجهاز');
+    } finally {
+      setIsSubmittingDeviceRequest(false);
+    }
+  };
+
   useEffect(() => {
     checkCurrentDevice();
-  }, [checkCurrentDevice, todayAttendance]);
+
+    const handleFocus = () => {
+      checkCurrentDevice();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // اشتراك لحظي لمزامنة اعتماد الجهاز فور موافقة المشرف
+    const channel = supabase
+      .channel(`device_auth_${employeeId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'device_change_requests',
+        filter: `employee_id=eq.${employeeId}`
+      }, () => {
+        checkCurrentDevice();
+        onAttendanceUpdate?.();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${employeeId}`
+      }, () => {
+        checkCurrentDevice();
+      })
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      supabase.removeChannel(channel).catch(() => {});
+    };
+  }, [checkCurrentDevice, todayAttendance, employeeId, onAttendanceUpdate]);
 
   const hasExistingPunches = Boolean(
     (todayAttendance?.raw_punches && todayAttendance.raw_punches.length > 0) ||
@@ -523,7 +652,10 @@ export default function AttendanceCheckInOut({
       await loadModels();
       setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الدائرة ورمش العينين' }));
     } catch (err) {
-      toast.error('تعذر تحميل نماذج الذكاء الاصطناعي. يرجى التأكد من جودة الإنترنت.');
+      toast.error('تعذر تحميل نماذج الذكاء الاصطناعي بسبب ضعف الشبكة. يرجى التأكد من جودة الإنترنت.');
+      handleStopCamera();
+      setProcessing(false);
+      setCapturingAction(null);
       return;
     }
     
@@ -539,6 +671,9 @@ export default function AttendanceCheckInOut({
       }
     } else {
       toast.error('بيانات بصمة الوجه غير صالحة');
+      handleStopCamera();
+      setProcessing(false);
+      setCapturingAction(null);
       return;
     }
 
@@ -550,6 +685,28 @@ export default function AttendanceCheckInOut({
         screenFlashCleanupRef.current = triggerScreenFlash();
       }
     }
+
+    // Start interaction countdown NOW (full countdown duration dedicated to actual face interaction)
+    let remaining = CAMERA_TIMEOUT_S;
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+    }
+    setCameraState(prev => ({ ...prev, countdown: remaining }));
+    countdownIntervalRef.current = window.setInterval(() => {
+      remaining--;
+      setCameraState(prev => ({ ...prev, countdown: remaining }));
+      
+      if (remaining <= 0 && !capturedRef.current) {
+        capturedRef.current = true;
+        handleStopCamera();
+        toast.error('تم إلغاء العملية لعدم التفاعل');
+        if (isEnrolled) {
+          showDebugAlert();
+        }
+        setProcessing(false);
+        setCapturingAction(null);
+      }
+    }, 1000);
 
     let isDetecting = true;
     const detectLoop = async () => {
@@ -612,17 +769,17 @@ export default function AttendanceCheckInOut({
         }
       }
       
-      // Continue loop with a small delay instead of requestAnimationFrame to give processing time
+      // Continue loop with a short interval to give processing time
       if (!capturedRef.current && isDetecting) {
-        setTimeout(detectLoop, 150);
+        window.setTimeout(detectLoop, 150);
       }
     };
     
-    // Add small delay for camera to stabilize its auto-exposure and auto-focus
-    setTimeout(detectLoop, 300);
+    // Start detection loop immediately
+    detectLoop();
 
     return () => { isDetecting = false; };
-  }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef]);
+  }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef, handleStopCamera]);
 
   const openCamera = useCallback(async (action: 'punch') => {
     // 0. التحقق من اعتماد الجهاز: منع البصمة الثانية نهائياً من أي جهاز غير معتمد
@@ -649,10 +806,26 @@ export default function AttendanceCheckInOut({
       return;
     }
 
+    const hasExistingPunch = Boolean(todayAttendance?.check_in);
+
     try {
       const freshCtx = await getLeaveContext(employeeId, todayStr);
       setLeaveCtx(freshCtx);
-      if (freshCtx.timeLeaves.length > 0 && !hasAcknowledgedTimeOffRef.current) {
+
+      // تراتبية وأولوية البصمة:
+      // 1. إذا لم يكن للموظف بصمة حضور للشفت (Check-in)، فالبصمة الحالية هي بصمة دوام أصلية للشفت!
+      //    ولا يُفحص التعارض إلا إذا كانت الإجازة الزمنية من نوع بداية الدوام (shift_start - نوع A).
+      // 2. أما إجازات وسط الدوام (mid_shift - نوع B) أو نهاية الدوام (shift_end - نوع C) فيُفحص تعارضها
+      //    فقط بعد أن يكون الموظف قد أثبت حضور دوامه بالفعل (hasExistingPunch = true).
+      const applicableTimeLeaves = freshCtx.timeLeaves.filter(l => {
+        const isShiftStart = (l as any).time_off_subtype === 'shift_start' || l.reason?.includes('بداية الدوام');
+        if (!hasExistingPunch) {
+          return isShiftStart;
+        }
+        return !isShiftStart;
+      });
+
+      if (applicableTimeLeaves.length > 0 && !hasAcknowledgedTimeOffRef.current) {
         let bypassWarning = false;
         let conflictItem: TimeLeaveInfo | null = null;
 
@@ -666,7 +839,7 @@ export default function AttendanceCheckInOut({
         const [curH, curM] = baghdadTimeStr.split(':').map(Number);
         const nowMinutes = curH * 60 + curM;
 
-        for (const l of freshCtx.timeLeaves) {
+        for (const l of applicableTimeLeaves) {
             conflictItem = l;
             const outMatch = l.reason?.match(/ساعة الخروج:\s*(\d{2}:\d{2})/);
             const returnMatch = l.reason?.match(/ساعة العودة:\s*(\d{2}:\d{2})/);
@@ -706,7 +879,6 @@ export default function AttendanceCheckInOut({
     }
 
     const shiftType = determineShiftType(user as any, null);
-    const hasExistingPunch = Boolean(todayAttendance?.check_in);
     if (!hasExistingPunch) {
       const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow());
       if (!earlyCheck.allowed) {
@@ -744,29 +916,26 @@ export default function AttendanceCheckInOut({
           videoRef.current.play().then(() => {
             // Start Face Detection if enrolled
             if (isEnrolled) {
-              // Wait a bit for the camera to adjust lighting before starting detection
-              setTimeout(() => {
-                 startFaceDetection(action);
-              }, 500);
-            }
-
-            // Countdown timer for automatic cancel
-            let remaining = CAMERA_TIMEOUT_S;
-            countdownIntervalRef.current = window.setInterval(() => {
-              remaining--;
-              setCameraState(prev => ({ ...prev, countdown: remaining }));
-              
-              if (remaining <= 0 && !capturedRef.current) {
-                capturedRef.current = true;
-                handleStopCamera();
-                toast.error('تم إلغاء العملية لعدم التفاعل');
-                if (isEnrolled) {
-                  showDebugAlert();
-                }
-                setProcessing(false);
-                setCapturingAction(null);
+              startFaceDetection(action);
+            } else {
+              // Countdown timer for automatic cancel (manual capture only for non-enrolled)
+              let remaining = CAMERA_TIMEOUT_S;
+              if (countdownIntervalRef.current) {
+                window.clearInterval(countdownIntervalRef.current);
               }
-            }, 1000);
+              countdownIntervalRef.current = window.setInterval(() => {
+                remaining--;
+                setCameraState(prev => ({ ...prev, countdown: remaining }));
+                
+                if (remaining <= 0 && !capturedRef.current) {
+                  capturedRef.current = true;
+                  handleStopCamera();
+                  toast.error('تم إلغاء العملية لعدم التفاعل');
+                  setProcessing(false);
+                  setCapturingAction(null);
+                }
+              }, 1000);
+            }
           }).catch(err => {
              console.error("Video play error", err);
           });
@@ -892,18 +1061,55 @@ export default function AttendanceCheckInOut({
               </div>
             )}
 
-            {/* تنبيه حظر البصمة الثانية لجهاز غير معتمد */}
+            {/* تنبيه ذكي عند محاولة البصمة من جهاز غير معتمد مع وجود بصمات سابقة أو قيد الانتظار */}
             {isBlockedByUnapprovedDevice && (
-              <div className="rounded-2xl border-2 border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-800 p-4 text-rose-900 dark:text-rose-200 flex items-start gap-3 shadow-sm">
-                <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-right">
-                  <h4 className="font-bold text-sm text-rose-900 dark:text-rose-100">
-                    ⛔ تسجيل البصمة مقفل من هذا الجهاز
-                  </h4>
-                  <p className="text-xs leading-relaxed text-rose-800 dark:text-rose-200">
-                    تم قبول بصمتك الأولى استثنائياً باللون الأحمر لحفظ وقت الحضور. لمنع تسجيل الحضور بالنيابة، يشترط النظام مراجعة مسؤول البصمة لاعتماد هذا الجهاز رسمياً قبل السماح لك بتسجيل أي بصمة أخرى (انصراف أو استراحة).
-                  </p>
+              <div className="rounded-2xl border-2 border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-800 p-4 text-rose-900 dark:text-rose-200 flex flex-col gap-3 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1 text-right flex-1">
+                    <h4 className="font-bold text-sm text-rose-900 dark:text-rose-100">
+                      {todayAttendance?.is_device_pending
+                        ? '⛔ تسجيل البصمة مقفل من هذا الجهاز'
+                        : '📱 جهاز مختلف عن جهازك الأساسي المعتمد'}
+                    </h4>
+                    <p className="text-xs leading-relaxed text-rose-800 dark:text-rose-200">
+                      {todayAttendance?.is_device_pending
+                        ? 'تم قبول بصمتك الأولى استثنائياً باللون الأحمر لحفظ وقت الحضور. لمنع تسجيل الحضور بالنيابة، يشترط النظام مراجعة مسؤول البصمة لاعتماد هذا الجهاز رسمياً قبل السماح لك بتسجيل أي بصمة أخرى (انصراف أو استراحة).'
+                        : 'لديك بصمات مسجلة اليوم من جهازك الأساسي المعتمد. لحماية أمان البصمة ومنع التبصيم بالنيابة، لا يمكن تسجيل البصمة من هذا الجهاز في نفس اليوم إلا بعد اعتماد مسؤول البصمة له.'}
+                    </p>
+                  </div>
                 </div>
+
+                {/* حالة الطلب المعلق أو زر الإرسال للمشرف */}
+                {pendingDeviceRequest ? (
+                  <div className="p-3 bg-amber-100/90 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 rounded-xl flex items-center justify-between gap-2 text-amber-900 dark:text-amber-200 shadow-inner">
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <Clock className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                      <span>طلب اعتماد هذا الجهاز قيد المراجعة حالياً لدى مسؤول البصمة (تجريبي 1)...</span>
+                    </div>
+                    <button
+                      onClick={checkCurrentDevice}
+                      title="تحديث الحالة"
+                      className="p-1 hover:bg-amber-200 dark:hover:bg-amber-800 rounded-lg transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-rose-200 dark:border-rose-900/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium">
+                      هل تعطل جهازك الأساسي أو نفد شحنه وترغب باعتماد هذا الجهاز لإكمال الدوام؟
+                    </p>
+                    <button
+                      onClick={handleRequestDeviceApproval}
+                      disabled={isSubmittingDeviceRequest || !currentDeviceId}
+                      className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      {isSubmittingDeviceRequest ? 'جارٍ إرسال الطلب...' : 'إرسال طلب اعتماد هذا الجهاز للمسؤول'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1023,7 +1229,7 @@ export default function AttendanceCheckInOut({
               </p>
             </div>
 
-            {/* Manual Capture Button */}
+            {/* Manual Capture Button: متاح لغير المسجلين فقط لمنع تخطي البصمة الحية للمسجلين */}
             {!isEnrolled && (
               <div className="mt-6 w-full max-w-sm">
                 <button

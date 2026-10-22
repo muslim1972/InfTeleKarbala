@@ -1,5 +1,5 @@
 import React from 'react';
-import { Stethoscope, Clock } from 'lucide-react';
+import { Stethoscope, Clock, UserX } from 'lucide-react';
 
 export type LeaveType = 
   | 'regular' 
@@ -14,6 +14,7 @@ export interface LeaveBalanceCardProps {
   leaveType?: LeaveType;
   regularBalance?: number;
   sickBalance?: number;
+  unpaidLeavesTotal?: number;
   expiryDate?: string;
   isLoading?: boolean;
 }
@@ -45,6 +46,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   leaveType,
   regularBalance = 0,
   sickBalance = 0,
+  unpaidLeavesTotal = 0,
   expiryDate,
   isLoading = false
 }) => {
@@ -61,13 +63,24 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
 
   if (isNonConsuming) {
     return (
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 transition-all duration-300">
-        <div className="p-2 rounded-lg bg-gray-200/50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
-          <Clock size={20} />
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 transition-all duration-300">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-gray-200/50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+            <Clock size={20} />
+          </div>
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            هذا النوع لا يستهلك من رصيد الإجازات
+          </p>
         </div>
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-          هذا النوع لا يستهلك من رصيد الإجازات
-        </p>
+
+        {/* عداد الغياب المثبت حتى في الطلبات غير المستهلكة */}
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 border border-gray-200/70 dark:border-slate-600">
+          <UserX size={16} className={unpaidLeavesTotal > 0 ? 'text-red-500' : 'text-gray-400'} />
+          <span className="text-xs text-gray-500 dark:text-gray-400">أيام الغياب المثبتة:</span>
+          <span className={`text-sm font-bold ${unpaidLeavesTotal > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
+            {unpaidLeavesTotal} يوم
+          </span>
+        </div>
       </div>
     );
   }
@@ -75,8 +88,6 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   const balance = isRegular ? regularBalance : sickBalance;
   const title = isRegular ? 'رصيد الإجازات الاعتيادية' : 'رصيد الإجازات المرضية';
   
-  // RTL-friendly gradients (to-r will be to-left in RTL mode if tailwind is configured correctly for ltr/rtl, 
-  // but to-r with tailwind 3 typically means left-to-right. We will just use it as requested.)
   const gradientClass = isRegular 
     ? 'from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-800' 
     : 'from-emerald-400 to-green-600 dark:from-emerald-600 dark:to-green-800';
@@ -90,7 +101,8 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
         <Icon size={120} />
       </div>
       
-      <div className="relative z-10 flex items-center justify-between">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+        {/* رصيد الإجازات المتبقي */}
         <div className="flex items-center gap-4">
           <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-inner">
             <Icon size={28} className="text-white" />
@@ -100,6 +112,31 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold tracking-tight">{balance}</span>
               <span className="text-white/80 font-medium">يوم</span>
+            </div>
+          </div>
+        </div>
+
+        {/* عداد أيام الغياب المثبتة والمعتمدة نهائياً */}
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-black/15 dark:bg-black/25 backdrop-blur-md border border-white/15">
+          <div className={`p-2 rounded-lg ${unpaidLeavesTotal > 0 ? 'bg-red-500/30 text-red-200' : 'bg-white/10 text-white/80'}`}>
+            <UserX size={20} />
+          </div>
+          <div>
+            <div className="text-xs text-white/80 font-medium">أيام الغياب المثبتة (نهائي)</div>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className={`text-2xl font-black ${unpaidLeavesTotal > 0 ? 'text-amber-200' : 'text-white'}`}>
+                {unpaidLeavesTotal}
+              </span>
+              <span className="text-xs text-white/70 font-medium">يوم</span>
+              {unpaidLeavesTotal === 0 ? (
+                <span className="text-[10px] text-emerald-200 bg-emerald-500/20 px-1.5 py-0.5 rounded-full mr-1">
+                  سجل نظيف
+                </span>
+              ) : (
+                <span className="text-[10px] text-red-200 bg-red-500/30 px-1.5 py-0.5 rounded-full mr-1 font-bold">
+                  بدون راتب
+                </span>
+              )}
             </div>
           </div>
         </div>

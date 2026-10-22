@@ -3,7 +3,6 @@ import { Bell, X, CheckCircle, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useGovernorate } from '../../context/GovernorateContext';
-import { isDeveloperLevel } from '../../utils/permissions';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 import { NotificationHistoryModal } from '../notifications/NotificationHistoryModal';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
@@ -24,7 +23,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
             
             return label;
         }
-        case 'duty': return 'واجب';
+        case 'duty': return 'واجب رسمي';
         case 'dispatch': return 'إيفاد';
         case 'long_regular': return 'إجازة اعتيادية طويلة';
         case 'long_sick': return 'إجازة مرضية طويلة';
@@ -108,6 +107,10 @@ export const AppNotifications = () => {
             console.error('AppNotifications: Error fetching supervisor requests:', error);
         } else if (data && data.length > 0) {
             let activeRequests = data.filter(req => {
+                // منع ظهور الطلب للمسؤول إذا كان هناك بديل لم يوافق بعد أو رفض التكليف
+                if (req.substitute_id && req.substitute_status !== 'approved') {
+                    return false;
+                }
                 if (req.modification_type === 'canceled') {
                     return req.cancellation_status === 'pending';
                 }
@@ -165,7 +168,8 @@ export const AppNotifications = () => {
     const fetchHRNotifications = useCallback(async () => {
         if (!user || user.id === 'visitor-id') return;
 
-        const isAllowedRole = isDeveloperLevel(user.admin_role) || user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
+        // حصر استلام ومعاينة إشعارات الموارد البشرية بمسؤولي الـ HR الفعليين فقط
+        const isAllowedRole = user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
 
         if (!isAllowedRole) return;
 
@@ -224,6 +228,12 @@ export const AppNotifications = () => {
         // مشرف المالية: إشعار الاجازات والعمليات فقط — حجب إشعارات البصمة وتوثيق الموارد
         if (user.admin_role === 'finance') {
             query = query.not('type', 'in', '(device_mismatch,leave_hr,biometric_alert,leave_punch_alert,official_duty_punch)');
+        }
+
+        // حجب إشعارات توثيق الموارد البشرية (leave_hr) لغير مسؤولي الـ HR (مثل مشرف البصمة أو الموظف العادي)
+        const isHrRole = user.admin_role === 'hr' || user.admin_role === 'hr_supervisor';
+        if (!isHrRole) {
+            query = query.neq('type', 'leave_hr');
         }
 
         const { data, count, error } = await query;
@@ -383,7 +393,7 @@ export const AppNotifications = () => {
         if (existingReq) {
             setShowModal(false);
             setSelectedApprovalRequest(existingReq);
-            handleMarkSystemNotificationRead(notification.id);
+            // لا نوسم الإشعار كمقروء هنا بل يبقى فعالاً لحين اتخاذ الإجراء (موافقة/رفض) بنجاح
             return;
         }
 
@@ -410,10 +420,88 @@ export const AppNotifications = () => {
             };
             setShowModal(false);
             setSmartApprovalRequest(shaped);
-            handleMarkSystemNotificationRead(notification.id);
+            // لا نوسم الإشعار كمقروء هنا بل يبقى فعالاً لحين اتخاذ الإجراء (موافقة/رفض) بنجاح
         } catch (err) {
             console.error('handleOpenPendingRequest:', err);
             toast.error('تعذر فتح الطلب، حاول مجدداً');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleSubstituteResponse = async (notificationId: string, requestId: string, action: 'approve' | 'reject', rejectionReason?: string) => {
+        try {
+            setSmartActionLoading(`sub-${notificationId}`);
+            const { data, error } = await supabase.rpc('respond_to_substitute_request', {
+                p_request_id: requestId,
+                p_action: action,
+                p_rejection_reason: rejectionReason || null
+            });
+
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر معالجة الطلب');
+                return;
+            }
+
+            toast.success(res?.message || (action === 'approve' ? 'تمت الموافقة بنجاح' : 'تم الاعتذار بنجاح'));
+            await handleMarkSystemNotificationRead(notificationId);
+        } catch (err: any) {
+            console.error('Error responding to substitute request:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء معالجة الطلب');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleServiceContinuitySupervisorResponse = async (notificationId: string, requestId: string, action: 'approve' | 'reject', notes?: string) => {
+        try {
+            setSmartActionLoading(`continuity-${notificationId}`);
+            const { data, error } = await supabase.rpc('process_service_continuity_supervisor', {
+                p_request_id: requestId,
+                p_action: action,
+                p_notes: notes || null
+            });
+
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر معالجة الطلب');
+                return;
+            }
+
+            toast.success(res?.message || (action === 'approve' ? 'تمت الموافقة بنجاح وأحيل الطلب للموارد البشرية' : 'تم رفض الطلب بنجاح'));
+            await handleMarkSystemNotificationRead(notificationId);
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error responding to continuity request:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء معالجة الطلب');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleResolveShiftAbsenceOrPenalty = async (notificationId: string, decision: 'approve_leave' | 'unexcused_absence') => {
+        try {
+            setSmartActionLoading(`resolve-${notificationId}`);
+            const { data, error } = await supabase.rpc('resolve_shift_absence_or_penalty', {
+                p_notification_id: notificationId,
+                p_decision: decision
+            });
+
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر معالجة القرار');
+                return;
+            }
+
+            toast.success(res?.message || 'تم اعتماد القرار بنجاح');
+            await handleMarkSystemNotificationRead(notificationId);
+        } catch (err: any) {
+            console.error('Error resolving shift absence or penalty:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء معالجة القرار');
         } finally {
             setSmartActionLoading(null);
         }
@@ -474,6 +562,98 @@ export const AppNotifications = () => {
                             )}
 
 
+                            {/* Employee Personal Responses Section - أولوية قصوى تظهر في الأعلى أولاً */}
+                            {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between border-b pb-1 dark:border-slate-700">
+                                        <h4 className="text-xs font-black text-indigo-700 dark:text-indigo-400">الردود على طلباتك</h4>
+                                        <span className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300 font-bold px-2 py-0.5 rounded-full">
+                                            {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length} جديد
+                                        </span>
+                                    </div>
+                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).map(req => {
+                                        let isApproved = false;
+                                        let requestType = 'إجازتك';
+                                        
+                                        if (req.cancellation_status && req.cancellation_status !== 'none') {
+                                            isApproved = req.cancellation_status === 'approved';
+                                            requestType = 'إلغاء إجازتك';
+                                        } else if (req.cut_status && req.cut_status !== 'none') {
+                                            isApproved = req.cut_status === 'approved';
+                                            requestType = 'قطع إجازتك';
+                                        } else {
+                                            isApproved = req.status === 'approved';
+                                            if (req.is_mandatory) {
+                                                requestType = req.leave_type === 'time_off' ? 'إجازة زمنية إجبارية' : 'إجازة اعتيادية إجبارية';
+                                            } else if (req.leave_type === 'time_off') {
+                                                requestType = 'إجازتك الزمنية';
+                                            } else if (req.leave_type === 'duty') {
+                                                requestType = 'الواجب الرسمي';
+                                            }
+                                        }
+
+                                        return (
+                                            <div 
+                                                key={req.id} 
+                                                onClick={() => handleGoToUserRequests(req.id)}
+                                                className={`bg-white dark:bg-slate-800 border-2 rounded-xl p-3 relative cursor-pointer hover:shadow-md transition-all ${req.is_mandatory ? 'border-amber-300 dark:border-amber-700 hover:bg-amber-50/40' : isApproved ? 'border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50/40' : 'border-rose-300 dark:border-rose-700 hover:bg-rose-50/40'} shadow-sm group`}
+                                            >
+                                                <div className="mb-1">
+                                                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full inline-block mb-1 shadow-sm ${req.is_mandatory ? 'text-amber-900 bg-amber-100 dark:bg-amber-900/70 dark:text-amber-200' : isApproved ? 'text-emerald-900 bg-emerald-100 dark:bg-emerald-900/70 dark:text-emerald-200' : 'text-rose-900 bg-rose-100 dark:bg-rose-900/70 dark:text-rose-200'}`}>
+                                                        {req.is_mandatory
+                                                            ? (req.leave_type === 'time_off' ? '⚠️ إجازة زمنية إجبارية' : '⚠️ إجازة اعتيادية إجبارية')
+                                                            : req.leave_type === 'duty' 
+                                                                ? (isApproved ? '✅ واجب رسمي معتمد' : '❌ واجب رسمي مرفوض')
+                                                                : (isApproved ? '✅ موافق عليه' : '❌ مرفوض')}
+                                                    </span>
+                                                    <p className="text-xs text-slate-950 dark:text-white font-bold leading-relaxed group-hover:underline">
+                                                        {requestType === 'قطع إجازتك' ? (() => {
+                                                            let actual = 0;
+                                                            let returned = 0;
+                                                            if (req.cut_date && req.start_date) {
+                                                                const start = new Date(req.start_date);
+                                                                const cut = new Date(req.cut_date);
+                                                                actual = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                                                                if (actual < 0) actual = 0;
+                                                                if (actual > req.days_count) actual = req.days_count;
+                                                                returned = req.days_count - actual;
+                                                            }
+                                                            if (isApproved) {
+                                                                return `لقد تم اعتماد طلب قطع إجازتك والمباشرة. الأيام الفعلية (${actual})، تم استرجاع (${returned}) يوم لرصيدك. الرصيد الحالي: ${(user as any)?.leave_balance || 0} يوم.`;
+                                                            } else {
+                                                                return `لقد تم رفض طلب قطع إجازتك. لا تزال الإجازة مستمرة (من ${req.start_date} إلى ${req.end_date}).`;
+                                                            }
+                                                        })() : req.is_mandatory ? (
+                                                            req.leave_type === 'time_off'
+                                                                ? `تم تقييد إجازة زمنية إجبارية في سجلك لتاريخ (${req.start_date}) لمدة (${req.time_duration_minutes} دقيقة) لتغطية التأخر الصباحي.`
+                                                                : `تم تقييد إجازة اعتيادية إجبارية في سجلك لتاريخ (${req.start_date}) أصولياً لتغطية التأخر الصباحي الذي تجاوز الساعتين.`
+                                                        ) : req.leave_type === 'duty' ? (
+                                                            `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب خروجك لتنفيذ واجب رسمي إلى (${req.destination || 'الجهة المحددة'}) بتاريخ (${req.start_date}).`
+                                                        ) : req.leave_type === 'time_off' && requestType === 'إجازتك الزمنية' ? (
+                                                            `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} بتاريخ (${req.start_date}) لمدة (${req.time_duration_minutes} دقيقة).`
+                                                        ) : (
+                                                            `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`
+                                                        )}
+                                                    </p>
+                                                </div>
+                                                <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/50">
+                                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">انقر للمراجعة والمسح</span>
+                                                    <CheckCircle size={14} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 1 && (
+                                        <button
+                                            onClick={handleDismissAllEmployee}
+                                            className="w-full text-center text-xs font-black text-indigo-700 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl transition"
+                                        >
+                                            إخفاء جميع الردود
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             {/* System Notifications Section */}
                             {systemNotifications.length > 0 && (
                                 <div className="space-y-2">
@@ -488,13 +668,13 @@ export const AppNotifications = () => {
                                                     <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h5 className="font-bold text-sm text-slate-900 dark:text-white">
+                                                    <h5 className="font-black text-sm text-slate-950 dark:text-white">
                                                         {notification.title}
                                                     </h5>
-                                                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap">
+                                                    <p className="text-xs text-slate-900 dark:text-slate-100 font-bold mt-1 whitespace-pre-wrap leading-relaxed">
                                                         {notification.content}
                                                     </p>
-                                                    <span className="text-sm text-slate-900 font-medium mt-2 block" dir="ltr" style={{ textAlign: 'right' }}>
+                                                    <span className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-2 block" dir="ltr" style={{ textAlign: 'right' }}>
                                                         {new Date(notification.created_at).toLocaleString('ar-IQ', {
                                                             year: 'numeric', month: '2-digit', day: '2-digit',
                                                             hour: '2-digit', minute: '2-digit'
@@ -580,6 +760,93 @@ export const AppNotifications = () => {
                                                         </div>
                                                     );
                                                 }
+                                                if (notification.type === 'substitute_request') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading === `sub-${notification.id}`;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleSubstituteResponse(notification.id, reqId, 'approve')}
+                                                                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <CheckCircle size={15} />
+                                                                    {isLoadingThis ? 'جارٍ الاعتماد...' : 'موافقة على التكليف كبديل'}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => {
+                                                                        const reason = window.prompt('سبب الاعتذار (اختياري):');
+                                                                        if (reason !== null) {
+                                                                            handleSubstituteResponse(notification.id, reqId, 'reject', reason);
+                                                                        }
+                                                                    }}
+                                                                    className="py-2 px-3 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition disabled:opacity-60"
+                                                                >
+                                                                    اعتذار
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                const isSupervisorActionable = (notification.type === 'service_continuity_request' || meta.request_type === 'service_continuity') && meta.continuity_step !== 'hr' && !notification.title.includes('جاهز للإصدار');
+                                                if (isSupervisorActionable) {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading === `continuity-${notification.id}`;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-cyan-100 dark:border-cyan-900/40">
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleServiceContinuitySupervisorResponse(notification.id, reqId, 'approve')}
+                                                                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <CheckCircle size={15} />
+                                                                    {isLoadingThis ? 'جارٍ الاعتماد...' : 'موافقة'}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => {
+                                                                        const reason = window.prompt('سبب الرفض (اختياري):');
+                                                                        if (reason !== null) {
+                                                                            handleServiceContinuitySupervisorResponse(notification.id, reqId, 'reject', reason);
+                                                                        }
+                                                                    }}
+                                                                    className="py-2 px-4 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition disabled:opacity-60"
+                                                                >
+                                                                    رفض
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (meta.requires_decision || meta.type === 'shift_absence_resolution' || meta.type === 'mandatory_penalty_decision') {
+                                                    const isLoadingThis = smartActionLoading === `resolve-${notification.id}`;
+                                                    const daysCount = meta.days_count || 1;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-amber-200 dark:border-amber-900/50">
+                                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleResolveShiftAbsenceOrPenalty(notification.id, 'approve_leave')}
+                                                                    className="flex-1 py-2 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                                                                >
+                                                                    <CheckCircle size={15} />
+                                                                    {isLoadingThis ? 'جارٍ الاعتماد...' : `اعتماد كإجازة (${daysCount} يوم)`}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleResolveShiftAbsenceOrPenalty(notification.id, 'unexcused_absence')}
+                                                                    className="flex-1 py-2 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                                                                >
+                                                                    <X size={15} />
+                                                                    {isLoadingThis ? 'جارٍ المعالجة...' : `اعتماد كغياب (${daysCount} يوم)`}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
                                                 return (
                                                     <button
                                                         onClick={() => handleMarkSystemNotificationRead(notification.id)}
@@ -598,7 +865,7 @@ export const AppNotifications = () => {
                             {/* Supervisor Requests Section */}
                             {supervisorRequests.length > 0 && (
                                 <div className="space-y-2">
-                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">طلبات إجازة بانتظار موافقتك</h4>
+                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">طلبات بانتظار موافقتك</h4>
                                     {supervisorRequests.map(req => (
                                         <div
                                             key={req.id}
@@ -606,10 +873,10 @@ export const AppNotifications = () => {
                                             className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-amber-200 dark:border-amber-900/50 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex justify-between items-center"
                                         >
                                             <div className="flex-1">
-                                                <h5 className="font-bold text-sm text-slate-900 dark:text-white">
+                                                <h5 className="font-black text-sm text-slate-950 dark:text-white">
                                                     {req.profiles?.full_name || 'موظف'}
                                                 </h5>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                                <p className="text-xs text-slate-900 dark:text-slate-100 font-bold mt-0.5">
                                                     {req.cancellation_status === 'pending' || req.modification_type === 'canceled' ? `طالب بإلغاء إجازته (${getLeaveTypeName(req.leave_type, req.time_off_subtype, req.is_mandatory)})` :
                                                         req.cut_status === 'pending' || req.modification_type === 'cut' ? 
                                                         (() => {
@@ -625,10 +892,11 @@ export const AppNotifications = () => {
                                                             }
                                                             return `طالب بقطع إجازته والمباشرة (الفعلية: ${actual} يوم، يتم إرجاع: ${returned} يوم)`;
                                                         })()
+                                                        : req.leave_type === 'duty' ? `طالب بالخروج لتنفيذ واجب رسمي إلى (${req.destination || 'جهة رسمية'}) بتاريخ (${req.start_date})`
                                                         : `طالب بـ ${getLeaveTypeName(req.leave_type, req.time_off_subtype, req.is_mandatory)} لمدة ${req.leave_type === 'time_off' ? (req.time_duration_minutes + ' دقيقة') : (req.days_count + ' يوم')}`}
                                                 </p>
                                                 {(req.unpaid_days ?? 0) > 0 && (
-                                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+                                                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold mt-1">
                                                         ⚠️ منها ({req.unpaid_days}) أيام بدون راتب
                                                     </p>
                                                 )}
@@ -674,74 +942,7 @@ export const AppNotifications = () => {
                                 </div>
                             )}
 
-                            {/* Employee Personal Responses Section */}
-                            {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 0 && (
-                                <div className="space-y-2">
-                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 border-b pb-1 dark:border-slate-700">الردود على طلباتك</h4>
-                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).map(req => {
-                                        let isApproved = false;
-                                        let requestType = 'إجازتك';
-                                        
-                                        if (req.cancellation_status && req.cancellation_status !== 'none') {
-                                            isApproved = req.cancellation_status === 'approved';
-                                            requestType = 'إلغاء إجازتك';
-                                        } else if (req.cut_status && req.cut_status !== 'none') {
-                                            isApproved = req.cut_status === 'approved';
-                                            requestType = 'قطع إجازتك';
-                                        } else {
-                                            isApproved = req.status === 'approved';
-                                            if (req.leave_type === 'time_off') {
-                                                requestType = 'إجازتك الزمنية';
-                                            }
-                                        }
 
-                                        return (
-                                            <div 
-                                                key={req.id} 
-                                                onClick={() => handleGoToUserRequests(req.id)}
-                                                className={`bg-white dark:bg-slate-800 border rounded-xl p-3 relative cursor-pointer hover:shadow-md transition-all ${isApproved ? 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50/30' : 'border-rose-200 dark:border-rose-800/50 hover:bg-rose-50/30'} shadow-sm group`}
-                                            >
-                                                <div className="mb-1">
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded inline-block mb-1 ${isApproved ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-400' : 'text-rose-700 bg-rose-100 dark:bg-rose-900/50 dark:text-rose-400'}`}>
-                                                        {isApproved ? 'موافق عليه' : 'مرفوض'}
-                                                    </span>
-                                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed group-hover:underline">
-                                                        {requestType === 'قطع إجازتك' ? (() => {
-                                                            let actual = 0;
-                                                            let returned = 0;
-                                                            if (req.cut_date && req.start_date) {
-                                                                const start = new Date(req.start_date);
-                                                                const cut = new Date(req.cut_date);
-                                                                actual = Math.ceil((cut.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                                                                if (actual < 0) actual = 0;
-                                                                if (actual > req.days_count) actual = req.days_count;
-                                                                returned = req.days_count - actual;
-                                                            }
-                                                            if (isApproved) {
-                                                                return `لقد تم اعتماد طلب قطع إجازتك والمباشرة. الأيام الفعلية (${actual})، تم استرجاع (${returned}) يوم لرصيدك. الرصيد الحالي: ${(user as any)?.leave_balance || 0} يوم.`;
-                                                            } else {
-                                                                return `لقد تم رفض طلب قطع إجازتك. لا تزال الإجازة مستمرة (من ${req.start_date} إلى ${req.end_date}).`;
-                                                            }
-                                                        })() : req.leave_type === 'time_off' && requestType === 'إجازتك الزمنية' ? `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} بتاريخ (${req.start_date}) لمدة (${req.time_duration_minutes} دقيقة).` : `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`}
-                                                    </p>
-                                                </div>
-                                                <div className="flex justify-between items-center mt-2">
-                                                    <span className="text-[10px] text-slate-400 font-medium italic">انقر للمراجعة والمسح</span>
-                                                    <CheckCircle size={14} className="text-slate-300 group-hover:text-slate-500" />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length > 1 && (
-                                        <button
-                                            onClick={handleDismissAllEmployee}
-                                            className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 py-2 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl"
-                                        >
-                                            إخفاء جميع الردود
-                                        </button>
-                                    )}
-                                </div>
-                            )}
 
                         </div>
                     </div>

@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     
     const androidCategory = type === 'call' ? 'call' : 'msg';
     
+    // Timeout of 2000ms prevents worker isolate hangs if OneSignal is unreachable
     const response = await fetch('https://api.onesignal.com/notifications', {
       method: 'POST',
       headers: {
@@ -72,7 +73,8 @@ Deno.serve(async (req) => {
         ios_badgeCount: 1,
         android_group: data?.conversationId || "chat",
         thread_id: data?.conversationId || "chat"
-      })
+      }),
+      signal: AbortSignal.timeout(2000)
     });
 
     const result = await response.json();
@@ -85,8 +87,8 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('OneSignal notification error:', error);
     return new Response(
-      JSON.stringify({ error: 'Failed to send notification' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Failed to send notification', details: String(error) }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

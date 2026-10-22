@@ -154,9 +154,7 @@ export function useEmployeeSearch(options: UseEmployeeSearchOptions = {}) {
                     setResults([]);
                 }
             } finally {
-                if (!controller.signal.aborted) {
-                    setIsSearching(false);
-                }
+                setIsSearching(false);
             }
         }, debounceMs);
 

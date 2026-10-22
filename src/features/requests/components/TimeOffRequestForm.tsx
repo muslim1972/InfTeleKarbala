@@ -13,11 +13,12 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle, X, CalendarDays, Trash2 } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Network, UserCheck, Loader2, AlertTriangle, X, CalendarDays, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { sendPushNotification } from '../../../services/notifications';
+import { SubstituteSelector, type SubstituteEmployee } from './SubstituteSelector';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type TimeOffSubtype = 'mid_shift' | 'shift_start' | 'shift_end';
@@ -76,6 +77,23 @@ function getRelativeMins(timeStr: string, startStr: string, endStr: string): num
     }
   }
   return mins;
+}
+
+function isRangeWithinShift(leaveStr: string, returnStr: string, startStr: string, endStr: string): boolean {
+  if (!leaveStr || !startStr || !endStr) return false;
+  const l = getRelativeMins(leaveStr, startStr, endStr);
+  const s = getRelativeMins(startStr, startStr, endStr);
+  let e = getRelativeMins(endStr, startStr, endStr);
+  if (e <= s) e += 1440;
+
+  if (!returnStr) {
+    return l >= s && l < e;
+  }
+
+  let r = getRelativeMins(returnStr, startStr, endStr);
+  if (r <= l && e > 1440) r += 1440;
+
+  return l >= s && l < e && r > l && r <= e;
 }
 
 function formatDurationText(mins: number): string {
@@ -138,6 +156,10 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [shiftStart, setShiftStart] = useState('08:00');
   const [shiftEnd, setShiftEnd] = useState('15:00');
   const [workScheduleId, setWorkScheduleId] = useState<string | null>(null);
+  const [isRosterSchedule, setIsRosterSchedule] = useState(false);
+  const [availableShifts, setAvailableShifts] = useState<{ key: 'morning' | 'evening' | 'night'; label: string; start: string; end: string }[]>([]);
+  const [selectedRosterShift, setSelectedRosterShift] = useState<'morning' | 'evening' | 'night' | null>(null);
+  const [substitute, setSubstitute] = useState<SubstituteEmployee | null>(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +186,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [approvalChain, setApprovalChain] = useState<string[]>([]);
   const [loadingManager, setLoadingManager] = useState(true);
 
-  // ── جلب الإجازات الزمنية المسجلة لنفس التاريخ (pending/approved) ──
+  // ── جلب الإجازات الزمنية المسجلة لنفس التاريخ (pending/approved) مع عزل سقف كل شفت للمناوب ──
   const fetchExistingForDate = useCallback(async (targetDate: string) => {
     if (!user || !targetDate) {
       setExistingMinutes(0);
@@ -175,14 +197,27 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     try {
       const { data } = await supabase
         .from('leave_requests')
-        .select('id, time_duration_minutes, time_off_subtype, reason, status, start_date, modification_type, cancellation_status')
+        .select('id, time_duration_minutes, time_off_subtype, reason, status, start_date, leave_start_time, leave_end_time, modification_type, cancellation_status')
         .eq('user_id', user.id)
         .eq('leave_type', 'time_off')
         .in('status', ['pending', 'approved'])
         .eq('start_date', targetDate);
       const activeRows = (data || []).filter((r: any) => r.cancellation_status !== 'approved');
       setExistingRequests(activeRows);
-      const total = activeRows.reduce((s: number, r: any) => s + (r.time_duration_minutes || 0), 0);
+
+      // استقلالية شفتات المناوب: عزل الرصيد وسقف الـ 120 دقيقة لكل شفت على حدة
+      let relevantRows = activeRows;
+      if (isRosterSchedule && selectedRosterShift) {
+        relevantRows = activeRows.filter((r: any) => {
+          const st = r.leave_start_time || '';
+          if (selectedRosterShift === 'morning') return st >= '07:00:00' && st < '14:00:00';
+          if (selectedRosterShift === 'evening') return st >= '14:00:00' && st < '19:30:00';
+          if (selectedRosterShift === 'night') return st >= '19:30:00' || st < '07:00:00';
+          return true;
+        });
+      }
+
+      const total = relevantRows.reduce((s: number, r: any) => s + (r.time_duration_minutes || 0), 0);
       setExistingMinutes(total);
     } catch {
       setExistingMinutes(0);
@@ -190,7 +225,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     } finally {
       setLoadingExisting(false);
     }
-  }, [user]);
+  }, [user, isRosterSchedule, selectedRosterShift]);
 
   useEffect(() => {
     fetchExistingForDate(requestDate || todayStr);
@@ -217,14 +252,24 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
   // ── Derived: effective times based on subtype ─────────────────────────────
   const effectiveLeaveTime = useMemo(() => {
-    if (subtype === 'shift_start') return shiftStart;
+    if (subtype === 'shift_start') {
+      // للمناوب: البداية تطابق وقت بداية الشفت المختار تماماً (بلا سماحية)
+      if (isRosterSchedule) return shiftStart;
+      // الدوام الصباحي الثابت: احتساب الإجازة يبدأ بعد انتهاء السماحية الصباحية 08:30
+      if (shiftStart === '08:00') return '08:30';
+      return shiftStart;
+    }
     return leaveTime;
-  }, [subtype, shiftStart, leaveTime]);
+  }, [subtype, shiftStart, leaveTime, isRosterSchedule]);
 
   const effectiveReturnTime = useMemo(() => {
-    if (subtype === 'shift_end') return shiftEnd;
+    if (subtype === 'shift_end') {
+      // الدوام الصباحي: احتساب الإجازة ينتهي عند بداية سماحية الانصراف 14:30
+      if (!isRosterSchedule && shiftEnd === '15:00') return '14:30';
+      return shiftEnd;
+    }
     return returnTime;
-  }, [subtype, shiftEnd, returnTime]);
+  }, [subtype, shiftEnd, returnTime, isRosterSchedule]);
 
   // ── Derived: duration in minutes ──────────────────────────────────────────
   const leaveRelative = useMemo(() => getRelativeMins(effectiveLeaveTime, shiftStart, shiftEnd), [effectiveLeaveTime, shiftStart, shiftEnd]);
@@ -241,6 +286,30 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const exceedsLimit = cumulativeMinutes > MAX_DURATION_MINUTES;
   const subtypeConfig = SUBTYPE_CONFIGS[subtype];
 
+  // ── الذكاء الكاشف للشفت المناسب (Shift Auto-Detection / Smart Suggestion) ──
+  const suggestedRosterShift = useMemo(() => {
+    if (!isRosterSchedule || availableShifts.length <= 1) return null;
+    if (!effectiveLeaveTime) return null;
+
+    // إذا كان الوقت المدخل يقع ضمن الشفت المختار حالياً فلا نقترح تغييراً
+    const fitsCurrent = isRangeWithinShift(
+      effectiveLeaveTime,
+      effectiveReturnTime || '',
+      shiftStart,
+      shiftEnd
+    );
+    if (fitsCurrent) return null;
+
+    // نبحث في الشفتات المتاحة الأخرى لنفس اليوم
+    for (const s of availableShifts) {
+      if (s.key === selectedRosterShift) continue;
+      if (isRangeWithinShift(effectiveLeaveTime, effectiveReturnTime || '', s.start, s.end)) {
+        return s;
+      }
+    }
+    return null;
+  }, [isRosterSchedule, availableShifts, effectiveLeaveTime, effectiveReturnTime, shiftStart, shiftEnd, selectedRosterShift]);
+
   // ── Fetch manager + schedule ──────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
@@ -255,8 +324,23 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           .eq('id', user.id)
           .single();
 
-        // حفظ معرف الدوام — أوقات اليوم تُحمَّل عبر effect مستقل (حسب التاريخ المختار)
-        if (!cancelled) setWorkScheduleId(profile?.work_schedule_id ?? null);
+        let isRoster = false;
+        if (profile?.work_schedule_id) {
+          const { data: ws } = await supabase
+            .from('work_schedules')
+            .select('type, name')
+            .eq('id', profile.work_schedule_id)
+            .single();
+          if (ws?.type === 'roster' || ws?.name?.includes('مناوب') || ws?.name?.includes('خفر')) {
+            isRoster = true;
+          }
+        }
+
+        // حفظ معرف الدوام ونوع الجدول — أوقات اليوم تُحمَّل عبر effect مستقل (حسب التاريخ المختار)
+        if (!cancelled) {
+          setWorkScheduleId(profile?.work_schedule_id ?? null);
+          setIsRosterSchedule(isRoster);
+        }
 
         if (cancelled) return;
 
@@ -302,7 +386,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
     return () => { cancelled = true; };
   }, [user]);
 
-  // ── تحميل أوقات دوام يوم الطلب (تختلف بين أيام الأسبوع) ──────────────────
+  // ── تحميل أوقات دوام وشفتات يوم الطلب (تختلف بين أيام الأسبوع وللمناوبين) ──
   useEffect(() => {
     if (!workScheduleId) return;
     const targetDate = requestDate || todayStr; // بلا تاريخ → دوام اليوم الحالي
@@ -312,19 +396,45 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       try {
         const { data: scheduleDay } = await supabase
           .from('work_schedule_days')
-          .select('start_time, end_time')
+          .select('start_time, end_time, is_morning, is_evening, is_night, is_rest_day')
           .eq('schedule_id', workScheduleId)
           .eq('day_of_week', dayOfWeek)
           .maybeSingle(); // يوم الراحة = لا صف
         if (cancelled) return;
-        if (scheduleDay?.start_time && scheduleDay?.end_time) {
-          setShiftStart(scheduleDay.start_time.substring(0, 5));
-          setShiftEnd(scheduleDay.end_time.substring(0, 5));
+
+        if (isRosterSchedule && scheduleDay) {
+          const shifts: { key: 'morning' | 'evening' | 'night'; label: string; start: string; end: string }[] = [];
+          if (scheduleDay.is_morning) {
+            shifts.push({ key: 'morning', label: 'الشفت الصباحي (08:00 - 15:00)', start: '08:00', end: '15:00' });
+          }
+          if (scheduleDay.is_evening) {
+            shifts.push({ key: 'evening', label: 'الشفت المسائي (15:00 - 20:00)', start: '15:00', end: '20:00' });
+          }
+          if (scheduleDay.is_night) {
+            shifts.push({ key: 'night', label: 'شفت الخفر (20:00 - 08:00)', start: '20:00', end: '08:00' });
+          }
+          setAvailableShifts(shifts);
+
+          // تحديد الشفت الافتراضي
+          if (shifts.length > 0) {
+            const currentValid = shifts.find(s => s.key === selectedRosterShift);
+            const chosen = currentValid || shifts[0];
+            setSelectedRosterShift(chosen.key);
+            setShiftStart(chosen.start);
+            setShiftEnd(chosen.end);
+          }
+        } else {
+          setAvailableShifts([]);
+          setSelectedRosterShift(null);
+          if (scheduleDay?.start_time && scheduleDay?.end_time) {
+            setShiftStart(scheduleDay.start_time.substring(0, 5));
+            setShiftEnd(scheduleDay.end_time.substring(0, 5));
+          }
         }
       } catch { /* الإبقاء على الدوام الحالي عند الفشل */ }
     })();
     return () => { cancelled = true; };
-  }, [workScheduleId, requestDate, todayStr]);
+  }, [workScheduleId, requestDate, todayStr, isRosterSchedule]);
 
 
 
@@ -409,33 +519,38 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
     // (التحذيرات المبكرة بالفعل ظاهرة للمستخدم — نتركها ونتجاوز التدقّقات الصارمة في بيئة التجربة)
 
-    // Validate leave time is within shift
-    if (config.showLeaveTime) {
-      const leaveMins = getRelativeMins(leaveTime, shiftStart, shiftEnd);
-      const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
-      const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
-      if (leaveMins < startMins) {
-        setError(`لا يمكنك طلب إجازة قبل بداية دوامك (${shiftStart})`);
-        return false;
+    // 3) فحص انطباق الوقت على الشفت للمناوب بذكاء ودقة
+    if (isRosterSchedule && selectedRosterShift) {
+      const currentShiftObj = availableShifts.find(s => s.key === selectedRosterShift);
+      const fitsCurrent = isRangeWithinShift(effectiveLeaveTime, effectiveReturnTime, shiftStart, shiftEnd);
+      if (!fitsCurrent) {
+        if (suggestedRosterShift) {
+          setError(`الوقت المحدد (${effectiveLeaveTime} إلى ${effectiveReturnTime}) يقع خارج حدود ${currentShiftObj?.label || 'الشفت المختار'}، وينتمي إلى ${suggestedRosterShift.label}. يرجى التبديل إليه لتقديم الطلب.`);
+          return false;
+        } else {
+          setError(`الوقت المحدد (${effectiveLeaveTime} إلى ${effectiveReturnTime}) يقع خارج نطاق دوام ${currentShiftObj?.label || 'الشفت المختار'} (${shiftStart} إلى ${shiftEnd}).`);
+          return false;
+        }
       }
-      if (leaveMins >= endMins) {
-        setError(`لا يمكنك طلب إجازة بعد نهاية دوامك (${shiftEnd})`);
-        return false;
+    } else {
+      // الدوام الصباحي أو الثابت
+      if (config.showLeaveTime) {
+        const leaveMins = getRelativeMins(leaveTime, shiftStart, shiftEnd);
+        const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
+        const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
+        if (leaveMins < startMins || leaveMins >= endMins) {
+          setError(`ساعة المغادرة (${leaveTime}) يجب أن تكون داخل وقت الدوام (${shiftStart} إلى ${shiftEnd})`);
+          return false;
+        }
       }
-    }
-
-    // Validate return time is within shift
-    if (config.showReturnTime) {
-      const retMins = getRelativeMins(returnTime, shiftStart, shiftEnd);
-      const startMins = getRelativeMins(shiftStart, shiftStart, shiftEnd);
-      const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
-      if (retMins <= startMins) {
-        setError(`ساعة العودة يجب أن تكون بعد بداية الدوام (${shiftStart})`);
-        return false;
-      }
-      if (retMins > endMins) {
-        setError(`ساعة العودة يجب أن لا تتجاوز نهاية الدوام (${shiftEnd})`);
-        return false;
+      if (config.showReturnTime) {
+        const retMins = getRelativeMins(returnTime, shiftStart, shiftEnd);
+        const startMins = getRelativeMins(effectiveLeaveTime, shiftStart, shiftEnd);
+        const endMins = getRelativeMins(shiftEnd, shiftStart, shiftEnd);
+        if (retMins <= startMins || retMins > endMins) {
+          setError(`ساعة العودة (${returnTime}) يجب أن تكون داخل وقت الدوام وبعد ساعة المغادرة (${effectiveLeaveTime} إلى ${shiftEnd})`);
+          return false;
+        }
       }
     }
 
@@ -463,13 +578,40 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       setError('تاريخ الإجازة المحدد يقع في أيام العطلة الرسمية (الجمعة والسبت) — اختر يوماً آخر.');
       return false;
     }
+
+    // 5) قواعد شفت الخفر (20:00 إلى 08:00) — النصف الثاني (من 00:00 إلى 08:00) محظور بالكامل
+    const isNightShift = isRosterSchedule && (selectedRosterShift === 'night' || (shiftStart === '20:00' && shiftEnd === '08:00'));
+    if (isNightShift) {
+      if (subtype === 'shift_end') {
+        setError('في شفت الخفر (20:00 إلى 08:00)، يُمنع منعاً باتاً طلب إجازة نهاية الدوام لأنها تنتهي ضمن النصف الثاني المحظور (00:00 إلى 08:00) حيث يعتبر الخفير حارساً للمقر الحكومي.');
+        return false;
+      }
+
+      const isForbiddenNightHour = (t: string) => {
+        if (!t) return false;
+        const [h] = t.split(':').map(Number);
+        return h >= 0 && h < 8;
+      };
+
+      if (isForbiddenNightHour(effectiveLeaveTime) || isForbiddenNightHour(effectiveReturnTime)) {
+        setError('في شفت الخفر (20:00 إلى 08:00)، يُمنع منعاً باتاً طلب أي إجازة زمنية ضمن النصف الثاني (من 00:00 منتصف الليل حتى 08:00 صباحاً)؛ حيث يعتبر الخفير حارساً للمقر الحكومي بالإضافة لعمله الفني، ولا يُسمح له بمغادرة المقر لأي سبب كان.');
+        return false;
+      }
+    }
+
+    // 6) إلزام الموظف المناوب بتحديد موظف بديل يغطي مكانه
+    if (isRosterSchedule && !substitute) {
+      setError('يلزم تحديد موظف بديل للمناوب للتواجد في مقر العمل أثناء فترة الزمنية لحين عودة المناوب الأصيل.');
+      return false;
+    }
+
     if (!supervisorId) {
       setError('لم يتم تحديد مسؤولك المباشر في الهيكلية. راجع الإدارة.');
       return false;
     }
     setError(null);
     return true;
-  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr, effectiveLeaveTime]);
+  }, [subtype, leaveTime, returnTime, requestDate, shiftStart, shiftEnd, durationMinutes, leaveRelative, supervisorId, todayStr, effectiveLeaveTime, effectiveReturnTime, isRosterSchedule, selectedRosterShift, substitute]);
 
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -487,7 +629,10 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       const subtypeLabel = SUBTYPE_CONFIGS[subtype].label;
       const willConvert = exceedsLimit; // المجموع التراكمي تجاوز ساعتين → تحويل إجباري
 
-      const finalReason = `(نوع الزمنية: ${subtypeLabel} | التاريخ: ${requestDate} | ساعة الخروج: ${effectiveLeaveTime} | ساعة العودة: ${effectiveReturnTime} | المدة: ${durationMinutes} دقيقة${existingMinutes > 0 ? ` | مدد زمنية سابقة بنفس اليوم: ${existingMinutes} دقيقة` : ''}${willConvert ? ' — تم التحويل لإجازة اعتيادية لتجاوز مجموع المدد ساعتين' : ''})`;
+      const shiftNote = isRosterSchedule && selectedRosterShift
+        ? ` | شفت: ${availableShifts.find(s => s.key === selectedRosterShift)?.label || selectedRosterShift}`
+        : '';
+      const finalReason = `(نوع الزمنية: ${subtypeLabel}${shiftNote} | التاريخ: ${requestDate} | ساعة الخروج: ${effectiveLeaveTime} | ساعة العودة: ${effectiveReturnTime} | المدة: ${durationMinutes} دقيقة${existingMinutes > 0 ? ` | مدد زمنية سابقة لنفس الشفت: ${existingMinutes} دقيقة` : ''}${willConvert ? ' — تم التحويل لإجازة اعتيادية لتجاوز مجموع المدد ساعتين' : ''})`;
 
       let rpcResult: any;
       if (willConvert) {
@@ -500,6 +645,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           p_total_minutes: durationMinutes,
           p_existing_minutes: existingMinutes,
           p_time_off_subtype: subtype,
+          p_substitute_id: substitute?.id || null,
         });
         if (rpcError) throw rpcError;
         rpcResult = data;
@@ -520,6 +666,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           p_with_request: true,
           p_leave_start_time: effectiveLeaveTime ? `${effectiveLeaveTime}:00` : null,
           p_leave_end_time: effectiveReturnTime ? `${effectiveReturnTime}:00` : null,
+          p_substitute_id: substitute?.id || null,
         });
         if (rpcError) throw rpcError;
         rpcResult = data;
@@ -533,7 +680,21 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
 
       // Push notification
       try {
-        if (willConvert) {
+        if (substitute) {
+          // في حال وجود موظف بديل: يذهب الإشعار للبديل فقط حتى يوافق أولاً
+          const { data: subProf } = await supabase
+            .from('available_profiles')
+            .select('push_token')
+            .eq('id', substitute.id)
+            .single();
+          if (subProf?.push_token) {
+            await sendPushNotification(
+              subProf.push_token,
+              `طلب منك الزميل (${user.full_name || 'موظف'}) أن تكون بديلاً عنه أثناء إجازته الزمنية (${subtypeLabel}) لتاريخ ${requestDate}`,
+              { title: '📋 طلب تكليف كبديل لموظف مجاز' }
+            );
+          }
+        } else if (willConvert) {
           // إشعار فوري للمسؤول + الموارد البشرية بالتحويل (الموظف تصله رسالة داخلية + شاشة النجاح)
           const pushTitle = 'تحويل تلقائي إلى إجازة اعتيادية';
           const pushBody = `${user.full_name || 'موظف'} — تحوّل الطلب الزمني (المجموع ${cumulativeMinutes} دقيقة) إلى إجازة اعتيادية معتمدة بتاريخ ${requestDate}`;
@@ -616,13 +777,22 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         <div className="w-16 h-16 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
         </div>
-        <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم إرسال الطلب بنجاح</h3>
-        <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
-          تم إرسال طلب الإجازة الزمنية ({SUBTYPE_CONFIGS[subtype].label}) بتاريخ <span className="font-bold dir-ltr">{requestDate}</span> إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
+        <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم تقديم الطلب بنجاح</h3>
+        <p className="text-green-600 dark:text-green-400 mb-6 text-sm leading-relaxed">
+          {substitute ? (
+            <>
+              تم إرسال طلب التكليف كبديل إلى الزميل (<span className="font-bold text-gray-900 dark:text-white">{substitute.fullName}</span>) للموافقة أولاً.
+              فور موافقته، سيُحوَّل طلب الإجازة الزمنية تلقائياً إلى مسؤولك المباشر للاعتماد.
+            </>
+          ) : (
+            <>
+              تم إرسال طلب الإجازة الزمنية ({SUBTYPE_CONFIGS[subtype].label}) بتاريخ <span className="font-bold dir-ltr">{requestDate}</span> إلى مسؤولك المباشر. ستصلك الإجابة قريباً.
+            </>
+          )}
         </p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { setSuccess(false); setRequestDate(''); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); }}
+            onClick={() => { setSuccess(false); setRequestDate(''); setLeaveTime(''); setReturnTime(''); setSubtype('mid_shift'); setSubstitute(null); }}
             className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20 text-sm font-bold"
           >
             تقديم طلب جديد
@@ -775,6 +945,66 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           />
         </div>
 
+        {/* ── اختيار الشفت للمناوب (إذا كان لديه أكثر من شفت في نفس اليوم) ── */}
+        {isRosterSchedule && availableShifts.length > 1 && (
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-indigo-200 dark:border-indigo-800/50 rounded-2xl space-y-2">
+            <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300">
+              اختر الشفت المراد تقديم الإجازة الزمنية له (لكل شفت ساعتان مستقلتان):
+            </label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {availableShifts.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRosterShift(s.key);
+                    setShiftStart(s.start);
+                    setShiftEnd(s.end);
+                    const leaveOk = leaveTime ? isRangeWithinShift(leaveTime, '', s.start, s.end) : true;
+                    if (!leaveOk) {
+                      setLeaveTime('');
+                      setReturnTime('');
+                    }
+                    setError(null);
+                  }}
+                  className={`p-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
+                    selectedRosterShift === s.key
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/25'
+                      : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:border-indigo-300'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── اقتراح التبديل الذكي للشفت المناسب ── */}
+        {suggestedRosterShift && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-100 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+              <div className="text-xs leading-relaxed">
+                <span className="font-bold">اقتراح ذكي:</span> الوقت المدخل ({effectiveLeaveTime}{effectiveReturnTime ? ` إلى ${effectiveReturnTime}` : ''}) يقع ضمن <strong>{suggestedRosterShift.label}</strong> وليس الشفت المحدد حالياً.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRosterShift(suggestedRosterShift.key);
+                setShiftStart(suggestedRosterShift.start);
+                setShiftEnd(suggestedRosterShift.end);
+                setError(null);
+              }}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-sm"
+            >
+              <span>التبديل إلى {suggestedRosterShift.label.split('(')[0]}</span>
+              <span>←</span>
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           {/* ── ساعة الخروج / المغادرة ── */}
           <div>
@@ -797,8 +1027,14 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
               </>
             ) : (
               <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex flex-col items-start justify-center">
-                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftStart}</span>
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">بداية الدوام الرسمي</span>
+                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{effectiveLeaveTime}</span>
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                  {isRosterSchedule
+                    ? `بداية الشفت (${shiftStart})`
+                    : shiftStart === '08:00'
+                      ? 'بداية الإجازة (بعد سماحية الصباح 08:30)'
+                      : 'بداية الدوام الرسمي'}
+                </span>
               </div>
             )}
           </div>
@@ -824,8 +1060,12 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
               </>
             ) : (
               <div className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-600 dark:text-gray-400 dir-ltr text-left text-base flex flex-col items-start justify-center">
-                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{shiftEnd}</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">نهاية الدوام الرسمي</span>
+                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{effectiveReturnTime}</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  {!isRosterSchedule && shiftEnd === '15:00'
+                    ? 'نهاية الإجازة (بداية سماحية الانصراف 14:30)'
+                    : `نهاية الشفت (${shiftEnd})`}
+                </span>
               </div>
             )}
           </div>
@@ -912,6 +1152,19 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
         )}
 
+        {/* ── اختيار الموظف البديل للمناوبين ────────────────────────── */}
+        {isRosterSchedule && (
+          <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
+            <SubstituteSelector
+              selectedSubstitute={substitute}
+              onSelect={setSubstitute}
+              required={true}
+              label="الموظف البديل المكلف بتغطية شفت المناوبة أثناء الزمنية"
+              helpText="يلزم تحديد موظف بديل من نفس المحافظة ليتواجد في مقر المناوبة ويبصم حضوراً لحين عودتك وتثبيت بصمتك. سيتلقى إشعاراً فورياً للموافقة قبل توجيه الطلب للمسؤولين."
+            />
+          </div>
+        )}
+
         {/* ── خطأ ─────────────────────────────────────────────────────────── */}
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm flex items-center gap-2">
@@ -928,7 +1181,7 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> جاري الإرسال...</span>
-          ) : 'إرسال الطلب للمسؤول'}
+          ) : substitute ? 'إرسال طلب التكليف للبديل' : 'إرسال الطلب للمسؤول'}
         </button>
       </form>
 
@@ -948,6 +1201,12 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 <span>التاريخ</span>
                 <span className="font-bold dir-ltr">{requestDate}</span>
               </div>
+              {substitute && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                  <span>الموظف البديل</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{substitute.fullName}</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-600 dark:text-gray-300">
                 <span>ساعة الخروج</span>
                 <span className="font-bold dir-ltr">{effectiveLeaveTime}</span>
@@ -973,6 +1232,11 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
                 </>
               )}
             </div>
+            {substitute && (
+              <div className="mb-4 p-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-lg text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                ℹ️ سيتم إرسال إشعار فوري للزميل (<strong>{substitute.fullName}</strong>) لاستحصال موافقته أولاً. ولن يُوجَّه الطلب للمسؤول إلا بعد موافقة البديل.
+              </div>
+            )}
             {exceedsLimit && (
               <div className="mb-4 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg text-xs text-red-700 dark:text-red-300 leading-relaxed">
                 تنبيه: عند التأكيد سيُسجَّل الطلب مباشرة كـ<strong>إجازة اعتيادية معتمدة ليوم واحد</strong> (لتجاوز المجموع ساعتين)، وسيتم إشعار مسؤولك المباشر والموارد البشرية والموظف المعني فوراً.

@@ -14,18 +14,25 @@ const getDynamicSupabaseUrl = () => {
   if (isVpsEnvironment()) {
     return window.location.origin;
   }
-  return import.meta.env.VITE_SUPABASE_URL;
+  return import.meta.env?.VITE_SUPABASE_URL || 'https://khr-itpc.egov.iq';
 };
 
 const getDynamicSupabaseAnonKey = () => {
   if (isVpsEnvironment()) {
     return VPS_ANON_KEY;
   }
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || VPS_ANON_KEY;
+  return import.meta.env?.VITE_SUPABASE_ANON_KEY || VPS_ANON_KEY;
 };
 
 // مُصدَّرة لإنشاء عملاء مخصصين (مثل عميل التخزين بمفتاح التطبيق في snapshotStorage)
 export const supabaseUrl = getDynamicSupabaseUrl();
 export const supabaseAnonKey = getDynamicSupabaseAnonKey();
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => await fn(),
+  }
+});

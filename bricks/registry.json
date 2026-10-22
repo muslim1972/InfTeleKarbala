@@ -444,7 +444,10 @@
         "get_managed_employees",
         "search_available_profiles",
         "sync_available_profiles",
-        "update_yearly_records_counts"
+        "update_yearly_records_counts",
+        "submit_service_continuity_request",
+        "process_service_continuity_supervisor",
+        "process_service_continuity_hr_issue"
       ],
       "tables": [
         "profiles",
@@ -454,7 +457,8 @@
         "thanks_details",
         "penalties_details",
         "administrative_summary",
-        "user_acknowledgments"
+        "user_acknowledgments",
+        "service_continuity_requests"
       ],
       "buckets": [
         "avatar-images"

@@ -99,9 +99,9 @@ export const REQUEST_TYPE_OPTIONS: RequestTypeOption[] = [
   },
   {
     id: 'service_extension',
-    label: 'استمرار بالخدمـة',
+    label: 'تأييد استمرارية بالخدمة',
     emoji: '📋',
-    description: 'طلب تمديد الخدمة الوظيفية',
+    description: 'طلب إصدار كتاب رسمي باستمرارية الخدمة',
     color: 'text-cyan-600 dark:text-cyan-400',
     bgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
     category: 'administrative',

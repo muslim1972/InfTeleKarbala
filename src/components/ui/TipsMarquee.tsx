@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useGovernorate } from '../../context/GovernorateContext';
+import { useAuth } from '../../context/AuthContext';
+import { DEFAULT_GOVERNORATE } from '../../constants/governorates';
 
 interface TipsMarqueeProps {
     appName?: string;
@@ -9,31 +11,37 @@ interface TipsMarqueeProps {
     manualTips?: string[]; // For preview mode
 }
 
+const DEFAULT_SYSTEM_TIPS = [
+    'نظام الإدارة والمالية الموحد — مديرية الاتصالات والمعلوماتية',
+    'أهلاً بكم في نظام إدارة الموظفين والخدمات الرقمية والحضور الذكي',
+    'يرجى توثيق البصمة اليومية في أوقات الدوام الرسمية المحددة'
+];
+
 const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }: TipsMarqueeProps) => {
     const [fetchedTips, setFetchedTips] = useState<string[]>([]);
     const [loading, setLoading] = useState(!manualTips);
     const [isPaused, setIsPaused] = useState(false);
     const { activeGovernorate } = useGovernorate();
-
-
+    const { user } = useAuth();
 
     useEffect(() => {
         // Skip fetching if manualTips are provided
         if (manualTips) return;
 
-        // عزل صارم: لا جلب قبل تحديد المحافظة (لا يوجد fallback لكربلاء)
-        if (!activeGovernorate) return;
-
-        const activeGov = activeGovernorate;
+        const activeGov = activeGovernorate || user?.governorate || DEFAULT_GOVERNORATE;
 
         const fetchTips = async () => {
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from('admin_tips')
                     .select('content')
                     .eq('app_name', appName)
                     .eq('governorate', activeGov)
                     .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.warn('Error fetching tips:', error.message);
+                }
 
                 const tipRecord = data && data.length > 0 ? data[0] : null;
 
@@ -42,12 +50,13 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
                         .split('\n')
                         .map((t: string) => t.trim())
                         .filter(Boolean);
-                    setFetchedTips(tipsArray);
+                    setFetchedTips(tipsArray.length > 0 ? tipsArray : DEFAULT_SYSTEM_TIPS);
                 } else {
-                    setFetchedTips([]);
+                    setFetchedTips(DEFAULT_SYSTEM_TIPS);
                 }
             } catch (err) {
                 console.error('Error fetching tips:', err);
+                setFetchedTips(DEFAULT_SYSTEM_TIPS);
             } finally {
                 setLoading(false);
             }
@@ -75,24 +84,19 @@ const TipsMarquee = ({ appName = 'InfTeleKarbala', className = '', manualTips }:
         return () => {
             channel.unsubscribe();
         };
-    }, [appName, !!manualTips, activeGovernorate]); // Only change fetch behavior if manualTips existence toggles
+    }, [appName, !!manualTips, activeGovernorate, user?.governorate]);
 
     // Don't render until loaded (for fetch mode)
     if (loading && !manualTips) return null;
 
     // Use derived tips
-    const activeTips = manualTips || fetchedTips;
+    const activeTips = manualTips || (fetchedTips.length > 0 ? fetchedTips : DEFAULT_SYSTEM_TIPS);
 
     // Filter out completely empty chunks just in case, but keep the array
     const validTips = activeTips.filter(t => t.trim().length > 0);
 
-    // If no valid tips and not in manual mode (preview), don't render anything
-    if (!manualTips && validTips.length === 0) return null;
-
-    // For preview, if empty, show placeholder
-    const tipsToDisplay = validTips.length > 0 ? validTips : (manualTips ? ['... معاينة الشريط ...'] : []);
-
-    if (tipsToDisplay.length === 0) return null;
+    // For preview, if empty, show placeholder; otherwise show tips or default fallback
+    const tipsToDisplay = validTips.length > 0 ? validTips : (manualTips ? ['... معاينة الشريط ...'] : DEFAULT_SYSTEM_TIPS);
 
     const marqueeText = tipsToDisplay.join('  ⭐⭐⭐⭐⭐  ');
     // For a seamless infinite loop, we need at least two copies and enough content to fill screen

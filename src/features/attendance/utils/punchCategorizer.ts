@@ -30,31 +30,25 @@ export function categorizePunches(
   yesterdayRecord?: AttendanceRecord | null,
   todayDateStr?: string, // YYYY-MM-DD
   shiftType: ShiftType = 'morning',
-  isEndOfDayEvaluation: boolean = false
+  isEndOfDayEvaluation: boolean = false,
+  hasConnectedShifts: boolean = false
 ): Partial<AttendanceRecord> {
   if (!rawPunches || rawPunches.length === 0) return {};
 
   // 1. Sort punches by time
   const sortedPunches = [...rawPunches].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-  // 2. تطبيق مهلة الأمان (3 دقائق بين البصمات المتتالية للحركة نفسها) لمنع التكرار العرضي
+  // 2. تطبيق مهلة الأمان (3 دقائق للمعتاد، ودقيقة واحدة للمناوب بالشفتات المتصلة) لمنع التكرار العرضي
   // مع الحفاظ على كل بصمة جديدة بعد انقضاء المهلة
+  const cooldownMs = (shiftType === 'shift' && hasConnectedShifts) ? 60 * 1000 : 3 * 60 * 1000;
   const filteredPunches: RawPunch[] = [];
   let i = 0;
   while (i < sortedPunches.length) {
     let j = i + 1;
     while (
       j < sortedPunches.length &&
-      new Date(sortedPunches[j].time).getTime() - new Date(sortedPunches[j - 1].time).getTime() <= 3 * 60 * 1000
+      new Date(sortedPunches[j].time).getTime() - new Date(sortedPunches[j - 1].time).getTime() <= cooldownMs
     ) {
-      // إذا كانت الخانة محددة صراحة وتختلف عن السابقة، لا ندمجها حتى لو كانت متقاربة
-      if (
-        sortedPunches[j].target_slot &&
-        sortedPunches[j - 1].target_slot &&
-        sortedPunches[j].target_slot !== sortedPunches[j - 1].target_slot
-      ) {
-        break;
-      }
       j++;
     }
     // في مهلة الدخول نعتمد أول بصمة، وفي مهلة الخروج/الانصراف نعتمد آخر بصمة

@@ -1,0 +1,5 @@
+#!/bin/bash
+time curl -i -s -X POST 'http://127.0.0.1:80/functions/v1/send-notification' \
+  -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg0MjUzNTAxLCJleHAiOjIwOTk2MTM1MDF9.J6epEjJZoyDL5GM_PNLoh3P2j18CCP4WeLrfAejCaew' \
+  -H 'Content-Type: application/json' \
+  -d '{"recipientId":"123","message":"test message"}'

@@ -1,0 +1,2 @@
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id, full_name, role, admin_role, governorate FROM profiles WHERE id = '4b16b87b-04ba-4bc7-8958-462f74b8c073';"
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id, recipient_id, sender_id, type, title, content, is_read, metadata, created_at FROM system_notifications WHERE recipient_id = '4b16b87b-04ba-4bc7-8958-462f74b8c073' ORDER BY created_at DESC LIMIT 10;"

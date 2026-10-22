@@ -49,6 +49,7 @@ export default function AttendanceAdminSettings() {
 
   // Assignments State
   const [selectedLocId, setSelectedLocId] = useState<string>('');
+  const [locFilterSearch, setLocFilterSearch] = useState<string>('');
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -65,12 +66,19 @@ export default function AttendanceAdminSettings() {
 
   const handleSelectGlobalEmployee = async (emp: any) => {
     try {
+      setLocFilterSearch('');
       const locId = await workLocationService.getEmployeeLocation(emp.id);
       if (locId) {
         setSelectedLocId(locId);
         setHighlightedEmpId(emp.id);
         const loc = locations.find(l => l.id === locId);
         toast.success(`تم الانتقال إلى: ${loc?.name || 'موقع العمل'} وتحديد الموظف (${emp.full_name})`);
+
+        // Smooth scroll to the location button in the list
+        const locBtn = document.getElementById(`loc-btn-${locId}`);
+        if (locBtn) {
+          locBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       } else {
         toast((t) => (
           <div className="text-xs space-y-1">
@@ -225,7 +233,12 @@ export default function AttendanceAdminSettings() {
       const data = await workLocationService.getAllLocations();
       setLocations(data);
       if (data.length > 0 && !selectedLocId) {
-        setSelectedLocId(data[0].id);
+        const filtered = data.filter(l => l.is_active && (!activeGovernorate || activeGovernorate === 'all' || l.governorate === activeGovernorate));
+        if (filtered.length > 0) {
+          setSelectedLocId(filtered[0].id);
+        } else {
+          setSelectedLocId(data[0].id);
+        }
       }
     } catch (err: any) {
       toast.error('فشل تحميل مواقع العمل: ' + err.message);
@@ -1334,21 +1347,52 @@ export default function AttendanceAdminSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Right Side: Locations Selector */}
               <div className="lg:col-span-1 space-y-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-500" />
-                  اختر موقع العمل
-                </h2>
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2 max-h-[385px] overflow-y-auto custom-scrollbar">
-                  {locations.filter(l => l.is_active).map((loc) => (
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-500" />
+                    اختر موقع العمل
+                  </h2>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    {locations.filter(l => l.is_active && (!activeGovernorate || activeGovernorate === 'all' || l.governorate === activeGovernorate)).length} موقع
+                  </span>
+                </div>
+
+                {/* Filter locations search input */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={locFilterSearch}
+                    onChange={(e) => setLocFilterSearch(e.target.value)}
+                    placeholder="ابحث عن موقع أو قسم أو مجمع..."
+                    className="w-full pr-9 pl-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+                  />
+                  {locFilterSearch && (
+                    <button
+                      onClick={() => setLocFilterSearch('')}
+                      className="absolute left-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-4 space-y-2 max-h-[480px] overflow-y-auto custom-scrollbar">
+                  {locations.filter(l => 
+                    l.is_active && 
+                    (!activeGovernorate || activeGovernorate === 'all' || l.governorate === activeGovernorate) &&
+                    (!locFilterSearch.trim() || l.name.toLowerCase().includes(locFilterSearch.trim().toLowerCase()))
+                  ).map((loc) => (
                     <button
                       key={loc.id}
+                      id={`loc-btn-${loc.id}`}
                       onClick={() => {
                         setSelectedLocId(loc.id);
                         setHighlightedEmpId(null);
                       }}
                       className={`w-full text-right p-4 rounded-xl font-bold transition-all border flex items-center justify-between ${
                         selectedLocId === loc.id
-                          ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                          ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-500/20 ring-2 ring-blue-400'
                           : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-300'
                       }`}
                     >
@@ -1356,8 +1400,14 @@ export default function AttendanceAdminSettings() {
                       <MapPin className={`w-4 h-4 ${selectedLocId === loc.id ? 'text-white' : 'text-slate-400'}`} />
                     </button>
                   ))}
-                  {locations.filter(l => l.is_active).length === 0 && (
-                    <p className="text-sm text-slate-500 text-center py-4">يرجى إضافة أو تفعيل موقع عمل واحد على الأقل.</p>
+                  {locations.filter(l => 
+                    l.is_active && 
+                    (!activeGovernorate || activeGovernorate === 'all' || l.governorate === activeGovernorate) &&
+                    (!locFilterSearch.trim() || l.name.toLowerCase().includes(locFilterSearch.trim().toLowerCase()))
+                  ).length === 0 && (
+                    <p className="text-sm text-slate-500 text-center py-4">
+                      {locFilterSearch ? 'لا توجد مواقع عمل مطابقة للبحث.' : 'يرجى إضافة أو تفعيل موقع عمل واحد على الأقل.'}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1383,7 +1433,7 @@ export default function AttendanceAdminSettings() {
                     </div>
 
                     {/* Assigned list */}
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 flex flex-col">
                       <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                         قائمة الموظفين المرتبطين بالموقع ({assignedEmployees.length})
                       </h3>
@@ -1394,8 +1444,12 @@ export default function AttendanceAdminSettings() {
                           <p>لا يوجد موظفون مرتبطون بهذا الموقع حالياً.</p>
                         </div>
                       ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                          {assignedEmployees.map((ae) => {
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-[440px] overflow-y-auto custom-scrollbar pr-1">
+                          {[...assignedEmployees].sort((a, b) => {
+                            if (a.employee_id === highlightedEmpId) return -1;
+                            if (b.employee_id === highlightedEmpId) return 1;
+                            return (a.employee?.full_name || '').localeCompare(b.employee?.full_name || '', 'ar');
+                          }).map((ae) => {
                             const isEditing = editingEmployeeId === ae.employee_id;
                             const isHighlighted = highlightedEmpId === ae.employee_id;
                             const empSchedule = ae.employee?.work_schedule || workSchedules.find(s => s.id === ae.employee?.work_schedule_id);

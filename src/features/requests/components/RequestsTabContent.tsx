@@ -19,13 +19,16 @@
 import { useState, useRef, useEffect, lazy, Suspense, useCallback } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, CheckCircle2, Loader2 } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Loader2, Calendar, Stethoscope, UserX } from 'lucide-react';
 import { REQUEST_TYPE_OPTIONS } from './requestTypes';
+import { useAuth } from '../../../context/AuthContext';
+import { useEmployeeData } from '../../../hooks/useEmployeeData';
 
 // ── Lazy-loaded forms (bundle-dynamic-imports) ────────────────────────────────
 const TimeOffRequestForm  = lazy(() => import('./TimeOffRequestForm'));
 const LeaveRequestForm    = lazy(() => import('./LeaveRequestForm'));
 const DutyRequestForm     = lazy(() => import('./DutyRequestForm'));
+const ServiceContinuityRequestForm = lazy(() => import('./ServiceContinuityRequestForm'));
 
 // ── Placeholder for not-yet-built administrative forms ────────────────────────
 const ComingSoonForm = ({ label }: { label: string }) => (
@@ -58,6 +61,10 @@ function SelectedForm({ typeId, leaveType, label, onSuccess }: {
     return <DutyRequestForm key={typeId} onSuccess={onSuccess} />;
   }
 
+  if (typeId === 'service_extension' || typeId === 'service_continuity') {
+    return <ServiceContinuityRequestForm key={typeId} onSuccess={onSuccess} />;
+  }
+
   if (leaveType) {
     // All other leave-based types use the existing LeaveRequestForm
     return <LeaveRequestForm key={typeId} initialLeaveType={leaveType as any} onSuccess={onSuccess} />;
@@ -69,6 +76,10 @@ function SelectedForm({ typeId, leaveType, label, onSuccess }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export const RequestsTabContent = () => {
+  const { user } = useAuth();
+  const { data: employeeData, isLoading: isLoadingData } = useEmployeeData(user?.id);
+  const fin = employeeData?.financialData;
+
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialType = (location.state as any)?.openSubtype || searchParams.get('request_type');
@@ -112,6 +123,65 @@ export const RequestsTabContent = () => {
 
   return (
     <div className="w-full space-y-4" dir="rtl">
+
+      {/* ── شريط ملخص الأرصدة والغياب المثبت ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* رصيد الإجازات الاعتيادية */}
+        <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/50 dark:border-blue-800/40 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/15 dark:bg-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+            <Calendar size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">رصيد الإجازات المتبقي</p>
+            <p className="text-lg font-black text-gray-900 dark:text-white mt-0.5">
+              {isLoadingData ? '...' : `${fin?.remaining_leaves_balance ?? 0} يوم`}
+            </p>
+          </div>
+        </div>
+
+        {/* رصيد المرضية */}
+        <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/50 dark:border-emerald-800/40 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+            <Stethoscope size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">الرصيد المرضي</p>
+            <p className="text-lg font-black text-gray-900 dark:text-white mt-0.5">
+              {isLoadingData ? '...' : `${fin?.sick_leaves_balance ?? 30} يوم`}
+            </p>
+          </div>
+        </div>
+
+        {/* عداد الغياب المثبت (نهائي) */}
+        <div className={`flex items-center gap-3 p-3.5 rounded-2xl border shadow-sm transition-colors ${
+          (fin?.unpaid_leaves_total ?? 0) > 0
+            ? 'bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/25 dark:to-rose-950/25 border-red-200/60 dark:border-red-800/50'
+            : 'bg-gradient-to-br from-gray-50 to-slate-50/50 dark:from-slate-800/40 dark:to-slate-800/20 border-gray-200/50 dark:border-slate-700/50'
+        }`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            (fin?.unpaid_leaves_total ?? 0) > 0
+              ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+              : 'bg-gray-500/15 text-gray-600 dark:text-gray-400'
+          }`}>
+            <UserX size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">أيام الغياب المثبتة (نهائي)</p>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className={`text-lg font-black ${
+                (fin?.unpaid_leaves_total ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+              }`}>
+                {isLoadingData ? '...' : `${fin?.unpaid_leaves_total ?? 0} يوم`}
+              </span>
+              {!isLoadingData && (fin?.unpaid_leaves_total ?? 0) === 0 && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                  سجل نظيف
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Selector row ──────────────────────────────────────────────────────── */}
       <div className="relative flex items-stretch gap-3" ref={dropdownRef}>

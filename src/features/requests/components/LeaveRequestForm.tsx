@@ -13,6 +13,7 @@ import LeaveSupportingImages from './LeaveSupportingImages';
 import { LeaveBalanceCard } from './LeaveBalanceCard';
 import { LeavePayToggle } from './LeavePayToggle';
 import { LeaveTypeInfoAlert } from './LeaveTypeInfoAlert';
+import { SubstituteSelector, type SubstituteEmployee } from './SubstituteSelector';
 
 const getLeaveTypeName = (type: string) => {
   switch (type) {
@@ -83,13 +84,22 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [substitute, setSubstitute] = useState<SubstituteEmployee | null>(null);
 
   const [managerInfo, setManagerInfo] = useState<{ id: string, name: string, names?: string[], isTopManagerSelf?: boolean } | null>(null);
   const [loadingManager, setLoadingManager] = useState(true);
 
   // Roster Smart Schedule State
+  interface RosterShiftOption {
+    id: string;
+    label: string;
+    days: number;
+    description: string;
+  }
   const [userSchedule, setUserSchedule] = useState<any>(null);
   const [rosterNotice, setRosterNotice] = useState<{ type: 'warning' | 'info'; text: string } | null>(null);
+  const [availableShiftOptions, setAvailableShiftOptions] = useState<RosterShiftOption[]>([]);
+  const [selectedShiftOptionId, setSelectedShiftOptionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -113,6 +123,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
   useEffect(() => {
     if (!userSchedule || userSchedule.type !== 'roster' || !formData.startDate) {
       setRosterNotice(null);
+      setAvailableShiftOptions([]);
+      setSelectedShiftOptionId(null);
       return;
     }
 
@@ -131,21 +143,106 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         type: 'warning',
         text: '⚠️ هذا اليوم هو يوم استراحة في جدول مناوبتك ولا يتطلب تقديم إجازة اعتيادية.'
       });
-    } else if ((isEvening && isNight) || (isMorning && isEvening && isNight)) {
+      setAvailableShiftOptions([]);
+      setSelectedShiftOptionId(null);
+      return;
+    }
+
+    const options: RosterShiftOption[] = [];
+
+    // 1. حالة مسائي + خفر (حالة المناوبة الممتدة 17 ساعة)
+    if (isEvening && isNight && !isMorning) {
+      options.push(
+        { id: 'evening_only', label: 'المسائي فقط', days: 1, description: 'إعفاء من الشفت المسائي (يبقى شفت الخفر مطلوباً منك)' },
+        { id: 'night_only', label: 'الخفر فقط', days: 2, description: 'إعفاء من شفت الخفر (يبقى الشفت المسائي مطلوباً منك)' },
+        { id: 'full_day', label: 'كامل اليوم (مسائي + خفر)', days: 3, description: 'إعفاء شامل وتام من الحضور لكامل اليوم (3 أيام)' }
+      );
       setRosterNotice({
         type: 'info',
-        text: 'ℹ️ هذا اليوم يتضمن نوبة ممتدة (مسائي + خفر = 17 ساعة متواصلة) وتعادل 3 أيام دوام قانوني (7س/يوم). سيتم احتساب وخصم 3 أيام إجازة لإعفائك من كامل النوبة.'
+        text: 'ℹ️ جدول مناوبتك لهذا اليوم يتضمن (مسائي + خفر): إما إجازة يوم واحد للمسائي، أو يومين للخفر، أو 3 أيام لإعفائك من الحضور لهذا اليوم بالكامل.'
       });
-      setFormData(prev => {
-        if (prev.daysCount === 1) {
-          return { ...prev, daysCount: 3 };
-        }
-        return prev;
+    }
+    // 2. حالة صباحي + مسائي
+    else if (isMorning && isEvening && !isNight) {
+      options.push(
+        { id: 'morning_only', label: 'الصباحي فقط', days: 1, description: 'إعفاء من الشفت الصباحي (يبقى الشفت المسائي مطلوباً)' },
+        { id: 'evening_only', label: 'المسائي فقط', days: 1, description: 'إعفاء من الشفت المسائي (يبقى الشفت الصباحي مطلوباً)' },
+        { id: 'full_day', label: 'كامل اليوم (صباحي + مسائي)', days: 2, description: 'إعفاء شامل من الحضور لكلا الشفتين (2 يوم)' }
+      );
+      setRosterNotice({
+        type: 'info',
+        text: 'ℹ️ جدول مناوبتك لهذا اليوم يتضمن (صباحي + مسائي = 2 يوم): اختر يوماً واحداً لأحد الشفتين، أو يومين لإعفائك من الاثنين معاً.'
       });
-    } else {
+    }
+    // 3. حالة صباحي + خفر
+    else if (isMorning && isNight && !isEvening) {
+      options.push(
+        { id: 'morning_only', label: 'الصباحي فقط', days: 1, description: 'إعفاء من الشفت الصباحي (يبقى شفت الخفر مطلوباً)' },
+        { id: 'night_only', label: 'الخفر فقط', days: 2, description: 'إعفاء من شفت الخفر (يبقى الشفت الصباحي مطلوباً)' },
+        { id: 'full_day', label: 'كامل اليوم (صباحي + خفر)', days: 3, description: 'إعفاء شامل وتام من الحضور لهذا اليوم (3 أيام)' }
+      );
+      setRosterNotice({
+        type: 'info',
+        text: 'ℹ️ جدول مناوبتك لهذا اليوم يتضمن (صباحي + خفر = 3 أيام): اختر يوماً للصباحي، أو يومين للخفر، أو 3 أيام للإعفاء التام.'
+      });
+    }
+    // 4. حالة صباحي + مسائي + خفر (نوبة 24 ساعة تلفيقية)
+    else if (isMorning && isEvening && isNight) {
+      options.push(
+        { id: 'morning_only', label: 'الصباحي فقط', days: 1, description: 'إعفاء من الصباحي فقط (1 يوم)' },
+        { id: 'evening_only', label: 'المسائي فقط', days: 1, description: 'إعفاء من المسائي فقط (1 يوم)' },
+        { id: 'night_only', label: 'الخفر فقط', days: 2, description: 'إعفاء من شفت الخفر فقط (2 يوم)' },
+        { id: 'morning_evening', label: 'صباحي + مسائي', days: 2, description: 'إعفاء من الصباحي والمسائي معاً (2 يوم)' },
+        { id: 'evening_night', label: 'مسائي + خفر', days: 3, description: 'إعفاء من المسائي والخفر معاً (3 أيام)' },
+        { id: 'full_day', label: 'كامل النوبة (24 ساعة)', days: 4, description: 'إعفاء شامل وتام من الحضور (4 أيام)' }
+      );
+      setRosterNotice({
+        type: 'info',
+        text: 'ℹ️ هذا اليوم يتضمن دواماً كاملاً (صباحي + مسائي + خفر = 4 أيام قانونية). حدد الشفت المطلوب لإجازتك.'
+      });
+    }
+    // 5. حالة خفر فقط
+    else if (isNight) {
+      options.push(
+        { id: 'night_only', label: 'شفت الخفر', days: 2, description: 'شفت الخفر نوبة ممتدة تعادل يومين قانونيين ولا تتجزأ (2 يوم)' }
+      );
+      setRosterNotice({
+        type: 'info',
+        text: 'ℹ️ جدول مناوبتك لهذا اليوم يتضمن شفت خفر (وزنه يومان قانونيان = 2 يوم). لا تتجزأ إجازة الخفر إلى يوم واحد.'
+      });
+    }
+    // 6. حالة صباحي فقط
+    else if (isMorning) {
+      options.push(
+        { id: 'morning_only', label: 'الشفت الصباحي', days: 1, description: 'إعفاء من الشفت الصباحي (1 يوم)' }
+      );
       setRosterNotice(null);
     }
+    // 7. حالة مسائي فقط
+    else if (isEvening) {
+      options.push(
+        { id: 'evening_only', label: 'الشفت المسائي', days: 1, description: 'إعفاء من الشفت المسائي (1 يوم)' }
+      );
+      setRosterNotice(null);
+    }
+
+    setAvailableShiftOptions(options);
+
+    // ضبط تلقائي إذا كان هناك خيار وحيد أو إذا كان افتراضياً
+    if (options.length === 1) {
+      setSelectedShiftOptionId(options[0].id);
+      setFormData(prev => ({ ...prev, daysCount: options[0].days }));
+    }
   }, [formData.startDate, userSchedule]);
+
+  const handleSelectShiftOption = (opt: RosterShiftOption) => {
+    setSelectedShiftOptionId(opt.id);
+    setFormData(prev => ({
+      ...prev,
+      daysCount: opt.days
+    }));
+    setError(null);
+  };
 
   // Latest request logic
   const [latestRequest, setLatestRequest] = useState<any>(null);
@@ -180,19 +277,40 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     }
   }, [isArchiveExpanded]);
 
+  // مزامنة نوع الإجازة الأولي عند تغييره من الخارج
+  useEffect(() => {
+    if (initialLeaveType && initialLeaveType !== formData.leaveType) {
+      setFormData(prev => ({ ...prev, leaveType: initialLeaveType }));
+    }
+  }, [initialLeaveType]);
+
+  // تصفير نتائج البحث عند تغيير نوع الإجازة لضمان عزل البيانات
+  useEffect(() => {
+    setArchiveRecords([]);
+    setHasSearched(false);
+  }, [formData.leaveType]);
+
   const handleArchiveSearch = async () => {
     if (!user) return;
     setIsLoadingArchive(true);
     setHasSearched(true);
 
     try {
+      const currentType = formData.leaveType;
+      const relevantTypes = (currentType === 'sick' || currentType === 'long_sick')
+        ? ['sick', 'long_sick']
+        : (currentType === 'regular' || currentType === 'long_regular')
+        ? ['regular', 'long_regular']
+        : [currentType];
+
       let query = supabase
         .from('leave_requests')
         .select(`
-          id, start_date, end_date, days_count, status, cancellation_status, created_at, unpaid_days,
+          id, start_date, end_date, days_count, status, cancellation_status, created_at, unpaid_days, with_pay, leave_type,
           leave_history(new_balance, action_type)
         `)
         .eq('user_id', user.id)
+        .in('leave_type', relevantTypes)
         .in('status', ['approved', 'canceled']);
 
       if (archiveStartDate) query = query.gte('start_date', archiveStartDate);
@@ -238,10 +356,18 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
   const fetchLatestRequest = async () => {
     if (!user) return;
     try {
+      const currentType = formData.leaveType;
+      const relevantTypes = (currentType === 'sick' || currentType === 'long_sick')
+        ? ['sick', 'long_sick']
+        : (currentType === 'regular' || currentType === 'long_regular')
+        ? ['regular', 'long_regular']
+        : [currentType];
+
       const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
         .eq('user_id', user.id)
+        .in('leave_type', relevantTypes)
         .neq('with_request', false)
         .eq('is_mandatory', false)
         .order('created_at', { ascending: false })
@@ -258,7 +384,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   useEffect(() => {
     fetchLatestRequest();
-  }, [user?.id, success]); // refetch on success
+  }, [user?.id, formData.leaveType, success]); // refetch on leaveType change or success
 
   // Realtime subscription for latest request and balance
   useEffect(() => {
@@ -440,6 +566,49 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         setError('لا يجوز أن يصادف يوم المباشرة المتوقعة يوم سبت. يرجى تعديل عدد الأيام.');
         return;
       }
+    } else if (['regular', 'long_regular'].includes(formData.leaveType)) {
+      // ─── عقل التحقق الذكي لشفتات المناوب ───
+      const startObj = new Date(formData.startDate);
+      const dow = startObj.getDay();
+      const daySchedule = userSchedule.days?.find((d: any) => d.day_of_week === dow);
+      const isMorning = daySchedule?.is_morning ?? false;
+      const isEvening = daySchedule?.is_evening ?? false;
+      const isNight = daySchedule?.is_night ?? false;
+      const hasShifts = isMorning || isEvening || isNight;
+      const isRest = daySchedule?.is_rest_day ?? !hasShifts;
+
+      if (isRest) {
+        setError('لا يمكن تقديم إجازة اعتيادية في يوم استراحة (Off) في جدول المناوبة.');
+        return;
+      }
+
+      // 1. اعتراض حالة مسائي + خفر (حالة المستخدم الأساسية)
+      if (isEvening && isNight && !isMorning) {
+        if (formData.daysCount === 2 && selectedShiftOptionId !== 'night_only') {
+          setError('تنبيه جدول المناوبة: لديك في هذا اليوم شفت (مسائي + خفر): فإما أن تكون الإجازة يوماً واحداً لتعفى من المسائي ويبقى شفت الخفر مطلوباً منك، أو يومين لتعفى من الخفر ويبقى المسائي مطلوباً منك، أو ثلاثة أيام لتشمل المسائي والخفر معاً وتعفى من الحضور لهذا اليوم بالكامل. يرجى تحديد الشفت المطلوب بدقة.');
+          return;
+        }
+        if (formData.daysCount !== 1 && formData.daysCount !== 2 && formData.daysCount !== 3 && formData.daysCount <= 3) {
+          setError('تنبيه: مجموع شفتات هذا اليوم (مسائي + خفر) يعادل 3 أيام كحد أقصى. يرجى اختيار 1 أو 2 أو 3 أيام.');
+          return;
+        }
+      }
+
+      // 2. اعتراض شفت الخفر المنفرد
+      if (isNight && !isMorning && !isEvening) {
+        if (formData.daysCount === 1) {
+          setError('تنبيه جدول المناوبة: شفت الخفر هو نوبة ممتدة تعادل يومين قانونيين (2 يوم) ولا تتجزأ إلى يوم واحد. يجب أن تكون الإجازة يومين (2) لإعفائك من شفت الخفر.');
+          return;
+        }
+      }
+
+      // 3. اعتراض شفت صباحي أو مسائي منفرد
+      if ((isMorning && !isEvening && !isNight) || (isEvening && !isMorning && !isNight)) {
+        if (formData.daysCount > 1 && formData.leaveType === 'regular' && formData.daysCount <= 3) {
+          setError(`تنبيه جدول المناوبة: يتضمن جدولك لهذا اليوم شفت (${isMorning ? 'صباحي' : 'مسائي'}) واحد فقط وزنه يوم إجازة واحد (1 يوم).`);
+          return;
+        }
+      }
     }
 
     if (!formData.supervisorId) {
@@ -534,6 +703,11 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       }
     }
 
+    if (!substitute) {
+      setError('يرجى تحديد موظف بديل من نفس المحافظة ليقوم بتغطية واجبك أثناء التمتع بالإجازة.');
+      return;
+    }
+
     setError(null);
     setShowConfirmModal(true);
   };
@@ -543,9 +717,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
     setIsSubmitting(true);
     try {
+      const isRosterUser = userSchedule?.type === 'roster';
       let finalReason = formData.reason;
       let finalStartDate = formData.startDate;
       let finalEndDate = endDate || formData.startDate;
+
+      if (isRosterUser && selectedShiftOptionId) {
+        const selectedOpt = availableShiftOptions.find(o => o.id === selectedShiftOptionId);
+        if (selectedOpt && !finalReason.includes(selectedOpt.label)) {
+          finalReason = `[نوبة: ${selectedOpt.label}] ${finalReason}`;
+        }
+      }
 
       if (formData.leaveType === 'time_off') {
         finalReason = `(ساعة الخروج: ${formData.startTime}) ${formData.reason ? '- ' + formData.reason : ''}`;
@@ -565,7 +747,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         p_time_duration_minutes: formData.leaveType === 'time_off' ? formData.timeDurationMinutes : null,
         p_destination: (formData.leaveType === 'dispatch' || formData.leaveType === 'duty') ? formData.destination : null,
         p_with_pay: formData.withPay,
-        p_supporting_image_urls: formData.supportingImageUrls
+        p_supporting_image_urls: formData.supportingImageUrls,
+        p_substitute_id: substitute?.id || null
       });
 
       if (rpcError) throw rpcError;
@@ -583,8 +766,22 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       setSuccess(true);
       setShowConfirmModal(false);
 
-      // Notify Supervisor
-      if (formData.supervisorId) {
+      // Notification: Send push to substitute first if selected, otherwise to supervisor
+      if (substitute) {
+        const typeName = getLeaveTypeName(formData.leaveType);
+        const { data: subProf } = await supabase
+          .from('available_profiles')
+          .select('push_token')
+          .eq('id', substitute.id)
+          .single();
+        if (subProf?.push_token) {
+          sendPushNotification(
+            subProf.push_token,
+            `طلب منك الزميل ${user?.full_name} أن تكون بديلاً عنه أثناء إجازته (${typeName}) لتاريخ ${formData.startDate}`,
+            { title: '📋 طلب تكليف كبديل لموظف مجاز', url: `${window.location.origin}/requests` }
+          );
+        }
+      } else if (formData.supervisorId) {
         const typeName = getLeaveTypeName(formData.leaveType);
         sendPushNotification(
             formData.supervisorId, 
@@ -613,6 +810,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   const leavesBalance = financialData?.remaining_leaves_balance;
   const sickLeavesBalance = financialData?.sick_leaves_balance;
+  const unpaidLeavesTotal = financialData?.unpaid_leaves_total ?? 0;
   const expiryDate = financialData?.leaves_balance_expiry_date;
 
   const today = new Date().toISOString().split('T')[0];
@@ -674,7 +872,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
           <div>
             <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
               <Clock size={14} className="text-indigo-500" />
-              أحدث طلب إجازة ({latestRequest.leave_type === 'regular' ? 'اعتيادية' : latestRequest.leave_type === 'sick' ? 'مرضية' : latestRequest.leave_type === 'time_off' ? 'زمنية' : latestRequest.leave_type === 'dispatch' ? 'إيفاد' : latestRequest.leave_type === 'duty' ? 'واجب' : latestRequest.leave_type === 'long_regular' ? 'اعتيادية طويلة' : latestRequest.leave_type === 'long_sick' ? 'مرضية طويلة' : 'إجازة'})
+              {formData.leaveType === 'sick' || formData.leaveType === 'long_sick' ? (
+                <span>{latestRequest.status === 'pending' ? 'طلب إجازة مرضية (قيد الانتظار)' : 'إجازة مرضية حالية معتمدة'}</span>
+              ) : formData.leaveType === 'regular' || formData.leaveType === 'long_regular' ? (
+                <span>{latestRequest.status === 'pending' ? 'طلب إجازة اعتيادية (قيد الانتظار)' : 'إجازة اعتيادية حالية معتمدة'}</span>
+              ) : (
+                <span>أحدث طلب إجازة ({getLeaveTypeName(latestRequest.leave_type)})</span>
+              )}
               {latestRequest.modification_type === 'canceled' && (
                 <span className={`font-bold text-xs px-2 py-0.5 rounded-full ${latestRequest.status === 'canceled' ? 'text-red-500 bg-red-50 dark:bg-red-900/30' : 'text-amber-500 bg-amber-50 dark:bg-amber-900/30'}`}>
                   {latestRequest.status === 'canceled' ? 'ملغاة نهائياً' : 'بانتظار الموافقة على الإلغاء'}
@@ -682,7 +886,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               )}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              من {latestRequest.start_date} إلى {latestRequest.end_date}
+              من {latestRequest.start_date} إلى {latestRequest.end_date} ({latestRequest.days_count} يوم)
               <span className={`mx-2 px-2 py-0.5 rounded-full text-xs font-bold ${
                 latestRequest.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
                 latestRequest.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
@@ -713,6 +917,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         leaveType={formData.leaveType}
         regularBalance={leavesBalance}
         sickBalance={sickLeavesBalance}
+        unpaidLeavesTotal={unpaidLeavesTotal}
         expiryDate={expiryDate}
         isLoading={isLoading}
       />
@@ -748,12 +953,19 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
             <div className="w-14 h-14 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={28} className="text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم الإرسال بنجاح</h3>
-            <p className="text-green-600 dark:text-green-400 mb-6 text-sm">
-              تم إرسال الطلب إلى المسؤول المباشر للموافقة. ستصلك الإجابة قريباً.
+            <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">تم تقديم الطلب بنجاح</h3>
+            <p className="text-green-600 dark:text-green-400 mb-6 text-sm leading-relaxed">
+              {substitute ? (
+                <>
+                  تم إرسال طلب التكليف كبديل إلى الزميل (<span className="font-bold text-gray-900 dark:text-white">{substitute.fullName}</span>) للموافقة أولاً.
+                  فور موافقته، سيُحوَّل طلب الإجازة تلقائياً إلى مسؤولك المباشر للاعتماد.
+                </>
+              ) : (
+                'تم إرسال الطلب إلى المسؤول المباشر للموافقة. ستصلك الإجابة قريباً.'
+              )}
             </p>
             <button
-              onClick={() => setSuccess(false)}
+              onClick={() => { setSuccess(false); setSubstitute(null); }}
               className="bg-green-600 text-white px-6 py-2 rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-500/20"
             >
               تقديم طلب جديد
@@ -839,6 +1051,44 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                         <span>{rosterNotice.text}</span>
                       </div>
                     )}
+
+                    {/* خيارات الشفتات التفاعلية للمناوبين */}
+                    {availableShiftOptions.length > 1 && (
+                      <div className="mt-3 p-3.5 bg-gradient-to-br from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/20 dark:to-blue-950/20 border border-indigo-200/70 dark:border-indigo-800/40 rounded-xl space-y-2 animate-in fade-in duration-200">
+                        <label className="block text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                          🎯 حدد الشفت المراد طلب إجازة له في هذا اليوم:
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {availableShiftOptions.map((opt) => {
+                            const isSelected = selectedShiftOptionId === opt.id || (formData.daysCount === opt.days && !selectedShiftOptionId && opt.id === 'full_day');
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => handleSelectShiftOption(opt)}
+                                className={`text-right p-3 rounded-xl border text-xs transition-all ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-600 shadow-md font-bold scale-[1.02]'
+                                    : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-indigo-300 hover:bg-indigo-50/30'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="font-bold text-sm">{opt.label}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                    isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                                  }`}>
+                                    {opt.days} {opt.days === 1 ? 'يوم' : opt.days === 2 ? 'يومان' : 'أيام'}
+                                  </span>
+                                </div>
+                                <p className={`text-[11px] leading-relaxed ${isSelected ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {opt.description}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -921,6 +1171,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               </span>
             </div>
 
+            {/* Substitute Employee Selection */}
+            <div className="pt-2">
+              <SubstituteSelector
+                selectedSubstitute={substitute}
+                onSelect={setSubstitute}
+                required={true}
+                label="الموظف البديل المكلف بتغطية واجبك أثناء الإجازة"
+                helpText="يلزم تحديد موظف بديل من نفس المحافظة ليقوم بتغطية واجبك أثناء تمتعك بالإجازة. سيتلقى إشعاراً فورياً للموافقة قبل توجيه الطلب للمسؤولين."
+              />
+            </div>
+
             {/* Reason */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -954,9 +1215,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب للمسؤول'}
+              {isSubmitting ? 'جاري الإرسال...' : substitute ? 'إرسال طلب التكليف للبديل' : 'إرسال الطلب للمسؤول'}
             </button>
           </form>
         )}
@@ -971,12 +1232,20 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-28 md:pb-32 overflow-y-auto bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl scale-100 max-h-[calc(100vh-9rem)] overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">تأكيد إرسال الطلب</h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
               هل أنت متأكد من صحة المعلومات المدخلة؟
               <br />
               <span className="font-semibold block mt-2 text-blue-600 dark:text-blue-400">
                 البداية: {formData.startDate} | المدة: {formData.daysCount} يوم
               </span>
+              {substitute && (
+                <span className="block mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl text-sm text-blue-900 dark:text-blue-200">
+                  <strong>الموظف البديل المكلف:</strong> {substitute.fullName}
+                  <span className="block text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    ℹ️ سيتم إرسال إشعار فوري للبديل للموافقة أولاً، ولن يُحوَّل الطلب للمسؤولين إلا بعد موافقته.
+                  </span>
+                </span>
+              )}
               {leavesBalance !== undefined && formData.daysCount > leavesBalance && (
                 <span className="block mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-800/50 dark:text-amber-300 rounded-lg text-sm flex items-start gap-2">
                   <AlertCircle size={18} className="shrink-0 mt-0.5" />
@@ -1064,8 +1333,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                       <List size={18} />
                   </div>
                   <div className="text-right">
-                      <h2 className="text-base font-bold text-gray-800 dark:text-white">قائمة إجازاتك</h2>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">ابحث عن إجازاتك السابقة واطبعها كقائمة</p>
+                      <h2 className="text-base font-bold text-gray-800 dark:text-white">
+                        {formData.leaveType === 'sick' || formData.leaveType === 'long_sick' ? 'قائمة إجازاتك المرضية' : 'قائمة إجازاتك'}
+                      </h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formData.leaveType === 'sick' || formData.leaveType === 'long_sick'
+                          ? 'ابحث عن إجازاتك المرضية السابقة واطبعها كقائمة'
+                          : 'ابحث عن إجازاتك السابقة واطبعها كقائمة'}
+                      </p>
                   </div>
               </div>
               <div className={`p-2 rounded-full transition-all duration-300 ${isArchiveExpanded ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-gray-100 dark:bg-slate-700 text-gray-500'}`}>
@@ -1144,6 +1419,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                                           // Find the balance at the exact time of approval
                                           const approvalHistory = record.leave_history?.find((h: any) => h.action_type === 'leave_approved');
                                           const historicBalance = approvalHistory?.new_balance ?? '-';
+                                          const isUnpaid = (record.unpaid_days && record.unpaid_days > 0) || record.with_pay === false || record.leave_type === 'unpaid';
 
                                           return (
                                               <tr key={record.id} className="bg-white border-b-2 border-black hover:bg-gray-50">
@@ -1151,8 +1427,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                                                   <td className="px-2 py-4 font-mono dir-ltr text-center font-bold border-l-2 border-black text-black">{record.end_date}</td>
                                                   <td className="px-2 py-4 font-bold border-l-2 border-black text-center text-black text-lg">{record.days_count}</td>
                                                   <td className="px-2 py-4 border-l-2 border-black text-center text-black font-bold">
-                                                      {record.unpaid_days > 0 ? <span className="text-black font-bold">{record.unpaid_days}</span> : '0'}
+                                                      {isUnpaid ? (
+                                                          <span className="text-red-700 font-bold">نعم</span>
+                                                      ) : (
+                                                          <span className="text-black font-bold">كلا</span>
+                                                      )}
                                                   </td>
+
                                                   <td className="px-2 py-4 border-l-2 border-black text-center">
                                                       {isCancelled ? (
                                                           <span className="text-black font-bold">ملغاة</span>

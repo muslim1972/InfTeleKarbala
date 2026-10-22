@@ -36,8 +36,19 @@ export function getTimesheetDayStatus(params: {
   }
 
   // 2. إجازة رسمية معتمدة (يوم كامل)
-  if (dayLeave || rec.leaveLabel) {
+  if (dayLeave || rec.leaveLabel || rec.notes?.includes('إجازة اعتيادية إجبارية')) {
+    const isMandatory = Boolean(dayLeave?.is_mandatory || dayLeave?.reason?.includes('إجازة اعتيادية إجبارية') || rec.notes?.includes('إجازة اعتيادية إجبارية'));
+    const daysCount = dayLeave?.days_count || (shiftInfo?.isNight ? 2 : 1);
     const label = rec.leaveLabel || (dayLeave?.leave_type === 'sick' ? 'مرضية' : 'اعتيادية');
+
+    if (isMandatory) {
+      return {
+        text: `إجازة إجبارية (${daysCount} يوم)`,
+        badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-300 font-bold',
+        style: 'color: #be123c; font-weight: bold;'
+      };
+    }
+
     if (rec.check_in && !rec._isEmpty) {
       // إذا كان الموظف مناوباً ولديه أكثر من شفت، فالإجازة تسقط الشفت الأول والبصمة للشفت التالي وفق Flowchart 2
       if (shiftInfo?.isRoster && (shiftInfo.isEvening || shiftInfo.isNight)) {
@@ -232,9 +243,14 @@ export function getTimesheetSmartNotes(params: {
   }
 
   // 2. إجازة اليوم الكامل
-  if (dayLeave || rec.leaveLabel) {
+  const isMandatoryLeave = Boolean(dayLeave?.is_mandatory || dayLeave?.reason?.includes('إجازة اعتيادية إجبارية') || rec.notes?.includes('إجازة اعتيادية إجبارية'));
+  const daysCount = dayLeave?.days_count || (shiftInfo?.isNight ? 2 : 1);
+
+  if (dayLeave || rec.leaveLabel || isMandatoryLeave) {
     const label = rec.leaveLabel || (dayLeave?.leave_type === 'sick' ? 'مرضية' : 'اعتيادية');
-    if (rec.check_in && !rec._isEmpty) {
+    if (isMandatoryLeave) {
+      notes.push(`🚨 إجازة اعتيادية إجبارية (${daysCount} يوم) — تأخير تجاوز الساعتين`);
+    } else if (rec.check_in && !rec._isEmpty) {
       if (shiftInfo?.isRoster && (shiftInfo.isEvening || shiftInfo.isNight)) {
         notes.push(`إجازة معتمدة (${label}) أسقطت الشفت الأول + حضور الشفت التالي`);
       } else {
@@ -249,6 +265,8 @@ export function getTimesheetSmartNotes(params: {
   if (timeLeaves.length > 0) {
     timeLeaves.forEach(tl => {
       const dur = tl.time_duration_minutes || 0;
+      // استبعاد الملغاة أو ذات المدة 0
+      if (dur <= 0 || tl.status === 'canceled') return;
       let timeRange = '';
       if (tl.leave_start_time && tl.leave_end_time) {
         timeRange = ` من ${tl.leave_start_time.substring(0, 5)} إلى ${tl.leave_end_time.substring(0, 5)}`;
@@ -282,7 +300,7 @@ export function getTimesheetSmartNotes(params: {
 
   // 7. غياب تام في يوم عمل
   if (!isRestOrHoliday && (!rec.check_in || rec._isEmpty)) {
-    if (isPastDay && !dayLeave && !rec.leaveLabel) {
+    if (isPastDay && !dayLeave && !rec.leaveLabel && !isMandatoryLeave) {
       notes.push('غياب عن الدوام بدون إجازة معتمدة');
     }
   }
@@ -291,13 +309,13 @@ export function getTimesheetSmartNotes(params: {
   if (!isRestOrHoliday && rec.check_in && !rec.check_out && !rec._isEmpty) {
     if (isPastDay) {
       notes.push('⚠️ لم يتم تثبيت بصمة الخروج (نقص بصمة)');
-    } else if (isToday) {
+    } else if (isToday && !isMandatoryLeave) {
       notes.push('دوام مستمر (بانتظار بصمة الانصراف)');
     }
   }
 
   // 9. تفاصيل التأخير في الحضور
-  const hasApprovedDayLeave = Boolean(dayLeave || rec.leaveLabel || rec.notes?.includes('إجازة'));
+  const hasApprovedDayLeave = Boolean(dayLeave || rec.leaveLabel || isMandatoryLeave || rec.notes?.includes('إجازة'));
   if (rec.check_in && !rec._isEmpty && shiftInfo?.expectedIn && !isRestOrHoliday) {
     try {
       const inDate = parseISO(rec.check_in);
@@ -320,7 +338,11 @@ export function getTimesheetSmartNotes(params: {
             const diff = differenceInMinutes(inDate, expectedInDate);
             const grace = expectedTimeStr === '08:00' ? 30 : 0;
             if (diff > grace) {
-              notes.push(`تأخير في الحضور (${diff} دقيقة)`);
+              if (isMandatoryLeave || diff > 120) {
+                notes.push(`🚨 تأخير تجاوز الساعتين (${diff} دقيقة) — تحويل لإجازة اعتيادية إجبارية (${daysCount} يوم)`);
+              } else {
+                notes.push(`تأخير في الحضور (${diff} دقيقة)`);
+              }
             }
           }
         }
@@ -373,6 +395,20 @@ export function getTimesheetSmartNotes(params: {
     notes.push('⚠️ مغادرة مؤقتة (خروج دون تسجيل عودة)');
   }
 
+  // فحص غياب الشفت المسائي للمناوب (مسائي + خفر) عند الحضور في شفت الخفر
+  if (shiftInfo?.isRoster && shiftInfo.isEvening && shiftInfo.isNight && rec.check_in && !rec._isEmpty) {
+    try {
+      const inDate = parseISO(rec.check_in);
+      if (isValid(inDate)) {
+        const inMins = inDate.getHours() * 60 + inDate.getMinutes();
+        // إذا حضر بعد انتهاء المسائي (20:00) دون بصمة سابقة للمسائي
+        if (inMins >= 19 * 60 + 30 && !notes.some(n => n.includes('غياب الشفت المسائي'))) {
+          notes.unshift('🚨 غياب الشفت المسائي (لم يُبصم)');
+        }
+      }
+    } catch { }
+  }
+
   // 11. دمج أي ملاحظات يدوية إضافية كانت موجودة أصلاً ولم تكن جزءاً من النصوص التلقائية
   if (rec.notes) {
     const rawClean = rec.notes
@@ -387,14 +423,25 @@ export function getTimesheetSmartNotes(params: {
       .replace(/\|/g, '')
       .trim();
 
-    if (rawClean && rawClean.length > 2 && !notes.some(n => n.includes(rawClean))) {
-      notes.push(rawClean);
+    // منع تكرار عبارات الإجازة الإجبارية أو التأخير المتشابهة
+    const hasAlreadyMandatoryNote = notes.some(n => n.includes('إجازة اعتيادية إجبارية') || n.includes('إجازة إجبارية'));
+    const isRawMandatory = rawClean.includes('إجازة اعتيادية إجبارية') || rawClean.includes('إجازة إجبارية');
+
+    if (rawClean && rawClean.length > 2) {
+      if (isRawMandatory && hasAlreadyMandatoryNote) {
+        // لا تكرر
+      } else if (!notes.some(n => n.includes(rawClean) || rawClean.includes(n))) {
+        notes.push(rawClean);
+      }
     }
   }
 
-  if (notes.length === 0) {
+  // إزالة أي تكرار نهائي
+  const uniqueNotes = Array.from(new Set(notes));
+
+  if (uniqueNotes.length === 0) {
     return '--';
   }
 
-  return notes.join(' | ');
+  return uniqueNotes.join(' | ');
 }

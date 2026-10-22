@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// OPS-03 — حارس الطابوق. بلا اعتماديات خارجية.
+// OPS-03 — محرك الإنفاذ الحتمي لإطار B.R.I.C.K (The Deterministic Sentinel Engine). بلا اعتماديات خارجية.
 // الاستخدام:
-//   node scripts/verify-bricks.mjs              فحص (يفشل بكود 1 عند خطأ)
-//   node scripts/verify-bricks.mjs --snapshot   تسجيل بصمات الملفات الحالية كمرجع (bricks/fingerprints.json)
+//   node scripts/verify-bricks.mjs              فحص الخوارزميات (يفشل بكود 1 عند أي انتهاك)
+//   node scripts/verify-bricks.mjs --snapshot   تسجيل بصمات الأنوية الحالية كمرجع معتمد (bricks/fingerprints.json)
 // الأخطاء (تُفشل الفحص): ملف مملوك مفقود، ملكية مزدوجة، عقد مُعلن مفقود، ملف كان في البصمات واختفى.
-// التحذيرات: ملفات src غير منسوبة لطابوقة، قواعد R# بلا اختبار T# يذكرها، ملفات تغيّرت عن البصمة.
+// التحذيرات: ملفات src غير منسوبة لنواة، قواعد R# بلا اختبار T# يذكرها، ملفات تغيّرت عن البصمة.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -107,8 +107,8 @@ if (process.argv.includes('--db')) {
 
 // التقرير
 const byStatus = reg.bricks.reduce((a, b) => ((a[b.status] = (a[b.status] || 0) + 1), a), {});
-console.log(`\n=== حارس الطابوق OPS-03 ===`);
-console.log(`الطابوق: ${reg.bricks.length}  ${Object.entries(byStatus).map(([k, v]) => `${k}=${v}`).join('  ')}`);
+console.log(`\n=== محرك الإنفاذ الحتمي لإطار B.R.I.C.K (OPS-03) ===`);
+console.log(`الأنوية المعمارية: ${reg.bricks.length}  ${Object.entries(byStatus).map(([k, v]) => `${k}=${v}`).join('  ')}`);
 console.log(`تغطية src: ${coverage}% (${all.length - orphans.length}/${all.length})`);
 if (Object.keys(dbStats).length) console.log(`تغطية DB: ${Object.entries(dbStats).map(([k, v]) => `${k}=${v}`).join('  ')}`);
 if (warns.length) { console.log(`\nتحذيرات (${warns.length}):`); warns.slice(0, 40).forEach((w) => console.log('  ⚠ ' + w)); if (warns.length > 40) console.log(`  … و${warns.length - 40} أخرى`); }

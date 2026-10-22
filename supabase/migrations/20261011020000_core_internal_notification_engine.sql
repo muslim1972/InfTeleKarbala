@@ -53,6 +53,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+#variable_conflict use_column
 DECLARE
     v_dept_id UUID;
     v_curr_dept_id UUID;

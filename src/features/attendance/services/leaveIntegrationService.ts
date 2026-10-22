@@ -246,7 +246,7 @@ export async function getApprovedLeavesInRange(
       .from('leave_requests')
       .select(LEAVE_SELECT_FIELDS)
       .eq('status', 'approved')
-      .neq('with_request', false)
+      .or('with_request.eq.true,is_mandatory.eq.true')
       .lte('start_date', endStr)
       .or(`end_date.gte.${startStr},end_date.is.null`);
 
@@ -256,7 +256,16 @@ export async function getApprovedLeavesInRange(
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []) as LeaveRequestLite[];
+    
+    // استبعاد الإجازات الزمنية الملغاة أو التي مدتها صفر (المستبدلة بإجازة اعتيادية إجبارية)
+    const validLeaves = (data || []).filter((l: any) => {
+      if (l.leave_type === 'time_off' && ((l.time_duration_minutes || 0) <= 0 || l.status === 'canceled')) {
+        return false;
+      }
+      return true;
+    });
+
+    return validLeaves as LeaveRequestLite[];
   } catch (err) {
     console.error('[LeaveIntegration] فشل جلب إجازات النطاق الزمني:', err);
     return [];

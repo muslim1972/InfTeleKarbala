@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { supabase } from '../../../lib/supabase';
 import { computeWorkedMinutes, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
@@ -98,6 +98,30 @@ const extractPunchSnapshots = (rec: any): PunchGalleryItem[] => {
     });
 };
 
+const TimesheetEmployeeFilter = memo(({ onSelectEmployee, currentEmpId }: { onSelectEmployee: (id: string) => void; currentEmpId: string }) => {
+  const [query, setQuery] = useState('');
+
+  return (
+    <div className="w-56">
+      <label className="block text-xs font-medium text-slate-500 mb-1">الموظف</label>
+      <EmployeeSearch 
+        value={query}
+        onChange={(val: string) => {
+          setQuery(val);
+          if (!val && currentEmpId !== 'all') {
+            onSelectEmployee('all');
+          }
+        }}
+        onSelect={(emp: any) => {
+          setQuery(emp.full_name);
+          onSelectEmployee(emp.id);
+        }}
+        placeholder="كل الموظفين..."
+      />
+    </div>
+  );
+});
+
 export default function Timesheets() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -124,7 +148,6 @@ export default function Timesheets() {
   // معرض اللقطات المطوية: يفتح من مقعد الخروج عند تعدد لقطات اليوم (بدون أي حذف)
   const [punchGallery, setPunchGallery] = useState<{ items: PunchGalleryItem[]; title: string } | null>(null);
 
-  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
   const [workSchedules, setWorkSchedules] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [globalHolidays, setGlobalHolidays] = useState<any[]>([]);
@@ -398,19 +421,31 @@ export default function Timesheets() {
                    const ovtMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
 
                    const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
-                   const timeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey));
+                   const dayLeave = (dayLeavesByEmp[group.employee.id] || []).find(l => coversDate(l, dateStrKey));
+                   if (dayLeave) {
+                     rec.dayLeave = dayLeave;
+                     rec.leaveLabel = LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة';
+                     if (dayLeave.is_mandatory || dayLeave.reason?.includes('إجازة اعتيادية إجبارية')) {
+                       rec.status = 'leave';
+                     }
+                     group.leaveCount++;
+                   }
+
+                   const timeLeaves = (timeLeavesByEmp[group.employee.id] || []).filter(l => coversDate(l, dateStrKey) && (l as any).status !== 'canceled' && (l.time_duration_minutes || 0) > 0);
                    if (timeLeaves.length > 0) {
                        const totalTimeOffMins = timeLeaves.reduce((sum, l) => sum + (l.time_duration_minutes || 0), 0);
-                       defMins = Math.max(0, defMins - totalTimeOffMins);
-                       const timeOffNote = `(إجازة زمنية: ${totalTimeOffMins} دقيقة)`;
-                       if (!rec.notes) rec.notes = timeOffNote;
-                       else if (!rec.notes.includes('إجازة زمنية')) rec.notes += ' | ' + timeOffNote;
+                       if (totalTimeOffMins > 0) {
+                         defMins = Math.max(0, defMins - totalTimeOffMins);
+                         const timeOffNote = `(إجازة زمنية: ${totalTimeOffMins} دقيقة)`;
+                         if (!rec.notes) rec.notes = timeOffNote;
+                         else if (!rec.notes.includes('إجازة زمنية')) rec.notes += ' | ' + timeOffNote;
+                       }
                    }
 
                    group.totalWorkMins += netMins;
                    group.totalDeficit += defMins;
                    group.totalOvertime += ovtMins;
-                   if (rec.status === 'late' && !isRestOrHoliday) group.lateCount++;
+                   if (rec.status === 'late' && !isRestOrHoliday && !dayLeave?.is_mandatory) group.lateCount++;
                } else {
                    const fakeDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
                    const isWorkingDay = dayType === 'يوم عمل';
@@ -1199,21 +1234,7 @@ export default function Timesheets() {
               ))}
             </select>
           </div>
-          <div className="w-56">
-            <label className="block text-xs font-medium text-slate-500 mb-1">الموظف</label>
-            <EmployeeSearch 
-              value={employeeSearchQuery}
-              onChange={(val: string) => {
-                setEmployeeSearchQuery(val);
-                if (!val) setEmployeeId('all');
-              }}
-              onSelect={(emp: any) => {
-                setEmployeeId(emp.id);
-                setEmployeeSearchQuery(emp.full_name);
-              }}
-              placeholder="كل الموظفين..."
-            />
-          </div>
+          <TimesheetEmployeeFilter onSelectEmployee={setEmployeeId} currentEmpId={employeeId} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -1346,6 +1367,43 @@ export default function Timesheets() {
                           if (rec._isEmpty) {
                               const isLeaveDay = rec.status === 'leave';
                               const leaveLabel = rec.leaveLabel || 'إجازة';
+
+                              let emptyStatusText = 'لا توجد بصمات';
+                              let emptyStatusColor = 'text-slate-400';
+
+                              const todayKey = format(new Date(), 'yyyy-MM-dd');
+                              const rowDateKey = format(dateObj, 'yyyy-MM-dd');
+                              const isToday = rowDateKey === todayKey;
+                              const isPast = rowDateKey < todayKey;
+
+                              if (isLeaveDay) {
+                                  emptyStatusText = `${leaveLabel} (يوم إجازة معتمدة)`;
+                                  emptyStatusColor = 'text-orange-600 font-bold';
+                              } else if (dayType === 'استراحة') {
+                                  emptyStatusText = 'يوم استراحة';
+                                  emptyStatusColor = 'text-slate-400';
+                              } else if (dayType.startsWith('عطلة')) {
+                                  emptyStatusText = dayType;
+                                  emptyStatusColor = 'text-amber-600 font-bold';
+                              } else if (isPast) {
+                                  emptyStatusText = 'غياب (لم يتم تسجيل أي بصمة)';
+                                  emptyStatusColor = 'text-rose-600 font-bold dark:text-rose-400';
+                              } else if (isToday) {
+                                  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+                                  if (shiftInfo.isRoster && shiftInfo.label.includes('مسائي') && shiftInfo.label.includes('خفر')) {
+                                      if (nowMinutes >= 20 * 60) {
+                                          emptyStatusText = 'غياب الشفت المسائي (لم يُبصم) — شفت الخفر جارٍ';
+                                          emptyStatusColor = 'text-rose-600 font-semibold dark:text-rose-400';
+                                      } else {
+                                          emptyStatusText = 'بانتظار البصمة (الدوام جارٍ)';
+                                          emptyStatusColor = 'text-amber-600 font-medium dark:text-amber-400';
+                                      }
+                                  } else {
+                                      emptyStatusText = 'بانتظار البصمة (الدوام جارٍ)';
+                                      emptyStatusColor = 'text-amber-600 font-medium dark:text-amber-400';
+                                  }
+                              }
+
                               return (
                                   <tr key={`empty-${i}`} className="border-b border-slate-100 dark:border-slate-800">
                                       <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
@@ -1358,8 +1416,8 @@ export default function Timesheets() {
                                       <td className="px-3 py-3 text-sm">
                                         <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-xs">{shiftInfo.label}</span>
                                       </td>
-                                      <td colSpan={12} className={`px-3 py-3 text-sm text-center ${isLeaveDay ? 'text-orange-600 font-bold' : 'text-slate-400'}`}>
-                                        {isLeaveDay ? `${leaveLabel} (يوم إجازة معتمدة)` : dayType === 'استراحة' ? 'يوم استراحة' : 'لا توجد بصمات'}
+                                      <td colSpan={12} className={`px-3 py-3 text-sm text-center ${emptyStatusColor}`}>
+                                        {emptyStatusText}
                                       </td>
                                   </tr>
                               );

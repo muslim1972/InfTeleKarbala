@@ -18,7 +18,7 @@ const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean
             
             return label;
         }
-        case 'duty': return 'واجب';
+        case 'duty': return 'واجب رسمي';
         case 'dispatch': return 'إيفاد';
         case 'long_regular': return 'إجازة اعتيادية طويلة';
         case 'long_sick': return 'إجازة مرضية طويلة';
@@ -312,7 +312,7 @@ export const ApprovalModal = ({ request, onClose, onProcessed }: ApprovalModalPr
                     <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
                         <p className={`text-xs mb-2 flex items-center gap-1 ${request.modification_type === 'canceled' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
                             <FileText size={12} />
-                            {request.modification_type === 'canceled' ? 'سبب الإلغاء' : 'سبب الإجازة'}
+                            {request.leave_type === 'duty' ? 'تفاصيل ومبررات الواجب' : request.modification_type === 'canceled' ? 'سبب الإلغاء' : 'سبب الإجازة'}
                         </p>
                         <p className={`text-sm leading-relaxed ${request.modification_type === 'canceled' ? 'text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-200'}`}>
                             {request.modification_type === 'canceled' ? (request.cancellation_reason || 'غير محدد') : request.reason}

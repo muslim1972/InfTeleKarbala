@@ -34,6 +34,7 @@ DECLARE
   kh1 boolean; prev_kh1 boolean;
   v_leave record; v_overlap int; v_reason text; v_note text; v_name text;
   v_dept uuid; v_gov text; v_mgr uuid; r record; v_created boolean := false; v_id uuid;
+  v_m_tl int := 0; v_e_tl int := 0; v_n_tl int := 0;
 BEGIN
   SELECT p.work_schedule_id, p.full_name, p.department_id, p.governorate
     INTO v_sched, v_name, v_dept, v_gov FROM profiles p WHERE p.id = p_emp;
@@ -45,19 +46,62 @@ BEGIN
   SELECT * INTO d_today FROM work_schedule_days WHERE schedule_id = v_sched AND day_of_week = extract(dow FROM p_date)::int;
   SELECT * INTO d_prev  FROM work_schedule_days WHERE schedule_id = v_sched AND day_of_week = extract(dow FROM p_date - 1)::int;
 
+  -- فحص الإجازات الزمنية المعتمدة (نوع A) للشفتات لليوم المحدد
+  SELECT coalesce(max(time_duration_minutes), 0) INTO v_m_tl FROM leave_requests
+   WHERE user_id = p_emp AND status = 'approved' AND start_date = p_date
+     AND leave_type = 'time_off' AND time_off_subtype = 'shift_start'
+     AND (leave_start_time >= '07:00:00' AND leave_start_time < '14:00:00')
+     AND coalesce(time_duration_minutes, 0) > 0;
+
+  SELECT coalesce(max(time_duration_minutes), 0) INTO v_e_tl FROM leave_requests
+   WHERE user_id = p_emp AND status = 'approved' AND start_date = p_date
+     AND leave_type = 'time_off' AND time_off_subtype = 'shift_start'
+     AND (leave_start_time >= '14:00:00' AND leave_start_time < '19:30:00')
+     AND coalesce(time_duration_minutes, 0) > 0;
+
+  SELECT coalesce(max(time_duration_minutes), 0) INTO v_n_tl FROM leave_requests
+   WHERE user_id = p_emp AND status = 'approved' AND start_date = p_date
+     AND leave_type = 'time_off' AND time_off_subtype = 'shift_start'
+     AND (leave_start_time >= '19:30:00' OR leave_start_time < '07:00:00')
+     AND coalesce(time_duration_minutes, 0) > 0;
+
   -- صباحي 08:00
-  IF coalesce(d_today.is_morning,false) AND now() >= base + interval '9 hours'
-     AND NOT roster_unit_attended(p_emp, base + interval '8 hours') THEN
-    units := units + 1; parts := array_append(parts, 'صباحي'::text); END IF;
-  -- مسائي 15:00
-  IF coalesce(d_today.is_evening,false) AND now() >= base + interval '16 hours'
-     AND NOT roster_unit_attended(p_emp, base + interval '15 hours') THEN
-    units := units + 1; parts := array_append(parts, 'مسائي'::text); END IF;
-  -- خفر-النصف الأول 20:00
-  IF coalesce(d_today.is_night,false) AND now() >= base + interval '21 hours' THEN
-    kh1 := roster_unit_attended(p_emp, base + interval '20 hours');
-    IF NOT kh1 THEN units := units + 1; parts := array_append(parts, 'خفر (20:00-24:00)'::text); END IF;
+  IF coalesce(d_today.is_morning,false) THEN
+    IF v_m_tl > 0 THEN
+      IF now() >= base + interval '8 hours' + (v_m_tl || ' minutes')::interval + interval '60 minutes'
+         AND NOT roster_unit_attended(p_emp, base + interval '8 hours' + (v_m_tl || ' minutes')::interval, interval '5 minutes') THEN
+        units := units + 1; parts := array_append(parts, 'صباحي'::text);
+      END IF;
+    ELSIF now() >= base + interval '9 hours' AND NOT roster_unit_attended(p_emp, base + interval '8 hours') THEN
+      units := units + 1; parts := array_append(parts, 'صباحي'::text);
+    END IF;
   END IF;
+
+  -- مسائي 15:00
+  IF coalesce(d_today.is_evening,false) THEN
+    IF v_e_tl > 0 THEN
+      IF now() >= base + interval '15 hours' + (v_e_tl || ' minutes')::interval + interval '60 minutes'
+         AND NOT roster_unit_attended(p_emp, base + interval '15 hours' + (v_e_tl || ' minutes')::interval, interval '5 minutes') THEN
+        units := units + 1; parts := array_append(parts, 'مسائي'::text);
+      END IF;
+    ELSIF now() >= base + interval '16 hours' AND NOT roster_unit_attended(p_emp, base + interval '15 hours') THEN
+      units := units + 1; parts := array_append(parts, 'مسائي'::text);
+    END IF;
+  END IF;
+
+  -- خفر-النصف الأول 20:00
+  IF coalesce(d_today.is_night,false) THEN
+    IF v_n_tl > 0 THEN
+      IF now() >= base + interval '20 hours' + (v_n_tl || ' minutes')::interval + interval '60 minutes' THEN
+        kh1 := roster_unit_attended(p_emp, base + interval '20 hours' + (v_n_tl || ' minutes')::interval, interval '5 minutes');
+        IF NOT kh1 THEN units := units + 1; parts := array_append(parts, 'خفر (20:00-24:00)'::text); END IF;
+      END IF;
+    ELSIF now() >= base + interval '21 hours' THEN
+      kh1 := roster_unit_attended(p_emp, base + interval '20 hours');
+      IF NOT kh1 THEN units := units + 1; parts := array_append(parts, 'خفر (20:00-24:00)'::text); END IF;
+    END IF;
+  END IF;
+
   -- خفر-النصف الثاني 00:00 (يتبع خفر الأمس) — مرونة 30د
   IF coalesce(d_prev.is_night,false) AND now() >= base + interval '1 hour' THEN
     prev_kh1 := roster_unit_attended(p_emp, base - interval '4 hours');
@@ -83,11 +127,17 @@ BEGIN
   v_note := format('إجازة إجبارية %s يوم بسبب التأخير لأكثر من ساعتين، وللإدارة تحويلها إلى غياب', units);
 
   IF v_leave.id IS NULL THEN
-    INSERT INTO leave_requests(user_id, start_date, end_date, days_count, reason, status, leave_type, is_mandatory, with_request, notes)
-    VALUES (p_emp, p_date, p_date, units, v_reason, 'approved', 'regular', true, false, v_note) RETURNING id INTO v_id;
+    INSERT INTO leave_requests(user_id, start_date, end_date, days_count, reason, status, leave_status, leave_type, is_mandatory, with_request, notes)
+    VALUES (p_emp, p_date, p_date, units, v_reason, 'approved', 'approved', 'regular', true, false, v_note) RETURNING id INTO v_id;
     v_created := true;
   ELSIF v_leave.days_count IS DISTINCT FROM units THEN
-    UPDATE leave_requests SET days_count = units, reason = v_reason, notes = v_note WHERE id = v_leave.id;
+    UPDATE leave_requests 
+    SET days_count = units, 
+        reason = v_reason, 
+        notes = v_note,
+        status = 'approved',
+        leave_status = 'approved'
+    WHERE id = v_leave.id;
     v_id := v_leave.id; v_created := true;
   ELSE
     v_id := v_leave.id;

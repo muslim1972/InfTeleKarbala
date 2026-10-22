@@ -36,6 +36,10 @@ export const SupervisorNotifications = () => {
             // THE REAL FIX: Multi-column Pending Check
             // A request is "pending" if ANY of its process statuses are pending.
             let activeRequests = data.filter(req => {
+                // منع ظهور الطلب للمسؤول إذا كان هناك بديل لم يوافق بعد أو رفض التكليف
+                if (req.substitute_id && req.substitute_status !== 'approved') {
+                    return false;
+                }
                 if (req.modification_type === 'canceled') {
                     return req.cancellation_status === 'pending';
                 }

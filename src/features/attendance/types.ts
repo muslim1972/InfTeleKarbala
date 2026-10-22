@@ -93,6 +93,7 @@ export interface WorkLocation {
   longitude: number;
   radius_meters: number;
   is_active: boolean;
+  governorate?: string;
   created_by?: string;
   created_at: string;
   updated_at: string;
