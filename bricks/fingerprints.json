@@ -1,5 +1,5 @@
 {
- "created": "2026-10-22T17:35:51.402Z",
+ "created": "2026-10-22T22:04:15.980Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -571,7 +571,7 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "fa892b303a12"
+   "sha": "de20fb600f07"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
@@ -580,6 +580,10 @@
   "src/features/attendance/components/AttendanceHistory.tsx": {
    "brick": "FE-ATT-01",
    "sha": "16778e229c18"
+  },
+  "src/features/attendance/components/AttendanceReceiptModal.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "302e0dc1aff2"
   },
   "src/features/attendance/components/AttendanceStatistics.tsx": {
    "brick": "FE-ATT-01",
@@ -607,7 +611,7 @@
   },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "ae4adf16f582"
+   "sha": "ec3d255921df"
   },
   "src/features/attendance/components/WorkScheduleForm.tsx": {
    "brick": "FE-ATT-01",
@@ -636,6 +640,10 @@
   "src/features/attendance/hooks/useServerTime.ts": {
    "brick": "FE-ATT-01",
    "sha": "bc45d7b604bc"
+  },
+  "src/features/attendance/hooks/useSilentPhotoSync.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "0bdc2f4b0aa1"
   },
   "src/features/attendance/index.ts": {
    "brick": "FE-ATT-01",
@@ -688,6 +696,14 @@
   "src/features/attendance/utils/imageEnhancement.ts": {
    "brick": "FE-ATT-01",
    "sha": "1e78b5427f54"
+  },
+  "src/features/attendance/utils/pendingSnapshotStorage.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "2a1b008b9922"
+  },
+  "src/features/attendance/utils/platformDetector.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "6f43b99c26c0"
   },
   "src/features/attendance/utils/punchCategorizer.ts": {
    "brick": "FE-ATT-01",

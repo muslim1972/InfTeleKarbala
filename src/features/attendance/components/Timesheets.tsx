@@ -200,7 +200,37 @@ export default function Timesheets() {
     }
   };
 
+  /**
+   * فحص ساعات الذروة الصباحية وبعد الظهر لمنع الضغط وحماية السيرفر أثناء حضور وانصراف الموظفين
+   */
+  const checkPeakHourRestriction = (): string | null => {
+    const now = new Date();
+    // تحويل الوقت إلى توقيت بغداد
+    const baghdadTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Baghdad' }));
+    const hours = baghdadTime.getHours();
+    const minutes = baghdadTime.getMinutes();
+    const currentMins = hours * 60 + minutes;
+
+    // ذروة الصباح: 07:55 إلى 08:35
+    if (currentMins >= 7 * 60 + 55 && currentMins <= 8 * 60 + 35) {
+      return 'هذه الدقائق محجوزة لتثبيت حضور الموظفين بالبصمة (فترة الذروة الصباحية). يرجى الانتظار حتى الساعة 08:35 صباحاً لضمان سرعة تسجيل المنتسبين.';
+    }
+
+    // ذروة الانصراف: 14:25 إلى 15:05
+    if (currentMins >= 14 * 60 + 25 && currentMins <= 15 * 60 + 5) {
+      return 'هذه الدقائق محجوزة لتثبيت انصراف الموظفين بالبصمة (فترة الذروة المسائية). يرجى الانتظار حتى الساعة 03:05 مساءً لضمان كفاءة النظام.';
+    }
+
+    return null;
+  };
+
   const loadData = async () => {
+    const peakWarning = checkPeakHourRestriction();
+    if (peakWarning) {
+      toast(peakWarning, { icon: '⏳', duration: 7000 });
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await timesheetService.getMonthlyTimesheets(year, month, departmentId, employeeId);

@@ -38,6 +38,10 @@ import { determineShiftType, validateEarlyCheckIn, getBaghdadDate } from '../uti
 import { getServerNow } from '../services/serverTimeService';
 import { useServerTime } from '../hooks/useServerTime';
 
+import { AttendanceReceiptModal } from './AttendanceReceiptModal';
+import { savePendingSnapshot } from '../utils/pendingSnapshotStorage';
+import { useSilentPhotoSync } from '../hooks/useSilentPhotoSync';
+
 // ============================================
 // Manual Capture Variables
 // ============================================
@@ -98,6 +102,24 @@ export default function AttendanceCheckInOut({
 
   // ─── مهلة الأمان (3 دقائق = 180 ثانية) بين البصمات لمنع التكرار العرضي ───
   const [nowTick, setNowTick] = useState(Date.now());
+
+  // ─── المزامنة الصامتة للقطات المعلقة في الخلفية ───
+  useSilentPhotoSync();
+
+  // ─── مودال إيصال وتأكيد البصمة الذكي (امتصاص زمني 10 ثوانٍ) ───
+  const [receiptState, setReceiptState] = useState<{
+    isOpen: boolean;
+    punchTime: string;
+    locationName: string;
+    shiftName?: string;
+    isUploading: boolean;
+  }>({
+    isOpen: false,
+    punchTime: '',
+    locationName: '',
+    shiftName: '',
+    isUploading: false,
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -502,12 +524,11 @@ export default function AttendanceCheckInOut({
     return () => handleStopCamera();
   }, [handleStopCamera]);
 
-  // ---- Capture Frame & Upload ----
+  // ---- Capture Frame & Upload (مع معمارية التأخير الذكي وتفادي الذروة) ----
   const captureAndUpload = useCallback(async (): Promise<{ url?: string; notes?: string }> => {
     try {
       if (!canvasRef.current) return { notes: '(فشل تقني في التقاط الصورة: لا توجد لوحة رسم)' };
 
-      // Stop camera and close overlay immediately to avoid UI freezing
       setProcessing(true);
 
       let base64Data: string;
@@ -520,20 +541,53 @@ export default function AttendanceCheckInOut({
       }
       handleStopCamera();
 
-      const deadline = AbortSignal.timeout(8000);
+      // الحصول على الوقت الحالي والبيئة
+      const baghdadNow = getBaghdadDate();
+      const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const currentLoc = locationText || 'مقر العمل المعتمد';
+
+      // تحديث بيانات المودال في حال تم جلبها
+      setReceiptState(prev => ({
+        ...prev,
+        isOpen: true,
+        punchTime: timeStr,
+        locationName: currentLoc,
+      }));
+
+      // حفظ الصورة احتياطياً في مخزن الطوارئ الدائم IndexedDB تحسباً لانقطاع الشبكة
+      const tempId = `snap_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      if (user?.id) {
+        savePendingSnapshot({
+          id: tempId,
+          userId: user.id,
+          base64Data,
+          timestamp: new Date().toISOString(),
+          punchTimeText: timeStr,
+          locationText: currentLoc,
+          attempts: 0,
+        }).catch(() => {});
+      }
+
+      // محاولة الرفع الهادئة بمهلة 9 ثوانٍ لتتزامن مع واجهة التطمين
+      const deadline = AbortSignal.timeout(9000);
       const timeoutResult = new Promise<{ url?: string; error?: string }>((resolve) => {
-        deadline.addEventListener('abort', () => resolve({ error: 'تجاوز مهلة الرفع (8 ثوانٍ)' }), { once: true });
+        deadline.addEventListener('abort', () => resolve({ error: 'تم ترحيل الرفع للخلفية لضمان سرعة الاستجابة' }), { once: true });
       });
+
       const upload = await Promise.race([uploadSnapshot(base64Data, 'snapshot'), timeoutResult]);
+
+      setReceiptState((prev) => ({ ...prev, isUploading: false }));
+
       return upload.url
         ? { url: upload.url }
-        : { notes: `(فشل رفع الصورة للسحابة: ${upload.error || 'سبب غير معروف'})` };
+        : { notes: `(حفظ مؤقت في الجهاز — ${upload.error || 'جاري المزامنة'})` };
     } catch (err: any) {
       console.error('Error inside captureAndUpload:', err);
       handleStopCamera();
+      setReceiptState((prev) => ({ ...prev, isUploading: false }));
       return { notes: `(خطأ تقني أثناء التقاط الصورة: ${err.message || err})` };
     }
-  }, [captureFrame, handleStopCamera]);
+  }, [captureFrame, handleStopCamera, locationText, user?.id]);
 
   const cancelPunchProcess = useCallback(() => {
     setProcessing(false);
@@ -568,12 +622,11 @@ export default function AttendanceCheckInOut({
         }
         throw err;
       }
-      // تنبيه إن لم تُرفع الصورة — لا نجاح صامت يخفي الخلل عن الموظف
-      // (لا نطلب إعادة المحاولة لأنها ستحسب بصمة جديدة)
+      // نجاح تسجيل البصمة — لا رسالة سلبية إذا كانت الصورة في طور المزامنة
       if (snapshotResult.url) {
-        toast.success('تم تثبيت البصمة بنجاح');
+        toast.success('تم تثبيت البصمة وتأمين السجل بنجاح');
       } else {
-        toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
+        toast.success('تم تسجيل البصمة بنجاح وجاري المزامنة');
       }
 
       onAttendanceUpdate();
@@ -742,6 +795,19 @@ export default function AttendanceCheckInOut({
               showDebugAlert();
               
               try {
+                // فتح المودال مباشرة عند تأكيد التطابق قبل انتظار الرفع
+                const baghdadNow = getBaghdadDate();
+                const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                const currentLoc = locationText || 'مقر العمل المعتمد';
+
+                setReceiptState({
+                  isOpen: true,
+                  punchTime: timeStr,
+                  locationName: currentLoc,
+                  shiftName: undefined,
+                  isUploading: true,
+                });
+
                 const result = await captureAndUpload();
                 await completeAction(action, result);
               } catch (actErr: any) {
@@ -1962,6 +2028,18 @@ export default function AttendanceCheckInOut({
           }}
         />
       )}
+
+      {/* مودال إيصال الحضور الذكي والتأخير المريح (10 ثوانٍ) */}
+      <AttendanceReceiptModal
+        isOpen={receiptState.isOpen}
+        employeeName={user?.full_name || 'المنتسب'}
+        punchTime={receiptState.punchTime}
+        locationName={receiptState.locationName}
+        shiftName={receiptState.shiftName}
+        isUploading={receiptState.isUploading}
+        onClose={() => setReceiptState((prev) => ({ ...prev, isOpen: false }))}
+        autoCloseSeconds={10}
+      />
     </div>
   );
 }
