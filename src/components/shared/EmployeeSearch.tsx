@@ -106,10 +106,35 @@ export function EmployeeSearch({
                     : { top: `${rect.bottom + 4}px` })
             }
         });
+    }, [showSuggestions, suggestions, query]);
+
+    useEffect(() => {
+        if (!showSuggestions) return;
+        const handleResize = () => {
+            if (!searchRef.current) return;
+            const rect = searchRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const openUp = spaceBelow < 300 && spaceAbove > spaceBelow;
+            const maxHeight = Math.max(140, Math.min(350, (openUp ? spaceAbove : spaceBelow) - 12));
+            setPortalInfo({
+                openUp,
+                style: {
+                    left: `${rect.left}px`,
+                    width: `${rect.width}px`,
+                    maxHeight: `${maxHeight}px`,
+                    ...(openUp
+                        ? { bottom: `${window.innerHeight - rect.top + 4}px` }
+                        : { top: `${rect.bottom + 4}px` })
+                }
+            });
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, [showSuggestions]);
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            // Ignore if click is inside the search portal
+            // Ignore if click is inside the search portal or inside input container
             if (e.target instanceof Element && e.target.closest('.employee-search-portal')) return;
 
             if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -117,17 +142,9 @@ export function EmployeeSearch({
             }
         };
 
-        const handleScroll = (e: Event) => {
-            if (searchRef.current && searchRef.current.contains(e.target as Node)) return;
-            if (e.target instanceof Element && e.target.closest('.employee-search-portal')) return;
-            setShow(false);
-        };
-
         document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('scroll', handleScroll, true);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('scroll', handleScroll, true);
         };
     }, [onChange, setInternalQuery]);
 

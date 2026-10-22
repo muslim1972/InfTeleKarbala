@@ -134,6 +134,13 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         return () => window.removeEventListener('navigate_to_hr_requests', handleNotificationNavigation);
     }, []);
 
+    // Auto-refresh employee data when switching back to manage tab to prevent stale state
+    useEffect(() => {
+        if (activeTab === 'admin_manage' && selectedEmployee?.id) {
+            loadEmployeeData({ id: selectedEmployee.id });
+        }
+    }, [activeTab]);
+
     const handleToggleRecordSection = (section: string) => {
         setOpenRecordSection(prev => {
             const newState = prev === section ? null : section;

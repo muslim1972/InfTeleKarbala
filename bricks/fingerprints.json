@@ -1,5 +1,5 @@
 {
- "created": "2026-10-22T12:37:07.878Z",
+ "created": "2026-10-22T17:35:51.402Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -435,7 +435,7 @@
   },
   "src/components/shared/EmployeeSearch.tsx": {
    "brick": "FE-UI-01",
-   "sha": "1df8bfea41cc"
+   "sha": "893cbb9223ef"
   },
   "src/components/snapshots/SnapshotBrowser.tsx": {
    "brick": "FE-FIN-01",
@@ -1119,7 +1119,7 @@
   },
   "src/pages/AdminDashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "9b4ada396feb"
+   "sha": "320efbba56c9"
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
