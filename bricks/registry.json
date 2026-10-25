@@ -1,5 +1,5 @@
 {
-  "$comment": "سجل الطابوق الآلي — يقرؤه الحارس scripts/verify-bricks.mjs. owns: ملف أو مجلد (المجلد يملك كل ما تحته). db: دوال قاعدة البيانات المملوكة. status: planned|inventoried|signed|tested|stable",
+  "$comment": "سجل أنوية B.R.I.C.K الآلي — يقرؤه الحارس scripts/verify-bricks.mjs. owns: ملف أو مجلد (المجلد يملك كل ما تحته). db: دوال قاعدة البيانات المملوكة. status: planned|inventoried|signed|tested|stable",
   "version": 1,
   "bricks": [
     {
@@ -118,7 +118,9 @@
       "owns": [
         "src/pages/Dashboard.tsx",
         "src/pages/AdminDashboard.tsx",
+        "src/pages/HRDashboard.tsx",
         "src/pages/VisitorDashboard.tsx",
+        "src/features/hr",
         "src/components/admin/dashboard",
         "src/components/admin/ProfileDataUpdater.tsx",
         "src/components/admin/DepartmentsManager.tsx",

@@ -17,13 +17,14 @@ import { GovernorateProvider } from "./context/GovernorateContext"; // 🌍 نظ
 import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
-import { isDeveloperLevel } from "./utils/permissions";
+import { isDeveloperLevel, canAccessHR } from "./utils/permissions";
 import { initializeOneSignal } from './services/notifications';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy Loading
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const HRDashboard = lazy(() => import("./pages/HRDashboard").then(m => ({ default: m.HRDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
 const LauncherPage = lazy(() => import("./pages/LauncherPage").then(m => ({ default: m.LauncherPage })));
@@ -57,7 +58,7 @@ const AppContent = () => {
 
 
 
-  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | null>(() => {
+  const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr' | null>(() => {
     const searchMode = new URLSearchParams(location.search).get('mode') as any;
     if (searchMode) return searchMode;
     const stateMode = (location.state as any)?.adminViewMode;
@@ -179,7 +180,7 @@ const AppContent = () => {
   // Persist view mode choice (لا نحفظ capacities/promotion/training/user_incentives/attendance لأنهما وضع مؤقت)
   useEffect(() => {
     if (adminViewMode) {
-      if (!['capacities', 'promotion', 'training', 'user_incentives', 'attendance'].includes(adminViewMode)) {
+      if (!['capacities', 'promotion', 'training', 'user_incentives', 'attendance', 'hr'].includes(adminViewMode)) {
         localStorage.setItem('adminViewMode', adminViewMode);
       }
     } else {
@@ -233,6 +234,7 @@ const AppContent = () => {
   const isAdmin = user.role === 'admin';
   const hasPromotion = user.can_access_promotion === true;
   const hasTraining = user.is_training_supervisor === true || isAdmin || isDeveloperLevel(user.admin_role) || user.admin_role === 'general';
+  const hasHR = canAccessHR(user);
   const needsRoleSelection = true; // All users now see the Welcome Dashboard
 
   if (user.role === 'visitor') {
@@ -242,7 +244,7 @@ const AppContent = () => {
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode as any} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode as any} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} hasHR={hasHR} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
     if (adminViewMode === 'capacities') {
@@ -289,6 +291,14 @@ const AppContent = () => {
              <AttendanceDashboard employeeId={user.id} />
          </div>
        );
+    }
+    // عرض واجهة الموارد البشرية
+    if (adminViewMode === 'hr') {
+      return (
+        <ErrorBoundary onReset={() => setAdminViewMode(null)} resetText="العودة للصفحة الرئيسية" fallbackTitle="حدث خطأ في واجهة الموارد البشرية">
+          <HRDashboard onBack={() => setAdminViewMode(null)} />
+        </ErrorBoundary>
+      );
     }
     // عرض الواجهة المختارة
     if (adminViewMode === 'user') return <Dashboard onBack={() => setAdminViewMode(null)} />;

@@ -1,4 +1,4 @@
-import { User, ShieldCheck, GraduationCap, Fingerprint } from "lucide-react";
+import { User, ShieldCheck, GraduationCap, Fingerprint, Briefcase } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
@@ -6,16 +6,18 @@ import toast from 'react-hot-toast';
 import { isDeveloperLevel } from "../../utils/permissions";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
     /** Whether this user is eligible for Promotion Courses */
     hasPromotion?: boolean;
     /** Whether this user is eligible for Summer Training */
     hasTraining?: boolean;
+    /** Whether this user is eligible for HR */
+    hasHR?: boolean;
 }
 
-export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false, hasTraining = false }: AdminRoleSelectorProps) => {
+export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false, hasTraining = false, hasHR = false }: AdminRoleSelectorProps) => {
     const { user, logout } = useAuth();
     const { theme } = useTheme();
 
@@ -24,7 +26,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
 
     // Build cards list
     const cards: {
-        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance';
+        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr';
         label: string;
         desc: string;
         icon: React.ReactNode;
@@ -95,6 +97,15 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             iconBg: isDark ? 'bg-cyan-500/20 border-cyan-500/30 group-hover:bg-cyan-500/30' : 'bg-cyan-500/10 border-cyan-500/20',
             show: true,
         },
+        {
+            id: 'hr',
+            label: 'الموارد البشرية',
+            desc: 'شعبة الذاتية، إدارة الطلبات، الكتب الرسمية (الصادر والوارد)، وإضبارات الموظفين',
+            icon: <Briefcase className="w-6 h-6 text-rose-500" />,
+            hoverGlow: 'hover:shadow-[0_0_30px_rgba(244,63,94,0.25)]',
+            iconBg: isDark ? 'bg-rose-500/20 border-rose-500/30 group-hover:bg-rose-500/30' : 'bg-rose-500/10 border-rose-500/20',
+            show: Boolean(hasHR),
+        },
     ];
 
     const visibleCards = cards.filter(c => c.show);
@@ -149,7 +160,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                                     user?.full_name?.includes('مسلم عقيل') ||
                                     user?.full_name?.includes('مسلم قيل');
 
-                                if (card.id === 'attendance') {
+                                if (card.id === 'attendance' || card.id === 'hr') {
                                     onSelect(card.id);
                                     return;
                                 }

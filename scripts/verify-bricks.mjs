@@ -52,11 +52,11 @@ for (const b of reg.bricks) {
   }
 }
 
-// تغطية: كل ملف في src يجب أن يُنسب لطابوقة
+// تغطية: كل ملف في src يجب أن يُنسب لنواة معمارية
 const all = SCAN_DIRS.flatMap((d) => walk(path.join(ROOT, d))).map(rel);
 const orphans = all.filter((f) => !owner.has(f));
 const coverage = all.length ? Math.round(((all.length - orphans.length) / all.length) * 100) : 100;
-orphans.forEach((f) => warns.push(`غير منسوب لطابوقة: ${f}`));
+orphans.forEach((f) => warns.push(`غير منسوب لنواة معمارية: ${f}`));
 
 // البصمات
 if (process.argv.includes('--snapshot')) {
@@ -90,7 +90,19 @@ if (process.argv.includes('--db')) {
       execFileSync(path.join(putty, 'pscp.exe'), ['-batch', '-pw', pw, path.join(ROOT, 'scripts', 'ops', f), `${host}:/tmp/bricks-${f}`], { stdio: 'pipe' });
     const out = execFileSync(path.join(putty, 'plink.exe'), ['-batch', '-pw', pw, host, `VPS_PW='${pw}' bash /tmp/bricks-runsql.sh /tmp/bricks-db-inventory.sql`], { encoding: 'utf8' });
     const live = { F: new Set(), T: new Set(), B: new Set() };
-    out.split(/\r?\n/).forEach((l) => { const m = l.match(/^([FTB])\|(.+)$/); if (m) live[m[1]].add(m[2].trim()); });
+    const funcMeta = new Map(); // funcName -> { owner, isSecDef }
+    out.split(/\r?\n/).forEach((l) => {
+      const m = l.match(/^([FTB])\|(.+)$/);
+      if (m) live[m[1]].add(m[2].trim());
+      const fo = l.match(/^FO\|([^|]+)\|([^|]+)\|([tf])$/);
+      if (fo) funcMeta.set(fo[1].trim(), { owner: fo[2].trim(), isSecDef: fo[3] === 't' });
+    });
+    // B.R.I.C.K v2.0: تدقيق ملكية الدوال السيادية DEFINER
+    for (const [fn, meta] of funcMeta) {
+      if (meta.isSecDef && meta.owner !== 'supabase_admin') {
+        warns.push(`[سيادة غير مطابقة v2.0] الدالة DEFINER: ${fn} مملوكة لـ ${meta.owner} بدلاً من supabase_admin`);
+      }
+    }
     for (const [k, field] of Object.entries(dbObjs)) {
       const declared = new Map();
       reg.bricks.forEach((b) => (b[field] || []).forEach((n) => {
@@ -99,7 +111,7 @@ if (process.argv.includes('--db')) {
       }));
       for (const [n, id] of declared) if (!live[k].has(n)) errors.push(`[${id}] مفقود على الخادم (${field}): ${n}`);
       const unowned = [...live[k]].filter((n) => !declared.has(n));
-      unowned.forEach((n) => warns.push(`غير منسوب لطابوقة (${field}): ${n}`));
+      unowned.forEach((n) => warns.push(`غير منسوب لنواة معمارية (${field}): ${n}`));
       dbStats[field] = `${live[k].size - unowned.length}/${live[k].size}`;
     }
   } catch (e) { errors.push(`تعذّر فحص قاعدة البيانات: ${e.message.split('\n')[0]}`); }

@@ -81,7 +81,6 @@ export const DashboardHeader = ({
             { id: 'admin_incentives', label: 'الحوافز' },
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
             { id: 'admin_departments', label: 'الهيكلية الإدارية' },
-            ...(isFieldReadOnly('tab_requests') ? [] : [{ id: 'admin_requests', label: 'الطلبات' }]),
             { id: 'admin_audio', label: 'القرآن الكريم' },
             ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
             ...((currentUser?.admin_role === 'general' || isDeveloperLevel(currentUser?.admin_role)) ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),

@@ -1,9 +1,9 @@
 {
- "created": "2026-10-22T22:04:15.980Z",
+ "created": "2026-10-25T20:07:01.967Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "bed2bb12fcfb"
+   "sha": "abf1619e3a79"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -43,7 +43,7 @@
   },
   "scripts/verify-bricks.mjs": {
    "brick": "OPS-03",
-   "sha": "f85072c1a870"
+   "sha": "051b3c44b622"
   },
   "spa_server.py": {
    "brick": "OPS-02",
@@ -55,7 +55,7 @@
   },
   "src/App.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "b21910b6f570"
+   "sha": "804a83991ef5"
   },
   "src/assets/react.svg": {
    "brick": "FE-CORE-01",
@@ -183,7 +183,7 @@
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "531b810a7186"
+   "sha": "770c9de086be"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
@@ -231,7 +231,7 @@
   },
   "src/components/auth/AdminRoleSelector.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "1c5aa7610a9f"
+   "sha": "db95cc811156"
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
@@ -857,6 +857,30 @@
    "brick": "FE-FIB-01",
    "sha": "7bdef0921b0e"
   },
+  "src/features/hr/components/HRAdminOrders.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "7b2f8e350dd0"
+  },
+  "src/features/hr/components/HREmployeeDossiers.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "1a40df89ed25"
+  },
+  "src/features/hr/components/HRIncomingMail.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "abca7508f5e1"
+  },
+  "src/features/hr/components/HROutgoingMail.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "da3458a25f4b"
+  },
+  "src/features/hr/components/HROverview.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "5467997fc024"
+  },
+  "src/features/hr/types.ts": {
+   "brick": "FE-HR-01",
+   "sha": "516d33af5a19"
+  },
   "src/features/kiosk/KioskAdminPanel.tsx": {
    "brick": "FE-ATT-02",
    "sha": "66d95fef2ad1"
@@ -1145,6 +1169,10 @@
    "brick": "FE-CORE-03",
    "sha": "4030b6719215"
   },
+  "src/pages/HRDashboard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "878d94f0e36a"
+  },
   "src/pages/LauncherPage.tsx": {
    "brick": "FE-SPL-01",
    "sha": "325e8e3b4326"
@@ -1247,7 +1275,7 @@
   },
   "src/utils/permissions.ts": {
    "brick": "FE-CORE-02",
-   "sha": "280b6e8d9a80"
+   "sha": "0b1f858fcda0"
   },
   "src/utils/profileUtils.ts": {
    "brick": "FE-HR-01",
