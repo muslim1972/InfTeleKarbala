@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { ScrollableTabs } from '../components/ui/ScrollableTabs';
-import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { AdminLeaveRequests } from '../components/admin/AdminLeaveRequests';
+import { HRRequestsHub } from '../features/hr/components/HRRequestsHub';
 import { HROutgoingMail } from '../features/hr/components/HROutgoingMail';
 import { HRIncomingMail } from '../features/hr/components/HRIncomingMail';
 import { HREmployeeDossiers } from '../features/hr/components/HREmployeeDossiers';
@@ -16,7 +15,6 @@ interface HRDashboardProps {
 }
 
 export const HRDashboard = ({ onBack }: HRDashboardProps) => {
-    const { user } = useAuth();
     const { theme } = useTheme();
     const isDark = theme === 'dark';
 
@@ -75,7 +73,7 @@ export const HRDashboard = ({ onBack }: HRDashboardProps) => {
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="font-bold text-foreground">
-                        {user?.full_name?.includes('أسيل جبار') || user?.full_name?.includes('اسيل جبار') ? 'شعبة الذاتية والموارد البشرية' : 'إدارة الموارد البشرية والذاتية'}
+                        شعبة الموارد البشرية
                     </span>
                     <span className="text-muted-foreground hidden sm:inline">
                         • نظام الإدارة الموحد
@@ -99,7 +97,7 @@ export const HRDashboard = ({ onBack }: HRDashboardProps) => {
             <div className="max-w-6xl mx-auto px-2 sm:px-4 relative pb-24 mt-2">
                 {activeTab === 'requests' && (
                     <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300">
-                        <AdminLeaveRequests highlightRequestId={highlightRequestId} />
+                        <HRRequestsHub highlightRequestId={highlightRequestId} />
                     </div>
                 )}
 

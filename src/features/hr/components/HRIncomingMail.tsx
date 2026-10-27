@@ -45,7 +45,7 @@ const INITIAL_INCOMING_DATA: IncomingMailItem[] = [
         originalDate: '2026-10-17',
         sender: 'هيئة التقاعد الوطنية / فرع كربلاء',
         subject: 'استكمال المعاملة التقاعدية للموظف المحال على التقاعد (كاظم كريم عبيد)',
-        forwardedTo: 'شعبة الذاتية والموارد البشرية',
+        forwardedTo: 'شعبة الموارد البشرية',
         requiredAction: 'تزويد الهيئة بآخر احتساب خدمة وخلاصة الراتب',
         priority: 'urgent',
         status: 'completed',
@@ -73,7 +73,7 @@ export const HRIncomingMail = () => {
     const [originalDate, setOriginalDate] = useState(new Date().toISOString().split('T')[0]);
     const [sender, setSender] = useState('');
     const [subject, setSubject] = useState('');
-    const [forwardedTo, setForwardedTo] = useState('شعبة الذاتية والموارد البشرية');
+    const [forwardedTo, setForwardedTo] = useState('شعبة الموارد البشرية');
     const [requiredAction, setRequiredAction] = useState('للعلم والعمل بموجبه');
     const [priority, setPriority] = useState<IncomingMailItem['priority']>('normal');
     const [attachmentsCount, setAttachmentsCount] = useState<number>(0);
@@ -326,12 +326,12 @@ export const HRIncomingMail = () => {
 
             {/* Modal: New Incoming */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 pt-16 sm:pt-20 pb-6 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
                     <div className={cn(
-                        "w-full max-w-2xl rounded-2xl border shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto",
+                        "w-full max-w-2xl rounded-2xl border shadow-2xl p-5 sm:p-6 relative max-h-[calc(100vh-5.5rem)] flex flex-col my-auto overflow-hidden",
                         isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
                     )}>
-                        <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border mb-3 shrink-0">
                             <div className="flex items-center gap-2">
                                 <Inbox className="w-5 h-5 text-blue-500" />
                                 <h3 className="font-bold text-base">تسجيل كتاب رسمي وارد جديد</h3>
@@ -344,7 +344,7 @@ export const HRIncomingMail = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreate} className="space-y-4 text-xs">
+                        <form onSubmit={handleCreate} className="overflow-y-auto flex-1 pr-1 pl-1 space-y-4 text-xs">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label className="block font-bold mb-1">رقم الوارد الداخلي *</label>
@@ -499,12 +499,12 @@ export const HRIncomingMail = () => {
 
             {/* Modal: View & Action */}
             {selectedItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 pt-16 sm:pt-20 pb-6 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
                     <div className={cn(
-                        "w-full max-w-lg rounded-2xl border shadow-2xl p-6 relative",
+                        "w-full max-w-lg rounded-2xl border shadow-2xl p-5 sm:p-6 relative max-h-[calc(100vh-5.5rem)] flex flex-col my-auto overflow-hidden",
                         isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
                     )}>
-                        <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border mb-3 shrink-0">
                             <span className="font-bold text-base text-blue-600 dark:text-blue-400 font-mono">
                                 {selectedItem.incomingNumber}
                             </span>
@@ -516,7 +516,7 @@ export const HRIncomingMail = () => {
                             </button>
                         </div>
 
-                        <div className="space-y-3 text-xs">
+                        <div className="space-y-3 text-xs overflow-y-auto flex-1 pr-1 pl-1">
                             <div>
                                 <span className="text-muted-foreground block text-[11px]">الموضوع:</span>
                                 <p className="font-bold text-sm mt-0.5">{selectedItem.subject}</p>
@@ -579,7 +579,7 @@ export const HRIncomingMail = () => {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4 border-t border-border mt-5">
+                        <div className="flex justify-end gap-2 pt-3 border-t border-border mt-3 shrink-0">
                             <button
                                 onClick={() => window.print()}
                                 className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"

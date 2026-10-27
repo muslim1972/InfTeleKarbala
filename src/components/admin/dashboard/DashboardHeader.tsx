@@ -1,6 +1,5 @@
 
-import { Search, Loader2, Trash2, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { Search, Loader2, Trash2 } from "lucide-react";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
@@ -54,10 +53,10 @@ export const DashboardHeader = ({
     setSearchExpanded,
     searchJobNumber,
     setSearchJobNumber,
-    handleSearch,
-    suggestions,
+    handleSearch: _handleSearch,
+    suggestions: _suggestions,
     setShowSuggestions,
-    showSuggestions,
+    showSuggestions: _showSuggestions,
     searchRef,
     handleSelectSuggestion,
     handleDeleteEmployee

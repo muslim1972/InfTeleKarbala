@@ -26,7 +26,7 @@ const INITIAL_ORDERS: AdminOrderItem[] = [
         subject: 'تشكيل لجنة تدقيق وتصفية أرصدة الإجازات المتراكمة لعام 2026',
         targetEmployees: ['أسيل جبار عبد السادة (رئيساً)', 'مسؤول الشؤون المالية (عضواً)', 'مسؤول التدقيق (عضواً)'],
         legalBasis: 'قانون انضباط موظفي الدولة والقطاع العام رقم 14 لسنة 1991 المعدل',
-        orderContent: 'تشكل لجنة برئاسة مسؤولة شعبة الذاتية لإجراء جرد وتدقيق شامل لطلبات الإجازات المعتمدة وقطع الإجازات ومطابقتها مع السجلات الإلكترونية.',
+        orderContent: 'تشكل لجنة برئاسة مسؤولة شعبة الموارد البشرية لإجراء جرد وتدقيق شامل لطلبات الإجازات المعتمدة وقطع الإجازات ومطابقتها مع السجلات الإلكترونية.',
         signatory: 'د. علي عباس جاسم الصباغ (مدير المديرية)',
         status: 'active',
         createdAt: '2026-10-15'
@@ -281,12 +281,12 @@ export const HRAdminOrders = () => {
 
             {/* Modal: Create Order */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-16 sm:pt-20 pb-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className={cn(
-                        "w-full max-w-2xl rounded-2xl border shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto",
+                        "w-full max-w-2xl rounded-2xl border shadow-2xl p-6 relative max-h-[calc(100vh-5.5rem)] flex flex-col my-auto overflow-hidden",
                         isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
                     )}>
-                        <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
+                        <div className="flex items-center justify-between pb-4 border-b border-border mb-4 shrink-0">
                             <div className="flex items-center gap-2">
                                 <ScrollText className="w-5 h-5 text-purple-500" />
                                 <h3 className="font-bold text-base">صياغة أمر إداري جديد</h3>
@@ -299,7 +299,7 @@ export const HRAdminOrders = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreate} className="space-y-4 text-xs">
+                        <form onSubmit={handleCreate} className="space-y-4 text-xs overflow-y-auto pr-1 flex-1">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label className="block font-bold mb-1">رقم الأمر الإداري *</label>
@@ -416,7 +416,7 @@ export const HRAdminOrders = () => {
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-border shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => setIsCreateModalOpen(false)}
@@ -438,12 +438,12 @@ export const HRAdminOrders = () => {
 
             {/* Modal: View Order Content */}
             {selectedItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-16 sm:pt-20 pb-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className={cn(
-                        "w-full max-w-xl rounded-2xl border shadow-2xl p-6 relative",
+                        "w-full max-w-xl rounded-2xl border shadow-2xl p-6 relative max-h-[calc(100vh-5.5rem)] flex flex-col my-auto overflow-hidden",
                         isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
                     )}>
-                        <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border mb-4 shrink-0">
                             <span className="font-bold text-base text-purple-600 dark:text-purple-400 font-mono">
                                 {selectedItem.orderNumber}
                             </span>
@@ -455,7 +455,7 @@ export const HRAdminOrders = () => {
                             </button>
                         </div>
 
-                        <div className="space-y-3 text-xs">
+                        <div className="space-y-3 text-xs overflow-y-auto pr-1 flex-1">
                             <div className="text-center pb-2 border-b border-border">
                                 <h3 className="font-bold text-sm">وزارة الاتصالات / الشركة العامة للاتصالات والمعلوماتية</h3>
                                 <h4 className="font-bold text-xs text-muted-foreground mt-0.5">مديرية اتصالات ومعلوماتية كربلاء المقدسة</h4>
@@ -495,7 +495,7 @@ export const HRAdminOrders = () => {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4 border-t border-border mt-5">
+                        <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4 shrink-0">
                             <button
                                 onClick={() => window.print()}
                                 className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"

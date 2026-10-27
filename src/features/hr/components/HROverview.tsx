@@ -24,10 +24,10 @@ export const HROverview = ({ onNavigateTab }: HROverviewProps) => {
                     <div className="space-y-2">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20">
                             <LayoutDashboard className="w-3.5 h-3.5" />
-                            <span>منظومة إدارة الموارد البشرية والذاتية</span>
+                            <span>منظومة إدارة الموارد البشرية</span>
                         </div>
                         <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                            مرحباً بك في شعبة الموارد البشرية (الذاتية)
+                            مرحباً بك في شعبة الموارد البشرية
                         </h2>
                         <p className="text-xs md:text-sm text-muted-foreground max-w-2xl leading-relaxed">
                             لوحة العمل الموحدة لإدارة طلبات الإجازات، وتوثيق سجلات الصادر والوارد الرسمية، والإضبارات الإلكترونية لمنتسبي مديرية اتصالات ومعلوماتية كربلاء.

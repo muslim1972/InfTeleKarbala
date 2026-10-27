@@ -1,5 +1,5 @@
 {
- "created": "2026-10-25T20:07:01.967Z",
+ "created": "2026-10-27T04:11:31.194Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -183,7 +183,7 @@
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "770c9de086be"
+   "sha": "453c9c28bd89"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
@@ -231,7 +231,7 @@
   },
   "src/components/auth/AdminRoleSelector.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "db95cc811156"
+   "sha": "ed9f0853ca44"
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
@@ -857,25 +857,41 @@
    "brick": "FE-FIB-01",
    "sha": "7bdef0921b0e"
   },
+  "src/features/hr/components/AdministrativeRequestsCard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "e13e9333cb10"
+  },
   "src/features/hr/components/HRAdminOrders.tsx": {
    "brick": "FE-HR-01",
-   "sha": "7b2f8e350dd0"
+   "sha": "cfb33057935b"
   },
   "src/features/hr/components/HREmployeeDossiers.tsx": {
    "brick": "FE-HR-01",
-   "sha": "1a40df89ed25"
+   "sha": "518fff968ee4"
   },
   "src/features/hr/components/HRIncomingMail.tsx": {
    "brick": "FE-HR-01",
-   "sha": "abca7508f5e1"
+   "sha": "e7b743114c8c"
   },
   "src/features/hr/components/HROutgoingMail.tsx": {
    "brick": "FE-HR-01",
-   "sha": "da3458a25f4b"
+   "sha": "b8d79fbe7045"
   },
   "src/features/hr/components/HROverview.tsx": {
    "brick": "FE-HR-01",
-   "sha": "5467997fc024"
+   "sha": "e0b86b8555b4"
+  },
+  "src/features/hr/components/HRRequestsHub.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "e4c932b50329"
+  },
+  "src/features/hr/components/IssuedContinuityCard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "f36061237b57"
+  },
+  "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "d03f2f468912"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
@@ -1171,7 +1187,7 @@
   },
   "src/pages/HRDashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "878d94f0e36a"
+   "sha": "0bbe655281f8"
   },
   "src/pages/LauncherPage.tsx": {
    "brick": "FE-SPL-01",
@@ -1275,7 +1291,7 @@
   },
   "src/utils/permissions.ts": {
    "brick": "FE-CORE-02",
-   "sha": "0b1f858fcda0"
+   "sha": "26d1d1a28916"
   },
   "src/utils/profileUtils.ts": {
    "brick": "FE-HR-01",
@@ -1531,7 +1547,7 @@
   },
   "supabase/migrations/20261011020000_core_internal_notification_engine.sql": {
    "brick": "BE-MIG-01",
-   "sha": "0e0afe28e60b"
+   "sha": "2e6ea11a3491"
   },
   "supabase/migrations/20261011023000_governorate_notification_barrier.sql": {
    "brick": "BE-MIG-01",
@@ -1555,7 +1571,7 @@
   },
   "supabase/migrations/20261021000000_hr01_service_continuity_requests.sql": {
    "brick": "BE-MIG-01",
-   "sha": "faaf1c6cbafa"
+   "sha": "0a8ddc800957"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

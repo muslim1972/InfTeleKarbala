@@ -18,7 +18,7 @@ export function canAccessHR(user: any): boolean {
     if (user.admin_role === 'hr' || user.admin_role === 'general') return true;
     if (user.can_view_requests === true) return true;
 
-    // حسابات خاصة وتجريبية ومسؤولة شعبة الذاتية
+    // حسابات خاصة وتجريبية ومسؤولة شعبة الموارد البشرية
     const name = user.full_name || '';
     const username = user.username || '';
     if (

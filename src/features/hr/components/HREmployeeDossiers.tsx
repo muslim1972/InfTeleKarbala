@@ -19,7 +19,7 @@ const SAMPLE_EMPLOYEES: MockEmployee[] = [
         id: 'emp-1',
         fullName: 'أسيل جبار عبد السادة',
         jobNumber: '8401',
-        jobTitle: 'مسؤول شعبة الذاتية والموارد البشرية',
+        jobTitle: 'مسؤول شعبة الموارد البشرية',
         department: 'قسم الشؤون الإدارية والمالية',
         hireDate: '2012-04-15',
         leaveBalance: 78
@@ -308,12 +308,12 @@ export const HREmployeeDossiers = () => {
 
             {/* Upload Modal */}
             {isUploadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 pt-16 sm:pt-20 pb-6 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
                     <div className={cn(
-                        "w-full max-w-lg rounded-2xl border shadow-2xl p-6 relative",
+                        "w-full max-w-lg rounded-2xl border shadow-2xl p-5 sm:p-6 relative max-h-[calc(100vh-5.5rem)] flex flex-col my-auto overflow-hidden",
                         isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
                     )}>
-                        <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border mb-3 shrink-0">
                             <div className="flex items-center gap-2">
                                 <Upload className="w-5 h-5 text-emerald-500" />
                                 <h3 className="font-bold text-base">إضافة مستند إلى إضبارة {selectedEmployee.fullName}</h3>
@@ -326,7 +326,7 @@ export const HREmployeeDossiers = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleUpload} className="space-y-4 text-xs">
+                        <form onSubmit={handleUpload} className="overflow-y-auto flex-1 pr-1 pl-1 space-y-4 text-xs">
                             <div>
                                 <label className="block font-bold mb-1">عنوان الوثيقة *</label>
                                 <input
@@ -411,7 +411,7 @@ export const HREmployeeDossiers = () => {
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-border shrink-0 mt-3">
                                 <button
                                     type="button"
                                     onClick={() => setIsUploadModalOpen(false)}

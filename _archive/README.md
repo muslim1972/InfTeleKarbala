@@ -19,5 +19,5 @@
 
 ## القاعدة من الآن
 - أي ملف مؤقت جديد (فحص، تشخيص، ترقيع) يُكتب مباشرة في `_archive/<النوع>/` أو في مجلد scratch الجلسة — **لا في الجذر ولا في `scripts/`**.
-- `scripts/` للأدوات المعتمدة فقط: `deploy-dist.ps1`، `dist-cmp-remote.sh`، `runtime-check.sh`، `AI Scrept/`، `sql/` (دوال الطابوق المعتمدة)، `utils/`.
+- `scripts/` للأدوات المعتمدة فقط: `deploy-dist.ps1`، `dist-cmp-remote.sh`، `runtime-check.sh`، `AI Scrept/`، `sql/` (دوال الأنوية المعمارية المعتمدة)، `utils/`.
 - لا يُستورد شيء من `_archive` في الكود أو البناء.

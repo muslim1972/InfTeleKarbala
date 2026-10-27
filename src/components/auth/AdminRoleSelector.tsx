@@ -100,7 +100,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
         {
             id: 'hr',
             label: 'الموارد البشرية',
-            desc: 'شعبة الذاتية، إدارة الطلبات، الكتب الرسمية (الصادر والوارد)، وإضبارات الموظفين',
+            desc: 'شعبة الموارد البشرية، إدارة الطلبات، الكتب الرسمية (الصادر والوارد)، وإضبارات الموظفين',
             icon: <Briefcase className="w-6 h-6 text-rose-500" />,
             hoverGlow: 'hover:shadow-[0_0_30px_rgba(244,63,94,0.25)]',
             iconBg: isDark ? 'bg-rose-500/20 border-rose-500/30 group-hover:bg-rose-500/30' : 'bg-rose-500/10 border-rose-500/20',
