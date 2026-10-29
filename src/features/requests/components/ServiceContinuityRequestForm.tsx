@@ -52,7 +52,7 @@ const DEFAULT_ENTITIES = [
   'المصرف العقاري',
   'مصرف الرافدين',
   'مصرف الرشيد',
-  'نقابة المهندسين العراقية',
+  'نقابة المهندسين العراقيين',
 ];
 
 const LOCAL_STORAGE_KEY = 'continuity_custom_destinations';

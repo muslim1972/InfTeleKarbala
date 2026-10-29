@@ -1,0 +1,3 @@
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id, full_name, job_number, dept_text, section_text, unit_text, department_id, work_location_id FROM public.profiles WHERE full_name LIKE '%مرتضى علي%' OR job_number = '103131418';"
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id, name, parent_id, level FROM public.departments WHERE id IN (SELECT department_id FROM public.profiles WHERE job_number = '103131418');"
+docker exec -i supabase-db psql -U postgres -d postgres -c "SELECT id, name, department_id FROM public.work_locations WHERE id IN (SELECT work_location_id FROM public.profiles WHERE job_number = '103131418');"

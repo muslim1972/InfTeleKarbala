@@ -10,7 +10,12 @@ export const useDashboardData = (activeTab: string) => {
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [departmentInfo, setDepartmentInfo] = useState({ name: 'غير محدد', managerName: 'غير محدد' });
+    const [departmentInfo, setDepartmentInfo] = useState({
+        name: 'غير محدد',
+        managerName: 'غير محدد',
+        sectionName: '',
+        deptName: ''
+    });
 
     // UI State for Collapsible Sections
     const [openSection, setOpenSection] = useState<string | null>(null);
@@ -193,6 +198,26 @@ export const useDashboardData = (activeTab: string) => {
             if (user.department_id) {
                 let currentDept = deptData.find((d: any) => d.id === user.department_id);
                 const originDeptName = currentDept?.name || 'غير محدد';
+                let sectionName = '';
+                let deptName = '';
+
+                if (currentDept) {
+                    if (currentDept.level === 4) {
+                        sectionName = currentDept.name;
+                        const parent = deptData.find((d: any) => d.id === currentDept.parent_id);
+                        if (parent) deptName = parent.name;
+                    } else if (currentDept.level === 3) {
+                        deptName = currentDept.name;
+                    } else if (currentDept.level === 5) {
+                        const parent = deptData.find((d: any) => d.id === currentDept.parent_id);
+                        if (parent) {
+                            sectionName = parent.name;
+                            const grandParent = deptData.find((d: any) => d.id === parent.parent_id);
+                            if (grandParent) deptName = grandParent.name;
+                        }
+                    }
+                }
+
                 let nearestManagerId = null;
 
                 const visitedDepts = new Set<string>();
@@ -223,7 +248,7 @@ export const useDashboardData = (activeTab: string) => {
                     }
                 }
 
-                setDepartmentInfo({ name: originDeptName, managerName });
+                setDepartmentInfo({ name: originDeptName, managerName, sectionName, deptName });
             }
 
             // تم تحميل البيانات بنجاح لهذا المستخدم

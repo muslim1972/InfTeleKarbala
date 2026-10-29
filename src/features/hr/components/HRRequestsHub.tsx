@@ -107,8 +107,8 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
                     employee:profiles!service_continuity_requests_user_id_fkey(
                         full_name,
                         job_number,
-                        job_title,
-                        department
+                        dept_text,
+                        section_text
                     ),
                     supervisor:profiles!service_continuity_requests_supervisor_id_fkey(
                         full_name
@@ -128,7 +128,7 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
                     const uids = [...new Set(rawData.map((r: any) => r.user_id).filter(Boolean))];
                     const { data: profs } = await supabase
                         .from('profiles')
-                        .select('id, full_name, job_number, job_title, department')
+                        .select('id, full_name, job_number, dept_text, section_text')
                         .in('id', uids);
 
                     const pMap: Record<string, any> = {};

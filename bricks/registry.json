@@ -424,7 +424,8 @@
         "on_department_insert_ensure_location",
         "sync_work_locations_on_department_rename",
         "ensure_work_locations_for_governorate",
-        "clone_departments_tree__impl"
+        "clone_departments_tree__impl",
+        "fn_sync_profile_dept_texts"
       ],
       "tables": [
         "departments",
@@ -449,7 +450,8 @@
         "update_yearly_records_counts",
         "submit_service_continuity_request",
         "process_service_continuity_supervisor",
-        "process_service_continuity_hr_issue"
+        "process_service_continuity_hr_issue",
+        "verify_continuity_letter"
       ],
       "tables": [
         "profiles",

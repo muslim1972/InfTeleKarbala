@@ -141,10 +141,7 @@ export const IssuedContinuityCard = ({
 
                                         <div className="flex flex-wrap sm:flex-nowrap items-baseline gap-2 text-xs">
                                             <span className="font-bold text-foreground">
-                                                {item.employee?.full_name || 'موظف'}
-                                            </span>
-                                            <span className="text-muted-foreground text-[11px]">
-                                                (رقم وظيفي: {item.employee?.job_number || '—'})
+                                                الموظف: {item.employee?.full_name || 'موظف'}
                                             </span>
                                             <span className="hidden sm:inline text-muted-foreground/40">•</span>
                                             <span className="text-muted-foreground text-[11px] flex items-center gap-1">

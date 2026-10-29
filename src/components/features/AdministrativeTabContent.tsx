@@ -43,7 +43,7 @@ interface AdministrativeTabContentProps {
     selectedLeave: any;
     setSelectedLeave: (leave: any | null) => void;
     user: any;
-    departmentInfo: { name: string; managerName: string };
+    departmentInfo: { name: string; managerName: string; sectionName?: string; deptName?: string };
     openSection: string | null;
     toggleSection: (section: string) => void;
 }
@@ -111,9 +111,13 @@ export const AdministrativeTabContent = ({
                                 val = getRoleLabel(user);
                             } else if (field.key === 'job_number') {
                                 val = user?.job_number || user?.username;
+                            } else if (field.key === 'section_text') {
+                                val = departmentInfo.sectionName || cleanText((user as any)?.section_text);
+                            } else if (field.key === 'dept_text') {
+                                val = departmentInfo.deptName || cleanText((user as any)?.dept_text);
                             } else {
                                 val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? undefined : financialData?.[field.key]);
-                                if (['dept_text', 'section_text', 'unit_text'].includes(field.key)) {
+                                if (['unit_text'].includes(field.key)) {
                                     val = cleanText(val);
                                 }
                             }

@@ -227,7 +227,22 @@ export const TabManageEmployees = ({
                             <div className="px-2">
                                 <DepartmentSelector
                                     value={selectedEmployee.department_id}
-                                    onChange={(val: string | null) => setSelectedEmployee({ ...selectedEmployee, department_id: val })}
+                                    onChange={(val: string | null, dept?: any, parentDept?: any) => {
+                                        const updates: any = { department_id: val };
+                                        if (dept) {
+                                            if (dept.level === 4) {
+                                                updates.section_text = dept.name;
+                                                if (parentDept) updates.dept_text = parentDept.name;
+                                            } else if (dept.level === 3) {
+                                                updates.dept_text = dept.name;
+                                                updates.section_text = '';
+                                            } else if (dept.level === 5) {
+                                                updates.unit_text = dept.name;
+                                                if (parentDept) updates.section_text = parentDept.name;
+                                            }
+                                        }
+                                        setSelectedEmployee((prev: any) => ({ ...prev, ...updates }));
+                                    }}
                                     theme={theme}
                                 />
                                 <p className="text-[10px] text-gray-500 mt-1 dark:text-gray-400">

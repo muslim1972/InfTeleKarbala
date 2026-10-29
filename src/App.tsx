@@ -40,6 +40,7 @@ const IncentivesTabContent = lazy(() => import("./components/features/Incentives
 const FloatingAudioPlayer = lazy(() => import("./components/features/FloatingAudioPlayer").then(m => ({ default: m.FloatingAudioPlayer })));
 const GlobalElements = lazy(() => import("./components/layout/GlobalElements").then(m => ({ default: m.GlobalElements })));
 const KioskPage = lazy(() => import("./features/kiosk/KioskPage").then(m => ({ default: m.KioskPage })));
+const PublicContinuityVerifyPage = lazy(() => import("./features/hr/components/PublicContinuityVerifyPage").then(m => ({ default: m.PublicContinuityVerifyPage })));
 
 // Loading Component
 const LoadingScreen = () => (
@@ -347,6 +348,8 @@ function App() {
                       <Route path="/login" element={<AppContent />} />
                       {/* كيوسك البصمة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
                       <Route path="/kiosk" element={<KioskPage />} />
+                      {/* التحقق الرقمي من صحة صدور الوثائق — مسار عام عبر QR Code بلا تسجيل دخول */}
+                      <Route path="/verify/continuity/:id" element={<PublicContinuityVerifyPage />} />
                       <Route path="/*" element={<NotFound />} />
                     </Routes>
                     <FloatingAudioPlayer />

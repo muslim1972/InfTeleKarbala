@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils";
 import { Label } from "../ui/Label";
 import { useGovernorate } from "../../context/GovernorateContext";
 
-interface Department {
+export interface Department {
     id: string;
     name: string;
     level: number;
@@ -14,7 +14,7 @@ interface Department {
 
 interface DepartmentSelectorProps {
     value: string | null;
-    onChange: (val: string | null) => void;
+    onChange: (val: string | null, dept?: Department | null, parentDept?: Department | null) => void;
     theme?: string;
     disabled?: boolean;
     label?: string;
@@ -32,6 +32,16 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
     const [departments, setDepartments] = useState<Department[]>([]);
     const [loading, setLoading] = useState(true);
     const { activeGovernorate } = useGovernorate();
+
+    const handleSelect = (deptId: string) => {
+        if (!deptId) {
+            onChange(null, null, null);
+            return;
+        }
+        const selectedDept = departments.find(d => d.id === deptId) || null;
+        const parentDept = selectedDept?.parent_id ? departments.find(d => d.id === selectedDept.parent_id) || null : null;
+        onChange(deptId, selectedDept, parentDept);
+    };
 
     useEffect(() => {
         const fetchDepartments = async () => {
@@ -76,7 +86,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
             <div className="relative">
                 <select
                     value={value || ""}
-                    onChange={(e) => onChange(e.target.value || null)}
+                    onChange={(e) => handleSelect(e.target.value)}
                     disabled={disabled || loading}
                     className={cn(
                         "w-full h-10 px-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 transition-colors appearance-none",

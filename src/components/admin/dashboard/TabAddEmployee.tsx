@@ -41,7 +41,22 @@ export const TabAddEmployee = ({
                     {/* Department / Position Tree Node */}
                     <DepartmentSelector
                         value={formData.department_id}
-                        onChange={(val: string | null) => setFormData({ ...formData, department_id: val })}
+                        onChange={(val: string | null, dept?: any, parentDept?: any) => {
+                            const updates: any = { department_id: val };
+                            if (dept) {
+                                if (dept.level === 4) {
+                                    updates.section_text = dept.name;
+                                    if (parentDept) updates.dept_text = parentDept.name;
+                                } else if (dept.level === 3) {
+                                    updates.dept_text = dept.name;
+                                    updates.section_text = '';
+                                } else if (dept.level === 5) {
+                                    updates.unit_text = dept.name;
+                                    if (parentDept) updates.section_text = parentDept.name;
+                                }
+                            }
+                            setFormData((prev: any) => ({ ...prev, ...updates }));
+                        }}
                         theme={theme}
                     />
 
