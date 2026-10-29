@@ -117,6 +117,33 @@ if (process.argv.includes('--db')) {
   } catch (e) { errors.push(`تعذّر فحص قاعدة البيانات: ${e.message.split('\n')[0]}`); }
 }
 
+// B.R.I.C.K v0.4 / v4.0: فحص المناعة السيادية من تسريب الأسرار وبيانات الاعتماد (المسلمة 7)
+const SECRET_PATTERNS = [
+  { name: 'Supabase Service Key (sb_secret_*)', regex: /sb_secret_[a-zA-Z0-9_\-]{16,}/ },
+  { name: 'GitHub Token (ghp_*)', regex: /ghp_[a-zA-Z0-9]{36}/ },
+  { name: 'AWS Access Key (AKIA*)', regex: /AKIA[0-9A-Z]{16}/ },
+  { name: 'Private Key Block', regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
+];
+
+const auditDirs = ['src', 'scripts', '_archive'];
+for (const d of auditDirs) {
+  const absDir = path.join(ROOT, d);
+  if (!fs.existsSync(absDir)) continue;
+  const files = fs.statSync(absDir).isDirectory() ? walk(absDir) : [absDir];
+  for (const f of files) {
+    try {
+      const stat = fs.statSync(f);
+      if (stat.size > 2 * 1024 * 1024) continue;
+      const content = fs.readFileSync(f, 'utf8');
+      for (const { name, regex } of SECRET_PATTERNS) {
+        if (regex.test(content)) {
+          errors.push(`[المسلمة 7 تسريب سري] ${rel(f)} يحتوي على ${name}`);
+        }
+      }
+    } catch {}
+  }
+}
+
 // التقرير
 const byStatus = reg.bricks.reduce((a, b) => ((a[b.status] = (a[b.status] || 0) + 1), a), {});
 console.log(`\n=== محرك الإنفاذ الحتمي لإطار B.R.I.C.K (OPS-03) ===`);
