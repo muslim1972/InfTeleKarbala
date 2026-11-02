@@ -365,7 +365,8 @@
         "gov_display_name",
         "media_in_my_gov",
         "poll_in_my_gov",
-        "core_require_role"
+        "core_require_role",
+        "can_manage_work_locations"
       ],
       "tables": [
         "field_permissions",
@@ -594,9 +595,14 @@
         "work_locations",
         "work_location_employees",
         "official_holidays",
-        "public_holidays"
+        "public_holidays",
+        "work_location_audit_logs"
       ],
-      "contract": "bricks/ATT/BRICK.md"
+      "contract": "bricks/ATT/BRICK.md",
+      "db": [
+        "can_manage_work_locations",
+        "work_locations_audit_trigger"
+      ]
     },
     {
       "id": "BE-LEV-01",

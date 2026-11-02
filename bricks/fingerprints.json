@@ -1,9 +1,9 @@
 {
- "created": "2026-11-02T01:18:49.517Z",
+ "created": "2026-11-02T14:37:55.472Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "47c67ff0ea79"
+   "sha": "7495f380e562"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -575,7 +575,7 @@
   },
   "src/features/attendance/components/AttendanceAdminSettings.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "66b77e6188ef"
+   "sha": "7a450fc5e0b5"
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
@@ -617,9 +617,17 @@
    "brick": "FE-ATT-01",
    "sha": "0a145a2680eb"
   },
+  "src/features/attendance/components/LocationSearch.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "da2432b3119f"
+  },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
    "sha": "ec3d255921df"
+  },
+  "src/features/attendance/components/WorkLocationCard.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "170fe779cd6d"
   },
   "src/features/attendance/components/WorkScheduleForm.tsx": {
    "brick": "FE-ATT-01",
@@ -1596,6 +1604,10 @@
   "supabase/migrations/20261029000000_core_sync_department_texts.sql": {
    "brick": "BE-MIG-01",
    "sha": "824c6294e567"
+  },
+  "supabase/migrations/20261102160000_att07_work_locations_role_unification.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "8a508f7968d5"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

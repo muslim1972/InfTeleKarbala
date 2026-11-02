@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { workLocationService } from '../services/workLocationService';
 import type { WorkLocation } from '../types';
-import { 
-  MapPin, Users, Plus, Trash2, Search, Printer, Calendar, 
-  BarChart3, Settings, MapPinned, UserPlus, UserMinus, 
-  Check, X, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, Edit2, Save,
+import {
+  MapPin, Users, Plus, Search, Printer, Calendar,
+  BarChart3, MapPinned, UserPlus, UserMinus,
+  Check, X, Navigation, ShieldCheck, AlertTriangle, Edit2, Save,
   Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone,
-  RefreshCw, Clock, Laptop, ShieldAlert, AlertCircle
+  RefreshCw, Clock, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -19,6 +19,8 @@ import WorkSchedulesTab from './WorkSchedulesTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
+import WorkLocationCard from './WorkLocationCard';
+import { LocationSearch } from './LocationSearch';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
@@ -52,8 +54,8 @@ export default function AttendanceAdminSettings() {
   const [locFilterSearch, setLocFilterSearch] = useState<string>('');
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
+  const [, setSearchResults] = useState<any[]>([]);
+  const [selectedScheduleId] = useState<string>('');
   const [rosterEmployee, setRosterEmployee] = useState<any | null>(null);
   const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
 
@@ -604,7 +606,8 @@ export default function AttendanceAdminSettings() {
       // Calc stats
       const total = formatted.length;
       const present = formatted.filter(r => r.status === 'present').length;
-      const explicitAbsent = formatted.filter(r => r.status === 'absent').length;
+      const _explicitAbsent = formatted.filter(r => r.status === 'absent').length;
+      void _explicitAbsent;
       let absent = Math.max(0, (count || 0) - present);
       if (reportType === 'daily') {
         try {
@@ -652,6 +655,39 @@ export default function AttendanceAdminSettings() {
       setIsGettingLocation(false);
       toast.error('الموقع الجغرافي غير مدعوم في متصفحك');
     }
+  };
+
+  /**
+   * نسخة وعد-قابلة (Promise) من جلب الإحداثيات، تستهلكها بطاقة الموقع.
+   * ترمي استثناءً عند الفشل حتى تعرض البطاقة رسالة صريحة بدل زر ميت.
+   */
+  const fetchCurrentCoordinates = (): Promise<{ latitude: number; longitude: number }> => {
+    return new Promise((resolve, reject) => {
+      if (!('geolocation' in navigator)) {
+        reject(new Error('الموقع الجغرافي غير مدعوم في متصفحك.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            reject(new Error('تم رفض إذن الوصول للموقع. فعّل إذن GPS للمتصفح ثم أعد المحاولة.'));
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            reject(new Error('تعذّر تحديد موقعك حالياً. تأكد من تشغيل GPS ثم أعد المحاولة.'));
+          } else if (err.code === err.TIMEOUT) {
+            reject(new Error('انتهت مهلة تحديد الموقع. حاول في مكان مكشوف.'));
+          } else {
+            reject(new Error('فشل جلب الموقع الحالي. يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح.'));
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
   };
 
   // Add or update Location
@@ -703,6 +739,38 @@ export default function AttendanceAdminSettings() {
     setLocLng(loc.longitude);
     setLocRadius(loc.radius_meters);
     setShowAddForm(true);
+  };
+
+  /**
+   * حفظ تعديلات بطاقة الموقع في وضع التحرير المدمج (نفس البطاقة).
+   * يرسل الحقول المعدَّلة فقط — لا يعيد إرسال created_by/governorate من العميل.
+   */
+  const handleInlineSaveLocation = async (
+    loc: WorkLocation,
+    patch: Partial<WorkLocation>
+  ): Promise<void> => {
+    // عزل المحافظات: بلا محافظة نشطة محددة = رفض (fail-closed)
+    if (!activeGovernorate || activeGovernorate === 'all') {
+      throw new Error('اختر محافظة محددة أولاً من مبدل المحافظات');
+    }
+
+    const payload: Partial<WorkLocation> = {
+      radius_meters: patch.radius_meters,
+      latitude: patch.latitude,
+      longitude: patch.longitude,
+    };
+
+    // اسم الموقع قابل للتعديل أيضاً — نحدّثه إن تغيّر
+    if (locName.trim() && locName.trim() !== loc.name) {
+      payload.name = locName.trim();
+    }
+
+    await workLocationService.updateLocation(loc.id, payload);
+    setEditingLocationId(null);
+    setShowAddForm(false);
+    setLocName('');
+    toast.success('تم تعديل موقع العمل بنجاح');
+    loadLocations();
   };
 
   const handleDeleteLocation = async (id: string) => {
@@ -819,7 +887,7 @@ export default function AttendanceAdminSettings() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-white transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 pt-8 pb-32">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-32">
         
         {/* Print Stylesheet */}
         <style>{`
@@ -834,28 +902,143 @@ export default function AttendanceAdminSettings() {
           }
         `}</style>
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 no-print">
-          <div>
-            <h1 className="text-3xl font-bold font-tajawal flex items-center gap-3">
-              <Settings className="w-8 h-8 text-blue-500" />
-              إعدادات نظام الحضور والانصراف البيومتري
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">
-              إدارة مواقع سياج العمل، صلاحيات البصمة والتقارير الدورية للمديرية.
-            </p>
-          </div>
+        {/* Compact Header: tabs bar + clock merged in one line (title & description removed per UI council) */}
+        <div className="flex items-center gap-3 mb-4 no-print">
+          {/* Tabs (scrollable, flex-1) */}
+          <div className="relative flex items-center group flex-1 min-w-0">
+            <button 
+              onClick={() => scrollTabs('right')}
+              className="absolute right-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-1.5 rounded-full shadow-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center translate-x-1.5 transition-all cursor-pointer"
+              title="تمرير لليمين"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            
+            <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto py-1 px-7 hide-scrollbar scroll-smooth w-full items-center">
+          {isAttendanceAdmin && (
+            <button
+              onClick={() => setActiveTab('liveBoard')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                activeTab === 'liveBoard'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              اللوحة الحية
+            </button>
+          )}
           
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <Clock className="w-6 h-6 text-blue-500" />
-            <div className="flex flex-col">
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-none mb-1">الوقت الحالي</span>
-              <span className="text-xl font-bold font-mono text-slate-800 dark:text-white leading-none">
+          {isAttendanceAdmin && (
+            <button
+              onClick={() => setActiveTab('timesheets')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                activeTab === 'timesheets'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              التقارير المتقدمة (Timesheets)
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('locations')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'locations'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <MapPinned className="w-4 h-4" />
+            إدارة مواقع العمل
+          </button>
+          <button
+            onClick={() => setActiveTab('assignments')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'assignments'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <UserPlus className="w-4 h-4" />
+            ربط الموظفين بالمواقع
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            تقارير الحضور
+          </button>
+          <button
+            onClick={() => setActiveTab('deviceLogs')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            سجل توثيق الأجهزة
+          </button>
+          <button
+            onClick={() => setActiveTab('deviceRequests')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+            طلبات تغيير الأجهزة
+            {deviceRequests.length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full mr-1">
+                {deviceRequests.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('workSchedules')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            جداول العمل
+          </button>
+
+          <button
+            onClick={() => setActiveTab('holidays')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'holidays'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            إعدادات العطل
+          </button>
+          </div>
+
+          <button 
+            onClick={() => scrollTabs('left')}
+            className="absolute left-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-1.5 rounded-full shadow-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center -translate-x-1.5 transition-all cursor-pointer"
+            title="تمرير لليسار"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
+
+          {/* Compact Clock — merged with tabs in one line */}
+          <div className="shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <Clock className="w-4 h-4 text-blue-500" />
+            <div className="flex flex-col leading-none">
+              <span className="text-[11px] text-slate-400 font-medium leading-none mb-0.5">الوقت</span>
+              <span className="text-sm font-bold font-mono text-slate-800 dark:text-white leading-none" dir="ltr">
                 {new Intl.DateTimeFormat('en-GB', {
                   timeZone: 'Asia/Baghdad',
                   hour: '2-digit',
                   minute: '2-digit',
-                  second: '2-digit',
                   hour12: true
                 }).format(currentTime || new Date())}
               </span>
@@ -866,10 +1049,10 @@ export default function AttendanceAdminSettings() {
               const dayName = arabicDayNameForDate(dateStr);
               return (
                 <>
-                  <div className="h-10 w-px bg-slate-200 dark:bg-slate-700" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-base font-bold text-blue-600 dark:text-blue-400 leading-none mb-1">{dayName}</span>
-                    <span className="text-sm font-mono font-semibold text-slate-600 dark:text-slate-300 leading-none" dir="ltr">
+                  <div className="h-7 w-px bg-slate-200 dark:bg-slate-700" />
+                  <div className="flex flex-col items-center leading-none">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 leading-none mb-0.5">{dayName}</span>
+                    <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 leading-none" dir="ltr">
                       {dateStr}
                     </span>
                   </div>
@@ -877,131 +1060,6 @@ export default function AttendanceAdminSettings() {
               );
             })()}
           </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="relative flex items-center group w-full mb-4">
-          <button 
-            onClick={() => scrollTabs('right')}
-            className="absolute right-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center translate-x-2 transition-all cursor-pointer"
-            title="تمرير لليمين"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          
-          <div ref={tabsRef} className="flex gap-2 overflow-x-auto py-2 px-8 hide-scrollbar scroll-smooth w-full items-center">
-          {isAttendanceAdmin && (
-            <button
-              onClick={() => setActiveTab('liveBoard')}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-                activeTab === 'liveBoard'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Activity className="w-5 h-5" />
-              اللوحة الحية
-            </button>
-          )}
-          
-          {isAttendanceAdmin && (
-            <button
-              onClick={() => setActiveTab('timesheets')}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-                activeTab === 'timesheets'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              التقارير المتقدمة (Timesheets)
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab('locations')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'locations'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <MapPinned className="w-5 h-5" />
-            إدارة مواقع العمل
-          </button>
-          <button
-            onClick={() => setActiveTab('assignments')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'assignments'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <UserPlus className="w-5 h-5" />
-            ربط الموظفين بالمواقع
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            تقارير الحضور
-          </button>
-          <button
-            onClick={() => setActiveTab('deviceLogs')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            سجل توثيق الأجهزة
-          </button>
-          <button
-            onClick={() => setActiveTab('deviceRequests')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <AlertTriangle className="w-5 h-5" />
-            طلبات تغيير الأجهزة
-            {deviceRequests.length > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full mr-2">
-                {deviceRequests.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('workSchedules')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar className="w-5 h-5" />
-            جداول العمل
-          </button>
-
-          <button
-            onClick={() => setActiveTab('holidays')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-              activeTab === 'holidays'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Calendar className="w-5 h-5" />
-            إعدادات العطل
-          </button>
-          </div>
-
-          <button 
-            onClick={() => scrollTabs('left')}
-            className="absolute left-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center -translate-x-2 transition-all cursor-pointer"
-            title="تمرير لليسار"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Loading Spinner */}
@@ -1012,15 +1070,21 @@ export default function AttendanceAdminSettings() {
         )}
 
         {/* =========================================================================
-            TAB 1: MANAGING WORK LOCATIONS 
+            TAB 1: MANAGING WORK LOCATIONS (redesigned — compact cards + live search)
             ========================================================================= */}
         {!loading && activeTab === 'locations' && (
-          <div className="space-y-6 no-print">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <MapPin className="w-6 h-6 text-blue-500" />
-                المواقع المسجلة حالياً
-              </h2>
+          <div className="space-y-4 no-print">
+            {/* Search + Add button in one line */}
+            <div className="flex gap-3 items-center">
+              <LocationSearch
+                locations={locations}
+                onSelect={(loc) => {
+                  requestAnimationFrame(() => {
+                    document.getElementById(`loc-card-${loc.id}`)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  });
+                }}
+              />
               <button
                 onClick={() => {
                   setShowAddForm(!showAddForm);
@@ -1029,34 +1093,35 @@ export default function AttendanceAdminSettings() {
                     setLocName('');
                   }
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Plus className="w-5 h-5" />
                 إضافة موقع عمل
               </button>
             </div>
 
-            {/* Add Location Form (Shown at top only when adding a new location) */}
+            {/* Add Location Form (compact — shown only when adding a new location) */}
             {showAddForm && !editingLocationId && (
-              <form onSubmit={handleSaveLocation} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                <h3 className="text-lg font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
+              <form onSubmit={handleSaveLocation} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-5 max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="text-base font-bold border-b border-slate-100 dark:border-slate-700 pb-2">
                   إضافة موقع عمل جديد
                 </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">اسم الموقع (مثال: المبنى الرئيسي)</label>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400">اسم الموقع</label>
                     <input
                       type="text"
                       required
                       value={locName}
                       onChange={(e) => setLocName(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold"
+                      placeholder="مثال: المبنى الرئيسي"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">نصف قطر السياج (متر)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400">نصف القطر (متر)</label>
                     <input
                       type="number"
                       required
@@ -1064,44 +1129,46 @@ export default function AttendanceAdminSettings() {
                       max={1000}
                       value={locRadius}
                       onChange={(e) => setLocRadius(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">خط العرض (Latitude)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400">خط العرض</label>
                     <input
                       type="number"
                       step="any"
                       required
                       value={locLat}
                       onChange={(e) => setLocLat(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold font-mono"
+                      dir="ltr"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">خط الطول (Longitude)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400">خط الطول</label>
                     <input
                       type="number"
                       step="any"
                       required
                       value={locLng}
                       onChange={(e) => setLocLng(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold font-mono"
+                      dir="ltr"
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex flex-col sm:flex-row gap-3 justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
                   <button
                     type="button"
                     onClick={handleGetCurrentLocation}
                     disabled={isGettingLocation}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
                   >
-                    <Navigation className="w-5 h-5 animate-pulse" />
-                    {isGettingLocation ? 'جاري جلب إحداثياتك...' : 'جلب إحداثيات موقعي الحالي'}
+                    <Navigation className="w-4 h-4 animate-pulse" />
+                    {isGettingLocation ? 'جارٍ الجلب...' : 'جلب إحداثياتي'}
                   </button>
 
                   <div className="flex gap-3">
@@ -1109,16 +1176,15 @@ export default function AttendanceAdminSettings() {
                       type="button"
                       onClick={() => {
                         setShowAddForm(false);
-                        setEditingLocationId(null);
                         setLocName('');
                       }}
-                      className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold py-2.5 px-6 rounded-xl transition-all"
+                      className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold py-2 px-6 rounded-xl transition-all text-sm"
                     >
                       إلغاء
                     </button>
                     <button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition-all"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-xl shadow-md transition-all text-sm"
                     >
                       حفظ وإضافة
                     </button>
@@ -1127,200 +1193,29 @@ export default function AttendanceAdminSettings() {
               </form>
             )}
 
-            {/* Grid list of Locations */}
+            {/* Grid of Work Location Cards — two-mode compact cards */}
             {locations.length === 0 ? (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-12 text-center text-slate-500">
-                <MapPinned className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-                <p className="font-bold">لا يوجد أي مواقع عمل مسجلة حتى الآن.</p>
-                <p className="text-sm mt-1">اضغط على زر "إضافة موقع عمل" بالأعلى للبدء.</p>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-8 text-center text-slate-500">
+                <MapPinned className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                <p className="font-bold text-sm">لا يوجد أي مواقع عمل مسجلة حتى الآن.</p>
+                <p className="text-xs mt-1">اضغط على زر «إضافة موقع عمل» بالأعلى للبدء.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {locations.map((loc) => (
-                  <React.Fragment key={loc.id}>
-                    <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-xl ${
-                      loc.is_active ? 'border-slate-100 dark:border-slate-700/50' : 'border-rose-200/50 dark:border-rose-900/30 opacity-75'
-                    }`}>
-                      <div>
-                        <div className="flex justify-between items-start mb-4">
-                          <h3 className="font-bold text-lg">{loc.name}</h3>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            loc.is_active ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'
-                          }`}>
-                            {loc.is_active ? 'نشط' : 'معطل'}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mb-6">
-                          <div className="flex justify-between">
-                            <span>خط العرض:</span>
-                            <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.latitude.toFixed(6)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>خط الطول:</span>
-                            <span className="font-mono font-bold text-slate-800 dark:text-slate-300">{loc.longitude.toFixed(6)}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-blue-600 dark:text-blue-400">
-                            <span>نصف القطر:</span>
-                            <span>{loc.radius_meters} متر</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-auto">
-                        <button
-                          onClick={() => handleToggleLocationActive(loc.id, loc.is_active)}
-                          className={`p-2 rounded-xl flex-1 text-center font-bold text-xs flex justify-center items-center gap-1 transition-all ${
-                            loc.is_active 
-                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30' 
-                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
-                          }`}
-                          title={loc.is_active ? 'تعطيل الموقع' : 'تفعيل الموقع'}
-                        >
-                          {loc.is_active ? (
-                            <>
-                              <EyeOff className="w-4 h-4" />
-                              تعطيل
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-4 h-4" />
-                              تفعيل
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => handleEditLocation(loc)}
-                          className={`p-2 rounded-xl transition-all font-bold text-xs flex justify-center items-center gap-1 ${
-                            editingLocationId === loc.id
-                              ? 'bg-blue-600 text-white dark:bg-blue-600'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                          }`}
-                          title="تعديل الإعدادات"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          تعديل
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteLocation(loc.id)}
-                          className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 p-2 rounded-xl transition-all font-bold text-xs flex justify-center items-center gap-1"
-                          title="حذف الموقع"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          حذف
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inline Edit Form for this specific location */}
-                    {editingLocationId === loc.id && (
-                      <div className="col-span-1 md:col-span-2 lg:col-span-3 animate-in fade-in slide-in-from-top-4 duration-300 my-2">
-                        <form onSubmit={handleSaveLocation} className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-blue-500/50 dark:border-blue-500/40 p-6 space-y-6">
-                          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
-                            <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                              <Edit2 className="w-5 h-5" />
-                              تعديل موقع العمل: {loc.name}
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowAddForm(false);
-                                setEditingLocationId(null);
-                                setLocName('');
-                              }}
-                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold">اسم الموقع (مثال: المبنى الرئيسي)</label>
-                              <input
-                                type="text"
-                                required
-                                value={locName}
-                                onChange={(e) => setLocName(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold">نصف قطر السياج (متر)</label>
-                              <input
-                                type="number"
-                                required
-                                min={10}
-                                max={1000}
-                                value={locRadius}
-                                onChange={(e) => setLocRadius(Number(e.target.value))}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold">خط العرض (Latitude)</label>
-                              <input
-                                type="number"
-                                step="any"
-                                required
-                                value={locLat}
-                                onChange={(e) => setLocLat(Number(e.target.value))}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold">خط الطول (Longitude)</label>
-                              <input
-                                type="number"
-                                step="any"
-                                required
-                                value={locLng}
-                                onChange={(e) => setLocLng(Number(e.target.value))}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
-                            <button
-                              type="button"
-                              onClick={handleGetCurrentLocation}
-                              disabled={isGettingLocation}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                              <Navigation className="w-5 h-5 animate-pulse" />
-                              {isGettingLocation ? 'جاري جلب إحداثياتك...' : 'جلب إحداثيات موقعي الحالي'}
-                            </button>
-
-                            <div className="flex gap-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowAddForm(false);
-                                  setEditingLocationId(null);
-                                  setLocName('');
-                                }}
-                                className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold py-2.5 px-6 rounded-xl transition-all"
-                              >
-                                إلغاء
-                              </button>
-                              <button
-                                type="submit"
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition-all"
-                              >
-                                تعديل وحفظ
-                              </button>
-                            </div>
-                          </div>
-                        </form>
-                      </div>
-                    )}
-                  </React.Fragment>
+                  <WorkLocationCard
+                    key={loc.id}
+                    loc={loc}
+                    onToggleActive={handleToggleLocationActive}
+                    onEdit={handleEditLocation}
+                    onSave={handleInlineSaveLocation}
+                    onCancel={() => {
+                      setEditingLocationId(null);
+                      setLocName('');
+                    }}
+                    onDelete={handleDeleteLocation}
+                    onGetCurrentLocation={fetchCurrentCoordinates}
+                  />
                 ))}
               </div>
             )}
