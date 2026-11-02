@@ -78,6 +78,7 @@ export const DashboardHeader = ({
             { id: 'admin_manage', label: 'إدارة الموظفين' },
             { id: 'admin_records', label: 'إدارة السجلات' },
             { id: 'admin_incentives', label: 'الحوافز' },
+            { id: 'admin_stats', label: 'الإحصاءات' },
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
             { id: 'admin_departments', label: 'الهيكلية الإدارية' },
             { id: 'admin_audio', label: 'القرآن الكريم' },

@@ -224,6 +224,53 @@ export const TabManageEmployees = ({
                                 className="font-mono text-left"
                             />
 
+                            {/* Gender and Birth Date */}
+                            <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                <div className="flex justify-start pl-2">
+                                    <label className="text-xs font-bold block text-muted-foreground text-right w-full">الجنس</label>
+                                </div>
+                                <div className="flex items-center gap-2 relative">
+                                    <div className="w-6 shrink-0" />
+                                    <div className="flex gap-4 flex-1">
+                                        <Button
+                                            type="button"
+                                            variant={selectedEmployee.gender === 'male' ? 'default' : 'outline'}
+                                            onClick={() => setSelectedEmployee({ ...selectedEmployee, gender: 'male' })}
+                                            className="flex-1 gap-2"
+                                            disabled={isFieldReadOnly('gender')}
+                                        >
+                                            ذكر
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={selectedEmployee.gender === 'female' ? 'default' : 'outline'}
+                                            onClick={() => setSelectedEmployee({ ...selectedEmployee, gender: 'female' })}
+                                            className="flex-1 gap-2"
+                                            disabled={isFieldReadOnly('gender')}
+                                        >
+                                            أنثى
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-[132px_1fr] items-center gap-2">
+                                <div className="flex justify-start pl-2">
+                                    <label className="text-xs font-bold block text-muted-foreground text-right w-full">تاريخ الميلاد</label>
+                                </div>
+                                <div className="flex items-center gap-2 relative">
+                                    <div className="w-6 shrink-0" />
+                                    <Input
+                                        type="date"
+                                        value={selectedEmployee.birth_date || ""}
+                                        onChange={(e) => setSelectedEmployee({ ...selectedEmployee, birth_date: e.target.value })}
+                                        dir="ltr"
+                                        className="text-left flex-1"
+                                        disabled={isFieldReadOnly('birth_date')}
+                                    />
+                                </div>
+                            </div>
+
                             <div className="px-2">
                                 <DepartmentSelector
                                     value={selectedEmployee.department_id}

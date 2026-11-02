@@ -86,11 +86,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logVisit = async (userData: AppUser) => {
     if (sessionStorage.getItem('session_logged')) return;
     try {
+      const isStandalone = typeof window !== 'undefined' && (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      );
+
       await supabase.from('login_logs').insert({
         user_id: userData.id,
         full_name: userData.full_name,
         role: userData.role,
-        user_agent: navigator.userAgent
+        user_agent: navigator.userAgent,
+        is_pwa: !!isStandalone
       });
       /* عزل خرائط GIS المحلية: مفتاح تخزين لهذا المستخدم وحده */
       setGisStorageOwner(userData.id);

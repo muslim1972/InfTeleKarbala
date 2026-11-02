@@ -1,9 +1,9 @@
 {
- "created": "2026-10-29T00:22:56.751Z",
+ "created": "2026-11-02T01:18:49.517Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "96f30abe7a47"
+   "sha": "47c67ff0ea79"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -43,7 +43,7 @@
   },
   "scripts/verify-bricks.mjs": {
    "brick": "OPS-03",
-   "sha": "051b3c44b622"
+   "sha": "5573c541c600"
   },
   "spa_server.py": {
    "brick": "OPS-02",
@@ -177,25 +177,33 @@
    "brick": "FE-HR-02",
    "sha": "d9d57ac6144e"
   },
+  "src/components/admin/dashboard/ActiveVisitorsModal.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "4bde3a1a215f"
+  },
   "src/components/admin/dashboard/CapacitiesIframe.tsx": {
    "brick": "FE-HR-01",
    "sha": "2c1fb13baf9a"
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "453c9c28bd89"
+   "sha": "56c3c0f79934"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
-   "sha": "1bb39cbc6bb8"
+   "sha": "20c59445e679"
   },
   "src/components/admin/dashboard/TabAdminRecords.tsx": {
    "brick": "FE-HR-01",
    "sha": "a6ec4b048e9f"
   },
+  "src/components/admin/dashboard/TabAdminStats.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "09114afaa654"
+  },
   "src/components/admin/dashboard/TabManageEmployees.tsx": {
    "brick": "FE-HR-01",
-   "sha": "5c944f983836"
+   "sha": "9b7e716f8e90"
   },
   "src/components/admin/data-patcher/ManualStep.tsx": {
    "brick": "FE-HR-02",
@@ -531,7 +539,7 @@
   },
   "src/context/AuthContext.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "115528e7a954"
+   "sha": "3e7e0bbe5089"
   },
   "src/context/CallContext.tsx": {
    "brick": "FE-COM-01",
@@ -883,7 +891,7 @@
   },
   "src/features/hr/components/HRRequestsHub.tsx": {
    "brick": "FE-HR-01",
-   "sha": "114384d45b06"
+   "sha": "e86309cf96fc"
   },
   "src/features/hr/components/IssuedContinuityCard.tsx": {
    "brick": "FE-HR-01",
@@ -891,11 +899,11 @@
   },
   "src/features/hr/components/PublicContinuityVerifyPage.tsx": {
    "brick": "FE-HR-01",
-   "sha": "4bf53f05e437"
+   "sha": "64c21b21dd8b"
   },
   "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
    "brick": "FE-HR-01",
-   "sha": "391da647dc23"
+   "sha": "b266067a4c38"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
@@ -1107,7 +1115,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "3d76b6303c81"
+   "sha": "beb57df5d67b"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1179,7 +1187,7 @@
   },
   "src/pages/AdminDashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "320efbba56c9"
+   "sha": "0bd89aee9f11"
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",

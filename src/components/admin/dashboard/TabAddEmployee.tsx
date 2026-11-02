@@ -27,15 +27,51 @@ export const TabAddEmployee = ({
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {/* Row 1: Full Name */}
-                    <div className="grid gap-2">
-                        <Label htmlFor="full_name">الاسم الكامل</Label>
-                        <Input
-                            id="full_name"
-                            type="text"
-                            value={formData.full_name}
-                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                            placeholder="الاسم الرباعي واللقب"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2 md:col-span-2">
+                            <Label htmlFor="full_name">الاسم الكامل</Label>
+                            <Input
+                                id="full_name"
+                                type="text"
+                                value={formData.full_name}
+                                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                placeholder="الاسم الرباعي واللقب"
+                            />
+                        </div>
+                        
+                        <div className="grid gap-2">
+                            <Label htmlFor="gender">الجنس</Label>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant={formData.gender === 'male' ? 'default' : 'outline'}
+                                    onClick={() => setFormData({ ...formData, gender: 'male' })}
+                                    className="flex-1 text-xs"
+                                >
+                                    ذكر
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={formData.gender === 'female' ? 'default' : 'outline'}
+                                    onClick={() => setFormData({ ...formData, gender: 'female' })}
+                                    className="flex-1 text-xs"
+                                >
+                                    أنثى
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="birth_date">تاريخ الميلاد</Label>
+                            <Input
+                                id="birth_date"
+                                type="date"
+                                value={formData.birth_date}
+                                onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                                className="text-left"
+                                dir="ltr"
+                            />
+                        </div>
                     </div>
 
                     {/* Department / Position Tree Node */}

@@ -15,6 +15,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         password: "",
         full_name: "",
         job_number: "",
+        gender: "male",
+        birth_date: "",
         role: "user",
         admin_role: "developer",
         department_id: null as string | null
@@ -325,6 +327,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     specialization: selectedEmployee.specialization,
                     graduation_year: selectedEmployee.graduation_year,
                     appointment_date: selectedEmployee.appointment_date,
+                    gender: selectedEmployee.gender,
+                    birth_date: selectedEmployee.birth_date,
                     work_nature: selectedEmployee.work_nature,
                     dept_text: cleanText(selectedEmployee.dept_text),
                     section_text: cleanText(selectedEmployee.section_text),
@@ -474,7 +478,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             });
 
-            setFormData({ username: "", password: "", full_name: "", job_number: "", role: "user", admin_role: "developer", department_id: null });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", gender: "male", birth_date: "", role: "user", admin_role: "developer", department_id: null });
         } catch (error: any) {
             toast.error("فشل إكمال العملية: " + error.message);
         } finally {

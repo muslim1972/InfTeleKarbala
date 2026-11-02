@@ -445,6 +445,7 @@
         "get_basic_profiles",
         "get_own_profile",
         "get_managed_employees",
+        "get_admin_stats_v1",
         "search_available_profiles",
         "sync_available_profiles",
         "update_yearly_records_counts",

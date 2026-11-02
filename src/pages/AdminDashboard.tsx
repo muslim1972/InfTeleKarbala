@@ -29,7 +29,7 @@ const AudioHub = lazy(() => import("../components/features/AudioHub").then(m => 
 const SupervisorPermissions = lazy(() => import("../components/admin/SupervisorPermissions").then(m => ({ default: m.SupervisorPermissions })));
 const IncentivesTabContent = lazy(() => import("../components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
 const AttendanceAdminSettings = lazy(() => import("../features/attendance").then(m => ({ default: m.AttendanceAdminSettings })));
-
+const TabAdminStats = lazy(() => import("../components/admin/dashboard/TabAdminStats").then(m => ({ default: m.TabAdminStats })));
 
 
 export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
@@ -58,7 +58,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     else if (currentUser?.has_attendance_access && !isRoleEditable && currentUser?.admin_role !== 'hr' && currentUser?.admin_role !== 'finance') baseTab = 'admin_attendance';
 
     const defaultTab = location.state?.activeTab || (searchParams.get('tab') === 'admin_audio' ? 'admin_audio' : baseTab);
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_stats' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
 
     // Handle initial tab from URL cleanup
     useEffect(() => {
@@ -297,6 +297,13 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                 <div className="max-w-7xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                     <IncentivesTabContent isAdminView={true} />
                 </div>
+            )}
+
+            {/* ======= الإحصاءات TAB ======= */}
+            {activeTab === 'admin_stats' && (
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>}>
+                    <TabAdminStats theme={theme} />
+                </Suspense>
             )}
 
 
