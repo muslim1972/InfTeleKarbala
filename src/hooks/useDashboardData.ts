@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useSnapshots } from "../context/SnapshotContext";
 import { smoothScrollToId } from "./useSmoothScroll";
 
 export const useDashboardData = (activeTab: string) => {
     const { user } = useAuth();
-    const loadedUserIdRef = useRef<string | null>(null);
+    const { isHistorical, historicalSnapshot, getHistoricalData } = useSnapshots();
+    const loadedKeyRef = useRef<string | null>(null);
     
     // Data State
     const [financialData, setFinancialData] = useState<any>(null);
@@ -107,40 +109,70 @@ export const useDashboardData = (activeTab: string) => {
     // Fetch All Data in Parallel with Request Deduplication (محسّن للأداء وإلغاء تكرار الطلبات)
     const fetchData = useCallback(async (force = false) => {
         if (!user?.id) return;
-        // إذا كانت البيانات محملة بالفعل لنفس المستخدم ولم يكن هناك طلب تحديث إجباري، نتفادى إعادة الطلب
-        if (!force && loadedUserIdRef.current === user.id) return;
+        const currentKey = `${user.id}:${isHistorical ? historicalSnapshot?.id : 'live'}`;
+        // إذا كانت البيانات محملة بالفعل لنفس المستخدم والحالة ولم يكن هناك طلب تحديث إجباري، نتفادى إعادة الطلب
+        if (!force && loadedKeyRef.current === currentKey) return;
 
         setLoading(true);
         try {
-            // جلب كل البيانات بالتوازي (أسرع بكثير)
-            const [financialResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
-                supabase
-                    .from('financial_records')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('updated_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle(),
+            let finDataRaw: any = null;
+            let deptsRaw: any[] = [];
 
-                supabase
-                    .from('administrative_summary')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .maybeSingle(),
+            if (isHistorical && historicalSnapshot) {
+                // وضع استعراض أرشيف شهر تاريخي محدد (للقراءة فقط)
+                const [histResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
+                    getHistoricalData(user.id),
+                    supabase
+                        .from('administrative_summary')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .maybeSingle(),
+                    supabase
+                        .from('yearly_records')
+                        .select('*')
+                        .eq('user_id', user.id),
+                    supabase
+                        .rpc('get_departments_bypass_rls')
+                        .select('*')
+                ]);
 
-                supabase
-                    .from('yearly_records')
-                    .select('*')
-                    .eq('user_id', user.id),
+                finDataRaw = histResult?.financial || null;
+                if (adminResult.data) setAdminData(adminResult.data);
+                if (yearlyResult.data) setYearlyData(yearlyResult.data);
+                deptsRaw = deptsResult?.data || [];
+            } else {
+                // الوضع الحي الافتراضي (قراءة قاعدة البيانات الحية)
+                const [financialResult, adminResult, yearlyResult, deptsResult] = await Promise.all([
+                    supabase
+                        .from('financial_records')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('updated_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle(),
+                    supabase
+                        .from('administrative_summary')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .maybeSingle(),
+                    supabase
+                        .from('yearly_records')
+                        .select('*')
+                        .eq('user_id', user.id),
+                    supabase
+                        .rpc('get_departments_bypass_rls')
+                        .select('*')
+                ]);
 
-                supabase
-                    .rpc('get_departments_bypass_rls')
-                    .select('*')
-            ]);
+                finDataRaw = financialResult.data || null;
+                if (adminResult.data) setAdminData(adminResult.data);
+                if (yearlyResult.data) setYearlyData(yearlyResult.data);
+                deptsRaw = deptsResult?.data || [];
+            }
 
-            // تعيين البيانات مع حساب الإجماليات للعرض
-            if (financialResult.data) {
-                const data = financialResult.data;
+            // تعيين البيانات المالية مع حساب الإجماليات للعرض
+            if (finDataRaw) {
+                const data = finDataRaw;
 
                 const parseMoney = (val: any) => {
                     if (typeof val === 'number') return val;
@@ -190,11 +222,8 @@ export const useDashboardData = (activeTab: string) => {
                 } as any);
             }
 
-            if (adminResult.data) setAdminData(adminResult.data);
-            if (yearlyResult.data) setYearlyData(yearlyResult.data);
-
             // Compute Department & Manager Details
-            const deptData = deptsResult?.data || [];
+            const deptData = deptsRaw;
             if (user.department_id) {
                 let currentDept = deptData.find((d: any) => d.id === user.department_id);
                 const originDeptName = currentDept?.name || 'غير محدد';
@@ -252,19 +281,19 @@ export const useDashboardData = (activeTab: string) => {
             }
 
             // تم تحميل البيانات بنجاح لهذا المستخدم
-            loadedUserIdRef.current = user.id;
+            loadedKeyRef.current = currentKey;
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
             setLoading(false);
         }
-    }, [user?.id, user?.department_id]);
+    }, [user?.id, user?.department_id, isHistorical, historicalSnapshot?.id, getHistoricalData]);
 
     useEffect(() => {
         if (user?.id && (activeTab === 'financial' || activeTab === 'administrative')) {
             fetchData();
         }
-    }, [user?.id, activeTab, fetchData]);
+    }, [user?.id, activeTab, fetchData, isHistorical, historicalSnapshot?.id]);
 
     // Reset details when year changes
     useEffect(() => {

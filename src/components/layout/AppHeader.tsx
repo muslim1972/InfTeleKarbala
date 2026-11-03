@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Power, Settings, Sun, Moon, History, MapPin } from "lucide-react";
+import { User, Power, Settings, Sun, Moon, History, MapPin, Lock } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useAuth } from "../../context/AuthContext";
 import { useSnapshots } from "../../context/SnapshotContext";
@@ -30,7 +30,7 @@ const SCALE_CYCLE_LABEL: Record<FontScale, string> = {
 
 export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
-    const { activeSnapshot } = useSnapshots();
+    const { activeSnapshot, historicalSnapshot, isHistorical } = useSnapshots();
     const { activeGovernorate, setActiveGovernorate, canChangeGovernorate, availableGovernorates } = useGovernorate();
     const { theme, toggleTheme } = useTheme();
     const { fontScale, cycleFontScale, currentOption } = useAccessibility();
@@ -154,23 +154,42 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                                     </span>
                                 </button>
 
-                                {/* Monthly Snapshots Browser + اسم النسخة المعروضة */}
+                                {/* Monthly Snapshots Browser + اسم النسخة المعروضة أو الأرشيف */}
                                 <button
                                     onClick={() => setShowSnapshots(true)}
                                     className={`flex items-center justify-center gap-1.5 h-8 rounded-full transition-all duration-300 border ${
-                                        activeSnapshot ? 'w-auto px-3' : 'w-8'
+                                        (isHistorical && historicalSnapshot) || activeSnapshot ? 'w-auto px-3' : 'w-8'
                                     } ${
-                                        theme === 'light'
-                                        ? 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-100'
-                                        : 'bg-white/10 text-white/90 border-white/20 hover:bg-white/20'
+                                        isHistorical && historicalSnapshot
+                                            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)] hover:bg-amber-500/30'
+                                            : theme === 'light'
+                                            ? 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-100'
+                                            : 'bg-white/10 text-white/90 border-white/20 hover:bg-white/20'
                                     }`}
-                                    title={activeSnapshot ? `النسخة المعروضة حالياً: ${activeSnapshot.name} — انقر لتغيير النسخة` : 'النسخ الشهرية - عرض بيانات نسخة سابقة'}
+                                    title={
+                                        isHistorical && historicalSnapshot
+                                            ? `أنت في وضع استعراض أرشيف «${historicalSnapshot.name}» (للاطلاع فقط) — انقر للتغيير أو العودة للشهر الحالي`
+                                            : activeSnapshot
+                                            ? `النسخة الحية المعروضة: ${activeSnapshot.name} — انقر لتغيير النسخة`
+                                            : 'النسخ الشهرية - استعراض بيانات شهر سابق'
+                                    }
                                 >
-                                    <History className="w-4 h-4 shrink-0" />
-                                    {activeSnapshot && (
-                                        <span className={`text-[11px] font-bold font-tajawal max-w-[150px] truncate ${theme === 'light' ? 'text-brand-green' : 'text-brand-yellow'}`}>
-                                            {activeSnapshot.name}
-                                        </span>
+                                    {isHistorical && historicalSnapshot ? (
+                                        <>
+                                            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span className="text-[11px] font-bold font-tajawal max-w-[150px] truncate text-amber-700 dark:text-amber-300">
+                                                أرشيف: {historicalSnapshot.name}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <History className="w-4 h-4 shrink-0" />
+                                            {activeSnapshot && (
+                                                <span className={`text-[11px] font-bold font-tajawal max-w-[150px] truncate ${theme === 'light' ? 'text-brand-green' : 'text-brand-yellow'}`}>
+                                                    {activeSnapshot.name}
+                                                </span>
+                                            )}
+                                        </>
                                     )}
                                 </button>
 

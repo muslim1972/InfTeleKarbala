@@ -1,5 +1,5 @@
 {
- "created": "2026-11-03T10:22:12.646Z",
+ "created": "2026-11-03T18:37:55.617Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -187,7 +187,7 @@
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "50a1c5423239"
+   "sha": "7daf795f65ae"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
@@ -419,7 +419,7 @@
   },
   "src/components/layout/AppHeader.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "5e25d7ec8530"
+   "sha": "df873ed0b496"
   },
   "src/components/layout/GlobalElements.tsx": {
    "brick": "FE-CORE-01",
@@ -427,11 +427,15 @@
   },
   "src/components/layout/HeaderMenu.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "a01c36836e2d"
+   "sha": "c649de5c3a67"
+  },
+  "src/components/layout/HistoricalModeBanner.tsx": {
+   "brick": "FE-CORE-01",
+   "sha": "63092ab37bfd"
   },
   "src/components/layout/Layout.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "25f94a1f864a"
+   "sha": "f1951abf90b8"
   },
   "src/components/notifications/NotificationHistoryModal.tsx": {
    "brick": "FE-CORE-05",
@@ -447,7 +451,7 @@
   },
   "src/components/snapshots/SnapshotBrowser.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "ab28ce25ce6a"
+   "sha": "835194b33444"
   },
   "src/components/snapshots/SnapshotNamePicker.tsx": {
    "brick": "FE-FIN-01",
@@ -563,7 +567,7 @@
   },
   "src/context/SnapshotContext.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "c6f93b419150"
+   "sha": "a4164e423f2b"
   },
   "src/context/ThemeContext.tsx": {
    "brick": "FE-CORE-03",
@@ -1123,7 +1127,7 @@
   },
   "src/hooks/useDashboardData.ts": {
    "brick": "FE-HR-01",
-   "sha": "598458a9f88e"
+   "sha": "0f061bead185"
   },
   "src/hooks/useDataPatcher.ts": {
    "brick": "FE-HR-02",
@@ -1135,7 +1139,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "7057faa8b605"
+   "sha": "719fe73d366b"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1339,7 +1343,7 @@
   },
   "src/utils/snapshots.ts": {
    "brick": "FE-FIN-01",
-   "sha": "0d83542a469e"
+   "sha": "b9ba37dd004b"
   },
   "src/utils/universalPatcherConfig.ts": {
    "brick": "FE-HR-02",
@@ -1620,6 +1624,10 @@
   "supabase/migrations/20261102160000_att07_work_locations_role_unification.sql": {
    "brick": "BE-MIG-01",
    "sha": "8a508f7968d5"
+  },
+  "supabase/migrations/20261103204000_fin01_historical_user_data.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "b3c239d903d2"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import {
-    MoreVertical, Sun, Moon, Type, History, Check, Loader2, Palette, Database, Power
+    MoreVertical, Sun, Moon, Type, History, Check, Loader2, Palette, Database, Power, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,7 +22,7 @@ import { listMonthlySnapshots, type MonthlySnapshot } from '../../utils/snapshot
 export const HeaderMenu = () => {
     const { theme, toggleTheme } = useTheme();
     const { fontScale, setFontScale, currentOption } = useAccessibility();
-    const { activeSnapshot, activate } = useSnapshots();
+    const { activeSnapshot, historicalSnapshot, isHistorical, viewSnapshot, exitHistoricalView } = useSnapshots();
     const { user, logout } = useAuth();
     const { activeGovernorate } = useGovernorate();
 
@@ -32,8 +32,6 @@ export const HeaderMenu = () => {
     // قائمة النسخ (تُجلب عند أول فتح)
     const [snapshots, setSnapshots] = useState<MonthlySnapshot[] | null>(null);
     const [loadingList, setLoadingList] = useState(false);
-    const [confirmingId, setConfirmingId] = useState<string | null>(null);
-    const [activatingId, setActivatingId] = useState<string | null>(null);
 
     const light = theme === 'light';
 
@@ -66,7 +64,9 @@ export const HeaderMenu = () => {
 
     /* إعادة ضبط التأكيد عند الإغلاق */
     useEffect(() => {
-        if (!open) setConfirmingId(null);
+        if (!open) {
+            // إغلاق سلس
+        }
     }, [open]);
 
     const handlePickScale = (id: FontScale, label: string, percentage: string) => {
@@ -74,25 +74,28 @@ export const HeaderMenu = () => {
         toast.success(`حجم الخط: ${label} (${percentage})`, { id: 'font-scale-toast', duration: 1500 });
     };
 
-    const handleActivate = async (snap: MonthlySnapshot) => {
-        if (snap.is_active || activatingId) return;
-        // تأكيد بنقرتين — كما في متصفح النسخ
-        if (confirmingId !== snap.id) {
-            setConfirmingId(snap.id);
+    const handleSelectSnapshot = (snap: MonthlySnapshot) => {
+        if (snap.is_active || activeSnapshot?.id === snap.id) {
+            if (isHistorical) {
+                exitHistoricalView();
+                toast.success('تمت العودة إلى النسخة الحالية المعتمدة', { icon: '↩️', duration: 2500 });
+                setOpen(false);
+            }
             return;
         }
-        setConfirmingId(null);
-        setActivatingId(snap.id);
-        const toastId = toast.loading(`جاري عرض نسخة «${snap.name}»...`, { duration: 60000 });
-        try {
-            const res = await activate(snap.id);
-            toast.success(`تم عرض نسخة «${res.name}» — جاري تحديث البيانات...`, { id: toastId, duration: 2000 });
-            setOpen(false);
-            window.location.reload();
-        } catch (err: any) {
-            toast.error('فشل التفعيل: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
-            setActivatingId(null);
-        }
+
+        viewSnapshot(snap);
+        toast.success(`تم الانتقال لعرض أرشيف «${snap.name}» (للاطلاع فقط)`, {
+            icon: '📅',
+            duration: 3000
+        });
+        setOpen(false);
+    };
+
+    const handleReturnToCurrent = () => {
+        exitHistoricalView();
+        toast.success('تمت العودة إلى النسخة الحالية المعتمدة', { icon: '↩️', duration: 2500 });
+        setOpen(false);
     };
 
     return (
@@ -206,7 +209,7 @@ export const HeaderMenu = () => {
 
                     <div className={`border-t ${light ? 'border-gray-100' : 'border-white/5'}`} />
 
-                    {/* ═══ 3) النسخة المعروضة + النسخ المتوفرة ═══ */}
+                    {/* ═══ 3) النسخة المعروضة + نسخ الأشهر ═══ */}
                     <div className="p-3">
                         <div className={`flex items-center gap-1.5 mb-2 text-[10px] font-bold font-cairo ${
                             light ? 'text-gray-400' : 'text-white/40'
@@ -215,19 +218,47 @@ export const HeaderMenu = () => {
                             <span>النسخة المعروضة — نسخ الأشهر</span>
                         </div>
 
-                        {/* بطاقة النسخة الحالية */}
+                        {/* بطاقة النسخة التاريخية المستعرضة حالياً (إن وُجدت) */}
+                        {isHistorical && historicalSnapshot && (
+                            <div className="p-2.5 rounded-xl border mb-2.5 bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400">
+                                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                                    <span className="flex items-center gap-1.5 text-[11px] font-bold font-tajawal">
+                                        <History className="w-3.5 h-3.5" />
+                                        <span>مستعرضة حالياً (للاطلاع):</span>
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
+                                        أرشيف
+                                    </span>
+                                </div>
+                                <div className="text-xs font-black font-tajawal truncate mb-2">
+                                    {historicalSnapshot.name}
+                                </div>
+                                <button
+                                    onClick={handleReturnToCurrent}
+                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition-all active:scale-95"
+                                >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>العودة للشهر الحالي المعتمد</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* بطاقة النسخة الحالية المعتمدة */}
                         <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border mb-2 ${
                             light
                                 ? 'bg-brand-green/10 border-brand-green/30'
                                 : 'bg-brand-green/15 border-brand-green/40'
                         }`}>
                             <History className="w-4 h-4 text-brand-green shrink-0" />
-                            <span className="text-xs font-bold font-tajawal text-brand-green truncate flex-1">
-                                {activeSnapshot ? activeSnapshot.name : 'لا توجد نسخة نشطة'}
-                            </span>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[9px] text-gray-500 dark:text-gray-400">النسخة المعتمدة الحالية:</div>
+                                <span className="text-xs font-bold font-tajawal text-brand-green truncate block">
+                                    {activeSnapshot ? activeSnapshot.name : 'لا توجد نسخة نشطة'}
+                                </span>
+                            </div>
                             <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-brand-green text-white text-[9px] font-bold">
                                 <Check className="w-2.5 h-2.5" />
-                                معروضة
+                                {isHistorical ? 'الحالية' : 'معروضة'}
                             </span>
                         </div>
 
@@ -243,35 +274,36 @@ export const HeaderMenu = () => {
                             ) : (
                                 <div>
                                     {snapshots.map((snap) => {
-                                        const isActive = snap.is_active;
-                                        const confirming = confirmingId === snap.id;
-                                        const activating = activatingId === snap.id;
-                                        if (isActive) return null; // النسخة المعروضة ظاهرة في البطاقة أعلاه
+                                        const isSystemActive = snap.is_active || activeSnapshot?.id === snap.id;
+                                        const isCurrentlyViewed = historicalSnapshot?.id === snap.id;
                                         return (
                                             <button
                                                 key={snap.id}
-                                                onClick={() => handleActivate(snap)}
-                                                disabled={activatingId !== null}
+                                                onClick={() => handleSelectSnapshot(snap)}
                                                 className={`w-full flex items-center justify-between gap-2 px-3 py-2 border-b last:border-b-0 text-right transition-colors ${
-                                                    confirming
-                                                        ? 'bg-amber-500/20'
+                                                    isCurrentlyViewed
+                                                        ? 'bg-amber-500/15 text-amber-500'
                                                         : light
                                                         ? 'hover:bg-gray-100 border-gray-100'
                                                         : 'hover:bg-white/5 border-white/5'
-                                                } disabled:opacity-60`}
+                                                }`}
                                             >
                                                 <span className={`text-[11px] font-bold font-tajawal truncate ${
-                                                    confirming ? 'text-amber-500' : light ? 'text-gray-700' : 'text-white/80'
+                                                    isCurrentlyViewed ? 'text-amber-500 font-black' : light ? 'text-gray-700' : 'text-white/80'
                                                 }`}>
-                                                    {activating ? 'جاري التفعيل...' : confirming ? 'اضغط مرة أخرى للتأكيد' : snap.name}
+                                                    {snap.name}
                                                 </span>
-                                                {activating ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-green shrink-0" />
-                                                ) : confirming ? (
-                                                    <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                {isCurrentlyViewed ? (
+                                                    <span className="text-[9px] shrink-0 px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold">
+                                                        مستعرضة الآن
+                                                    </span>
+                                                ) : isSystemActive && !isHistorical ? (
+                                                    <span className="text-[9px] shrink-0 px-1.5 py-0.5 rounded-md bg-brand-green/20 text-brand-green font-bold">
+                                                        النشطة
+                                                    </span>
                                                 ) : (
-                                                    <span className={`text-[9px] shrink-0 px-1.5 py-0.5 rounded-md ${
-                                                        light ? 'bg-gray-200/70 text-gray-500' : 'bg-white/10 text-white/40'
+                                                    <span className={`text-[9px] shrink-0 px-2 py-0.5 rounded-md font-bold transition-transform active:scale-90 ${
+                                                        light ? 'bg-brand-green/10 text-brand-green hover:bg-brand-green hover:text-white' : 'bg-white/10 text-brand-green hover:bg-brand-green hover:text-white'
                                                     }`}>
                                                         عرض
                                                     </span>
@@ -283,7 +315,7 @@ export const HeaderMenu = () => {
                             )}
                         </div>
                         <p className={`mt-1.5 text-[9px] leading-relaxed ${light ? 'text-gray-400' : 'text-white/30'}`}>
-                            اختيار نسخة يعرض بيانات ذلك الشهر في كامل التطبيق
+                            اختيار أي شهر يعرض بيانات الأرشيف للاطلاع فقط دون المساس بالنظام
                         </p>
                     </div>
 

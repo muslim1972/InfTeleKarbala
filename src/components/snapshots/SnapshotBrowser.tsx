@@ -1,11 +1,11 @@
 /**
  * SnapshotBrowser.tsx - متصفح النسخ الشهرية
- * يتيح لأي مستخدم البحث في النسخ المحفوظة واختيار نسخة لعرضها،
- * فتتغير قيم كل الحقول في التطبيق تبعاً للنسخة المختارة.
+ * يتيح لأي مستخدم البحث في النسخ المحفوظة واختيار نسخة لاستعراضها (للاطلاع فقط)،
+ * فتتغير قيم كل الحقول في التطبيق تبعاً للنسخة المختارة دون أي مساس بقاعدة البيانات الحية.
  * الحذف متاح للمطور فقط.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Search, History, Check, Trash2, Loader2, Database, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { X, Search, History, Check, Trash2, Loader2, Database, AlertTriangle, FileSpreadsheet, Lock, RotateCcw, Eye } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useSnapshots } from '../../context/SnapshotContext';
@@ -25,12 +25,18 @@ interface SnapshotBrowserProps {
 
 export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const { user } = useAuth();
-    const { activeSnapshot, activate, refresh } = useSnapshots();
+    const {
+        activeSnapshot,
+        historicalSnapshot,
+        isHistorical,
+        viewSnapshot,
+        exitHistoricalView,
+        refresh
+    } = useSnapshots();
+
     const [snapshots, setSnapshots] = useState<MonthlySnapshot[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [activatingId, setActivatingId] = useState<string | null>(null);
-    const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
@@ -58,10 +64,9 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
             setSelectedGov(gov);
             loadSnapshots(gov);
             refresh(gov);
-            setConfirmingId(null);
             setDeletingId(null);
         }
-    }, [isOpen, user?.governorate, loadSnapshots, refresh]);
+    }, [isOpen, activeGovernorate, user?.governorate, loadSnapshots, refresh]);
 
     const handleGovChange = (newGov: string) => {
         setSelectedGov(newGov);
@@ -77,36 +82,34 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
         );
     }, [snapshots, search]);
 
-    const handleActivate = async (snap: MonthlySnapshot) => {
-        if (snap.is_active) return;
-        if (confirmingId !== snap.id) {
-            setConfirmingId(snap.id);
-            setDeletingId(null);
-            return;
-        }
-        setConfirmingId(null);
-        setBusy(true);
-        setActivatingId(snap.id);
-        const toastId = toast.loading(`جاري عرض نسخة «${snap.name}»...`, { duration: 60000 });
-        try {
-            const res = await activate(snap.id);
-            toast.success(`تم عرض نسخة «${res.name}» — جاري تحديث البيانات...`, { id: toastId, duration: 2000 });
+    // التبديل الآمن للاستعراض التاريخي (للقراءة فقط دون reload ودون مساس بالبيانات الحية)
+    const handleSelectSnapshot = (snap: MonthlySnapshot) => {
+        if (snap.id === activeSnapshot?.id) {
+            if (isHistorical) {
+                exitHistoricalView();
+                toast.success(`تمت العودة إلى الشهر الحالي «${activeSnapshot.name}» (النسخة الحية)`, {
+                    icon: '↩️',
+                    duration: 2500
+                });
+            } else {
+                toast(`أنت بالفعل في الشهر الحالي «${activeSnapshot.name}»`, { icon: 'ℹ️' });
+            }
             onClose();
-            window.location.reload();
             return;
-        } catch (err: any) {
-            toast.error('فشل التفعيل: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
-        } finally {
-            toast.dismiss(toastId);
-            setBusy(false);
-            setActivatingId(null);
         }
+
+        // اختيار نسخة تاريخية للاستعراض فقط
+        viewSnapshot(snap);
+        toast.success(`تم الانتقال لعرض أرشيف «${snap.name}» (للاطلاع فقط)`, {
+            icon: '🔒',
+            duration: 3000
+        });
+        onClose();
     };
 
     const handleDelete = async (snap: MonthlySnapshot) => {
         if (deletingId !== snap.id) {
             setDeletingId(snap.id);
-            setConfirmingId(null);
             return;
         }
         setDeletingId(null);
@@ -116,6 +119,9 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
             await deleteMonthlySnapshot(snap.id);
             setSnapshots(prev => prev.filter(s => s.id !== snap.id));
             toast.success(`تم حذف نسخة «${snap.name}»`, { id: toastId });
+            if (historicalSnapshot?.id === snap.id) {
+                exitHistoricalView();
+            }
         } catch (err: any) {
             toast.error('فشل الحذف: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
         } finally {
@@ -127,7 +133,7 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
 
     return (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pb-24 md:pb-28 overflow-y-auto bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="w-full max-w-2xl max-h-[calc(100vh-9rem)] overflow-hidden flex flex-col rounded-3xl bg-zinc-950/80 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl relative">
+            <div className="w-full max-w-2xl max-h-[calc(100vh-9rem)] overflow-hidden flex flex-col rounded-3xl bg-zinc-950/90 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.6)] ring-1 ring-white/5 backdrop-blur-xl relative">
 
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/10 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -139,13 +145,13 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-lg font-bold font-tajawal text-white">النسخ الشهرية</h2>
+                                <h2 className="text-lg font-bold font-tajawal text-white">النسخ والأرشيفات الشهرية</h2>
                                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green border border-brand-green/30 font-bold font-tajawal">
                                     {governorateName(selectedGov)}
                                 </span>
                             </div>
                             <p className="text-xs text-white/50 font-tajawal">
-                                اختر نسخة لعرض بياناتها في كل التطبيق لـ {governorateName(selectedGov)}
+                                استعراض محفوظات الأشهر السابقة للاطلاع والتدقيق بأمان دون التأثير على النظام الحي
                             </p>
                         </div>
                     </div>
@@ -158,7 +164,7 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                     </button>
                 </div>
 
-                {/* شريط النسخة المعروضة + المحافظة للمطور + البحث */}
+                {/* شريط حالة الاستعراض الحالي + المحافظة للمطور + البحث */}
                 <div className="p-4 border-b border-white/5 space-y-3 relative z-10">
                     {developer && (
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-tajawal">
@@ -180,15 +186,37 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                         </div>
                     )}
 
-                    {activeSnapshot && (activeSnapshot.governorate === selectedGov || (!activeSnapshot.governorate && selectedGov === 'karbala')) && (
-                        <div className="flex items-center gap-2 text-sm font-tajawal bg-brand-green/10 border border-brand-green/30 text-brand-green rounded-xl px-3 py-2">
+                    {/* تنبيه إذا كان المستخدم في الوضع التاريخي مع زر العودة */}
+                    {isHistorical && historicalSnapshot ? (
+                        <div className="flex items-center justify-between gap-2 text-xs font-tajawal bg-amber-500/15 border border-amber-500/30 text-amber-300 rounded-xl px-3 py-2.5 shadow-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                                <span className="truncate">
+                                    أنت تستعرض حالياً: <span className="font-bold text-amber-200">«{historicalSnapshot.name}»</span> (للاطلاع فقط)
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    exitHistoricalView();
+                                    toast.success('تمت العودة إلى الشهر الحالي', { icon: '↩️' });
+                                    onClose();
+                                }}
+                                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-all active:scale-95 shadow"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>العودة للحالي</span>
+                            </button>
+                        </div>
+                    ) : activeSnapshot && (activeSnapshot.governorate === selectedGov || (!activeSnapshot.governorate && selectedGov === 'karbala')) ? (
+                        <div className="flex items-center gap-2 text-xs font-tajawal bg-brand-green/10 border border-brand-green/30 text-brand-green rounded-xl px-3 py-2">
                             <Database className="w-4 h-4 shrink-0" />
                             <span>
-                                النسخة المعروضة حالياً ({governorateName(selectedGov)}): <span className="font-bold">{activeSnapshot.name}</span>
+                                النسخة الحية المعتمدة ({governorateName(selectedGov)}): <span className="font-bold">{activeSnapshot.name}</span>
                                 <span className="text-white/40 mr-2">({activeSnapshot.financial_count} سجلاً مالياً • {activeSnapshot.profile_count} موظفاً)</span>
                             </span>
                         </div>
-                    )}
+                    ) : null}
+
                     <div className="relative">
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                         <input
@@ -214,20 +242,24 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                             </p>
                             {!search.trim() && (
                                 <p className="text-xs text-white/30">
-                                    يتم اعتماد نسخة شهرية تلقائياً عند رفع ملف رواتب المحافظة عبر المحدث العام
+                                    يتم حفظ نسخة شهرية تلقائياً عند رفع ملف رواتب المحافظة عبر المحدث العام
                                 </p>
                             )}
                         </div>
                     ) : (
                         filtered.map(snap => {
-                            const isActive = snap.is_active;
-                            const confirming = confirmingId === snap.id;
+                            const isLiveActive = snap.is_active;
+                            const isBeingViewed = isHistorical && historicalSnapshot?.id === snap.id;
+                            const isLiveBeingViewed = !isHistorical && isLiveActive;
                             const deleting = deletingId === snap.id;
+
                             return (
                                 <div
                                     key={snap.id}
                                     className={`rounded-2xl border p-3.5 transition-all ${
-                                        isActive
+                                        isBeingViewed
+                                            ? 'bg-amber-500/15 border-amber-500/50 shadow-[0_0_18px_rgba(245,158,11,0.2)]'
+                                            : isLiveBeingViewed
                                             ? 'bg-brand-green/10 border-brand-green/40 shadow-[0_0_15px_rgba(34,197,94,0.15)]'
                                             : 'bg-white/5 border-white/10 hover:border-white/20'
                                     }`}
@@ -235,12 +267,24 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className={`font-bold font-tajawal text-sm truncate ${isActive ? 'text-brand-green' : 'text-white'}`}>
+                                                <h3 className={`font-bold font-tajawal text-sm truncate ${
+                                                    isBeingViewed
+                                                        ? 'text-amber-300'
+                                                        : isLiveActive
+                                                        ? 'text-brand-green'
+                                                        : 'text-white'
+                                                }`}>
                                                     {snap.name}
                                                 </h3>
-                                                {isActive && (
+                                                {isLiveActive && (
                                                     <span className="text-[10px] bg-brand-green text-black font-bold px-2 py-0.5 rounded-full font-tajawal">
-                                                        معروضة حالياً
+                                                        النسخة الحية
+                                                    </span>
+                                                )}
+                                                {isBeingViewed && (
+                                                    <span className="text-[10px] bg-amber-500 text-black font-bold px-2 py-0.5 rounded-full font-tajawal flex items-center gap-1">
+                                                        <Lock className="w-2.5 h-2.5" />
+                                                        مستعرضة الآن (للاطلاع)
                                                     </span>
                                                 )}
                                             </div>
@@ -256,32 +300,49 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                            {!isActive && (
+                                            {isBeingViewed ? (
                                                 <button
-                                                    onClick={() => handleActivate(snap)}
+                                                    onClick={() => handleSelectSnapshot(snap)}
+                                                    className="flex items-center gap-1.5 text-xs font-bold font-tajawal px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-default"
+                                                    title="هذه النسخة معروضة حالياً على شاشتك"
+                                                >
+                                                    <Check className="w-3.5 h-3.5" />
+                                                    معروضة
+                                                </button>
+                                            ) : isLiveBeingViewed ? (
+                                                <button
+                                                    onClick={() => handleSelectSnapshot(snap)}
+                                                    className="flex items-center gap-1.5 text-xs font-bold font-tajawal px-3 py-1.5 rounded-xl bg-brand-green/20 text-brand-green border border-brand-green/40 cursor-default"
+                                                    title="أنت في النسخة الحية الحالية"
+                                                >
+                                                    <Check className="w-3.5 h-3.5" />
+                                                    الحالية
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleSelectSnapshot(snap)}
                                                     disabled={busy}
-                                                    className={`flex items-center gap-1.5 text-xs font-bold font-tajawal px-3 py-1.5 rounded-xl transition-all disabled:opacity-50 ${
-                                                        confirming
-                                                            ? 'bg-amber-500 hover:bg-amber-400 text-black animate-pulse'
-                                                            : 'bg-brand-green/20 text-brand-green border border-brand-green/40 hover:bg-brand-green/30'
+                                                    className={`flex items-center gap-1.5 text-xs font-bold font-tajawal px-3 py-1.5 rounded-xl transition-all disabled:opacity-50 active:scale-95 ${
+                                                        isLiveActive
+                                                            ? 'bg-brand-green hover:bg-brand-green/90 text-black shadow-sm'
+                                                            : 'bg-white/10 hover:bg-white/20 text-white border border-white/15'
                                                     }`}
                                                 >
-                                                    {activatingId === snap.id ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    ) : confirming ? (
+                                                    {isLiveActive ? (
                                                         <>
-                                                            <AlertTriangle className="w-3.5 h-3.5" />
-                                                            تأكيد التفعيل؟
+                                                            <RotateCcw className="w-3.5 h-3.5" />
+                                                            العودة للحالي
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Check className="w-3.5 h-3.5" />
-                                                            عرض
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                            استعراض
                                                         </>
                                                     )}
                                                 </button>
                                             )}
-                                            {developer && !isActive && (
+
+                                            {developer && !isLiveActive && (
                                                 <button
                                                     onClick={() => handleDelete(snap)}
                                                     disabled={busy}
@@ -292,17 +353,11 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                                                     }`}
                                                     title={deleting ? 'انقر مرة أخرى للحذف النهائي' : 'حذف النسخة (للمطور)'}
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    {deleting ? <AlertTriangle className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
                                                 </button>
                                             )}
                                         </div>
                                     </div>
-
-                                    {confirming && (
-                                        <p className="text-[11px] text-amber-400/80 font-tajawal mt-2">
-                                            سيتم استبدال البيانات المعروضة في كل التطبيق ببيانات هذه النسخة (أرصدة الإجازات الحالية لا تتأثر). انقر «تأكيد التفعيل» للمتابعة.
-                                        </p>
-                                    )}
                                 </div>
                             );
                         })

@@ -4,8 +4,11 @@ import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
 import { cleanText } from "../utils/profileUtils";
 import { isDeveloperLevel } from "../utils/permissions";
+import { useSnapshots } from "../context/SnapshotContext";
 
 export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string) => void, detailsRef?: React.RefObject<HTMLDivElement>) => {
+    const { isHistorical, historicalSnapshot, getHistoricalData } = useSnapshots();
+
     // 1. Loading State
     const [loading, setLoading] = useState(false);
 
@@ -114,14 +117,27 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             setSelectedEmployee(fullUserData);
             setSearchExpanded(false);
 
-            // Fetch Financial
-            const { data: finData, error: finError } = await supabase
-                .from('financial_records')
-                .select('*')
-                .eq('user_id', fullUserData.id)
-                .maybeSingle();
+            // Fetch Financial (تاريخي من الأرشيف أو حي من القاعدة)
+            let finData: any = null;
+            if (isHistorical && historicalSnapshot) {
+                const hist = await getHistoricalData(fullUserData.id);
+                finData = hist?.financial || null;
+                if (hist?.profile) {
+                    if (hist.profile.job_title) fullUserData.job_title = hist.profile.job_title;
+                    if (hist.profile.dept_text) fullUserData.dept_text = hist.profile.dept_text;
+                    if (hist.profile.section_text) fullUserData.section_text = hist.profile.section_text;
+                    if (hist.profile.unit_text) fullUserData.unit_text = hist.profile.unit_text;
+                }
+            } else {
+                const { data: liveFin, error: finError } = await supabase
+                    .from('financial_records')
+                    .select('*')
+                    .eq('user_id', fullUserData.id)
+                    .maybeSingle();
 
-            if (finError) throw finError;
+                if (finError) throw finError;
+                finData = liveFin;
+            }
 
             const emptyFinancial = {
                 user_id: fullUserData.id,
@@ -152,7 +168,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
             if (!finData) {
                 setFinancialData(emptyFinancial);
-                toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
+                if (!isHistorical) {
+                    toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
+                } else {
+                    toast("لا يوجد قيد مالي لهذا الموظف في الأرشيف المختار", { icon: 'ℹ️' });
+                }
             } else {
                 const combined = { ...emptyFinancial, ...finData };
                 const stripAl = (t: string) => t.replace(/^ال/, '');
@@ -230,6 +250,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         }
     };
 
+    // تحديث بيانات الموظف المختار تلقائياً عند تبديل الشهر التاريخي
+    useEffect(() => {
+        if (selectedEmployee?.id) {
+            loadEmployeeData({ id: selectedEmployee.id });
+        }
+    }, [historicalSnapshot?.id, isHistorical]);
+
     // Search Job Number
     const handleSearch = async (specificJobNumber?: string) => {
         const trimmedSearch = specificJobNumber || searchJobNumber.trim();
@@ -261,6 +288,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
     // Update Employee
     const handleUpdateEmployee = async () => {
+        if (isHistorical) {
+            toast.error("لا يمكن التعديل: أنت في وضع استعراض أرشيف شهر مغلق رسمياً", { icon: '🔒' });
+            return;
+        }
         if (!selectedEmployee || !financialData) return;
         if (!currentUser) return;
 
@@ -388,6 +419,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     // Save New Employee
     const handleSaveEmployee = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isHistorical) {
+            toast.error("لا يمكن الإضافة أو التعديل: أنت في وضع استعراض أرشيف شهر مغلق رسمياً", { icon: '🔒' });
+            return;
+        }
         
         const full_name = formData.full_name?.trim();
         const job_number = formData.job_number?.trim();
@@ -813,6 +848,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     };
 
     const isFieldReadOnly = (columnName: string) => {
+        if (isHistorical) return true;
         if (isDeveloperLevel(currentUser?.admin_role)) return false;
 
         if (columnName === 'tab_requests') {

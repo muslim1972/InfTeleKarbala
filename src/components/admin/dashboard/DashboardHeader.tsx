@@ -1,5 +1,5 @@
-
-import { Search, Loader2, Trash2 } from "lucide-react";
+import { Search, Loader2, Trash2, Lock, RotateCcw } from "lucide-react";
+import { useSnapshots } from "../../../context/SnapshotContext";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
@@ -61,6 +61,7 @@ export const DashboardHeader = ({
     handleSelectSuggestion,
     handleDeleteEmployee
 }: DashboardHeaderProps) => {
+    const { isHistorical, historicalSnapshot, exitHistoricalView } = useSnapshots();
 
     const tabs = (() => {
         const canAccessNews = !isFieldReadOnly('tab_news');
@@ -128,15 +129,37 @@ export const DashboardHeader = ({
                             </div>
                         </div>
                     ) : (activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee)) ? (
-                        <button
-                            onClick={(e) => activeTab === 'admin_add' ? handleSaveEmployee(e) : handleUpdateEmployee()}
-                            disabled={loading || currentUser?.admin_role === 'media'}
-                            title={currentUser?.admin_role === 'media' ? "ليس لديك صلاحية الحفظ" : "حفظ التعديلات"}
-                            className="w-full py-2 px-2 bg-brand-green hover:bg-brand-green/90 text-white rounded-lg font-bold text-xs flex items-center justify-center shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap"
-                        >
-                            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin ml-2" /> : null}
-                            <span>حفظ التعديل والاضافة</span>
-                        </button>
+                        isHistorical ? (
+                            <div className="flex items-center gap-1.5 w-full animate-in fade-in zoom-in duration-300">
+                                <div
+                                    title={`أنت في وضع استعراض أرشيف «${historicalSnapshot?.name || ''}» (للاطلاع فقط)`}
+                                    className="flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-sm truncate"
+                                >
+                                    <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <span className="truncate">
+                                        أرشيف «{historicalSnapshot?.name || 'شهر سابق'}»
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={exitHistoricalView}
+                                    title="العودة إلى بيانات الشهر الحالي المعتمد"
+                                    className="shrink-0 py-1.5 px-2.5 rounded-lg font-bold text-[11px] flex items-center gap-1 bg-brand-green hover:bg-brand-green/90 text-white shadow-sm transition-all active:scale-95"
+                                >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>الحالي</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={(e) => activeTab === 'admin_add' ? handleSaveEmployee(e) : handleUpdateEmployee()}
+                                disabled={loading || currentUser?.admin_role === 'media'}
+                                title={currentUser?.admin_role === 'media' ? "ليس لديك صلاحية الحفظ" : "حفظ التعديلات"}
+                                className="w-full py-2 px-2 rounded-lg font-bold text-xs flex items-center justify-center transition-all animate-in fade-in zoom-in duration-300 whitespace-nowrap bg-brand-green hover:bg-brand-green/90 text-white shadow-lg shadow-brand-green/20 disabled:opacity-50"
+                            >
+                                {loading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-2" />}
+                                <span>حفظ التعديل والاضافة</span>
+                            </button>
+                        )
                     ) : (
                         <div id="admin-header-portal" className="w-full h-full flex items-center" />
                     )}

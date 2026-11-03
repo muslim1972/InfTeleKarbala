@@ -138,3 +138,27 @@ export async function deleteMonthlySnapshot(snapshotId: string): Promise<void> {
 export function isDeveloper(user: { admin_role?: string } | null | undefined): boolean {
     return user?.admin_role === 'developer' || user?.admin_role === 'it_supervisor';
 }
+
+export interface HistoricalUserData {
+    ok: boolean;
+    snapshot_id: string;
+    snapshot_name: string;
+    governorate?: string;
+    user_id: string;
+    financial: any | null;
+    profile: any | null;
+}
+
+/** جلب بيانات موظف محدد في شهر تاريخي محدد (للقراءة والاستعراض فقط دون مساس بقاعدة البيانات) */
+export async function fetchHistoricalUserData(
+    snapshotId: string,
+    userId: string
+): Promise<HistoricalUserData> {
+    const { data, error } = await supabase.rpc('get_historical_user_data', {
+        p_snapshot_id: snapshotId,
+        p_target_user_id: userId
+    });
+    if (error) throw error;
+    return data as HistoricalUserData;
+}
+
