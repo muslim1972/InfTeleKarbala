@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 import { isDeveloperLevel } from "../../utils/permissions";
 
@@ -18,10 +19,38 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isDeveloper = isDeveloperLevel(user?.admin_role);
+
+    // التحقق المباشر من إعداد التفعيل الشامل للمحافظة
+    const [isGovAllEnabled, setIsGovAllEnabled] = useState(false);
+
+    useEffect(() => {
+        if (!user || user.can_view_requests) return;
+        const gov = user.governorate || 'karbala';
+        
+        const checkGovSetting = async () => {
+            try {
+                const { data } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', `requests_tab_all_enabled_${gov}`)
+                    .maybeSingle();
+
+                if (data?.value?.enabled) {
+                    setIsGovAllEnabled(true);
+                }
+            } catch (err) {
+                // Ignore silent check errors
+            }
+        };
+
+        checkGovSetting();
+    }, [user?.governorate, user?.can_view_requests]);
+
     const isRequestsAllowed =
         isAdmin ||
         isDeveloper ||
         Boolean(user?.can_view_requests) ||
+        isGovAllEnabled ||
         user?.full_name?.includes('تجريبي 2') ||
         user?.full_name?.includes('مستخدم تجريبي') ||
         user?.username?.includes('تجريبي 2') ||
@@ -59,7 +88,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
             if (isRTL) {
                 const absCurrent = Math.abs(current);
                 setShowRightArrow(absCurrent > 1);
-                // Left Arrow (End direction)
                 setShowLeftArrow(absCurrent < scrollableWidth - 1);
             } else {
                 setShowLeftArrow(current > 1);
@@ -77,10 +105,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const scroll = (direction: "left" | "right") => {
         if (scrollContainerRef.current) {
             const scrollAmount = 150;
-            // In RTL, "left" visually is negative x, "right" is positive x?
-            // Actually, in standard scrolling:
-            // RTL: "left" requires negative scrollBy? Or positive to go left?
-            // Let's rely on standard: left moves scrollbar left, right moves it right.
             const alignDirection = direction === "left" ? -scrollAmount : scrollAmount;
 
             scrollContainerRef.current.scrollBy({

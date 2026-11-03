@@ -39,7 +39,11 @@ export const GovernorateProvider = ({ children }: { children: React.ReactNode })
         if (user && !canChangeGovernorate && user.governorate) {
             return user.governorate;
         }
-        // 2. Otherwise, check session storage or local storage
+        // 2. In Beta release phase: Default to Karbala for all non-logged in visitors
+        if (!user) {
+            return DEFAULT_GOVERNORATE;
+        }
+        // 3. Otherwise, check session storage or local storage
         const stored = sessionStorage.getItem('selectedGovernorate') || localStorage.getItem('last_active_governorate');
         return stored || (user?.governorate || DEFAULT_GOVERNORATE);
     });

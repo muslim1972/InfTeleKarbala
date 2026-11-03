@@ -20,11 +20,10 @@ import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
 import WorkLocationCard from './WorkLocationCard';
-import { LocationSearch } from './LocationSearch';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
-import { fetchDailyAttendanceStats, baghdadDateStr, arabicDayNameForDate, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
+import { fetchDailyAttendanceStats, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
 
 type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
 
@@ -59,12 +58,28 @@ export default function AttendanceAdminSettings() {
   const [rosterEmployee, setRosterEmployee] = useState<any | null>(null);
   const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
 
-  // Live Clock State
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  // فلترة المواقع والتحسس الذكي لنوع الشاشة (موبايل: 3 بطاقات / كمبيوتر وتابلت: 6 بطاقات)
+  const [workLocQuery, setWorkLocQuery] = useState('');
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const filteredLocations = locations.filter((loc) =>
+    loc.name.toLowerCase().includes(workLocQuery.trim().toLowerCase())
+  );
+  const maxCardsToShow = isMobileScreen ? 3 : 6;
+  const displayedLocations = filteredLocations.slice(0, maxCardsToShow);
 
   const handleSelectGlobalEmployee = async (emp: any) => {
     try {
@@ -886,8 +901,8 @@ export default function AttendanceAdminSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-white transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 pt-4 pb-32">
+    <div className="w-full text-slate-900 dark:text-white transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-1 sm:px-4 pt-0 pb-32">
         
         {/* Print Stylesheet */}
         <style>{`
@@ -1029,38 +1044,7 @@ export default function AttendanceAdminSettings() {
           </button>
         </div>
 
-          {/* Compact Clock — merged with tabs in one line */}
-          <div className="shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <Clock className="w-4 h-4 text-blue-500" />
-            <div className="flex flex-col leading-none">
-              <span className="text-[11px] text-slate-400 font-medium leading-none mb-0.5">الوقت</span>
-              <span className="text-sm font-bold font-mono text-slate-800 dark:text-white leading-none" dir="ltr">
-                {new Intl.DateTimeFormat('en-GB', {
-                  timeZone: 'Asia/Baghdad',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                }).format(currentTime || new Date())}
-              </span>
-            </div>
-            {(() => {
-              const nowBgd = currentTime || new Date();
-              const dateStr = baghdadDateStr(nowBgd);
-              const dayName = arabicDayNameForDate(dateStr);
-              return (
-                <>
-                  <div className="h-7 w-px bg-slate-200 dark:bg-slate-700" />
-                  <div className="flex flex-col items-center leading-none">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 leading-none mb-0.5">{dayName}</span>
-                    <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 leading-none" dir="ltr">
-                      {dateStr}
-                    </span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
+</div>
 
         {/* Loading Spinner */}
         {loading && activeTab !== 'reports' && (
@@ -1074,29 +1058,45 @@ export default function AttendanceAdminSettings() {
             ========================================================================= */}
         {!loading && activeTab === 'locations' && (
           <div className="space-y-4 no-print">
-            {/* Search + Add button in one line */}
-            <div className="flex gap-3 items-center">
-              <LocationSearch
-                locations={locations}
-                onSelect={(loc) => {
-                  requestAnimationFrame(() => {
-                    document.getElementById(`loc-card-${loc.id}`)
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  });
-                }}
-              />
+{/* Search + Add button in one line with live interactive filter */}
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={workLocQuery}
+                  onChange={(e) => setWorkLocQuery(e.target.value)}
+                  placeholder="ابحث عن موقع عمل..."
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-8 py-2 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all"
+                />
+                {workLocQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setWorkLocQuery('')}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    title="مسح البحث"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+
+
               <button
                 onClick={() => {
-                  setShowAddForm(!showAddForm);
+                  setEditingLocationId(null);
+                  setShowAddForm(prev => !prev);
                   if (showAddForm) {
-                    setEditingLocationId(null);
                     setLocName('');
                   }
                 }}
-                className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2.5 sm:px-4 rounded-xl shadow-md transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm whitespace-nowrap"
+                title="إضافة موقع عمل جديد"
               >
-                <Plus className="w-5 h-5" />
-                إضافة موقع عمل
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="sm:hidden">إضافة موقع</span>
+                <span className="hidden sm:inline">إضافة موقع عمل</span>
               </button>
             </div>
 
@@ -1193,16 +1193,20 @@ export default function AttendanceAdminSettings() {
               </form>
             )}
 
-            {/* Grid of Work Location Cards — two-mode compact cards */}
-            {locations.length === 0 ? (
+            {/* Grid of Work Location Cards — Responsive: 3 for mobile, 6 for desktop */}
+            {filteredLocations.length === 0 ? (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-8 text-center text-slate-500">
                 <MapPinned className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                <p className="font-bold text-sm">لا يوجد أي مواقع عمل مسجلة حتى الآن.</p>
-                <p className="text-xs mt-1">اضغط على زر «إضافة موقع عمل» بالأعلى للبدء.</p>
+                <p className="font-bold text-sm">
+                  {workLocQuery ? `لا توجد أي مواقع عمل مطابقة لـ «${workLocQuery}»` : 'لا يوجد أي مواقع عمل مسجلة حتى الآن.'}
+                </p>
+                <p className="text-xs mt-1">
+                  {workLocQuery ? 'جرّب كتابة كلمات بحث أخرى أو امسح حقل البحث.' : 'اضغط على زر «إضافة موقع عمل» بالأعلى للبدء.'}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {locations.map((loc) => (
+                {displayedLocations.map((loc) => (
                   <WorkLocationCard
                     key={loc.id}
                     loc={loc}

@@ -25,9 +25,6 @@ import {
 const AWARENESS_DISTANCE = 0.45;   // عتبة الوعي بالوجه
 const PERFECT_DISTANCE = 0.38;     // مطابقة تامة + 3 إطارات
 const GOOD_BLINK_DISTANCE = 0.42;  // مطابقة جيدة + رمشة عين
-const GOOD_HOLD_DISTANCE = 0.45;   // مطابقة جيدة + 15 إطار ثبات
-const PERFECT_FRAMES_NEEDED = 3;
-const HOLD_FRAMES_NEEDED = 15;
 const EAR_BLINK_THRESHOLD = 0.28;
 const AMBIGUITY_GAP = 0.03;        // فرق ضئيل بين أفضل مطابقتين = غموض
 
@@ -364,15 +361,14 @@ export const KioskCapture = ({ activation, onDeactivate }: KioskCaptureProps) =>
                     if (dist <= PERFECT_DISTANCE) perfectFramesRef.current += 1;
                     else perfectFramesRef.current = 0;
 
-                    const isPerfect = perfectFramesRef.current >= PERFECT_FRAMES_NEEDED;
-                    const isBlink = dist <= GOOD_BLINK_DISTANCE && blinkedRef.current;
-                    const isHold = dist <= GOOD_HOLD_DISTANCE && matchedFramesRef.current >= HOLD_FRAMES_NEEDED;
+                    // إغلاق ثغرة الصور والشاشات: اشتراط الرمش الحيوي وتطابق الملامح معاً
+                    const isVerified = dist <= GOOD_BLINK_DISTANCE && blinkedRef.current && matchedFramesRef.current >= 3;
 
-                    if (isPerfect || isBlink || isHold) {
+                    if (isVerified) {
                       await processPunch(candidate);
                       return;
                     }
-                    setHint(blinkedRef.current ? 'لا تتحرك — جاري التحقق...' : 'ارمش بعينيك للتأكيد');
+                    setHint(blinkedRef.current ? 'تم رصد الرمشة — جاري تثبيت البصمة...' : 'ارمش بعينيك للتأكيد الحيوي');
                   }
                 }
               }

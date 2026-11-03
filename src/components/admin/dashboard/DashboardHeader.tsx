@@ -107,7 +107,8 @@ export const DashboardHeader = ({
                 />
             </div>
 
-            {/* Search & Year Slider (Unified Toolbar) */}
+            {/* Search & Year Slider (Unified Toolbar) - يُخفى في إدارة البصمة لمنع هدر المساحة */}
+            {activeTab !== 'admin_attendance' && (
             <div className="flex items-center justify-between gap-3 relative overflow-visible h-10 min-h-[40px]">
 
                 {/* Right Side (Start in RTL): Year Slider (Reserved Slot) */}
@@ -207,6 +208,7 @@ export const DashboardHeader = ({
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 };

@@ -6,6 +6,7 @@ import { useAttendance } from '../hooks/useAttendance';
 import { getLocalDateStr } from '../services/attendanceService';
 import { getServerNow } from '../services/serverTimeService';
 import { Fingerprint, Calendar, BarChart3, ShieldCheck } from 'lucide-react';
+import CompactLiveClock from './CompactLiveClock';
 
 import { useAuth } from '../../../context/AuthContext';
 
@@ -95,15 +96,18 @@ export default function AttendanceDashboard({ employeeId }: AttendanceDashboardP
             <p className="text-gray-600">تسجيل الحضور باستخدام البصمة الإلكترونية</p>
           </div>
           
-          {/* ========== Name Banner ========== */}
-          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl py-2 px-4 shadow-sm border border-emerald-100 dark:border-slate-700 flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-               <Fingerprint className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-             </div>
-             <div>
-               <p className="text-xs text-slate-500 dark:text-slate-400">حسابك الحالي</p>
-               <p className="font-bold text-slate-800 dark:text-slate-200">{user?.full_name || user?.username || 'مستخدم'}</p>
-             </div>
+          {/* ========== Header Banners: Clock + Name ========== */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <CompactLiveClock />
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl py-2 px-4 shadow-sm border border-emerald-100 dark:border-slate-700 flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                 <Fingerprint className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+               </div>
+               <div>
+                 <p className="text-xs text-slate-500 dark:text-slate-400">حسابك الحالي</p>
+                 <p className="font-bold text-slate-800 dark:text-slate-200">{user?.full_name || user?.username || 'مستخدم'}</p>
+               </div>
+            </div>
           </div>
         </motion.div>
 

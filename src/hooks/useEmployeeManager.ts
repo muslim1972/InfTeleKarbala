@@ -18,7 +18,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         gender: "male",
         birth_date: "",
         role: "user",
-        admin_role: "developer",
+        admin_role: null as string | null,
         department_id: null as string | null
     });
 
@@ -394,8 +394,39 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         const username = formData.username?.trim();
         const password = formData.password?.trim();
 
-        if (!full_name || !job_number || !username || !password) {
-            toast.error("يرجى ملء جميع الحقول الأساسية");
+        // 1. التحقق الصارم والمفصل للحقول الإلزامية برقم ورسالة واضحة
+        if (!full_name || full_name.length < 3) {
+            toast.error("يرجى إدخال الاسم الكامل للموظف (ثلاثي أو رباعي)");
+            return;
+        }
+
+        if (!job_number) {
+            toast.error("يرجى إدخال الرقم الوظيفي الموحد للموظف");
+            return;
+        }
+
+        if (!/^\d+$/.test(job_number)) {
+            toast.error("الرقم الوظيفي يجب أن يحتوي على أرقام فقط بدون مسافات أو رموز");
+            return;
+        }
+
+        if (!formData.department_id) {
+            toast.error("يرجى اختيار التشكيل الإداري (المرجع / القسم) للموظف");
+            return;
+        }
+
+        if (!username) {
+            toast.error("يرجى كتابة اسم المستخدم المؤقت للدخول");
+            return;
+        }
+
+        if (username.includes(" ")) {
+            toast.error("اسم المستخدم لا يمكن أن يحتوي على مسافات");
+            return;
+        }
+
+        if (!password || password.length < 6) {
+            toast.error("يرجى إدخال كلمة مرور مؤقتة لا تقل عن 6 خانات");
             return;
         }
 
@@ -436,6 +467,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                         detail = syncData.error;
                     }
                 } catch { /* ignore parse error */ }
+
+                // تحسين رسائل أخطاء المصادقة لتكون مفهومة وباللغة العربية
+                if (detail.includes('already been registered') || detail.includes('already registered')) {
+                    throw new Error(`الرقم الوظيفي (${job_number}) مسجل مسبقاً في نظام الحسابات والمصادقة (Auth). يرجى التأكد من الرقم الوظيفي وعدم تكراره.`);
+                }
                 throw new Error(detail);
             }
 
@@ -449,12 +485,24 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 return;
             }
 
+            // تنظيف الحقول الاختيارية لمنع أخطاء syntax مثل إرسال سلسلة فارغة لحقل date في postgres
+            const safeBirthDate = (formData.birth_date && String(formData.birth_date).trim()) ? String(formData.birth_date).trim() : null;
+            const safeDeptId = formData.department_id || null;
+            const isEmployeeAdmin = formData.role === 'admin';
+            const safeAdminRole = isEmployeeAdmin ? (formData.admin_role || 'general') : null;
+
             const { data: user, error: userError } = await supabase
                 .from('profiles')
                 .insert([{ 
                     ...formData, 
                     id: actualUserId, 
-                    full_name, job_number, username, 
+                    full_name, 
+                    job_number, 
+                    username, 
+                    role: formData.role || 'user',
+                    admin_role: safeAdminRole, // عزل صارم: لا يحمل الموظف العادي أي admin_role أبداً
+                    birth_date: safeBirthDate,
+                    department_id: safeDeptId,
                     password: null, // Don't store plain text
                     password_hash: syncData.hash, // Use hash returned from Edge Function
                     updated_at: new Date().toISOString(),
@@ -478,7 +526,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             });
 
-            setFormData({ username: "", password: "", full_name: "", job_number: "", gender: "male", birth_date: "", role: "user", admin_role: "developer", department_id: null });
+            setFormData({ username: "", password: "", full_name: "", job_number: "", gender: "male", birth_date: "", role: "user", admin_role: null, department_id: null });
         } catch (error: any) {
             toast.error("فشل إكمال العملية: " + error.message);
         } finally {

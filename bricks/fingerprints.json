@@ -1,5 +1,5 @@
 {
- "created": "2026-11-02T14:37:55.472Z",
+ "created": "2026-11-03T10:22:12.646Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -55,7 +55,7 @@
   },
   "src/App.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "95581c6c7896"
+   "sha": "e2eea7b605ca"
   },
   "src/assets/react.svg": {
    "brick": "FE-CORE-01",
@@ -99,7 +99,7 @@
   },
   "src/components/admin/DepartmentsManager.tsx": {
    "brick": "FE-HR-01",
-   "sha": "b3551573a811"
+   "sha": "7f7156d3613c"
   },
   "src/components/admin/FieldPermissionsModal.tsx": {
    "brick": "FE-HR-01",
@@ -163,7 +163,7 @@
   },
   "src/components/admin/RequestsTabPermissionsModal.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "0b446e17124c"
+   "sha": "093deb948a12"
   },
   "src/components/admin/SupervisorPermissions.tsx": {
    "brick": "FE-HR-01",
@@ -187,11 +187,11 @@
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "56c3c0f79934"
+   "sha": "50a1c5423239"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
-   "sha": "20c59445e679"
+   "sha": "23f5a6343045"
   },
   "src/components/admin/dashboard/TabAdminRecords.tsx": {
    "brick": "FE-HR-01",
@@ -203,7 +203,7 @@
   },
   "src/components/admin/dashboard/TabManageEmployees.tsx": {
    "brick": "FE-HR-01",
-   "sha": "9b7e716f8e90"
+   "sha": "af0206f3cc1b"
   },
   "src/components/admin/data-patcher/ManualStep.tsx": {
    "brick": "FE-HR-02",
@@ -379,7 +379,7 @@
   },
   "src/components/features/TabSystem.tsx": {
    "brick": "FE-UI-01",
-   "sha": "12ea847d9cc5"
+   "sha": "f7f1271cf8fa"
   },
   "src/components/features/TrainingPollsList.tsx": {
    "brick": "FE-TRN-01",
@@ -555,7 +555,7 @@
   },
   "src/context/GovernorateContext.tsx": {
    "brick": "FE-CORE-03",
-   "sha": "e602a6964ee0"
+   "sha": "7938e54da325"
   },
   "src/context/KnowledgeContext.tsx": {
    "brick": "FE-MED-01",
@@ -575,15 +575,15 @@
   },
   "src/features/attendance/components/AttendanceAdminSettings.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "7a450fc5e0b5"
+   "sha": "6c8551440b0a"
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "de20fb600f07"
+   "sha": "ddff81090a65"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "2b85f1522f05"
+   "sha": "d7430506c447"
   },
   "src/features/attendance/components/AttendanceHistory.tsx": {
    "brick": "FE-ATT-01",
@@ -601,13 +601,17 @@
    "brick": "FE-ATT-01",
    "sha": "e1c497480885"
   },
+  "src/features/attendance/components/CompactLiveClock.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "0c5732cc5ec8"
+  },
   "src/features/attendance/components/EmployeeRosterModal.tsx": {
    "brick": "FE-ATT-01",
    "sha": "c677d1cee9a3"
   },
   "src/features/attendance/components/FaceEnrollment.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "e3cc2a7e65ef"
+   "sha": "125930d84bc2"
   },
   "src/features/attendance/components/HolidaysTab.tsx": {
    "brick": "FE-ATT-01",
@@ -619,7 +623,11 @@
   },
   "src/features/attendance/components/LocationSearch.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "da2432b3119f"
+   "sha": "b99d61af2106"
+  },
+  "src/features/attendance/components/ServerClockCard.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "85082384974b"
   },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
@@ -647,7 +655,7 @@
   },
   "src/features/attendance/hooks/useFaceDetection.ts": {
    "brick": "FE-ATT-01",
-   "sha": "6adc0b53f931"
+   "sha": "cf919362c973"
   },
   "src/features/attendance/hooks/useLiveAttendance.ts": {
    "brick": "FE-ATT-01",
@@ -712,6 +720,10 @@
   "src/features/attendance/utils/imageEnhancement.ts": {
    "brick": "FE-ATT-01",
    "sha": "1e78b5427f54"
+  },
+  "src/features/attendance/utils/livenessDetector.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "49e3848baf7c"
   },
   "src/features/attendance/utils/pendingSnapshotStorage.ts": {
    "brick": "FE-ATT-01",
@@ -923,7 +935,7 @@
   },
   "src/features/kiosk/KioskCapture.tsx": {
    "brick": "FE-ATT-02",
-   "sha": "a7071b8cb94b"
+   "sha": "9a4a869e64f3"
   },
   "src/features/kiosk/KioskPage.tsx": {
    "brick": "FE-ATT-02",
@@ -1123,7 +1135,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "beb57df5d67b"
+   "sha": "7057faa8b605"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1195,7 +1207,7 @@
   },
   "src/pages/AdminDashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "0bd89aee9f11"
+   "sha": "b333ab61a63f"
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
@@ -1211,11 +1223,11 @@
   },
   "src/pages/LauncherPage.tsx": {
    "brick": "FE-SPL-01",
-   "sha": "325e8e3b4326"
+   "sha": "f5f20a34fa42"
   },
   "src/pages/Login.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "2469bca7d368"
+   "sha": "4db0992b7441"
   },
   "src/pages/NotFound.tsx": {
    "brick": "FE-CORE-01",
@@ -1311,7 +1323,7 @@
   },
   "src/utils/permissions.ts": {
    "brick": "FE-CORE-02",
-   "sha": "26d1d1a28916"
+   "sha": "d1972b5ae264"
   },
   "src/utils/profileUtils.ts": {
    "brick": "FE-HR-01",

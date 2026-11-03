@@ -7,11 +7,11 @@ import { ThemeToggleFloating } from "../components/ui/ThemeToggleFloating";
 import { TraineeLoginPage } from "../features/training/components/TraineeLoginPage";
 import { GraduationCap } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { governorateName } from "../constants/governorates";
+import { governorateName, DEFAULT_GOVERNORATE } from "../constants/governorates";
 
-export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
-  const { activeGovernorate, setActiveGovernorate } = useGovernorate();
-  const currentGov = activeGovernorate;
+export const Login = (_props: { onBack?: () => void } = {}) => {
+  const { activeGovernorate } = useGovernorate();
+  const currentGov = activeGovernorate || DEFAULT_GOVERNORATE;
   
   const getGovernorateTitle = () => {
     if (currentGov === 'itpc_hq') return 'مقر الشركة العامة للاتصالات والمعلوماتية';
@@ -150,24 +150,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
       {/* Main Content Container */}
       <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] pb-40">
 
-          {/* Back to Launcher Button */}
-          {onBack && (
-            <button
-              onClick={() => {
-                  setActiveGovernorate('');
-                  sessionStorage.removeItem('selectedGovernorate');
-                  onBack();
-              }}
-              className={`self-start mb-6 flex items-center gap-2 transition-colors text-sm font-bold px-4 py-2.5 rounded-xl backdrop-blur-md border shadow-sm hover:shadow-md animate-in fade-in slide-in-from-right-4 duration-500 ${
-                  theme === 'light'
-                    ? 'bg-white/80 border-gray-200 text-slate-800 hover:bg-white hover:text-brand-green'
-                    : 'bg-white/10 border-white/10 text-white/90 hover:bg-white/20 hover:text-white'
-              }`}
-            >
-              <span className="text-lg leading-none mt-[-2px]">→</span>
-              <span>تغيير المحافظة</span>
-            </button>
-          )}
+          {/* تم حجب زر تغيير المحافظة لمرحلة Beta - يقتصر النظام على كربلاء المقدسة */}
 
         {/* Header / Logo Section */}
         <div className="text-center mb-4 space-y-2 animate-in fade-in slide-in-from-bottom-8 duration-700">

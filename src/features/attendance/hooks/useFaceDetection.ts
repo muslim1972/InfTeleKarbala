@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { calculateEAR, BlinkTracker, DepthPerspectiveTracker, verifyOpticalReflection } from '../utils/livenessDetector';
 
 // Global singleton state so model loading is shared across component mounts and instant on repeat calls
 let globalFaceApi: any = null;
@@ -6,8 +7,10 @@ let globalDetectionModelsLoaded = false;
 let globalEnrollmentModelsLoaded = false;
 let globalLoadingPromise: Promise<void> | null = null;
 
+export { BlinkTracker, DepthPerspectiveTracker, verifyOpticalReflection, calculateEAR };
+
 export const useFaceDetection = () => {
-  const [modelsLoaded, setModelsLoaded] = useState(globalDetectionModelsLoaded);
+  const [, setModelsLoaded] = useState(globalDetectionModelsLoaded);
   const [isProcessing, setIsProcessing] = useState(false);
   
   // We keep a ref to the dynamically loaded library
@@ -115,13 +118,6 @@ export const useFaceDetection = () => {
     return Array.from(detection.descriptor);
   }, []);
 
-  const getEAR = (eye: any[]) => {
-    const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-    const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-    const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-    return (v1 + v2) / (2.0 * h);
-  };
-
   const detectFaceInFrame = useCallback(async (
     videoElement: HTMLVideoElement, 
     referenceDescriptors: Float32Array[]
@@ -135,7 +131,15 @@ export const useFaceDetection = () => {
       new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 })
     ).withFaceLandmarks().withFaceDescriptor();
 
-    if (!detection) return { detection: null, distance: 999, ear: 999 };
+    if (!detection) {
+      return { 
+        detection: null, 
+        distance: 999, 
+        ear: 999, 
+        landmarks: null, 
+        box: null 
+      };
+    }
 
     // Calculate minimum distance across all provided reference descriptors
     let minDistance = 999;
@@ -150,9 +154,15 @@ export const useFaceDetection = () => {
     
     const leftEye = detection.landmarks.getLeftEye();
     const rightEye = detection.landmarks.getRightEye();
-    const ear = (getEAR(leftEye) + getEAR(rightEye)) / 2.0;
+    const ear = (calculateEAR(leftEye) + calculateEAR(rightEye)) / 2.0;
 
-    return { detection, distance: minDistance, ear };
+    return { 
+      detection, 
+      distance: minDistance, 
+      ear,
+      landmarks: detection.landmarks,
+      box: detection.detection.box
+    };
   }, []);
 
   return {

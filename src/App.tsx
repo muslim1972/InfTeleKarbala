@@ -14,7 +14,6 @@ import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 import { SnapshotProvider } from "./context/SnapshotContext"; // 📅 نظام النسخ الشهرية
 import { GovernorateProvider } from "./context/GovernorateContext"; // 🌍 نظام المحافظات
-import { Capacitor } from '@capacitor/core';
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
 import { isDeveloperLevel, canAccessHR } from "./utils/permissions";
@@ -27,7 +26,6 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ 
 const HRDashboard = lazy(() => import("./pages/HRDashboard").then(m => ({ default: m.HRDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
-const LauncherPage = lazy(() => import("./pages/LauncherPage").then(m => ({ default: m.LauncherPage })));
 const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ default: m.SplashScreen })));
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
@@ -102,11 +100,10 @@ const AppContent = () => {
     }
 
     // 1. فحص صريح: إذا كان لديه صلاحية السعات مباشرة أو مشرف عام/مطور
+    const isUserAdmin = user.role === 'admin';
     if (
-      user.admin_role === 'capacities' || // للاحتياط في حال وجود بيانات قديمة
       user.has_capacities_access || 
-      isDeveloperLevel(user.admin_role) || // مطور / مشرف IT
-      user.admin_role === 'general'
+      (isUserAdmin && (isDeveloperLevel(user.admin_role) || user.admin_role === 'general' || user.admin_role === 'capacities'))
     ) {
       setHasCapacities(true);
       return;
@@ -189,9 +186,6 @@ const AppContent = () => {
     }
   }, [adminViewMode]);
 
-  const [hasProceeded, setHasProceeded] = useState(() => {
-    return sessionStorage.getItem('hasChosenWeb') === 'true';
-  });
 
   // ── حالة الشاشة الافتتاحية (Splash Screen) ──────────
   const [showSplash, setShowSplash] = useState(() => {
@@ -204,11 +198,6 @@ const AppContent = () => {
   }, []);
 
   // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK) عن طريق المكتبة الرسمية أو الـ Hostname
-  const isCapacitor = Capacitor.isNativePlatform() || (window.location.hostname === 'localhost' && /Android|iPhone|iPad/i.test(navigator.userAgent));
-  const isStandalone = 
-    window.matchMedia('(display-mode: standalone)').matches || 
-    (window.navigator as any).standalone ||
-    isCapacitor;
 
   // إظهار شاشة التحميل فقط عند عدم توفر بيانات مستخدم مخزنة مسبقاً
   if (loading) return <LoadingScreen />;
@@ -218,17 +207,9 @@ const AppContent = () => {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // إذا لم يكن هناك مستخدم، نعرض LauncherPage ونحدد هل تظهر صفحة الاختيار أم صفحة الدخول فوراً
+  // مرحلة إطلاق Beta: التطبيق ينهض من الـ Splash Screen مباشرة إلى واجهة تسجيل الدخول لكربلاء المقدسة
   if (!user) {
-    return (
-      <LauncherPage 
-        onProceed={() => {
-          setHasProceeded(true);
-          sessionStorage.setItem('hasChosenWeb', 'true');
-        }}
-        initialShowLogin={isStandalone || hasProceeded}
-      />
-    );
+    return <Login />;
   }
 
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──

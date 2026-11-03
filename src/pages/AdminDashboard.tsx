@@ -233,6 +233,8 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                     setFormData={setFormData}
                     isRoleEditable={isRoleEditable}
                     theme={theme}
+                    handleSaveEmployee={handleSaveEmployee}
+                    loading={loading}
                 />
             )}
 
@@ -462,7 +464,9 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
             {/* ======= إعداد البصمة TAB ======= */}
             {activeTab === 'admin_attendance' && (
-                <AttendanceAdminSettings />
+                <div className="-mt-4 md:-mt-6">
+                    <AttendanceAdminSettings />
+                </div>
             )}
 
             <FiveYearLeaveDetailsModal

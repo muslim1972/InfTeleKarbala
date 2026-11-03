@@ -277,7 +277,11 @@ export const TabManageEmployees = ({
                                     onChange={(val: string | null, dept?: any, parentDept?: any) => {
                                         const updates: any = { department_id: val };
                                         if (dept) {
-                                            if (dept.level === 4) {
+                                            if (dept.level === 1 || dept.level === 2) {
+                                                updates.dept_text = dept.name;
+                                                updates.section_text = '';
+                                                updates.unit_text = '';
+                                            } else if (dept.level === 4) {
                                                 updates.section_text = dept.name;
                                                 if (parentDept) updates.dept_text = parentDept.name;
                                             } else if (dept.level === 3) {

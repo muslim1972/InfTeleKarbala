@@ -5,42 +5,70 @@ import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 import { DepartmentSelector } from "../DepartmentSelector";
 import { cn } from "../../../lib/utils";
+import { Loader2, UserPlus, AlertCircle, Info } from "lucide-react";
 
 interface TabAddEmployeeProps {
     formData: any;
     setFormData: (data: any) => void;
     isRoleEditable: boolean;
     theme: 'light' | 'dark';
+    handleSaveEmployee?: (e: any) => Promise<void>;
+    loading?: boolean;
 }
 
 export const TabAddEmployee = ({
     formData,
     setFormData,
     isRoleEditable,
-    theme
+    theme,
+    handleSaveEmployee,
+    loading = false
 }: TabAddEmployeeProps) => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-2 md:container md:mx-auto max-w-2xl">
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>إضافة موظف جديد</CardTitle>
+            <Card className="w-full border shadow-sm">
+                <CardHeader className="pb-3 border-b border-border/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                <UserPlus className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg">إضافة موظف جديد</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">فتح قيد وظيفي وإنشاء حساب دخول أمني للموظف</p>
+                            </div>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5 pt-4">
+                    {/* Notice bar */}
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs">
+                        <Info className="w-4 h-4 flex-shrink-0" />
+                        <span>الحقول المؤشرة بعلامة (<span className="text-red-500 font-bold">*</span>) إلزامية لفتح القيد. يرجى إدخال اسم المستخدم وكلمة المرور بدقة.</span>
+                    </div>
+
                     {/* Row 1: Full Name */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="grid gap-2 md:col-span-2">
-                            <Label htmlFor="full_name">الاسم الكامل</Label>
+                            <Label htmlFor="full_name" className="flex items-center gap-1 font-semibold">
+                                الاسم الكامل
+                                <span className="text-red-500 font-bold">*</span>
+                            </Label>
                             <Input
                                 id="full_name"
                                 type="text"
                                 value={formData.full_name}
                                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                                 placeholder="الاسم الرباعي واللقب"
+                                className={cn(!formData.full_name && "border-amber-300 dark:border-amber-700/50")}
                             />
                         </div>
                         
                         <div className="grid gap-2">
-                            <Label htmlFor="gender">الجنس</Label>
+                            <Label htmlFor="gender" className="flex items-center gap-1 font-semibold">
+                                الجنس
+                                <span className="text-red-500 font-bold">*</span>
+                            </Label>
                             <div className="flex gap-2">
                                 <Button
                                     type="button"
@@ -62,43 +90,64 @@ export const TabAddEmployee = ({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="birth_date">تاريخ الميلاد</Label>
+                            <Label htmlFor="birth_date" className="flex items-center gap-1 font-semibold">
+                                تاريخ الميلاد
+                                <span className="text-muted-foreground text-xs font-normal">(اختياري)</span>
+                            </Label>
                             <Input
                                 id="birth_date"
                                 type="date"
-                                value={formData.birth_date}
+                                value={formData.birth_date || ""}
                                 onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                                className="text-left"
+                                className="text-left font-mono"
                                 dir="ltr"
                             />
                         </div>
                     </div>
 
                     {/* Department / Position Tree Node */}
-                    <DepartmentSelector
-                        value={formData.department_id}
-                        onChange={(val: string | null, dept?: any, parentDept?: any) => {
-                            const updates: any = { department_id: val };
-                            if (dept) {
-                                if (dept.level === 4) {
-                                    updates.section_text = dept.name;
-                                    if (parentDept) updates.dept_text = parentDept.name;
-                                } else if (dept.level === 3) {
-                                    updates.dept_text = dept.name;
-                                    updates.section_text = '';
-                                } else if (dept.level === 5) {
-                                    updates.unit_text = dept.name;
-                                    if (parentDept) updates.section_text = parentDept.name;
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <Label className="flex items-center gap-1 font-semibold">
+                                المرجع / التشكيل الإداري
+                                <span className="text-red-500 font-bold">*</span>
+                            </Label>
+                            {!formData.department_id && (
+                                <span className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                                    <AlertCircle className="w-3 h-3" />
+                                    مطلوب اختيار القسم
+                                </span>
+                            )}
+                        </div>
+                        <DepartmentSelector
+                            value={formData.department_id}
+                            onChange={(val: string | null, dept?: any, parentDept?: any) => {
+                                const updates: any = { department_id: val };
+                                if (dept) {
+                                    if (dept.level === 1 || dept.level === 2) {
+                                        updates.dept_text = dept.name;
+                                        updates.section_text = '';
+                                        updates.unit_text = '';
+                                    } else if (dept.level === 4) {
+                                        updates.section_text = dept.name;
+                                        if (parentDept) updates.dept_text = parentDept.name;
+                                    } else if (dept.level === 3) {
+                                        updates.dept_text = dept.name;
+                                        updates.section_text = '';
+                                    } else if (dept.level === 5) {
+                                        updates.unit_text = dept.name;
+                                        if (parentDept) updates.section_text = parentDept.name;
+                                    }
                                 }
-                            }
-                            setFormData((prev: any) => ({ ...prev, ...updates }));
-                        }}
-                        theme={theme}
-                    />
+                                setFormData((prev: any) => ({ ...prev, ...updates }));
+                            }}
+                            theme={theme}
+                        />
+                    </div>
 
                     {/* Row 2: Account Type */}
                     <div className="grid gap-2">
-                        <Label>نوع الحساب</Label>
+                        <Label className="font-semibold">نوع الحساب</Label>
                         <div className="grid grid-cols-2 gap-4">
                             <Button
                                 type="button"
@@ -129,7 +178,7 @@ export const TabAddEmployee = ({
                         {/* Row 2.5: Admin Role (Visible only if role is admin and user has permission) */}
                         {formData.role === 'admin' && isRoleEditable && (
                             <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300 col-span-1 md:col-span-2">
-                                <Label>صلاحية المشرف</Label>
+                                <Label className="font-semibold">صلاحية المشرف</Label>
                                 <div className="flex flex-wrap gap-3">
                                     <Button
                                         type="button"
@@ -215,7 +264,7 @@ export const TabAddEmployee = ({
                         {/* Separate Additional Access Permissions */}
                         {isRoleEditable && (
                             <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-300 col-span-1 md:col-span-2">
-                                <Label>صلاحيات وصول إضافية</Label>
+                                <Label className="font-semibold">صلاحيات وصول إضافية</Label>
                                 <div className="flex flex-wrap gap-2">
                                     <Button
                                         type="button"
@@ -255,33 +304,44 @@ export const TabAddEmployee = ({
 
                     {/* Row 3: Job Number */}
                     <div className="grid gap-2">
-                        <Label htmlFor="job_number">الرقم الوظيفي الموحد</Label>
+                        <Label htmlFor="job_number" className="flex items-center gap-1 font-semibold">
+                            الرقم الوظيفي الموحد
+                            <span className="text-red-500 font-bold">*</span>
+                        </Label>
                         <div className="relative">
                             <Input
                                 id="job_number"
                                 type="text"
+                                inputMode="numeric"
                                 value={formData.job_number}
-                                onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
-                                placeholder="123456"
-                                className="font-mono text-left"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, ''); // أرقام فقط
+                                    setFormData({ ...formData, job_number: val });
+                                }}
+                                placeholder="مثال: 103523"
+                                className={cn("font-mono text-left", !formData.job_number && "border-amber-300 dark:border-amber-700/50")}
                                 dir="ltr"
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono pointer-events-none">#</div>
                         </div>
                     </div>
 
-                    {/* Row 4: Removed IBAN */}
-
                     {/* Row 5: Username */}
                     <div className="grid gap-2">
-                        <Label htmlFor="username">اسم المستخدم المؤقت</Label>
+                        <Label htmlFor="username" className="flex items-center gap-1 font-semibold">
+                            اسم المستخدم المؤقت
+                            <span className="text-red-500 font-bold">*</span>
+                        </Label>
                         <Input
                             id="username"
                             type="text"
                             value={formData.username}
-                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                            placeholder="username"
-                            className="font-mono text-left"
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\s/g, ''); // منع المسافات
+                                setFormData({ ...formData, username: val });
+                            }}
+                            placeholder="مثال: صابرين أو sabreen"
+                            className={cn("font-mono text-left", !formData.username && "border-amber-300 dark:border-amber-700/50")}
                             dir="ltr"
                             autoComplete="off"
                         />
@@ -289,18 +349,45 @@ export const TabAddEmployee = ({
 
                     {/* Row 6: Password */}
                     <div className="grid gap-2">
-                        <Label htmlFor="password">كلمة المرور المؤقتة</Label>
+                        <Label htmlFor="password" className="flex items-center gap-1 font-semibold">
+                            كلمة المرور المؤقتة (6 خانات كحد أدنى)
+                            <span className="text-red-500 font-bold">*</span>
+                        </Label>
                         <Input
                             id="password"
                             type="text"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            placeholder="password"
-                            className="font-mono text-left"
+                            placeholder="مثال: 103523 أو كلمة سر مخصصة"
+                            className={cn("font-mono text-left", (!formData.password || formData.password.length < 6) && "border-amber-300 dark:border-amber-700/50")}
                             dir="ltr"
                             autoComplete="off"
                         />
                     </div>
+
+                    {/* Bottom Save Action Button */}
+                    {handleSaveEmployee && (
+                        <div className="pt-3 border-t border-border/50">
+                            <Button
+                                type="button"
+                                onClick={handleSaveEmployee}
+                                disabled={loading}
+                                className="w-full py-3 bg-brand-green hover:bg-brand-green/90 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-green/20 disabled:opacity-50 transition-all cursor-pointer"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>جارٍ حفظ وتكوين القيد...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <UserPlus className="w-4 h-4" />
+                                        <span>حفظ وإضافة الموظف</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    )}
 
                 </CardContent>
             </Card>

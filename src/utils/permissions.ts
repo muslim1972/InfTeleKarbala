@@ -14,9 +14,12 @@ export function isDeveloperLevel(adminRole?: string | null): boolean {
 /** هل يحق للمستخدم الوصول لبطاقة / واجهة الموارد البشرية؟ */
 export function canAccessHR(user: any): boolean {
     if (!user) return false;
-    if (isDeveloperLevel(user.admin_role)) return true;
-    if (user.admin_role === 'hr' || user.admin_role === 'general') return true;
-    if (user.can_view_requests === true) return true;
+
+    // عزل قطعي: بطاقة الموارد البشرية مخصصة للمشرفين الإداريين حصراً (role === 'admin')
+    if (user.role === 'admin') {
+        if (isDeveloperLevel(user.admin_role)) return true;
+        if (user.admin_role === 'hr' || user.admin_role === 'general') return true;
+    }
 
     // حسابات خاصة وتجريبية ومسؤولة شعبة الموارد البشرية
     const name = user.full_name || '';

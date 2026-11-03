@@ -30,7 +30,7 @@ import { type LocationTelemetryResult } from '../../../utils/antiSpoofing';
 import { useAuth } from '../../../context/AuthContext';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
-import { useFaceDetection } from '../hooks/useFaceDetection';
+import { useFaceDetection, BlinkTracker, DepthPerspectiveTracker, verifyOpticalReflection } from '../hooks/useFaceDetection';
 import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancement';
 import { formatArabicErrorMessage } from '../../../utils/errorMessageFormatter';
 import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
@@ -39,6 +39,7 @@ import { getServerNow } from '../services/serverTimeService';
 import { useServerTime } from '../hooks/useServerTime';
 
 import { AttendanceReceiptModal } from './AttendanceReceiptModal';
+import ServerClockCard from './ServerClockCard';
 import { savePendingSnapshot } from '../utils/pendingSnapshotStorage';
 import { useSilentPhotoSync } from '../hooks/useSilentPhotoSync';
 
@@ -762,62 +763,107 @@ export default function AttendanceCheckInOut({
     }, 1000);
 
     let isDetecting = true;
+    const blinkTracker = new BlinkTracker();
+    const depthTracker = new DepthPerspectiveTracker();
+    let isVerifyingLiveness = false;
+
     const detectLoop = async () => {
-      if (capturedRef.current || !videoRef.current || !isDetecting) return;
+      if (capturedRef.current || !videoRef.current || !isDetecting || isVerifyingLiveness) return;
 
       try {
         debugStatsRef.current.frames++;
         
-        const { detection, distance, ear } = await detectFaceInFrame(videoRef.current, referenceDescriptors);
+        const { detection, distance, ear, landmarks, box } = await detectFaceInFrame(videoRef.current, referenceDescriptors);
 
         if (detection) {
           debugStatsRef.current.faces++;
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
-          
-          if (distance <= 0.45) {
+          debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
+          debugStatsRef.current.lastEar = ear;
+
+          // معيار المسافة الإقليدية الدقيق للوجه المعتمد
+          if (distance <= 0.42) {
             debugStatsRef.current.matchFrames++;
-            setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
-            
-            debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
-            debugStatsRef.current.lastEar = ear;
 
-            const isPerfectMatch = distance <= 0.38 && debugStatsRef.current.matchFrames >= 3;
-            const isGoodMatchWithBlink = distance <= 0.42 && ear < 0.28;
-            const isGoodMatchWithHold = distance <= 0.45 && debugStatsRef.current.matchFrames >= 15;
+            // 1. تسجيل إحداثيات العمق ثلاثي الأبعاد
+            if (landmarks) {
+              depthTracker.addFrame(landmarks);
+            }
 
-            if (isPerfectMatch || isGoodMatchWithBlink || isGoodMatchWithHold) {
-              // Liveness verified!
-              if (capturedRef.current) return;
-              capturedRef.current = true;
-              
-              setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
-              showDebugAlert();
-              
-              try {
-                // فتح المودال مباشرة عند تأكيد التطابق قبل انتظار الرفع
-                const baghdadNow = getBaghdadDate();
-                const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                const currentLoc = locationText || 'مقر العمل المعتمد';
+            // 2. تتبع آلة حالة الرمش الطبيعي (Blink State Machine)
+            const blinkStatus = blinkTracker.update(ear);
 
-                setReceiptState({
-                  isOpen: true,
-                  punchTime: timeStr,
-                  locationName: currentLoc,
-                  shiftName: undefined,
-                  isUploading: true,
-                });
-
-                const result = await captureAndUpload();
-                await completeAction(action, result);
-              } catch (actErr: any) {
-                console.error('Face verification action failed:', actErr);
-                toast.error(formatArabicErrorMessage(actErr, 'تعذر تثبيت البصمة'));
-                setProcessing(false);
-                setCapturingAction(null);
-                capturedRef.current = false;
+            if (!blinkTracker.isBlinkComplete()) {
+              if (blinkStatus.stage === 'CLOSED') {
+                setCameraState(prev => ({ ...prev, message: 'ممتاز! افتح عينيك الآن...' }));
+              } else {
+                setCameraState(prev => ({ ...prev, message: 'تم رصد الملامح! يرجى رمش العينين للتأكيد الحيوي' }));
               }
-              return; // Stop loop
+            } else {
+              // 3. اكتمال دورة الرمش الطبيعي! تنفيذ نبضة التأكيد الانعكاسي (Optical Reflection Pulse)
+              // لمنع هجمات إعادة عرض الفيديو وشاشات الهواتف ومكالمات الفيديو
+              isVerifyingLiveness = true;
+              setCameraState(prev => ({ ...prev, message: 'جاري تأكيد الحيوية الفيزيائية...' }));
+
+              const boxRect = box ? {
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height
+              } : {
+                x: 0,
+                y: 0,
+                width: videoRef.current.videoWidth || 640,
+                height: videoRef.current.videoHeight || 480
+              };
+
+              const reflectionResult = await verifyOpticalReflection(videoRef.current, boxRect);
+
+              if (reflectionResult.passed) {
+                // الحيوية الفيزيائية مثبتة 100% بنجاح
+                if (capturedRef.current) return;
+                capturedRef.current = true;
+                
+                setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
+                showDebugAlert();
+                
+                try {
+                  // فتح المودال مباشرة عند تأكيد التطابق قبل انتظار الرفع
+                  const baghdadNow = getBaghdadDate();
+                  const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                  const currentLoc = locationText || 'مقر العمل المعتمد';
+
+                  setReceiptState({
+                    isOpen: true,
+                    punchTime: timeStr,
+                    locationName: currentLoc,
+                    shiftName: undefined,
+                    isUploading: true,
+                  });
+
+                  const result = await captureAndUpload();
+                  await completeAction(action, result);
+                } catch (actErr: any) {
+                  console.error('Face verification action failed:', actErr);
+                  toast.error(formatArabicErrorMessage(actErr, 'تعذر تثبيت البصمة'));
+                  setProcessing(false);
+                  setCapturingAction(null);
+                  capturedRef.current = false;
+                }
+                return; // Stop loop
+              } else {
+                // فشل الانعكاس الضوئي (شاشة هاتف أو صورة غير حية)
+                isVerifyingLiveness = false;
+                blinkTracker.reset();
+                depthTracker.reset();
+                debugStatsRef.current.matchFrames = 0;
+                setCameraState(prev => ({ 
+                  ...prev, 
+                  message: 'تنبيه: تعذر تأكيد الحيوية. يرجى توجيه وجهك مباشرة للكاميرا دون شاشات.' 
+                }));
+                toast.error('تم رفض المحاولة: لم يتم رصد انعكاس الوجه الحي (يرجى عدم استخدام شاشات أو صور)', { id: 'liveness-fail' });
+              }
             }
           } else {
             // Reset match frames if face distance exceeds threshold
@@ -1065,6 +1111,11 @@ export default function AttendanceCheckInOut({
 
   return (
     <div className="space-y-6">
+      {/* ========== الوقت الرسمي للشبكة ==========
+          مصدره الخادم (getServerNow) وليس ساعة الجهاز — ليعرف الموظف
+          الدقيقة التي ستُحفظ بها بصمته، ويطمئن أن ساعته لم تُعبث بها. */}
+      <ServerClockCard />
+
       {/* ========== Actions Card ========== */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

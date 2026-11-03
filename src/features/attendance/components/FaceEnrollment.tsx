@@ -6,7 +6,7 @@ import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
 import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
 
-const FACE_ENROLL_SECRET = (import.meta.env.VITE_FACE_ENROLL_SECRET || 'muslim2791').trim().toLowerCase();
+const FACE_ENROLL_SECRET = (import.meta.env.VITE_FACE_ENROLL_SECRET || '').trim().toLowerCase();
 
 interface FaceEnrollmentProps {
     employeeId: string;
@@ -34,7 +34,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     const handlePasswordSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const inputPass = password.trim().toLowerCase();
-        if (inputPass === 'muslim2791' || inputPass === FACE_ENROLL_SECRET) {
+        if (FACE_ENROLL_SECRET && inputPass === FACE_ENROLL_SECRET) {
             setStep('loading_models');
             handleLoadModelsAndCamera();
         } else {
@@ -84,7 +84,7 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                 return;
             }
 
-            const newDescriptors = [...descriptors, descriptorArray];
+            const newDescriptors: number[][] = [...descriptors, descriptorArray as number[]];
             setDescriptors(newDescriptors);
             setCapturedCount(newDescriptors.length);
 
