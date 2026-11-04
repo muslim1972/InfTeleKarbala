@@ -1,9 +1,9 @@
 {
- "created": "2026-11-03T18:37:55.617Z",
+ "created": "2026-11-03T23:48:19.990Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "7495f380e562"
+   "sha": "cd6e56bf5541"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -203,7 +203,7 @@
   },
   "src/components/admin/dashboard/TabManageEmployees.tsx": {
    "brick": "FE-HR-01",
-   "sha": "af0206f3cc1b"
+   "sha": "9bad6ed74f81"
   },
   "src/components/admin/data-patcher/ManualStep.tsx": {
    "brick": "FE-HR-02",
@@ -231,7 +231,7 @@
   },
   "src/components/admin/universal-patcher/UP_PreviewStep.tsx": {
    "brick": "FE-HR-02",
-   "sha": "534442703a82"
+   "sha": "caaed83d2346"
   },
   "src/components/admin/universal-patcher/UP_UploadStep.tsx": {
    "brick": "FE-HR-02",
@@ -327,7 +327,7 @@
   },
   "src/components/features/AdministrativeTabContent.tsx": {
    "brick": "FE-HR-01",
-   "sha": "1816fffaccef"
+   "sha": "06835a1b3574"
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
@@ -451,7 +451,7 @@
   },
   "src/components/snapshots/SnapshotBrowser.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "835194b33444"
+   "sha": "32fcda1fb3bf"
   },
   "src/components/snapshots/SnapshotNamePicker.tsx": {
    "brick": "FE-FIN-01",
@@ -543,7 +543,7 @@
   },
   "src/context/AuthContext.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "3e7e0bbe5089"
+   "sha": "c86733395085"
   },
   "src/context/CallContext.tsx": {
    "brick": "FE-COM-01",
@@ -1139,7 +1139,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "719fe73d366b"
+   "sha": "19f66ae80c29"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1175,7 +1175,7 @@
   },
   "src/hooks/useUniversalPatcher.ts": {
    "brick": "FE-HR-02",
-   "sha": "98b97a46a37c"
+   "sha": "5471c42d3dd0"
   },
   "src/hooks/useVoiceRecorder.ts": {
    "brick": "FE-COM-01",
@@ -1343,11 +1343,11 @@
   },
   "src/utils/snapshots.ts": {
    "brick": "FE-FIN-01",
-   "sha": "b9ba37dd004b"
+   "sha": "e7f7655b0cfc"
   },
   "src/utils/universalPatcherConfig.ts": {
    "brick": "FE-HR-02",
-   "sha": "1f700a3eadb8"
+   "sha": "835044718fd8"
   },
   "src/vite-env.d.ts": {
    "brick": "FE-CORE-01",
@@ -1628,6 +1628,10 @@
   "supabase/migrations/20261103204000_fin01_historical_user_data.sql": {
    "brick": "BE-MIG-01",
    "sha": "b3c239d903d2"
+  },
+  "supabase/migrations/20261104003500_hr01_profile_personal_data.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "4bcb92dedf1d"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

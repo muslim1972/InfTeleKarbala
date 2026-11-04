@@ -1,13 +1,15 @@
 /**
  * خطوة معاينة النتائج والتنفيذ
  */
-import { Save, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import { Save, UserPlus, AlertTriangle, Check } from 'lucide-react';
 import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
 import { UP_ItSupervisorField } from './UP_ItSupervisorField';
 
 export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn }) {
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const {
         tableDef, stats, filteredMatches,
         previewFilter, setPreviewFilter,
@@ -216,7 +218,13 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                         </label>
                     )}
                     <button
-                        onClick={executeUpdate}
+                        onClick={() => {
+                            if (needsSnapshotName) {
+                                setShowConfirmModal(true);
+                            } else {
+                                executeUpdate();
+                            }
+                        }}
                         disabled={(stats.found + stats.newRecords) === 0 || (stats.missing > 0 && !allowMissingSkip)}
                         className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/20"
                     >
@@ -225,6 +233,73 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     </button>
                 </div>
             </div>
+
+            {/* ⚠️ نافذة التأكيد الإلزامية قبل اعتماد النسخة الشهرية لمنع الخطأ البشري */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-900 border-2 border-amber-500 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-base text-zinc-900 dark:text-white font-tajawal">
+                                    تأكيد اعتماد النسخة الشهرية
+                                </h3>
+                                <p className="text-xs text-zinc-500 font-tajawal">
+                                    يرجى مراجعة وتأكيد بيانات النسخة قبل الحقن
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200 dark:border-zinc-700 space-y-2 text-xs font-tajawal">
+                            {patcher.fileName && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-zinc-500">الملف المرفوع:</span>
+                                    <span className="font-bold text-zinc-800 dark:text-zinc-200 dir-ltr">{patcher.fileName}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                                <span className="text-zinc-500">المحافظة:</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{governorateName(gov)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-zinc-500">عدد السجلات:</span>
+                                <span className="font-bold text-zinc-800 dark:text-zinc-200">{stats.found + stats.newRecords} موظفاً</span>
+                            </div>
+                            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                <span className="block text-zinc-500 mb-1">الاسم الذي ستُعتمد به النسخة في النظام:</span>
+                                <span className="block p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 font-black text-sm text-center">
+                                    {snapshotName}
+                                </span>
+                            </div>
+                        </div>
+
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20 font-tajawal">
+                            ⚠️ <strong>تنبيه هام:</strong> هل تأكدت أن هذا الشهر يطابق تماماً شهر واستحقاق الملف المرفوع؟
+                        </p>
+
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                            <button
+                                onClick={() => setShowConfirmModal(false)}
+                                className="px-4 py-2 rounded-xl text-zinc-600 dark:text-zinc-400 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-tajawal"
+                            >
+                                تراجع وتعديل الشهر
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowConfirmModal(false);
+                                    executeUpdate();
+                                }}
+                                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-green-500/20 font-tajawal flex items-center gap-1.5"
+                            >
+                                <Check className="w-4 h-4" />
+                                نعم، متأكد واعتمد الآن
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

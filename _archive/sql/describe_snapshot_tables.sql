@@ -1,0 +1,2 @@
+\d monthly_snapshot_financials
+\d monthly_snapshot_profiles

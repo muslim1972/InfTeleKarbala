@@ -5,7 +5,7 @@
  * الحذف متاح للمطور فقط.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Search, History, Check, Trash2, Loader2, Database, AlertTriangle, FileSpreadsheet, Lock, RotateCcw, Eye } from 'lucide-react';
+import { X, Search, History, Check, Trash2, Loader2, Database, AlertTriangle, FileSpreadsheet, Lock, RotateCcw, Eye, Edit2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useSnapshots } from '../../context/SnapshotContext';
@@ -13,6 +13,7 @@ import { governorateName, GOVERNORATES } from '../../constants/governorates';
 import {
     listMonthlySnapshots,
     deleteMonthlySnapshot,
+    renameMonthlySnapshot,
     isDeveloper,
     type MonthlySnapshot
 } from '../../utils/snapshots';
@@ -38,6 +39,8 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingName, setEditingName] = useState<string>('');
     const [busy, setBusy] = useState(false);
 
     const developer = isDeveloper(user as any);
@@ -107,6 +110,32 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
         onClose();
     };
 
+    const handleStartRename = (snap: MonthlySnapshot) => {
+        setEditingId(snap.id);
+        setEditingName(snap.name);
+    };
+
+    const handleSaveRename = async (snapId: string) => {
+        const trimmed = editingName.trim();
+        if (!trimmed || trimmed.length < 2) {
+            toast.error('يرجى إدخال اسم صحيح للنسخة');
+            return;
+        }
+        setBusy(true);
+        const toastId = toast.loading('جاري تعديل اسم النسخة...');
+        try {
+            await renameMonthlySnapshot(snapId, trimmed);
+            setSnapshots(prev => prev.map(s => s.id === snapId ? { ...s, name: trimmed } : s));
+            setEditingId(null);
+            toast.success(`تم تعديل اسم النسخة إلى «${trimmed}»`, { id: toastId });
+            refresh(selectedGov);
+        } catch (err: any) {
+            toast.error('فشل تعديل الاسم: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleDelete = async (snap: MonthlySnapshot) => {
         if (deletingId !== snap.id) {
             setDeletingId(snap.id);
@@ -114,14 +143,16 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
         }
         setDeletingId(null);
         setBusy(true);
-        const toastId = toast.loading(`جاري حذف نسخة «${snap.name}»...`);
+        const toastId = toast.loading(snap.is_active ? `جاري التراجع وحذف النسخة الحية «${snap.name}»...` : `جاري حذف نسخة «${snap.name}»...`);
         try {
             await deleteMonthlySnapshot(snap.id);
             setSnapshots(prev => prev.filter(s => s.id !== snap.id));
-            toast.success(`تم حذف نسخة «${snap.name}»`, { id: toastId });
+            toast.success(snap.is_active ? `تم التراجع وحذف النسخة واعتماد النسخة السابقة` : `تم حذف نسخة «${snap.name}»`, { id: toastId });
             if (historicalSnapshot?.id === snap.id) {
                 exitHistoricalView();
             }
+            refresh(selectedGov);
+            loadSnapshots(selectedGov);
         } catch (err: any) {
             toast.error('فشل الحذف: ' + (err.message || 'خطأ غير معروف'), { id: toastId });
         } finally {
@@ -265,29 +296,55 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className={`font-bold font-tajawal text-sm truncate ${
-                                                    isBeingViewed
-                                                        ? 'text-amber-300'
-                                                        : isLiveActive
-                                                        ? 'text-brand-green'
-                                                        : 'text-white'
-                                                }`}>
-                                                    {snap.name}
-                                                </h3>
-                                                {isLiveActive && (
-                                                    <span className="text-[10px] bg-brand-green text-black font-bold px-2 py-0.5 rounded-full font-tajawal">
-                                                        النسخة الحية
-                                                    </span>
-                                                )}
-                                                {isBeingViewed && (
-                                                    <span className="text-[10px] bg-amber-500 text-black font-bold px-2 py-0.5 rounded-full font-tajawal flex items-center gap-1">
-                                                        <Lock className="w-2.5 h-2.5" />
-                                                        مستعرضة الآن (للاطلاع)
-                                                    </span>
-                                                )}
-                                            </div>
+                                        <div className="min-w-0 flex-1">
+                                            {editingId === snap.id ? (
+                                                <div className="flex items-center gap-2 my-1">
+                                                    <input
+                                                        type="text"
+                                                        value={editingName}
+                                                        onChange={e => setEditingName(e.target.value)}
+                                                        className="flex-1 bg-black/60 border border-brand-green/60 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-brand-green font-tajawal font-bold"
+                                                        placeholder="اسم النسخة الجديد..."
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        onClick={() => handleSaveRename(snap.id)}
+                                                        disabled={busy}
+                                                        className="px-3 py-1.5 rounded-xl bg-brand-green hover:bg-brand-green/90 text-black text-xs font-bold font-tajawal transition-colors"
+                                                    >
+                                                        حفظ
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingId(null)}
+                                                        className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 text-xs font-tajawal transition-colors"
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className={`font-bold font-tajawal text-sm truncate ${
+                                                        isBeingViewed
+                                                            ? 'text-amber-300'
+                                                            : isLiveActive
+                                                            ? 'text-brand-green'
+                                                            : 'text-white'
+                                                    }`}>
+                                                        {snap.name}
+                                                    </h3>
+                                                    {isLiveActive && (
+                                                        <span className="text-[10px] bg-brand-green text-black font-bold px-2 py-0.5 rounded-full font-tajawal">
+                                                            النسخة الحية
+                                                        </span>
+                                                    )}
+                                                    {isBeingViewed && (
+                                                        <span className="text-[10px] bg-amber-500 text-black font-bold px-2 py-0.5 rounded-full font-tajawal flex items-center gap-1">
+                                                            <Lock className="w-2.5 h-2.5" />
+                                                            مستعرضة الآن (للاطلاع)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                             <p className="text-[11px] text-white/40 font-tajawal mt-1 flex items-center gap-2 flex-wrap">
                                                 <span className="flex items-center gap-1">
                                                     <FileSpreadsheet className="w-3 h-3" />
@@ -342,19 +399,34 @@ export const SnapshotBrowser = ({ isOpen, onClose }: SnapshotBrowserProps) => {
                                                 </button>
                                             )}
 
-                                            {developer && !isLiveActive && (
-                                                <button
-                                                    onClick={() => handleDelete(snap)}
-                                                    disabled={busy}
-                                                    className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all disabled:opacity-50 ${
-                                                        deleting
-                                                            ? 'bg-red-500 text-white animate-pulse'
-                                                            : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
-                                                    }`}
-                                                    title={deleting ? 'انقر مرة أخرى للحذف النهائي' : 'حذف النسخة (للمطور)'}
-                                                >
-                                                    {deleting ? <AlertTriangle className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                                </button>
+                                            {developer && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleStartRename(snap)}
+                                                        disabled={busy}
+                                                        className="flex items-center justify-center w-8 h-8 rounded-xl transition-all disabled:opacity-50 bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20"
+                                                        title="تعديل اسم النسخة (تصحيح الشهر)"
+                                                    >
+                                                        <Edit2 className="w-3.5 h-3.5" />
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleDelete(snap)}
+                                                        disabled={busy}
+                                                        className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all disabled:opacity-50 ${
+                                                            deleting
+                                                                ? 'bg-red-500 text-white animate-pulse'
+                                                                : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                                                        }`}
+                                                        title={
+                                                            deleting
+                                                                ? (isLiveActive ? 'تأكيد التراجع وحذف النسخة الحية؟' : 'انقر مرة أخرى لتأكيد الحذف')
+                                                                : (isLiveActive ? 'تراجع وحذف هذه النسخة الحية' : 'حذف النسخة (للمطور)')
+                                                        }
+                                                    >
+                                                        {deleting ? <AlertTriangle className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                </>
                                             )}
                                         </div>
                                     </div>

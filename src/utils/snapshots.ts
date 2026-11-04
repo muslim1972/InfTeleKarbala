@@ -54,6 +54,49 @@ export function parseSnapshotName(name: string): { month: number; year: number }
     return null;
 }
 
+/**
+ * استنتاج اسم النسخة الشهرية بذكاء من اسم الملف المرفوع
+ * يدعم:
+ * - راتب شهر 10 / شهر-10 / شهر_10 / 10-2026 / 2026-10
+ * - تشرين الاول / تشرين الأول / ت1 / ت2 / ك1 / ك2
+ * - أسماء الأشهر الصريحة
+ */
+export function detectSnapshotNameFromFileName(fileName: string): string | null {
+    if (!fileName) return null;
+    const clean = fileName.toLowerCase().replace(/[\-_]/g, ' ');
+
+    // 1. استخراج السنة (إذا وجدت 202X) وإلا السنة الحالية
+    const yearMatch = clean.match(/202[4-9]/);
+    const targetYear = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+
+    // 2. البحث بالاختصارات العراقية الشائعة (ت1، ت2، ك1، ك2) قبل البحث العام
+    if (/\bت\s*1\b|\bت1\b/.test(clean)) return snapshotNameFromMonth(9, targetYear); // تشرين الأول
+    if (/\bت\s*2\b|\bت2\b/.test(clean)) return snapshotNameFromMonth(10, targetYear); // تشرين الثاني
+    if (/\bك\s*1\b|\bك1\b/.test(clean)) return snapshotNameFromMonth(11, targetYear); // كانون الأول
+    if (/\bك\s*2\b|\bك2\b/.test(clean)) return snapshotNameFromMonth(0, targetYear); // كانون الثاني
+
+    // 3. البحث برقم الشهر (مثال: شهر 10 أو شهر 8 أو شهر 08 أو شهر (10))
+    const monthNumMatch = clean.match(/شهر\s*[\(\[]?\s*(\d{1,2})\s*[\)\]]?/);
+    if (monthNumMatch) {
+        const num = parseInt(monthNumMatch[1], 10);
+        if (num >= 1 && num <= 12) {
+            return snapshotNameFromMonth(num - 1, targetYear);
+        }
+    }
+
+    // 4. البحث بالأسماء الصريحة
+    for (let m = 0; m < IRAQI_MONTHS.length; m++) {
+        const mName = IRAQI_MONTHS[m];
+        const normMName = mName.replace(/[أإآ]/g, 'ا');
+        const normClean = clean.replace(/[أإآ]/g, 'ا');
+        if (normClean.includes(normMName)) {
+            return snapshotNameFromMonth(m, targetYear);
+        }
+    }
+
+    return null;
+}
+
 /** جلب كل النسخ (الأحدث أولاً) — لمحافظة محددة أو الكل */
 export async function listMonthlySnapshots(governorate?: string): Promise<MonthlySnapshot[]> {
     let query = supabase
@@ -130,6 +173,15 @@ export async function activateMonthlySnapshot(
 export async function deleteMonthlySnapshot(snapshotId: string): Promise<void> {
     const { error } = await supabase.rpc('delete_monthly_snapshot', {
         p_snapshot_id: snapshotId
+    });
+    if (error) throw error;
+}
+
+/** تعديل اسم نسخة شهرية (للمطور والمشرف) */
+export async function renameMonthlySnapshot(snapshotId: string, newName: string): Promise<void> {
+    const { error } = await supabase.rpc('rename_monthly_snapshot', {
+        p_snapshot_id: snapshotId,
+        p_new_name: newName.trim()
     });
     if (error) throw error;
 }

@@ -80,6 +80,15 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'dept_text', label: 'القسم', type: 'text' },
             { value: 'section_text', label: 'الشعبة', type: 'text' },
             { value: 'unit_text', label: 'الوحدة', type: 'text' },
+            { value: 'mother_name', label: 'اسم الأم', type: 'text' },
+            { value: 'gender', label: 'الجنس', type: 'text' },
+            { value: 'birth_date', label: 'تاريخ الولادة', type: 'date' },
+            { value: 'general_specialization', label: 'الاختصاص العام', type: 'text' },
+            { value: 'position_title', label: 'المنصب', type: 'text' },
+            { value: 'phone_number', label: 'رقم الهاتف', type: 'text' },
+            { value: 'reinstatement_date', label: 'تاريخ الإعادة', type: 'text' },
+            { value: 'leave_date', label: 'تاريخ الترك', type: 'text' },
+            { value: 'reinstatement_type', label: 'نوع الإعادة', type: 'text' },
         ],
     },
     {
@@ -204,6 +213,57 @@ export function isNumericField(tableName: string, fieldValue: string): boolean {
     return field?.type === 'numeric' || field?.type === 'integer';
 }
 
+/** فحص ما إذا كان الحقل حقلاً للتاريخ */
+export function isDateField(tableName: string, fieldValue: string): boolean {
+    const table = TABLE_DEFINITIONS.find(t => t.tableName === tableName);
+    if (!table) return false;
+    const field = table.fields.find(f => f.value === fieldValue);
+    return field?.type === 'date' || fieldValue === 'birth_date';
+}
+
+/** تطبيع وتحويل التواريخ النصية وتواريخ إكسل العراقية (مثل 14/03/85) إلى صيغة YYYY-MM-DD */
+export function normalizeDateValue(val: any): string | null {
+    if (!val) return null;
+    if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    const str = String(val).trim();
+    if (!str || str === 'لايوجد' || str === 'بدون' || str === '-' || str === '0') return null;
+
+    const parts = str.split(/[\/\-\.]/);
+    if (parts.length === 3) {
+        let [dStr, mStr, yStr] = parts;
+        if (dStr.length === 4) {
+            const temp = dStr;
+            dStr = yStr;
+            yStr = temp;
+        }
+        let day = parseInt(dStr, 10);
+        let month = parseInt(mStr, 10);
+        let year = parseInt(yStr, 10);
+
+        if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+
+        if (year < 100) {
+            const current2DigitYear = new Date().getFullYear() % 100;
+            if (year <= current2DigitYear) {
+                year = 2000 + year;
+            } else {
+                year = 1900 + year;
+            }
+        }
+
+        const mm = String(month).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        return `${year}-${mm}-${dd}`;
+    }
+
+    return null;
+}
+
 /** تنظيف النصوص العربية للمطابقة */
 export function normalizeArabicText(text: string): string {
     if (!text) return '';
@@ -224,6 +284,31 @@ export function normalizeArabicText(text: string): string {
 export function cleanFieldValue(val: any, tableName: string, fieldValue: string): any {
     if (fieldValue === 'certificate_text') {
         return cleanCertificate(val);
+    }
+
+    // استخراج النتيجة إن كانت خلية صيغة أو كائن في ExcelJS
+    if (val && typeof val === 'object' && 'result' in val) {
+        val = val.result;
+    }
+
+    // تنظيف وتوحيد الجنس
+    if (fieldValue === 'gender') {
+        const s = String(val || '').trim();
+        if (s.includes('انث') || s.includes('أنث') || s.toLowerCase() === 'female') return 'female';
+        if (s.includes('ذكر') || s.toLowerCase() === 'male') return 'male';
+        return s || null;
+    }
+
+    // تنظيف وتوحيد حقول التاريخ (مثل تاريخ الولادة)
+    if (isDateField(tableName, fieldValue)) {
+        return normalizeDateValue(val);
+    }
+
+    if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
     
     if (isNumericField(tableName, fieldValue)) {
@@ -251,22 +336,31 @@ export function stripAccountFields(payload: Record<string, any>, tableName: stri
 /** قاموس المرادفات والمسميات البديلة لأعمدة Excel للمطابقة الذكية */
 export const FIELD_SYNONYMS: Record<string, string[]> = {
     // الملفات الشخصية
-    full_name: ['الاسم الكامل', 'اسم الموظف', 'الاسم', 'الاسم الرباعي', 'الاسم الثلاثي', 'اسم المنتسب', 'الاسم في السجل المالي', 'full name', 'fullname', 'name'],
-    job_number: ['الرقم الوظيفي', 'الرقم الوظيفي (للمطابقة)', 'رقم وظيفي', 'الرقم', 'رقم الموظف', 'العدد الوظيفي', 'job number', 'job_number', 'jobno', 'job_no', 'job no', 'id', 'job'],
-    username: ['اسم المستخدم', 'المستخدم', 'اليوزر', 'حساب المستخدم', 'اسم المستخدم (لإنشاء الحساب)', 'username', 'user'],
+    full_name: ['الاسم الكامل', 'اسم الموظف', 'الاسم', 'الاسم الرباعي', 'الاسم الثلاثي', 'اسم المنتسب', 'الاسم في السجل المالي', 'الاسم_الكامل', 'full name', 'fullname', 'name'],
+    job_number: ['الرقم الوظيفي', 'الرقم الوظيفي (للمطابقة)', 'رقم وظيفي', 'رقم_وظيفي', 'الرقم', 'رقم الموظف', 'العدد الوظيفي', 'job number', 'job_number', 'jobno', 'job_no', 'job no', 'id', 'job'],
+    username: ['اسم المستخدم', 'اسم_المستخدم', 'المستخدم', 'اليوزر', 'حساب المستخدم', 'اسم المستخدم (لإنشاء الحساب)', 'username', 'user'],
     password: ['كلمة المرور', 'الباسورد', 'الرمز السري', 'كلمة السر', 'رمز المرور', 'كلمة المرور (لإنشاء الحساب)', 'password', 'pass'],
     governorate: ['المحافظة', 'محافظة', 'governorate', 'city'],
     card_number: ['رقم البطاقة', 'البطاقة الوطنية', 'هوية الاحوال', 'الهوية', 'رقم الهوية', 'card number', 'national id'],
-    graduation_year: ['سنة التخرج', 'تاريخ التخرج', 'التخرج', 'سنه التخرج', 'graduation year'],
-    work_nature: ['طبيعة العمل', 'نوع العمل', 'الصفة', 'work nature'],
-    appointment_date: ['تاريخ التعيين', 'التعيين', 'تاريخ المباشرة', 'المباشرة', 'appointment date'],
+    graduation_year: ['سنة التخرج', 'سنة_التخرج', 'تاريخ التخرج', 'التخرج', 'سنه التخرج', 'graduation year'],
+    work_nature: ['طبيعة العمل', 'طبيعة_العمل', 'نوع العمل', 'الصفة', 'work nature'],
+    appointment_date: ['تاريخ التعيين', 'ت_التعيين', 'ت_تعيين', 'التعيين', 'تاريخ المباشرة', 'المباشرة', 'appointment date'],
     specialization: ['التخصص', 'الاختصاص', 'specialization'],
     dept_text: ['القسم', 'اسم القسم', 'الدائرة', 'مكان العمل حسب تصنيف المالية', 'department', 'dept'],
     section_text: ['الشعبة', 'اسم الشعبة', 'section'],
     unit_text: ['الوحدة', 'اسم الوحدة', 'unit'],
+    mother_name: ['اسم الام', 'اسم الأم', 'اسم_الام', 'اسم_الأم', 'الام', 'الأم', 'mother name', 'mother_name'],
+    gender: ['الجنس', 'جنس', 'النوع', 'gender', 'sex'],
+    birth_date: ['تاريخ الولادة', 'تاريخ_الولادة', 'الولادة', 'تولد', 'تاريخ الميلاد', 'birth date', 'birthdate', 'birth_date', 'dob'],
+    general_specialization: ['الاختصاص العام', 'الاختصاص_العام', 'التخصص العام', 'التخصص_العام', 'general specialization', 'general_specialization'],
+    position_title: ['المنصب', 'المنصب الاداري', 'المنصب الإداري', 'position', 'position title', 'position_title'],
+    phone_number: ['رقم الهاتف', 'رقم_الهاتف', 'الهاتف', 'الموبايل', 'الجوال', 'رقم الموبايل', 'الهاتف النقال', 'phone', 'mobile', 'phone number', 'phone_number'],
+    reinstatement_date: ['تاريخ الاعادة', 'تاريخ الإعادة', 'ت_الاعادة', 'ت_الإعادة', 'تاريخ_الاعادة', 'تاريخ_الإعادة', 'الاعادة', 'reinstatement date', 'reinstatement_date'],
+    leave_date: ['تاريخ الترك', 'تاريخ_الترك', 'ت_الترك', 'تاريخ.الترك', 'الترك', 'leave date', 'leave_date', 'departure date'],
+    reinstatement_type: ['نوع الاعادة', 'نوع الإعادة', 'نوع_الاعادة', 'نوع_الإعادة', 'reinstatement type', 'reinstatement_type'],
     
     // السجلات المالية
-    job_title: ['العنوان الوظيفي', 'العنوان', 'الوظيفة', 'job title'],
+    job_title: ['العنوان الوظيفي', 'ع.الوظيفي', 'العنوان', 'الوظيفة', 'job title'],
     certificate_text: ['الشهادة', 'التحصيل الدراسي', 'المؤهل العلمي', 'الشهادة الدراسية', 'certificate'],
     salary_grade: ['الدرجة', 'درجة الراتب', 'الدرجة الوظيفية', 'grade'],
     salary_stage: ['المرحلة', 'مرحلة الراتب', 'stage'],

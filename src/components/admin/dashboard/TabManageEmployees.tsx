@@ -224,6 +224,27 @@ export const TabManageEmployees = ({
                                 className="font-mono text-left"
                             />
 
+                            <EditableField
+                                label="اسم الأم"
+                                value={selectedEmployee.mother_name}
+                                onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, mother_name: val })}
+                                recordId={selectedEmployee.id}
+                                tableName="profiles"
+                                dbField="mother_name"
+                                isReadOnly={isFieldReadOnly('mother_name')}
+                            />
+
+                            <EditableField
+                                label="رقم الهاتف"
+                                value={selectedEmployee.phone_number}
+                                onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, phone_number: val })}
+                                recordId={selectedEmployee.id}
+                                tableName="profiles"
+                                dbField="phone_number"
+                                isReadOnly={isFieldReadOnly('phone_number')}
+                                className="font-mono text-left"
+                            />
+
                             {/* Gender and Birth Date */}
                             <div className="grid grid-cols-[132px_1fr] items-center gap-2">
                                 <div className="flex justify-start pl-2">
@@ -440,6 +461,24 @@ export const TabManageEmployees = ({
                             {/* New Profile Fields */}
                             <div className="grid grid-cols-1 gap-4 mt-4">
                                 <EditableField
+                                    label="المنصب الإداري"
+                                    value={selectedEmployee.position_title}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, position_title: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="position_title"
+                                    isReadOnly={isFieldReadOnly('position_title')}
+                                />
+                                <EditableField
+                                    label="الاختصاص العام"
+                                    value={selectedEmployee.general_specialization}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, general_specialization: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="general_specialization"
+                                    isReadOnly={isFieldReadOnly('general_specialization')}
+                                />
+                                <EditableField
                                     label="التخصص (PROF)"
                                     value={selectedEmployee.specialization}
                                     onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, specialization: val })}
@@ -492,6 +531,33 @@ export const TabManageEmployees = ({
                                     tableName="profiles"
                                     dbField="unit_text"
                                     isReadOnly={isFieldReadOnly('unit_text')}
+                                />
+                                <EditableField
+                                    label="تاريخ الترك"
+                                    value={selectedEmployee.leave_date}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, leave_date: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="leave_date"
+                                    isReadOnly={isFieldReadOnly('leave_date')}
+                                />
+                                <EditableField
+                                    label="تاريخ الإعادة"
+                                    value={selectedEmployee.reinstatement_date}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, reinstatement_date: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="reinstatement_date"
+                                    isReadOnly={isFieldReadOnly('reinstatement_date')}
+                                />
+                                <EditableField
+                                    label="نوع الإعادة"
+                                    value={selectedEmployee.reinstatement_type}
+                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, reinstatement_type: val })}
+                                    recordId={selectedEmployee.id}
+                                    tableName="profiles"
+                                    dbField="reinstatement_type"
+                                    isReadOnly={isFieldReadOnly('reinstatement_type')}
                                 />
                             </div>
 
@@ -795,7 +861,7 @@ export const TabManageEmployees = ({
                                     className="gap-2 border-border/50 hover:bg-muted/20 hover:border-indigo-500/50 text-foreground bg-white/50 transition-all font-bold shadow-sm"
                                 >
                                     <History className="w-4 h-4 text-indigo-500" />
-                                    النسخ الشهرية 📅
+                                    النسخ الشهرية والتصحيح 📅
                                 </Button>
 
                                 <Button

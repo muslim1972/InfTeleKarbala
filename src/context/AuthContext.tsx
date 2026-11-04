@@ -31,6 +31,15 @@ export interface AppUser {
   is_training_supervisor?: boolean;
   email?: string | null;
   face_descriptor?: number[] | null;
+  mother_name?: string;
+  gender?: string;
+  birth_date?: string;
+  general_specialization?: string;
+  position_title?: string;
+  phone_number?: string;
+  reinstatement_date?: string;
+  leave_date?: string;
+  reinstatement_type?: string;
 }
 
 interface AuthContextType {
@@ -183,7 +192,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               can_access_promotion: profile.can_access_promotion,
               is_promotion_lecturer: profile.is_promotion_lecturer,
               is_training_supervisor: profile.is_training_supervisor,
-              face_descriptor: profile.face_descriptor
+              face_descriptor: profile.face_descriptor,
+              mother_name: profile.mother_name,
+              gender: profile.gender,
+              birth_date: profile.birth_date,
+              general_specialization: profile.general_specialization,
+              position_title: profile.position_title,
+              phone_number: profile.phone_number,
+              reinstatement_date: profile.reinstatement_date,
+              leave_date: profile.leave_date,
+              reinstatement_type: profile.reinstatement_type
             };
             setUser(appUser);
             /* استرجاع مالك خرائط GIS المحلية بعد أي إعادة تحميل للصفحة */
@@ -350,7 +368,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         is_promotion_lecturer: fullProfile.is_promotion_lecturer,
         is_training_supervisor: fullProfile.is_training_supervisor,
         email: fullProfile.email,
-        face_descriptor: fullProfile.face_descriptor
+        face_descriptor: fullProfile.face_descriptor,
+        mother_name: fullProfile.mother_name,
+        gender: fullProfile.gender,
+        birth_date: fullProfile.birth_date,
+        general_specialization: fullProfile.general_specialization,
+        position_title: fullProfile.position_title,
+        phone_number: fullProfile.phone_number,
+        reinstatement_date: fullProfile.reinstatement_date,
+        leave_date: fullProfile.leave_date,
+        reinstatement_type: fullProfile.reinstatement_type
       };
 
       setUser(appUser);

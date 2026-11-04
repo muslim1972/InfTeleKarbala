@@ -1,0 +1,1 @@
+\d monthly_snapshots

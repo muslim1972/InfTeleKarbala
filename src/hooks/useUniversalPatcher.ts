@@ -9,7 +9,7 @@ import type ExcelJS from 'exceljs';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { governorateName } from '../constants/governorates';
-import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot, enableGovernorateCard } from '../utils/snapshots';
+import { suggestSnapshotName, syncActiveSnapshot, commitMonthlySnapshot, enableGovernorateCard, detectSnapshotNameFromFileName } from '../utils/snapshots';
 import {
     TABLE_DEFINITIONS,
     normalizeArabicText,
@@ -103,6 +103,13 @@ export function useUniversalPatcher() {
         if (!file) return;
 
         setFileName(file.name);
+        // 🧠 استشعار ذكي للشهر من اسم الملف لتفادي الخطأ البشري
+        const autoMonth = detectSnapshotNameFromFileName(file.name);
+        if (autoMonth) {
+            setSnapshotName(autoMonth);
+            toast(`💡 تم استنتاج الشهر من اسم الملف: «${autoMonth}»`, { icon: '📅', duration: 4500 });
+        }
+
         try {
             const arrayBuffer = await file.arrayBuffer();
             const ExcelJS = (await import('exceljs')).default;
@@ -382,17 +389,29 @@ export function useUniversalPatcher() {
             } else if (govProfileIds.length === 0) {
                 existingRecords = [];
             } else if (tableDef.type === 'single') {
-                // financial_records: سجل واحد لكل موظف
-                const { data } = await supabase.from(tableDef.tableName).select('*').in('user_id', govProfileIds);
-                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
+                // financial_records: سجل واحد لكل موظف — تقسيم الاستعلام إلى دفعات لتجنب خطأ 414 Request-URI Too Large
+                const BATCH_SIZE = 80;
+                const allData: any[] = [];
+                for (let i = 0; i < govProfileIds.length; i += BATCH_SIZE) {
+                    const slice = govProfileIds.slice(i, i + BATCH_SIZE);
+                    const { data } = await supabase.from(tableDef.tableName).select('*').in('user_id', slice);
+                    if (data && data.length) allData.push(...data);
+                }
+                existingRecords = allData.map((r: any) => ({ ...r, _userId: r.user_id }));
             } else {
-                // yearly / detail: نحتاج السنة
-                const { data } = await supabase
-                    .from(tableDef.tableName)
-                    .select('*')
-                    .eq('year', targetYear)
-                    .in('user_id', govProfileIds);
-                existingRecords = (data || []).map((r: any) => ({ ...r, _userId: r.user_id }));
+                // yearly / detail: نحتاج السنة — تقسيم الاستعلام إلى دفعات لتجنب خطأ 414 Request-URI Too Large
+                const BATCH_SIZE = 80;
+                const allData: any[] = [];
+                for (let i = 0; i < govProfileIds.length; i += BATCH_SIZE) {
+                    const slice = govProfileIds.slice(i, i + BATCH_SIZE);
+                    const { data } = await supabase
+                        .from(tableDef.tableName)
+                        .select('*')
+                        .eq('year', targetYear)
+                        .in('user_id', slice);
+                    if (data && data.length) allData.push(...data);
+                }
+                existingRecords = allData.map((r: any) => ({ ...r, _userId: r.user_id }));
             }
 
             // بناء خريطة السجلات الحالية (user_id → record(s))
@@ -674,7 +693,7 @@ export function useUniversalPatcher() {
             }
 
             const tasks = effectiveMatches.filter(m => m.status === 'match' || m.status === 'new_record');
-            const CHUNK_SIZE = 50;
+            const CHUNK_SIZE = 10;
             let lastErrMessage = '';
 
             for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
@@ -703,7 +722,7 @@ export function useUniversalPatcher() {
                                 .eq('id', item.recordId);
                             if (error) throw error;
                         } else if (item.status === 'new_record' && (item.profileId || tableDef.isStandalone)) {
-                            // إضافة سجل جديد
+                            // إضافة سجل جديد (أو تحديث إذا وُجد السجل مسبقاً في الجداول الأحادية لمنع تعارض المفاتيح الفريدة)
                             const insertPayload: any = { ...payload };
                             if (!tableDef.isStandalone) {
                                 insertPayload.user_id = item.profileId;
@@ -712,9 +731,10 @@ export function useUniversalPatcher() {
                             if (tableDef.type === 'yearly' || tableDef.type === 'detail') {
                                 insertPayload.year = targetYear;
                             }
-                            const { error } = await supabase
-                                .from(tableDef.tableName)
-                                .insert([insertPayload]);
+                            const query = (tableDef.type === 'single' && !tableDef.isStandalone)
+                                ? supabase.from(tableDef.tableName).upsert([insertPayload], { onConflict: 'user_id' })
+                                : supabase.from(tableDef.tableName).insert([insertPayload]);
+                            const { error } = await query;
                             if (error) throw error;
                         }
                         return true;

@@ -365,8 +365,7 @@
         "gov_display_name",
         "media_in_my_gov",
         "poll_in_my_gov",
-        "core_require_role",
-        "can_manage_work_locations"
+        "core_require_role"
       ],
       "tables": [
         "field_permissions",
@@ -409,8 +408,7 @@
       "tables": [
         "activity_logs",
         "field_change_logs",
-        "system_error_logs",
-        "v_actor_name"
+        "system_error_logs"
       ],
       "contract": "bricks/BE-CORE-support/BRICK.md"
     },
@@ -484,7 +482,8 @@
         "activate_monthly_snapshot__impl",
         "commit_monthly_snapshot__impl",
         "delete_monthly_snapshot__impl",
-        "sync_active_monthly_snapshot__impl"
+        "sync_active_monthly_snapshot__impl",
+        "get_historical_user_data"
       ],
       "tables": [
         "financial_records",
