@@ -251,26 +251,16 @@ const AppContent = () => {
     // عرض الحوافز المستقلة لجميع المستخدمين
     if (adminViewMode === 'user_incentives') {
        return (
-         <div className="pt-4 px-4 relative max-w-5xl mx-auto pb-20">
-             <div className="sticky top-4 z-50 flex justify-end mb-4">
-                 <button onClick={() => setAdminViewMode(null)} className="text-sm bg-secondary/90 backdrop-blur-md px-4 py-2 rounded-xl border border-border shadow-md flex items-center gap-2 hover:bg-secondary transition-all">
-                     العودة للصفحة الرئيسية
-                 </button>
-             </div>
-             <IncentivesTabContent isAdminView={false} />
+         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+             <IncentivesTabContent isAdminView={false} onBack={() => setAdminViewMode(null)} />
          </div>
        );
     }
     // عرض الحضور والانصراف لجميع المستخدمين
     if (adminViewMode === 'attendance') {
        return (
-         <div className="pt-4 px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
-             <div className="sticky top-4 z-50 flex justify-end mb-4">
-                 <button onClick={() => setAdminViewMode(null)} className="text-sm bg-secondary/90 backdrop-blur-md px-4 py-2 rounded-xl border border-border shadow-md flex items-center gap-2 hover:bg-secondary font-bold transition-all">
-                     العودة للصفحة الرئيسية
-                 </button>
-             </div>
-             <AttendanceDashboard employeeId={user.id} />
+         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+             <AttendanceDashboard employeeId={user.id} onBack={() => setAdminViewMode(null)} />
          </div>
        );
     }

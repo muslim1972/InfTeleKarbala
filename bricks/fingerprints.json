@@ -1,5 +1,5 @@
 {
- "created": "2026-11-03T23:48:19.990Z",
+ "created": "2026-11-06T05:31:00.030Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -55,7 +55,7 @@
   },
   "src/App.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "e2eea7b605ca"
+   "sha": "f4d13416e78a"
   },
   "src/assets/react.svg": {
    "brick": "FE-CORE-01",
@@ -191,7 +191,7 @@
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
-   "sha": "23f5a6343045"
+   "sha": "218f3f08d4a8"
   },
   "src/components/admin/dashboard/TabAdminRecords.tsx": {
    "brick": "FE-HR-01",
@@ -203,7 +203,7 @@
   },
   "src/components/admin/dashboard/TabManageEmployees.tsx": {
    "brick": "FE-HR-01",
-   "sha": "9bad6ed74f81"
+   "sha": "2d0d9552b135"
   },
   "src/components/admin/data-patcher/ManualStep.tsx": {
    "brick": "FE-HR-02",
@@ -227,11 +227,11 @@
   },
   "src/components/admin/universal-patcher/UP_ItSupervisorField.tsx": {
    "brick": "FE-HR-02",
-   "sha": "ce348e4906d1"
+   "sha": "730c4a3ff5db"
   },
   "src/components/admin/universal-patcher/UP_PreviewStep.tsx": {
    "brick": "FE-HR-02",
-   "sha": "caaed83d2346"
+   "sha": "d2c90a35adc3"
   },
   "src/components/admin/universal-patcher/UP_UploadStep.tsx": {
    "brick": "FE-HR-02",
@@ -355,7 +355,7 @@
   },
   "src/components/features/IncentivesTabContent.tsx": {
    "brick": "FE-INC-01",
-   "sha": "28f1f7f85093"
+   "sha": "6aedc6d47a2a"
   },
   "src/components/features/PollItem.tsx": {
    "brick": "FE-MED-01",
@@ -583,11 +583,11 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "ddff81090a65"
+   "sha": "5af0580ce8db"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "d7430506c447"
+   "sha": "f0565e5c3f7e"
   },
   "src/features/attendance/components/AttendanceHistory.tsx": {
    "brick": "FE-ATT-01",
@@ -659,7 +659,7 @@
   },
   "src/features/attendance/hooks/useFaceDetection.ts": {
    "brick": "FE-ATT-01",
-   "sha": "cf919362c973"
+   "sha": "de5a3ff29e90"
   },
   "src/features/attendance/hooks/useLiveAttendance.ts": {
    "brick": "FE-ATT-01",
@@ -1139,7 +1139,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "19f66ae80c29"
+   "sha": "626640b46753"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1175,7 +1175,7 @@
   },
   "src/hooks/useUniversalPatcher.ts": {
    "brick": "FE-HR-02",
-   "sha": "5471c42d3dd0"
+   "sha": "43914c5b96bd"
   },
   "src/hooks/useVoiceRecorder.ts": {
    "brick": "FE-COM-01",
@@ -1239,7 +1239,7 @@
   },
   "src/pages/SplashScreen.tsx": {
    "brick": "FE-SPL-01",
-   "sha": "ed18e6176fa3"
+   "sha": "122d872dee27"
   },
   "src/pages/SplashScreenLegacy.tsx": {
    "brick": "FE-SPL-01",
@@ -1347,7 +1347,7 @@
   },
   "src/utils/universalPatcherConfig.ts": {
    "brick": "FE-HR-02",
-   "sha": "835044718fd8"
+   "sha": "6d684f611dde"
   },
   "src/vite-env.d.ts": {
    "brick": "FE-CORE-01",

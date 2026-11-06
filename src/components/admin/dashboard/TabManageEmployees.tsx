@@ -306,8 +306,19 @@ export const TabManageEmployees = ({
                                                 updates.section_text = dept.name;
                                                 if (parentDept) updates.dept_text = parentDept.name;
                                             } else if (dept.level === 3) {
-                                                updates.dept_text = dept.name;
-                                                updates.section_text = '';
+                                                const isSecOrComplex = dept.name.startsWith('شعبة') ||
+                                                    dept.name.startsWith('شعبه') ||
+                                                    dept.name.startsWith('الشعبة') ||
+                                                    dept.name.startsWith('مجمع');
+                                                if (isSecOrComplex) {
+                                                    updates.dept_text = 'مديرية الاتصالات';
+                                                    updates.section_text = dept.name;
+                                                    updates.unit_text = '';
+                                                } else {
+                                                    updates.dept_text = dept.name;
+                                                    updates.section_text = '';
+                                                    updates.unit_text = '';
+                                                }
                                             } else if (dept.level === 5) {
                                                 updates.unit_text = dept.name;
                                                 if (parentDept) updates.section_text = parentDept.name;

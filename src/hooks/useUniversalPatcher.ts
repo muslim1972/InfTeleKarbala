@@ -16,6 +16,7 @@ import {
     cleanFieldValue,
     stripAccountFields,
     FIELD_SYNONYMS,
+    resolveDepartmentHierarchy,
 } from '../utils/universalPatcherConfig';
 
 // ─── Types ──────────────────────────────────────
@@ -82,6 +83,7 @@ export function useUniversalPatcher() {
     // المطابقات والنتائج
     const [matches, setMatches] = useState<MatchResult[]>([]);
     const [allowMissingSkip, setAllowMissingSkip] = useState(false);
+    const [createMissingAccounts, setCreateMissingAccounts] = useState(false);
     const [previewFilter, setPreviewFilter] = useState<'all' | 'match' | 'new_record' | 'missing'>('all');
 
     // 🗺️ المحافظة المستهدفة — تُحدد تبعية كل المطابقات والحقن
@@ -325,6 +327,7 @@ export function useUniversalPatcher() {
         try {
             setStep('executing');
             setAllowMissingSkip(false);
+            setCreateMissingAccounts(false);
 
             // 1. جلب ملفات محافظة الهدف فقط
             let profilesRaw: any[] = [];
@@ -620,23 +623,31 @@ export function useUniversalPatcher() {
 
             let effectiveMatches = matches;
 
-            // 🆕 افتتاح محافظة جديدة: إنشاء الحسابات من عمودي «اسم المستخدم» و«كلمة المرور» ثم الربط والحقن
-            if (govOpening) {
+            // 🆕 إنشاء الحسابات: إما في وضع الافتتاح أو عند تفعيل خيار إضافة غير المطابقين (العقود والتعيينات)
+            const shouldCreateAccounts = govOpening || createMissingAccounts;
+            if (shouldCreateAccounts) {
+                const targets = govOpening ? matches : matches.filter(m => m.status === 'missing');
                 const seenUsernames = new Set<string>();
                 const usersToCreate: { job_number?: string; full_name: string; username: string; password: string }[] = [];
-                for (const m of matches) {
-                    const username = String(m.newValues.username || '').trim();
+                for (const m of targets) {
+                    let username = String(m.newValues.username || '').trim();
+                    const jobNumber = String(m.newValues.job_number ?? m.jobNumber ?? '').trim();
+                    if (!username && jobNumber) {
+                        username = jobNumber;
+                    }
                     if (!username || seenUsernames.has(username)) continue;
                     seenUsernames.add(username);
+                    const rawFullName = String(m.newValues.full_name || m.displayName || m.excelName || '').trim();
+                    const cleanFullName = rawFullName.replace(/\s*\([^)]*\)$/, '').trim() || username;
                     usersToCreate.push({
                         username,
                         password: String(m.newValues.password || '').trim() || '123456',
-                        job_number: String(m.newValues.job_number ?? m.jobNumber ?? '').trim() || undefined,
-                        full_name: m.displayName || m.excelName,
+                        job_number: jobNumber || undefined,
+                        full_name: cleanFullName,
                     });
                 }
                 if (usersToCreate.length === 0) {
-                    toast.error('اربط عمودي «اسم المستخدم» و«كلمة المرور» من الملف في خطوة الربط أولاً');
+                    toast.error('يرجى التأكد من ربط عمود «اسم المستخدم» أو «الرقم الوظيفي» لإنشاء الحسابات');
                     setStep('preview');
                     return;
                 }
@@ -655,7 +666,18 @@ export function useUniversalPatcher() {
                     skippedAcc += data.skipped || 0;
                     if (Array.isArray(data.failed)) failedAcc.push(...data.failed);
                 }
-                toast.success(`🆕 تم إنشاء ${createdAcc} حساباً${skippedAcc ? ` (تجاوز ${skippedAcc} موجودين)` : ''}${failedAcc.length ? ` وفشل ${failedAcc.length}` : ''}`, { duration: 6000 });
+
+                if (failedAcc.length > 0) {
+                    console.error('bulk-create-users failures:', failedAcc);
+                    const sampleErr = failedAcc[0]?.error || '';
+                    if (createdAcc === 0 && skippedAcc === 0) {
+                        toast.error(`فشل إنشاء الحسابات في خادم الهوية: ${sampleErr}`, { duration: 9000 });
+                        setStep('preview');
+                        return;
+                    }
+                }
+
+                toast.success(`👤 تم إنشاء ${createdAcc} حساباً جديداً${skippedAcc ? ` (تجاوز ${skippedAcc} موجودين مسبقاً)` : ''}${failedAcc.length ? ` وفشل ${failedAcc.length}` : ''}`, { duration: 6000 });
 
                 // إعادة جلب ملفات المحافظة وربط الصفوف حسب عمود المطابقة الذي اختاره المطور
                 const { data: freshProfiles, error: freshErr } = await supabase
@@ -666,23 +688,39 @@ export function useUniversalPatcher() {
 
                 const fNameMap = new Map<string, string>();
                 const fJobMap = new Map<string, string>();
+                const fUserMap = new Map<string, string>();
                 for (const p of freshProfiles || []) {
                     if (p.full_name) fNameMap.set(normalizeArabicText(p.full_name), p.id);
                     if (p.job_number) fJobMap.set(String(p.job_number).trim(), p.id);
+                    if (p.username) fUserMap.set(String(p.username).trim().toLowerCase(), p.id);
                 }
 
                 effectiveMatches = [];
                 let unresolved = 0;
                 for (const m of matches) {
-                    const key = matchBy === 'job_number'
-                        ? String(m.newValues.job_number ?? m.jobNumber ?? '').trim()
-                        : normalizeArabicText(m.displayName || m.excelName);
-                    const pid = matchBy === 'job_number' ? fJobMap.get(key) : fNameMap.get(key);
-                    if (!pid) { unresolved++; continue; }
+                    if (m.status === 'match' && m.profileId) {
+                        effectiveMatches.push(m);
+                        continue;
+                    }
+                    const jobKey = String(m.newValues.job_number ?? m.jobNumber ?? '').trim();
+                    const cleanName = String(m.newValues.full_name || m.displayName || m.excelName || '').replace(/\s*\([^)]*\)$/, '').trim();
+                    const nameKey = normalizeArabicText(cleanName);
+                    const userKey = String(m.newValues.username || '').trim().toLowerCase();
+
+                    let pid = matchBy === 'job_number' ? fJobMap.get(jobKey) : fNameMap.get(nameKey);
+                    if (!pid) {
+                        pid = fJobMap.get(jobKey) || fNameMap.get(nameKey) || fUserMap.get(userKey);
+                    }
+                    if (!pid) {
+                        if (m.status === 'missing' && !createMissingAccounts) continue;
+                        unresolved++;
+                        continue;
+                    }
                     effectiveMatches.push({
                         ...m,
                         profileId: pid,
                         ...(tableDef.tableName === 'profiles' ? { recordId: pid } : {}),
+                        status: (m.status === 'missing' ? (tableDef.tableName === 'profiles' ? 'match' : 'new_record') : m.status),
                     });
                 }
                 if (effectiveMatches.length === 0) {
@@ -696,6 +734,15 @@ export function useUniversalPatcher() {
             const CHUNK_SIZE = 10;
             let lastErrMessage = '';
 
+            let govDepartments: any[] = [];
+            let govWorkLocations: any[] = [];
+            if (tableDef.tableName === 'profiles') {
+                const { data: dData } = await supabase.from('departments').select('id, name, parent_id, level').eq('governorate', gov);
+                govDepartments = dData || [];
+                const { data: wData } = await supabase.from('work_locations').select('id, name, department_id').eq('governorate', gov);
+                govWorkLocations = wData || [];
+            }
+
             for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
                 const chunk = tasks.slice(i, i + CHUNK_SIZE);
 
@@ -707,12 +754,65 @@ export function useUniversalPatcher() {
                             // ضمان تعيين المحافظة وعدم تركها فارغة
                             if (!payload.governorate) payload.governorate = gov;
                             const targetId = item.recordId || item.profileId;
+
+                            let matchedLocId: string | null = null;
+                            if (govDepartments.length > 0 && (payload.section_text || payload.dept_text || payload.unit_text)) {
+                                const resolved = resolveDepartmentHierarchy(
+                                    payload.unit_text || payload.section_text || payload.dept_text,
+                                    payload.section_text,
+                                    payload.dept_text,
+                                    govDepartments
+                                );
+                                if (resolved) {
+                                    if (resolved.department_id) payload.department_id = resolved.department_id;
+                                    if (resolved.dept_text) payload.dept_text = resolved.dept_text;
+                                    if (resolved.section_text) payload.section_text = resolved.section_text;
+                                    if (resolved.unit_text !== undefined) payload.unit_text = resolved.unit_text;
+
+                                    if (govWorkLocations.length > 0) {
+                                        // 1. مطابقة بمعرف التشكيل الإداري المباشر
+                                        let matchedLoc = govWorkLocations.find(wl => wl.department_id === resolved.department_id);
+
+                                        // 2. إذا كانت وحدة بدون موقع مستقل، البحث بمعرف الشعبة الأب
+                                        if (!matchedLoc) {
+                                            const foundDept = govDepartments.find(d => d.id === resolved.department_id);
+                                            if (foundDept?.parent_id) {
+                                                matchedLoc = govWorkLocations.find(wl => wl.department_id === foundDept.parent_id);
+                                            }
+                                        }
+
+                                        // 3. مطابقة دلالية بالاسم
+                                        if (!matchedLoc) {
+                                            const searchTerms = [resolved.unit_text, resolved.section_text, resolved.dept_text].filter(Boolean) as string[];
+                                            matchedLoc = govWorkLocations.find(wl => {
+                                                const normWl = normalizeArabicText(wl.name);
+                                                return searchTerms.some(st => {
+                                                    const normSt = normalizeArabicText(st);
+                                                    return normWl.includes(normSt) || normSt.includes(normWl);
+                                                });
+                                            });
+                                        }
+                                        if (matchedLoc) matchedLocId = matchedLoc.id;
+                                    }
+                                }
+                            }
+
                             if (targetId) {
                                 const { error } = await supabase
                                     .from('profiles')
                                     .update({ ...payload, updated_at: new Date().toISOString() })
                                     .eq('id', targetId);
                                 if (error) throw error;
+
+                                if (matchedLocId) {
+                                    try {
+                                        await supabase.from('work_location_employees').upsert([
+                                            { employee_id: targetId, location_id: matchedLocId }
+                                        ], { onConflict: 'employee_id' });
+                                    } catch (locErr) {
+                                        console.warn('تعذر ربط موقع البصمة تلقائياً:', locErr);
+                                    }
+                                }
                             }
                         } else if (item.status === 'match' && item.recordId) {
                             // تحديث سجل موجود
@@ -733,7 +833,9 @@ export function useUniversalPatcher() {
                             }
                             const query = (tableDef.type === 'single' && !tableDef.isStandalone)
                                 ? supabase.from(tableDef.tableName).upsert([insertPayload], { onConflict: 'user_id' })
-                                : supabase.from(tableDef.tableName).insert([insertPayload]);
+                                : (tableDef.type === 'yearly' && !tableDef.isStandalone)
+                                    ? supabase.from(tableDef.tableName).upsert([insertPayload], { onConflict: 'user_id,year' })
+                                    : supabase.from(tableDef.tableName).insert([insertPayload]);
                             const { error } = await query;
                             if (error) throw error;
                         }
@@ -775,7 +877,7 @@ export function useUniversalPatcher() {
                 // 📅 التزام النسخة الجديدة المسماة للجداول المُدارة
                 if (isSnapshotManaged) {
                     try {
-                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null);
+                        await commitMonthlySnapshot(trimmedSnapshotName, 'excel', null, gov);
                         toast.success(`تم إنشاء نسخة «${trimmedSnapshotName}» واعتمادها`, { duration: 6000 });
                     } catch (commitErr: any) {
                         console.error(commitErr);
@@ -788,12 +890,12 @@ export function useUniversalPatcher() {
                 toast.error(`لم يتم معالجة أي سجل${lastErrMessage ? `: ${lastErrMessage}` : ''}`, { duration: 8000 });
                 setStep('preview');
             }
-        } catch (err) {
-            console.error(err);
-            toast.error('حدث خطأ غير متوقع');
+        } catch (err: any) {
+            console.error('Execute update error:', err);
+            toast.error(err?.message ? `حدث خطأ أثناء التنفيذ: ${err.message}` : 'حدث خطأ غير متوقع', { duration: 9000 });
             setStep('preview');
         }
-    }, [tableDef, matches, targetYear, snapshotName, govOpening, matchBy, gov, itSupervisorId]);
+    }, [tableDef, matches, targetYear, snapshotName, govOpening, matchBy, gov, itSupervisorId, createMissingAccounts]);
 
     // ─── Stats ──────────────────────────────────
 
@@ -824,6 +926,7 @@ export function useUniversalPatcher() {
         setMatchColumn('');
         setMatches([]);
         setItSupervisorId(null);
+        setCreateMissingAccounts(false);
     }, []);
 
     return {
@@ -841,6 +944,7 @@ export function useUniversalPatcher() {
         matchBy, setMatchBy,
         matches, filteredMatches,
         allowMissingSkip, setAllowMissingSkip,
+        createMissingAccounts, setCreateMissingAccounts,
         previewFilter, setPreviewFilter,
         stats,
         gov, setGov,

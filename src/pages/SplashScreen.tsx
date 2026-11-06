@@ -5,10 +5,10 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
-const DESKTOP_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_25s.mp4';
-const DESKTOP_POSTER = '/media/ITPC_Concept_C_IraqNetwork_25s.jpg';
-const MOBILE_VIDEO = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4';
-const MOBILE_POSTER = '/media/ITPC_Concept_C_IraqNetwork_portrait_25s.jpg';
+const DESKTOP_VIDEO = '/media/MOC_ITPC_Concept_C_IraqNetwork_wide_25s.mp4';
+const DESKTOP_POSTER = '/media/MOC_ITPC_Concept_C_IraqNetwork_wide_25s.jpg';
+const MOBILE_VIDEO = '/media/MOC_ITPC_Concept_C_IraqNetwork_portrait_25s.mp4';
+const MOBILE_POSTER = '/media/MOC_ITPC_Concept_C_IraqNetwork_portrait_25s.jpg';
 const MOBILE_PORTRAIT_QUERY = '(orientation: portrait) and (max-width: 767px)';
 
 export const SplashScreen = ({ onComplete }: SplashScreenProps) => {

@@ -37,12 +37,10 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
         avatar_url: d.avatar_url
     }));
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-    const [isExistingSupervisor, setIsExistingSupervisor] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [dropdownPlacement, setDropdownPlacement] = useState<'up' | 'down'>('up');
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputContainerRef = useRef<HTMLDivElement>(null);
-    const userClearedGovRef = useRef<string | null>(null);
 
     // تحسس مساحة الشاشة لتوجيه القائمة للأعلى أو للأسفل بذكاء
     useEffect(() => {
@@ -68,62 +66,7 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
-    // 🧠 فحص واكتشاف مشرف IT المثبت مسبقاً لهذه المحافظة تلقائياً
-    useEffect(() => {
-        if (!governorate) return;
-        // إذا قام المطور بإلغاء التثبيت يدوياً لهذه المحافظة، لا نعيد اختياره تلقائياً
-        if (userClearedGovRef.current === governorate) return;
-
-        let isMounted = true;
-        const checkExistingSupervisor = async () => {
-            try {
-                // 1. البحث عن مشرف IT مثبت مسبقاً في هذه المحافظة
-                const { data: initialData, error } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, job_number, avatar_url, admin_role, role')
-                    .eq('governorate', governorate)
-                    .eq('admin_role', 'it_supervisor')
-                    .limit(1)
-                    .maybeSingle();
-
-                let data = initialData;
-
-                // 2. كخيار بديل: مسؤول المحافظة
-                if (!data && !error) {
-                    const { data: adminData } = await supabase
-                        .from('profiles')
-                        .select('id, full_name, job_number, avatar_url, admin_role, role')
-                        .eq('governorate', governorate)
-                        .eq('role', 'admin')
-                        .limit(1)
-                        .maybeSingle();
-                    data = adminData;
-                }
-
-                if (!isMounted || !data) return;
-
-                const prof: Profile = {
-                    id: data.id,
-                    full_name: data.full_name || 'مشرف IT',
-                    job_number: data.job_number,
-                    avatar_url: data.avatar_url
-                };
-                setSelectedProfile(prof);
-                setIsExistingSupervisor(true);
-                onSelect(data.id);
-            } catch (err) {
-                console.error('Error finding existing IT supervisor:', err);
-            }
-        };
-
-        checkExistingSupervisor();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [governorate]);
-
-    // تحميل الملف المختار عند توفر المعرف
+    // تحميل الملف المختار عند توفر المعرف (فقط إذا حدده المستخدم يدوياً)
     useEffect(() => {
         const fetchSelectedProfile = async () => {
             if (selectedSupervisorId && (!selectedProfile || selectedProfile.id !== selectedSupervisorId)) {
@@ -140,7 +83,6 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
                 });
             } else if (!selectedSupervisorId) {
                 setSelectedProfile(null);
-                setIsExistingSupervisor(false);
             }
         };
         fetchSelectedProfile();
@@ -148,16 +90,13 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
 
     const handleSelect = (profile: Profile) => {
         setSelectedProfile(profile);
-        setIsExistingSupervisor(false);
         onSelect(profile.id);
         setIsOpen(false);
         setQuery('');
     };
 
     const clearSelection = () => {
-        userClearedGovRef.current = governorate || null;
         setSelectedProfile(null);
-        setIsExistingSupervisor(false);
         onSelect(null);
         setQuery('');
     };
@@ -183,17 +122,10 @@ export const UP_ItSupervisorField = ({ onSelect, selectedSupervisorId, governora
                         <div>
                             <div className="flex items-center gap-2">
                                 <p className="font-bold text-gray-900 dark:text-gray-100">{selectedProfile.full_name}</p>
-                                {isExistingSupervisor && (
-                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        ✓ مثبت حالياً
-                                    </span>
-                                )}
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{selectedProfile.job_number}</p>
                             <p className="text-xs text-blue-600 dark:text-blue-400">
-                                {isExistingSupervisor 
-                                    ? `مشرف IT الحالي لمحافظة ${governorateName(governorate)} — سيتم الإبقاء على صلاحياته`
-                                    : `سيتم رفع صلاحياته إلى مشرف IT لمحافظة ${governorateName(governorate)}`}
+                                سيتم رفع صلاحياته إلى مشرف IT لمحافظة {governorateName(governorate)}
                             </p>
                         </div>
                     </div>

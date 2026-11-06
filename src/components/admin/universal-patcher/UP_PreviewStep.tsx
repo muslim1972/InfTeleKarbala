@@ -2,7 +2,7 @@
  * خطوة معاينة النتائج والتنفيذ
  */
 import { useState } from 'react';
-import { Save, UserPlus, AlertTriangle, Check } from 'lucide-react';
+import { Save, UserPlus, AlertTriangle, Check, ShieldCheck } from 'lucide-react';
 import { governorateName } from '../../../constants/governorates';
 import type { UseUniversalPatcherReturn } from '../../../hooks/useUniversalPatcher';
 import { SnapshotNamePicker } from '../../snapshots/SnapshotNamePicker';
@@ -14,6 +14,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
         tableDef, stats, filteredMatches,
         previewFilter, setPreviewFilter,
         allowMissingSkip, setAllowMissingSkip,
+        createMissingAccounts, setCreateMissingAccounts,
         executeUpdate, setStep,
         targetYear, setTargetYear, analyzeData,
         snapshotName, setSnapshotName,
@@ -23,9 +24,35 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
 
     if (!tableDef) return null;
 
+    const totalExecutionCount = stats.found + stats.newRecords + (createMissingAccounts ? stats.missing : 0);
     const needsYear = tableDef.type === 'yearly' || tableDef.type === 'detail';
     // 📅 الجداول المُدارة بنظام النسخ الشهرية تتطلب تسمية النسخة
     const needsSnapshotName = tableDef.tableName === 'financial_records' || tableDef.tableName === 'profiles';
+
+    const isProfiles = tableDef.tableName === 'profiles';
+    const isFinancial = tableDef.tableName === 'financial_records';
+    const isYearly = tableDef.tableName === 'yearly_records';
+    const isDetail = tableDef.type === 'detail';
+
+    const matchLabel = isProfiles 
+        ? 'تحديث موظف' 
+        : isFinancial 
+            ? 'تحديث قيد مالي' 
+            : isYearly 
+                ? 'تحديث قيد سنوي' 
+                : 'تحديث قيد';
+
+    const newRecordLabel = isProfiles 
+        ? 'حساب جديد' 
+        : isDetail 
+            ? 'إضافة جديدة' 
+            : isFinancial 
+                ? 'قيد مالي أول' 
+                : isYearly 
+                    ? 'قيد سنوي أول' 
+                    : 'قيد جديد';
+
+    const missingLabel = isProfiles ? 'غير مطابق' : 'موظف غير مسجل';
 
     // البحث عن labels للحقول المربوطة
     const getFieldLabel = (fieldValue: string): string => {
@@ -35,6 +62,26 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
 
     return (
         <div className="animate-in slide-in-from-right-8 duration-500 flex flex-col h-full">
+
+            {/* 🛡️ شريط التطمين والتحقق الذكي للجداول التابعة */}
+            {!isProfiles && !tableDef.isStandalone && stats.missing === 0 && stats.total > 0 && (
+                <div className="mx-4 mt-3 p-3 bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center gap-2.5 shrink-0">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="text-xs text-emerald-800 dark:text-emerald-300 flex-1">
+                        <p className="font-bold">
+                            ✅ تم التحقق والمطابقة التامة: جميع الموظفين ({stats.total}) مسجلون ومطابقون في المنظومة
+                        </p>
+                        <p className="text-[11px] mt-0.5 opacity-90 font-medium">
+                            سيتم ربط البيانات بحساباتهم الأصلية مباشرة
+                            {stats.found > 0 ? ` (${stats.found} تحديث قيد موجود` : ''}
+                            {stats.found > 0 && stats.newRecords > 0 ? ' + ' : ''}
+                            {stats.newRecords > 0 ? `${stats.newRecords} إنشاء قيد أول في ${tableDef.label}` : ''}
+                            {stats.found > 0 || stats.newRecords > 0 ? ')' : ''}
+                            {' '}بأمان تام ودون إنشاء أو تكرار أي حساب مستخدم.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* 🆕 وضع افتتاح محافظة جديدة */}
             {govOpening && (
@@ -94,7 +141,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     countClass="text-zinc-900 dark:text-white"
                 />
                 <StatCard
-                    label="تحديث"
+                    label={matchLabel}
                     count={stats.found}
                     active={previewFilter === 'match'}
                     onClick={() => setPreviewFilter('match')}
@@ -104,7 +151,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     countClass="text-blue-700 dark:text-blue-300"
                 />
                 <StatCard
-                    label={tableDef.type === 'detail' ? 'إضافة جديدة' : 'سجل جديد'}
+                    label={newRecordLabel}
                     count={stats.newRecords}
                     active={previewFilter === 'new_record'}
                     onClick={() => setPreviewFilter('new_record')}
@@ -114,7 +161,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     countClass="text-amber-600"
                 />
                 <StatCard
-                    label="غير مطابق"
+                    label={missingLabel}
                     count={stats.missing}
                     active={previewFilter === 'missing'}
                     onClick={() => setPreviewFilter('missing')}
@@ -138,7 +185,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     >
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <StatusBadge status={m.status} />
+                                <StatusBadge status={m.status} tableName={tableDef.tableName} tableType={tableDef.type} />
                                 <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
                                     {m.excelName}
                                 </span>
@@ -166,10 +213,20 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                             </div>
                         )}
                         {Object.keys(m.diffs).length === 0 && m.status === 'new_record' && (
-                            <p className="text-xs text-amber-500 mt-1.5 mr-1">الموظف موجود — سيتم إنشاء سجل جديد له في الجدول</p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 mr-1 font-medium">
+                                {isProfiles
+                                    ? 'حساب جديد — سيتم إنشاؤه في المنظومة عند التنفيذ'
+                                    : `الموظف مطابق ومسجل بالمنظومة — سيتم إنشاء أول قيد له في ${tableDef.label} وربطه بحسابه الأصلي`
+                                }
+                            </p>
                         )}
                         {m.status === 'missing' && (
-                            <p className="text-xs text-red-400 mt-1.5 mr-1">غير موجود في محافظة الهدف — لن يُحقن إلا بعد إنشاء حسابه</p>
+                            <p className="text-xs text-red-500 mt-1.5 mr-1 font-medium">
+                                {isProfiles
+                                    ? 'غير موجود في محافظة الهدف — لن يُحقن إلا بعد إنشاء حسابه'
+                                    : 'الموظف غير مسجل في ملفات المحافظة بالمنظومة — يجب إضافته للملفات الشخصية أولاً'
+                                }
+                            </p>
                         )}
                     </div>
                 ))}
@@ -203,38 +260,69 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     رجوع
                 </button>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                     {stats.missing > 0 && (
-                        <label className="flex items-center gap-2 cursor-pointer bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800/50 text-xs">
-                            <input
-                                type="checkbox"
-                                checked={allowMissingSkip}
-                                onChange={e => setAllowMissingSkip(e.target.checked)}
-                                className="w-3.5 h-3.5 text-amber-600 rounded"
-                            />
-                            <span className="font-bold text-amber-900 dark:text-amber-300">
-                                تجاوز غير المطابق ({stats.missing})
-                            </span>
-                        </label>
+                        <>
+                            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border-2 text-xs transition-all ${
+                                createMissingAccounts
+                                    ? 'bg-blue-500/15 border-blue-500 text-blue-800 dark:text-blue-200 shadow-sm font-bold'
+                                    : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300'
+                            }`}>
+                                <input
+                                    type="checkbox"
+                                    checked={createMissingAccounts}
+                                    onChange={e => {
+                                        setCreateMissingAccounts(e.target.checked);
+                                        if (e.target.checked) setAllowMissingSkip(false);
+                                    }}
+                                    className="w-4 h-4 text-blue-600 rounded"
+                                />
+                                <span className="flex items-center gap-1.5 font-tajawal font-bold">
+                                    <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                                    إضافة غير المطابقين ({stats.missing}) كحسابات جديدة
+                                </span>
+                            </label>
+
+                            {!createMissingAccounts && (
+                                <label className="flex items-center gap-2 cursor-pointer bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/50 text-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={allowMissingSkip}
+                                        onChange={e => setAllowMissingSkip(e.target.checked)}
+                                        className="w-3.5 h-3.5 text-amber-600 rounded"
+                                    />
+                                    <span className="font-bold text-amber-900 dark:text-amber-300 font-tajawal">
+                                        تجاوز غير المطابق ({stats.missing})
+                                    </span>
+                                </label>
+                            )}
+                        </>
                     )}
+
                     <button
                         onClick={() => {
-                            if (needsSnapshotName) {
+                            if (needsSnapshotName || createMissingAccounts) {
                                 setShowConfirmModal(true);
                             } else {
                                 executeUpdate();
                             }
                         }}
-                        disabled={(stats.found + stats.newRecords) === 0 || (stats.missing > 0 && !allowMissingSkip)}
-                        className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/20"
+                        disabled={totalExecutionCount === 0 || (stats.missing > 0 && !allowMissingSkip && !createMissingAccounts)}
+                        className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/20 font-tajawal"
                     >
                         <Save className="w-4 h-4" />
-                        تنفيذ ({stats.found + stats.newRecords})
+                        {createMissingAccounts && (stats.found + stats.newRecords === 0)
+                            ? `إنشاء الحسابات الجديدة (${stats.missing})`
+                            : createMissingAccounts && stats.missing > 0
+                            ? `تنفيذ (${totalExecutionCount}) [معالجة ${stats.found + stats.newRecords} + إضافة ${stats.missing}]`
+                            : isProfiles
+                            ? `تنفيذ (${totalExecutionCount}) [تحديث ${stats.found}${stats.newRecords > 0 ? ` + إضافة ${stats.newRecords}` : ''}]`
+                            : `تنفيذ (${totalExecutionCount}) [${stats.found > 0 ? `تحديث ${stats.found}` : ''}${stats.found > 0 && stats.newRecords > 0 ? ' + ' : ''}${stats.newRecords > 0 ? `قيد أول ${stats.newRecords}` : ''}]`}
                     </button>
                 </div>
             </div>
 
-            {/* ⚠️ نافذة التأكيد الإلزامية قبل اعتماد النسخة الشهرية لمنع الخطأ البشري */}
+            {/* ⚠️ نافذة التأكيد الإلزامية قبل اعتماد النسخة الشهرية أو إنشاء الحسابات */}
             {showConfirmModal && (
                 <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-zinc-900 border-2 border-amber-500 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
@@ -244,10 +332,10 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                             </div>
                             <div>
                                 <h3 className="font-bold text-base text-zinc-900 dark:text-white font-tajawal">
-                                    تأكيد اعتماد النسخة الشهرية
+                                    تأكيد تنفيذ العملية
                                 </h3>
                                 <p className="text-xs text-zinc-500 font-tajawal">
-                                    يرجى مراجعة وتأكيد بيانات النسخة قبل الحقن
+                                    يرجى مراجعة وتأكيد بيانات العملية قبل المتابعة
                                 </p>
                             </div>
                         </div>
@@ -264,20 +352,43 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                                 <span className="font-bold text-blue-600 dark:text-blue-400">{governorateName(gov)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-zinc-500">عدد السجلات:</span>
-                                <span className="font-bold text-zinc-800 dark:text-zinc-200">{stats.found + stats.newRecords} موظفاً</span>
-                            </div>
-                            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                                <span className="block text-zinc-500 mb-1">الاسم الذي ستُعتمد به النسخة في النظام:</span>
-                                <span className="block p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 font-black text-sm text-center">
-                                    {snapshotName}
+                                <span className="text-zinc-500">العملية المقررة:</span>
+                                <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                                    {createMissingAccounts && stats.missing > 0
+                                        ? `إضافة (${stats.missing}) حساب جديد ${stats.found + stats.newRecords > 0 ? `+ معالجة (${stats.found + stats.newRecords})` : ''}`
+                                        : isProfiles
+                                        ? `تحديث (${stats.found}) موظفاً ${stats.newRecords > 0 ? `+ (${stats.newRecords}) حساب جديد` : ''}`
+                                        : `معالجة (${stats.found + stats.newRecords}) قيداً [${stats.found > 0 ? `${stats.found} تحديث قيد سابق` : ''}${stats.found > 0 && stats.newRecords > 0 ? ' + ' : ''}${stats.newRecords > 0 ? `${stats.newRecords} إنشاء قيد أول` : ''}] في ${tableDef.label}`
+                                    }
                                 </span>
                             </div>
+                            {needsSnapshotName && (
+                                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                    <span className="block text-zinc-500 mb-1">الاسم الذي ستُعتمد به النسخة في النظام:</span>
+                                    <span className="block p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 font-black text-sm text-center">
+                                        {snapshotName}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
-                        <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20 font-tajawal">
-                            ⚠️ <strong>تنبيه هام:</strong> هل تأكدت أن هذا الشهر يطابق تماماً شهر واستحقاق الملف المرفوع؟
-                        </p>
+                        {createMissingAccounts && stats.missing > 0 && (
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-300 dark:border-blue-700 space-y-1">
+                                <p className="font-black text-xs text-blue-900 dark:text-blue-200 flex items-center gap-1.5 font-tajawal">
+                                    <UserPlus className="w-4 h-4 text-blue-600" />
+                                    تأكيد فتح قيود جديدة:
+                                </p>
+                                <p className="text-[11px] text-blue-800 dark:text-blue-300 font-tajawal">
+                                    سيتم إنشاء ({stats.missing}) حساب رسمي جديد في نظام {governorateName(gov)}. تأكد أن هذه الأسماء موظفون جدد أو عقود وليس لديهم حسابات سابقة في النظام لتفادي التكرار.
+                                </p>
+                            </div>
+                        )}
+
+                        {needsSnapshotName && (
+                            <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20 font-tajawal">
+                                ⚠️ <strong>تنبيه النسخة:</strong> هل تأكدت أن اسم النسخة يطابق تماماً شهر واستحقاق الملف المرفوع؟
+                            </p>
+                        )}
 
                         <div className="flex items-center justify-end gap-2 pt-2">
                             <button
@@ -321,12 +432,13 @@ function StatCard({ label, count, active, onClick, bgClass, borderClass, activeC
     );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, tableName, tableType }: { status: string; tableName?: string; tableType?: string }) {
     if (status === 'match') {
         return <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">تحديث</span>;
     }
     if (status === 'new_record') {
-        return <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">جديد</span>;
+        const text = tableName === 'profiles' ? 'حساب جديد' : (tableType === 'detail' ? 'إضافة جديدة' : 'قيد أول');
+        return <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">{text}</span>;
     }
-    return <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">مفقود</span>;
+    return <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">{tableName === 'profiles' ? 'مفقود' : 'غير مسجل'}</span>;
 }

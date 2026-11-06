@@ -347,7 +347,7 @@ export const FIELD_SYNONYMS: Record<string, string[]> = {
     appointment_date: ['تاريخ التعيين', 'ت_التعيين', 'ت_تعيين', 'التعيين', 'تاريخ المباشرة', 'المباشرة', 'appointment date'],
     specialization: ['التخصص', 'الاختصاص', 'specialization'],
     dept_text: ['القسم', 'اسم القسم', 'الدائرة', 'مكان العمل حسب تصنيف المالية', 'department', 'dept'],
-    section_text: ['الشعبة', 'اسم الشعبة', 'section'],
+    section_text: ['الشعبة', 'اسم الشعبة', 'مكان العمل الدقيق', 'مكان العمل', 'مكان العمل حسب تصنيف المالية', 'section'],
     unit_text: ['الوحدة', 'اسم الوحدة', 'unit'],
     mother_name: ['اسم الام', 'اسم الأم', 'اسم_الام', 'اسم_الأم', 'الام', 'الأم', 'mother name', 'mother_name'],
     gender: ['الجنس', 'جنس', 'النوع', 'gender', 'sex'],
@@ -374,7 +374,7 @@ export const FIELD_SYNONYMS: Record<string, string[]> = {
     legal_allowance: ['مخصصات القانونية', 'المخصصات القانونية', 'قانونية'],
     additional_50_percent_allowance: ['المخصصات الإضافية 50%', 'المخصصات الاضافية 50%', 'مخصصات اضافية', 'اضافية 50%'],
     transport_allowance: ['مخصصات النقل', 'مخصص النقل', 'النقل'],
-    marital_allowance: ['مخصصات الزوجية', 'مخصص الزوجية', 'الزوجية', 'الحالة الزوجية'],
+    marital_allowance: ['مخصصات الزوجية', 'مخصص الزوجية', 'مخصص الزوجية', 'مخصصات زوجية'],
     children_allowance: ['مخصصات الأطفال', 'مخصصات الاطفال', 'مخصص الاطفال', 'الاطفال'],
     gross_salary: ['الراتب الإجمالي', 'الراتب الاجمالي', 'الراتب الاجمالي ( الايرادات)', 'الاجمالي', 'gross salary'],
     tax_deduction_amount: ['الضريبة', 'مبلغ الضريبة', 'استقطاع الضريبة', 'ضريبة'],
@@ -414,3 +414,167 @@ export const FIELD_SYNONYMS: Record<string, string[]> = {
 };
 
 export { SYSTEM_COLUMNS };
+
+/** قاموس المرادفات والمطابقات الدلالية المسبقة للأقسام والشعب والمجمعات الإدارية */
+const SEMANTIC_DEPARTMENT_ALIASES: Array<{ canonical: string; aliases: string[] }> = [
+    { canonical: 'مجمع اتصالات قضاء الهندية', aliases: ['مجمع اتصالات الهندية', 'مجمع اتصالات الهنديه', 'مجمع الهندية', 'الهندية', 'مجمع الهنديه'] },
+    { canonical: 'مجمع اتصالات سيد الشهداء (ع)', aliases: ['مجمع اتصالات سيد الشهداء', 'مجمع سيد الشهداء', 'سيد الشهداء', 'سيد الشهداء (ع)'] },
+    { canonical: 'مجمع اتصالات عين التمر', aliases: ['مجمع عين التمر', 'عين التمر', 'مجمع اتصالات عين التمر'] },
+    { canonical: 'مجمع اتصالات الحر', aliases: ['مجمع اتصالات الحر (ع)', 'مجمع الحر', 'الحر', 'مجمع اتصالات الحر'] },
+    { canonical: 'مجمع اتصالات الخيرات', aliases: ['مجمع الخيرات', 'الخيرات', 'مجمع اتصالات الخيرات'] },
+    { canonical: 'مجمع اتصالات الجدول الغربي', aliases: ['مجمع الجدول الغربي', 'الجدول الغربي'] },
+    { canonical: 'مجمع اتصالات قضاء الحسينية', aliases: ['مجمع الحسينية', 'الحسينية', 'قضاء الحسينية'] },
+    { canonical: 'شعبة العلاقات والاعلام', aliases: ['شعبة الإعلام والعلاقات', 'شعبة الاعلام والعلاقات', 'الاعلام والعلاقات', 'العلاقات والاعلام', 'الاعلام', 'العلاقات'] },
+    { canonical: 'شعبة التخطيط والمتابعة', aliases: ['شعبه التخطيط والمتابعه', 'شعبة التخطيط و المتابعة', 'التخطيط والمتابعة', 'التخطيط والمتابعه', 'التخطيط'] },
+    { canonical: 'شعبة الخدمات الادارية والنقليات', aliases: ['شعبة الخدمات الإدارية', 'شعبة الخدمات الادارية', 'الخدمات الادارية', 'الخدمات الادارية والنقليات', 'النقليات'] },
+    { canonical: 'شعبة الشؤون المالية', aliases: ['الشعبة المالية', 'شعبة المالية', 'المالية', 'الشؤون المالية'] },
+    { canonical: 'شعبة التسويق والمتابعة', aliases: ['شعبة التسويق والمتابعه', 'التسويق والمتابعة', 'التسويق'] },
+    { canonical: 'وحدة البيانات', aliases: ['وحدة البيانات', 'وحده البيانات', 'البيانات'] },
+    { canonical: 'شعبة تناقل البيانات IP', aliases: ['تناقل البيانات', 'شعبة تناقل البيانات', 'تناقل البيانات IP', 'IP'] },
+    { canonical: 'شعبة ادارة الموارد البشرية', aliases: ['شعبة الموارد البشرية', 'الموارد البشرية', 'شعبة الموارد', 'الموارد'] },
+    { canonical: 'شعبة المخازن', aliases: ['شعبة المخازن', 'المخازن'] },
+    { canonical: 'شعبة القدرة', aliases: ['شعبة القدرة', 'القدرة'] },
+    { canonical: 'شعبة المباني', aliases: ['شعبة المباني', 'المباني'] },
+    { canonical: 'الشعبة القانونية', aliases: ['شعبة القانونية', 'القانونية'] },
+    { canonical: 'شعبة GIS', aliases: ['GIS', 'شعبة GIS', 'جي اي اس'] },
+    { canonical: 'شعبة الدفاع المدني', aliases: ['شعبة الدفاع المدني', 'الدفاع المدني'] },
+    { canonical: 'شعبة التصاميم', aliases: ['شعبة التصاميم', 'التصاميم'] },
+    { canonical: 'شعبة البدالات والشبكة النحاسية', aliases: ['شعبة البدالات', 'البدالات والشبكة النحاسية', 'البدالات'] },
+    { canonical: 'شعبة FTTX', aliases: ['شعبة FTTX', 'FTTX', 'اف تي تي اكس'] },
+    { canonical: 'قسم المالي والاداري', aliases: ['القسم المالي والاداري', 'القسم المالي', 'القسم الاداري'] },
+    { canonical: 'قسم التراسل', aliases: ['قسم التراسل', 'التراسل'] },
+    { canonical: 'قسم الشبكات', aliases: ['قسم الشبكات', 'الشبكات'] },
+    { canonical: 'قسم تجهيز خدمات المعلوماتية', aliases: ['المعلوماتية', 'تجهيز الخدمة', 'تجهيز خدمات المعلوماتية'] }
+];
+
+/** استخراج الكلمات المفتاحية وجذر اسم التشكيل الإداري */
+function cleanDepartmentStem(text: string): string {
+    return normalizeArabicText(text || '')
+        .replace(/\([^)]*\)/g, '')
+        .replace(/^(شعبة|شعبه|الشعبة|الشعبه|قسم|القسم|وحدة|وحده|الوحدة|الوحده|مجمع|المجمع|ادارة|إدارة)\s+/g, '')
+        .replace(/^(اتصالات|شؤون|خدمات|قضاء)\s+/g, '')
+        .replace(/\b(كربلاء|المقدسة|قضاء)\b/g, '')
+        .trim();
+}
+
+/**
+ * دالة ذكية لمطابقة واستنتاج شجرة التشكيل الإداري (القسم، الشعبة، الوحدة) وربط معرف القسم الحقيقي
+ */
+export function resolveDepartmentHierarchy(
+    rawText: string,
+    sectionHint: string | undefined,
+    deptHint: string | undefined,
+    departments: Array<{ id: string; name: string; parent_id: string | null; level?: number }>
+): { department_id: string; dept_text: string; section_text: string; unit_text: string | null } | null {
+    if (!rawText && !sectionHint && !deptHint) return null;
+
+    const candidates = [rawText, sectionHint, deptHint].filter(Boolean) as string[];
+    const deptMap = new Map<string, typeof departments[0]>();
+    departments.forEach(d => deptMap.set(d.id, d));
+
+    let foundDept: typeof departments[0] | null = null;
+
+    for (const cand of candidates) {
+        const normCand = normalizeArabicText(cand);
+        const stemCand = cleanDepartmentStem(cand);
+
+        // 1. مطابقة مباشرة تامة (Exact Match)
+        const exact = departments.find(d => normalizeArabicText(d.name) === normCand);
+        if (exact) {
+            foundDept = exact;
+            break;
+        }
+
+        // 2. مطابقة بالقاموس الدلالي الذكي (Semantic Alias Match)
+        for (const sa of SEMANTIC_DEPARTMENT_ALIASES) {
+            const isMatch = sa.aliases.some(alias => {
+                const normAlias = normalizeArabicText(alias);
+                return normAlias === normCand || normAlias === stemCand;
+            });
+            if (isMatch) {
+                const targetDept = departments.find(d => {
+                    const normD = normalizeArabicText(d.name);
+                    const normCan = normalizeArabicText(sa.canonical);
+                    return normD === normCan || normD.includes(normCan) || normCan.includes(normD);
+                });
+                if (targetDept) {
+                    foundDept = targetDept;
+                    break;
+                }
+            }
+        }
+        if (foundDept) break;
+
+        // 3. مطابقة الجذور المشتركة (Stem Match)
+        if (stemCand.length >= 3) {
+            const fuzzy = departments.find(d => {
+                const stemDept = cleanDepartmentStem(d.name);
+                return stemDept === stemCand || stemDept.includes(stemCand) || stemCand.includes(stemDept);
+            });
+            if (fuzzy) {
+                foundDept = fuzzy;
+                break;
+            }
+        }
+    }
+
+    if (!foundDept) return null;
+
+    const parentDept = foundDept.parent_id ? deptMap.get(foundDept.parent_id) : null;
+    const grandParentDept = parentDept?.parent_id ? deptMap.get(parentDept.parent_id) : null;
+
+    const level = foundDept.level ?? (foundDept.name.includes('وحدة') || foundDept.name.includes('وحده') ? 5 : 4);
+
+    // الحالة 1: الوحدة (المستوى 5)
+    if (level === 5) {
+        return {
+            department_id: foundDept.id,
+            dept_text: grandParentDept?.name || 'مديرية الاتصالات',
+            section_text: parentDept?.name || foundDept.name,
+            unit_text: foundDept.name,
+        };
+    }
+
+    // الحالة 2: الشعبة التابعة لقسم (المستوى 4)
+    if (level === 4) {
+        return {
+            department_id: foundDept.id,
+            dept_text: parentDept?.name || 'مديرية الاتصالات',
+            section_text: foundDept.name,
+            unit_text: null,
+        };
+    }
+
+    // الحالة 3: الشعب المستقلة والمجمعات والأقسام الرئيسية (المستوى 3)
+    if (level === 3) {
+        const isSecOrComplex = foundDept.name.startsWith('شعبة') ||
+            foundDept.name.startsWith('شعبه') ||
+            foundDept.name.startsWith('الشعبة') ||
+            foundDept.name.startsWith('مجمع');
+
+        if (isSecOrComplex) {
+            return {
+                department_id: foundDept.id,
+                dept_text: 'مديرية الاتصالات',
+                section_text: foundDept.name,
+                unit_text: null,
+            };
+        } else {
+            return {
+                department_id: foundDept.id,
+                dept_text: foundDept.name,
+                section_text: '',
+                unit_text: null,
+            };
+        }
+    }
+
+    // الحالة 4: الإدارة العليا (المستويات 1 و 2)
+    return {
+        department_id: foundDept.id,
+        dept_text: foundDept.name,
+        section_text: '',
+        unit_text: null,
+    };
+}
+

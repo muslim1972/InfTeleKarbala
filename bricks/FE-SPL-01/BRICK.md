@@ -8,8 +8,9 @@
 - `SplashScreen({ onComplete })` في `src/pages/SplashScreen.tsx`.
 
 ## الأصول
-- شاشة عريضة: `public/media/ITPC_Concept_C_IraqNetwork_25s.mp4` وملصقها.
-- شاشة طولية: `public/media/ITPC_Concept_C_IraqNetwork_portrait_25s.mp4` وملصقها.
+- شاشة عريضة: `public/media/MOC_ITPC_Concept_C_IraqNetwork_wide_25s.mp4` وملصقها.
+- شاشة طولية: `public/media/MOC_ITPC_Concept_C_IraqNetwork_portrait_25s.mp4` وملصقها.
+- أصول سابقة محفوظة: `ITPC_Concept_C_IraqNetwork_25s.mp4` و `ITPC_Concept_C_IraqNetwork_portrait_25s.mp4`.
 
 ## القواعد
 - **R1** يختار الفيديو العمودي فقط عندما يكون الاتجاه عمودياً والعرض أقل من 768px؛ ما عدا ذلك يُستخدم الفيديو العريض. يتحدث الاختيار عند تغيير الاتجاه/الحجم.

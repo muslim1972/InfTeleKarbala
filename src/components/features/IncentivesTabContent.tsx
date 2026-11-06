@@ -15,7 +15,9 @@ import {
     Save,
     ClipboardList,
     Check,
-    X
+    X,
+    ChevronLeft,
+    Users
 } from "lucide-react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -63,15 +65,27 @@ interface IncentiveRecord {
 
 interface IncentivesTabContentProps {
     isAdminView?: boolean;
+    onBack?: () => void;
 }
 
-export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabContentProps) => {
+export const IncentivesTabContent = ({ isAdminView = false, onBack }: IncentivesTabContentProps) => {
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
     const { activeGovernorate } = useGovernorate();
 
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+
+    // تبديل عرض شاشة المنتسب بين تفاصيل الحافز واللجان المعتمدة
+    const [incentiveSubView, setIncentiveSubView] = useState<'details' | 'committees'>('details');
+
+    // اقتطاع الاسم الأول والثاني فقط لاسم الموظف
+    const getShortName = (fullName?: string) => {
+        if (!fullName) return 'الموظف';
+        const parts = fullName.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
+        return parts[0] || 'الموظف';
+    };
 
     // الصلاحيات
     const isDeveloperOrGeneral = (isDeveloperLevel(currentUser?.admin_role) || currentUser?.admin_role === 'general') && isAdminView;
@@ -657,16 +671,60 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
     // عرض شاشة الموظف العادي (للقراءة فقط)
     if (!isDeveloperOrGeneral && !isDepartmentManager) {
         return (
-            <div className={`rounded-2xl border p-6 backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
+            <div className={`rounded-2xl border p-4 sm:p-6 backdrop-blur-md ${theme === 'light' ? 'bg-white/70 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
+                {/* السطر العلوي: كشف حوافز: الاسم الأول والثاني + التفاصيل + زر العودة */}
+                <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
                     <div>
-                        <h2 className={`text-lg md:text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>كشف حوافز: {currentUser?.full_name}</h2>
-                        <p className="text-sm text-muted-foreground mt-1">تفاصيل احتساب النقاط والحافز المالي لشهر {selectedMonth} / {selectedYear}</p>
+                        <h2 className={`text-base sm:text-lg md:text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                            كشف حوافز: {getShortName(currentUser?.full_name)}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                            تفاصيل احتساب النقاط والحافز المالي لشهر {selectedMonth} / {selectedYear}
+                        </p>
                     </div>
 
+                    {onBack && (
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 px-3 sm:px-4 rounded-xl shadow-sm transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm shrink-0"
+                        >
+                            <span>العودة</span>
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
+                {/* السطر الثاني: المستطيل رقم 1 (زر التبديل) + اختيار السنة والشهر */}
+                <div className="flex items-center justify-between gap-3 mb-5">
+                    {/* زر التبديل بين اللجان المعتمدة وتفاصيل الحافز */}
+                    <button
+                        type="button"
+                        onClick={() => setIncentiveSubView(prev => prev === 'details' ? 'committees' : 'details')}
+                        className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm shrink-0 ${
+                            incentiveSubView === 'committees'
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-amber-500/20'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-emerald-500/20'
+                        }`}
+                        title="تبديل العرض"
+                    >
+                        {incentiveSubView === 'committees' ? (
+                            <>
+                                <Coins className="w-4 h-4" />
+                                <span>تفاصيل الحافز</span>
+                            </>
+                        ) : (
+                            <>
+                                <Users className="w-4 h-4" />
+                                <span>اللجان المعتمدة</span>
+                            </>
+                        )}
+                    </button>
+
+                    {/* قوائم اختيار التاريخ */}
                     <div className="flex gap-2">
                         <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                            <SelectTrigger className="w-24">
+                            <SelectTrigger className="w-20 sm:w-24 h-9 text-xs sm:text-sm">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -677,7 +735,7 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                         </Select>
 
                         <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
-                            <SelectTrigger className="w-28">
+                            <SelectTrigger className="w-24 sm:w-28 h-9 text-xs sm:text-sm">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -689,86 +747,190 @@ export const IncentivesTabContent = ({ isAdminView = false }: IncentivesTabConte
                     </div>
                 </div>
 
-                {/* قيمة النقطة */}
-                <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-blue-950/10 border-blue-900/20'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                            <Coins className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">قيمة النقطة الواحدة لهذا الشهر</span>
-                            <div className={`text-lg font-extrabold ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'}`}>
-                                {loadingPoint ? <Loader2 className="w-4 h-4 animate-spin inline ml-2" /> : pointValue.toLocaleString()} د.ع
+                {/* المحتوى المعروض بناءً على حالة زر التبديل */}
+                {incentiveSubView === 'committees' ? (
+                    /* حالة اللجان المعتمدة: أعمدة اسم اللجنة، رقم الأمر، تاريخ الأمر */
+                    <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm transition-colors ${
+                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-slate-800'
+                    }`}>
+                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-5 h-5 text-indigo-500" />
+                                <h3 className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100">
+                                    اللجان المعتمدة لاحتساب الحوافز (شهر {selectedMonth} / {selectedYear})
+                                </h3>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {loadingUserRecord ? (
-                    <div className="py-20 flex justify-center w-full">
-                        <Loader2 className="w-8 h-8 animate-spin text-brand-green" />
-                    </div>
-                ) : userRecord ? (
-                    <div className="space-y-6">
-                        {/* النتيجة النهائية المدمجة */}
-                        <div className={`p-4 rounded-xl border flex flex-col md:flex-row items-center justify-between gap-4 ${theme === 'light' ? 'bg-gradient-to-l from-emerald-50 to-white border-emerald-200 shadow-sm' : 'bg-gradient-to-l from-emerald-950/30 to-slate-900/50 border-emerald-900/30'}`}>
-                            
-                            <div className="flex items-center gap-4 flex-1">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-900/50 text-emerald-400'}`}>
-                                    <span className="text-xl font-bold">{userRecord.total_points}</span>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300">مجموع النقاط المستحقة</div>
-                                    <div className="text-sm text-muted-foreground mt-0.5">بعد استقطاع {userRecord.deductions_points} نقاط</div>
-                                </div>
-                            </div>
-                            
-                            <div className="h-10 w-px bg-emerald-200 dark:bg-emerald-900/50 hidden md:block"></div>
-
-                            <div className="flex items-center justify-between gap-4 flex-1 w-full md:w-auto">
-                                <div className="text-right">
-                                    <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mb-0.5">مبلغ الحافز المالي النهائي</div>
-                                    <div className={`text-2xl font-black ${theme === 'light' ? 'text-emerald-950' : 'text-emerald-100'}`}>
-                                        {(userRecord.calculated_incentive || Math.ceil(userRecord.total_points * pointValue)).toLocaleString()} <span className="text-sm font-normal">د.ع</span>
-                                    </div>
-                                </div>
-                                <span className={`text-sm px-3 py-1 rounded-full font-bold whitespace-nowrap ${userRecord.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
-                                    {userRecord.status === 'approved' ? 'مصدق ومعتمد' : 'مسودة'}
-                                </span>
-                            </div>
-
+                            <span className="text-xs bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold px-2.5 py-0.5 rounded-full border border-indigo-200/50 dark:border-indigo-800/50">
+                                3 لجان معتمدة
+                            </span>
                         </div>
 
-                        {/* تفاصيل المعايير */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50/50' : 'bg-white/5'}`}>
-                                <h3 className="font-bold text-sm mb-3">تفاصيل النقاط الأساسية</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span>التحصيل العلمي ({userRecord.certificate_text}):</span><span className="font-bold">{userRecord.certificate_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>الخدمة الوظيفية ({userRecord.service_years} سنة):</span><span className="font-bold">{userRecord.service_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>المنصب الإداري ({userRecord.position_name || 'لا يوجد'}):</span><span className="font-bold">{userRecord.position_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>موقع العمل ({userRecord.work_location_type}):</span><span className="font-bold">{userRecord.work_location_points} نقاط</span></div>
-                                </div>
-                            </div>
+                        {/* جدول أعمدة: اسم اللجنة | رقم الأمر | تاريخ الأمر */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right border-collapse">
+                                <thead>
+                                    <tr className={`border-b text-xs font-bold ${
+                                        theme === 'light' ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-slate-800/50 text-slate-300 border-slate-700'
+                                    }`}>
+                                        <th className="py-2.5 px-3 text-right rounded-r-lg">#</th>
+                                        <th className="py-2.5 px-4 text-right">اسم اللجنة</th>
+                                        <th className="py-2.5 px-4 text-center">رقم الأمر</th>
+                                        <th className="py-2.5 px-4 text-center rounded-l-lg">تاريخ الأمر</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
+                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">1</td>
+                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                                            اللجنة المعتمدة الأولى
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                قيد الربط...
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                -- / -- / {selectedYear}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">2</td>
+                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                                            اللجنة المعتمدة الثانية
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                قيد الربط...
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                -- / -- / {selectedYear}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">3</td>
+                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                                            اللجنة المعتمدة الثالثة
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                قيد الربط...
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
+                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                -- / -- / {selectedYear}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
 
-                            <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50/50' : 'bg-white/5'}`}>
-                                <h3 className="font-bold text-sm mb-3">التقييم واللجان والإضافات</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span>مجموع نقاط تقييم المسؤول:</span><span className="font-bold">{(userRecord.eval_commitment + userRecord.eval_speed_accuracy + userRecord.eval_initiative + userRecord.eval_cooperation + userRecord.eval_skills_development)} / 10 نقاط</span></div>
-                                    <div className="flex justify-between"><span>إدارة المشاريع (مهندس عقد/مدير مشروع):</span><span className="font-bold">{userRecord.project_management_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>تخصص مالي وقانوني وعقود وتدقيق:</span><span className="font-bold">{userRecord.financial_legal_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>المشاركة في اللجان ({userRecord.committees_count} لجان):</span><span className="font-bold">{userRecord.committees_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>حوافز استثنائية من المدير العام:</span><span className="font-bold">{userRecord.extraordinary_points} نقاط</span></div>
-                                    <div className="flex justify-between"><span>النقاط الإضافية للأمراض المستعصية:</span><span className="font-bold">{userRecord.special_cases_points} نقاط</span></div>
-                                </div>
-                            </div>
+                        <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                            <p className="text-xs text-muted-foreground">
+                                📌 تم تهيئة مساحة العرض الخاصة باللجان الثلاث المعتمدة لهذا الشهر، وستُربط بجدول البيانات فور توفره.
+                            </p>
                         </div>
                     </div>
                 ) : (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">لم يقم المسؤول باحتساب حوافزك لهذا الشهر بعد.</p>
-                    </div>
+                    /* حالة تفاصيل الحافز: ملخص بسطرين + تفاصيل النقاط والتقييم */
+                    loadingUserRecord ? (
+                        <div className="py-20 flex justify-center w-full">
+                            <Loader2 className="w-8 h-8 animate-spin text-brand-green" />
+                        </div>
+                    ) : userRecord ? (
+                        <div className="space-y-4">
+                            {/* بطاقة ملخص الحافز المدمجة ذات السطرين المختصرين */}
+                            <div className={`p-3.5 sm:p-4 rounded-2xl border shadow-sm transition-colors ${
+                                theme === 'light' 
+                                    ? 'bg-gradient-to-l from-emerald-50/80 via-white to-blue-50/50 border-emerald-200/80' 
+                                    : 'bg-gradient-to-l from-emerald-950/20 via-slate-900/60 to-blue-950/20 border-slate-800'
+                            }`}>
+                                {/* السطر 1: قيمة النقطة على اليمين | مجموع النقاط على اليسار */}
+                                <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
+                                        <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-semibold">
+                                            قيمة النقطة:
+                                        </span>
+                                        <span className={`text-sm sm:text-base font-extrabold font-mono ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'}`}>
+                                            {loadingPoint ? <Loader2 className="w-3.5 h-3.5 animate-spin inline ml-1" /> : pointValue.toLocaleString()} <span className="text-xs font-normal">د.ع</span>
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-semibold">
+                                            مجموع النقاط:
+                                        </span>
+                                        <span className={`text-sm sm:text-base font-black font-mono px-2.5 py-0.5 rounded-lg ${
+                                            theme === 'light' ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-950/60 text-emerald-300'
+                                        }`}>
+                                            {userRecord.total_points}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* السطر 2: مبلغ الحافز على اليمين | الحالة مصدق ومعتمد على اليسار */}
+                                <div className="flex items-center justify-between gap-3 pt-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+                                        <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-semibold">
+                                            مبلغ الحافز:
+                                        </span>
+                                        <span className={`text-base sm:text-lg font-black font-mono ${theme === 'light' ? 'text-emerald-900' : 'text-emerald-200'}`}>
+                                            {(userRecord.calculated_incentive || Math.ceil(userRecord.total_points * pointValue)).toLocaleString()} <span className="text-xs font-normal">د.ع</span>
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span className={`text-xs px-3 py-1 rounded-full font-bold inline-flex items-center gap-1 ${
+                                            userRecord.status === 'approved' 
+                                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                                        }`}>
+                                            <Check className="w-3 h-3 stroke-[2.5]" />
+                                            <span>{userRecord.status === 'approved' ? 'مصدق ومعتمد' : 'مسودة'}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* تفاصيل المعايير */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50/50' : 'bg-white/5'}`}>
+                                    <h3 className="font-bold text-sm mb-3">تفاصيل النقاط الأساسية</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between"><span>التحصيل العلمي ({userRecord.certificate_text}):</span><span className="font-bold">{userRecord.certificate_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>الخدمة الوظيفية ({userRecord.service_years} سنة):</span><span className="font-bold">{userRecord.service_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>المنصب الإداري ({userRecord.position_name || 'لا يوجد'}):</span><span className="font-bold">{userRecord.position_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>موقع العمل ({userRecord.work_location_type}):</span><span className="font-bold">{userRecord.work_location_points} نقاط</span></div>
+                                    </div>
+                                </div>
+
+                                <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-gray-50/50' : 'bg-white/5'}`}>
+                                    <h3 className="font-bold text-sm mb-3">التقييم واللجان والإضافات</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between"><span>مجموع نقاط تقييم المسؤول:</span><span className="font-bold">{(userRecord.eval_commitment + userRecord.eval_speed_accuracy + userRecord.eval_initiative + userRecord.eval_cooperation + userRecord.eval_skills_development)} / 10 نقاط</span></div>
+                                        <div className="flex justify-between"><span>إدارة المشاريع (مهندس عقد/مدير مشروع):</span><span className="font-bold">{userRecord.project_management_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>تخصص مالي وقانوني وعقود وتدقيق:</span><span className="font-bold">{userRecord.financial_legal_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>المشاركة في اللجان ({userRecord.committees_count} لجان):</span><span className="font-bold">{userRecord.committees_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>حوافز استثنائية من المدير العام:</span><span className="font-bold">{userRecord.extraordinary_points} نقاط</span></div>
+                                        <div className="flex justify-between"><span>النقاط الإضافية للأمراض المستعصية:</span><span className="font-bold">{userRecord.special_cases_points} نقاط</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 text-muted-foreground">
+                            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p className="text-sm">لم يقم المسؤول باحتساب حوافزك لهذا الشهر بعد.</p>
+                        </div>
+                    )
                 )}
             </div>
         );

@@ -30,7 +30,7 @@ import { type LocationTelemetryResult } from '../../../utils/antiSpoofing';
 import { useAuth } from '../../../context/AuthContext';
 import { FaceEnrollment } from './FaceEnrollment';
 import { useCamera } from '../hooks/useCamera';
-import { useFaceDetection, BlinkTracker, DepthPerspectiveTracker, verifyOpticalReflection } from '../hooks/useFaceDetection';
+import { useFaceDetection } from '../hooks/useFaceDetection';
 import { getAverageBrightness, triggerScreenFlash } from '../utils/imageEnhancement';
 import { formatArabicErrorMessage } from '../../../utils/errorMessageFormatter';
 import { getDeviceFingerprint } from '../../../utils/deviceFingerprint';
@@ -39,7 +39,7 @@ import { getServerNow } from '../services/serverTimeService';
 import { useServerTime } from '../hooks/useServerTime';
 
 import { AttendanceReceiptModal } from './AttendanceReceiptModal';
-import ServerClockCard from './ServerClockCard';
+
 import { savePendingSnapshot } from '../utils/pendingSnapshotStorage';
 import { useSilentPhotoSync } from '../hooks/useSilentPhotoSync';
 
@@ -359,6 +359,7 @@ export default function AttendanceCheckInOut({
   const [nearestDistance, setNearestDistance] = useState<number | null>(null);
   const [telemetry, setTelemetry] = useState<LocationTelemetryResult | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showAccuracyWarning, setShowAccuracyWarning] = useState(false);
   const lastLocationCheckTimeRef = useRef<number>(0);
   const isAllowedRef = useRef(isAllowed);
   const isCooldownActiveRef = useRef(isCooldownActive);
@@ -763,116 +764,70 @@ export default function AttendanceCheckInOut({
     }, 1000);
 
     let isDetecting = true;
-    const blinkTracker = new BlinkTracker();
-    const depthTracker = new DepthPerspectiveTracker();
-    let isVerifyingLiveness = false;
 
     const detectLoop = async () => {
-      if (capturedRef.current || !videoRef.current || !isDetecting || isVerifyingLiveness) return;
+      if (capturedRef.current || !videoRef.current || !isDetecting) return;
 
       try {
         debugStatsRef.current.frames++;
         
-        const { detection, distance, ear, landmarks, box } = await detectFaceInFrame(videoRef.current, referenceDescriptors);
+        const { detection, distance, ear } = await detectFaceInFrame(videoRef.current, referenceDescriptors);
 
         if (detection) {
           debugStatsRef.current.faces++;
           debugStatsRef.current.minDistance = Math.min(debugStatsRef.current.minDistance, distance);
           debugStatsRef.current.lastDistance = distance;
-          debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
-          debugStatsRef.current.lastEar = ear;
-
-          // معيار المسافة الإقليدية الدقيق للوجه المعتمد
-          if (distance <= 0.42) {
+          
+          if (distance <= 0.45) {
             debugStatsRef.current.matchFrames++;
+            setCameraState(prev => ({ ...prev, message: 'تم رصد الوجه! يرجى الثبات أو رمش العينين...' }));
+            
+            debugStatsRef.current.minEar = Math.min(debugStatsRef.current.minEar, ear);
+            debugStatsRef.current.lastEar = ear;
 
-            // 1. تسجيل إحداثيات العمق ثلاثي الأبعاد
-            if (landmarks) {
-              depthTracker.addFrame(landmarks);
-            }
+            const isPerfectMatch = distance <= 0.38 && debugStatsRef.current.matchFrames >= 3;
+            const isGoodMatchWithBlink = distance <= 0.42 && ear < 0.28;
+            const isGoodMatchWithHold = distance <= 0.45 && debugStatsRef.current.matchFrames >= 15;
 
-            // 2. تتبع آلة حالة الرمش الطبيعي (Blink State Machine)
-            const blinkStatus = blinkTracker.update(ear);
+            if (isPerfectMatch || isGoodMatchWithBlink || isGoodMatchWithHold) {
+              // Liveness verified!
+              if (capturedRef.current) return;
+              capturedRef.current = true;
+              
+              setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
+              showDebugAlert();
+              
+              try {
+                // فتح المودال مباشرة عند تأكيد التطابق قبل انتظار الرفع
+                const baghdadNow = getBaghdadDate();
+                const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                const currentLoc = locationText || 'مقر العمل المعتمد';
 
-            if (!blinkTracker.isBlinkComplete()) {
-              if (blinkStatus.stage === 'CLOSED') {
-                setCameraState(prev => ({ ...prev, message: 'ممتاز! افتح عينيك الآن...' }));
-              } else {
-                setCameraState(prev => ({ ...prev, message: 'تم رصد الملامح! يرجى رمش العينين للتأكيد الحيوي' }));
+                setReceiptState({
+                  isOpen: true,
+                  punchTime: timeStr,
+                  locationName: currentLoc,
+                  shiftName: undefined,
+                  isUploading: true,
+                });
+
+                const result = await captureAndUpload();
+                await completeAction(action, result);
+              } catch (actErr: any) {
+                console.error('Face verification action failed:', actErr);
+                toast.error(formatArabicErrorMessage(actErr, 'تعذر تثبيت البصمة'));
+                setProcessing(false);
+                setCapturingAction(null);
+                capturedRef.current = false;
               }
-            } else {
-              // 3. اكتمال دورة الرمش الطبيعي! تنفيذ نبضة التأكيد الانعكاسي (Optical Reflection Pulse)
-              // لمنع هجمات إعادة عرض الفيديو وشاشات الهواتف ومكالمات الفيديو
-              isVerifyingLiveness = true;
-              setCameraState(prev => ({ ...prev, message: 'جاري تأكيد الحيوية الفيزيائية...' }));
-
-              const boxRect = box ? {
-                x: box.x,
-                y: box.y,
-                width: box.width,
-                height: box.height
-              } : {
-                x: 0,
-                y: 0,
-                width: videoRef.current.videoWidth || 640,
-                height: videoRef.current.videoHeight || 480
-              };
-
-              const reflectionResult = await verifyOpticalReflection(videoRef.current, boxRect);
-
-              if (reflectionResult.passed) {
-                // الحيوية الفيزيائية مثبتة 100% بنجاح
-                if (capturedRef.current) return;
-                capturedRef.current = true;
-                
-                setCameraState(prev => ({ ...prev, message: 'تم التحقق بنجاح! جاري تثبيت البصمة...' }));
-                showDebugAlert();
-                
-                try {
-                  // فتح المودال مباشرة عند تأكيد التطابق قبل انتظار الرفع
-                  const baghdadNow = getBaghdadDate();
-                  const timeStr = baghdadNow.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                  const currentLoc = locationText || 'مقر العمل المعتمد';
-
-                  setReceiptState({
-                    isOpen: true,
-                    punchTime: timeStr,
-                    locationName: currentLoc,
-                    shiftName: undefined,
-                    isUploading: true,
-                  });
-
-                  const result = await captureAndUpload();
-                  await completeAction(action, result);
-                } catch (actErr: any) {
-                  console.error('Face verification action failed:', actErr);
-                  toast.error(formatArabicErrorMessage(actErr, 'تعذر تثبيت البصمة'));
-                  setProcessing(false);
-                  setCapturingAction(null);
-                  capturedRef.current = false;
-                }
-                return; // Stop loop
-              } else {
-                // فشل الانعكاس الضوئي (شاشة هاتف أو صورة غير حية)
-                isVerifyingLiveness = false;
-                blinkTracker.reset();
-                depthTracker.reset();
-                debugStatsRef.current.matchFrames = 0;
-                setCameraState(prev => ({ 
-                  ...prev, 
-                  message: 'تنبيه: تعذر تأكيد الحيوية. يرجى توجيه وجهك مباشرة للكاميرا دون شاشات.' 
-                }));
-                toast.error('تم رفض المحاولة: لم يتم رصد انعكاس الوجه الحي (يرجى عدم استخدام شاشات أو صور)', { id: 'liveness-fail' });
-              }
+              return; // Stop loop
             }
           } else {
             // Reset match frames if face distance exceeds threshold
             debugStatsRef.current.matchFrames = 0;
-            setCameraState(prev => ({ ...prev, message: 'يرجى التوجيه المباشر نحو الكاميرا داخل الإطار' }));
+            setCameraState(prev => ({ ...prev, message: 'وجهك غير متطابق بدقة كافية. يرجى الاقتراب وتعديل الإضاءة' }));
           }
         } else {
-          // Reset match frames if no face detected
-          debugStatsRef.current.matchFrames = 0;
           setCameraState(prev => ({ ...prev, message: 'يرجى وضع وجهك داخل الإطار البيضاوي' }));
         }
       } catch (err: any) {
@@ -1110,12 +1065,7 @@ export default function AttendanceCheckInOut({
 
 
   return (
-    <div className="space-y-6">
-      {/* ========== الوقت الرسمي للشبكة ==========
-          مصدره الخادم (getServerNow) وليس ساعة الجهاز — ليعرف الموظف
-          الدقيقة التي ستُحفظ بها بصمته، ويطمئن أن ساعته لم تُعبث بها. */}
-      <ServerClockCard />
-
+    <div className="space-y-4">
       {/* ========== Actions Card ========== */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1230,49 +1180,54 @@ export default function AttendanceCheckInOut({
               </div>
             )}
 
-            {/* الأزرار الذكية حسب حالة الموظف الدقيقة */}
+            {/* الأزرار الذكية: تثبيت البصمة وإعادة تثبيت الوجه في سطر واحد */}
             {(() => {
               const isBaseDisabled = loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed;
               const isActionDisabled = isBaseDisabled || (isCooldownActive) || isBlockedByUnapprovedDevice;
 
               return (
-                <button
-                  onClick={() => {
-                    targetSlotRef.current = undefined;
-                    setSelectedTargetSlot(undefined);
-                    openCamera('punch');
-                  }}
-                  disabled={isActionDisabled}
-                  className={`w-full py-5 px-6 rounded-3xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.98] ${
-                    !isActionDisabled
-                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-xl hover:shadow-2xl shadow-emerald-600/30 ring-4 ring-emerald-50 dark:ring-emerald-900/30'
-                      : isBlockedByUnapprovedDevice
-                        ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-2 border-rose-300 dark:border-rose-800 cursor-not-allowed pointer-events-none'
-                        : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
-                  }`}
-                >
-                  <Fingerprint className={`w-8 h-8 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
-                  <span className="text-xl">
-                    {isCooldownActive 
-                      ? `مهلة الأمان (${cooldownRemaining} ث)` 
-                      : isBlockedByUnapprovedDevice
-                        ? 'جهاز غير معتمد - يرجى مراجعة المسؤول'
-                        : 'تثبيت البصمة'}
-                  </span>
-                </button>
+                <div className={`grid gap-2 ${isEnrolled ? 'grid-cols-1 min-[420px]:grid-cols-5' : 'grid-cols-1'}`}>
+                  {/* زر تثبيت البصمة */}
+                  <button
+                    onClick={() => {
+                      targetSlotRef.current = undefined;
+                      setSelectedTargetSlot(undefined);
+                      openCamera('punch');
+                    }}
+                    disabled={isActionDisabled}
+                    className={`${isEnrolled ? 'min-[420px]:col-span-3' : 'w-full'} py-3.5 px-4 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.98] ${
+                      !isActionDisabled
+                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg shadow-emerald-600/25 ring-2 ring-emerald-100 dark:ring-emerald-900/30'
+                        : isBlockedByUnapprovedDevice
+                          ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-2 border-rose-300 dark:border-rose-800 cursor-not-allowed pointer-events-none text-xs'
+                          : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                    }`}
+                  >
+                    <Fingerprint className={`w-6 h-6 shrink-0 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
+                    <span className="text-sm sm:text-base whitespace-nowrap">
+                      {isCooldownActive 
+                        ? `مهلة الأمان (${cooldownRemaining} ث)` 
+                        : isBlockedByUnapprovedDevice
+                          ? 'جهاز غير معتمد'
+                          : 'تثبيت البصمة'}
+                    </span>
+                  </button>
+
+                  {/* زر إعادة تثبيت الوجه بجانبه مباشرة */}
+                  {isEnrolled && (
+                    <button
+                      onClick={() => setShowEnrollment(true)}
+                      disabled={loading || processing || cameraOpen}
+                      className="min-[420px]:col-span-2 py-3.5 px-2.5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm active:scale-95 shadow-sm"
+                      title="إعادة تثبيت الوجه بحضور المسؤول"
+                    >
+                      <RefreshCw className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="whitespace-nowrap">إعادة تثبيت الوجه</span>
+                    </button>
+                  )}
+                </div>
               );
             })()}
-
-            {isEnrolled && (
-              <button
-                onClick={() => setShowEnrollment(true)}
-                disabled={loading || processing || cameraOpen}
-                className="py-3 px-6 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                إعادة تسجيل الوجه (بحضور المسؤول)
-              </button>
-            )}
           </div>
         )}
       </motion.div>
@@ -1404,7 +1359,7 @@ export default function AttendanceCheckInOut({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`rounded-2xl shadow-lg border p-6 flex flex-col md:flex-row items-center justify-between gap-4 transition-colors ${
+        className={`rounded-2xl shadow-sm border p-3.5 sm:p-5 flex items-center justify-between gap-3 transition-colors ${
           isCooldownActive
             ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/30'
             : loadingLocation 
@@ -1414,8 +1369,8 @@ export default function AttendanceCheckInOut({
                 : 'bg-rose-50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/30'
         }`}
       >
-        <div className="flex items-center gap-4 text-center md:text-right">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full flex items-center justify-center ${
             isCooldownActive
               ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
               : loadingLocation
@@ -1425,17 +1380,17 @@ export default function AttendanceCheckInOut({
                   : 'bg-rose-500 text-white'
           }`}>
             {isCooldownActive ? (
-              <ShieldCheck className="w-6 h-6" />
+              <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             ) : loadingLocation ? (
-              <RefreshCw className="w-6 h-6 animate-spin" />
+              <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
             ) : isAllowed ? (
-              <CheckCircle className="w-6 h-6" />
+              <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             ) : (
-              <AlertTriangle className="w-6 h-6" />
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6" />
             )}
           </div>
-          <div>
-            <h3 className="font-bold text-lg leading-tight">
+          <div className="min-w-0">
+            <h3 className="font-bold text-sm sm:text-base md:text-lg leading-tight text-slate-900 dark:text-slate-100 truncate sm:whitespace-normal">
               {isCooldownActive
                 ? 'الموقع الجغرافي موثق (مهلة الأمان نشطة)'
                 : loadingLocation 
@@ -1443,112 +1398,147 @@ export default function AttendanceCheckInOut({
                   : telemetry?.source === 'mock_suspected'
                     ? '⛔ تم رصد تزييف للموقع الجغرافي (Fake GPS)'
                     : isAllowed 
-                      ? `أنت متواجد داخل: ${nearestLoc?.name || 'موقع العمل'}` 
+                      ? `أنت الآن في: ${nearestLoc?.name || 'موقع العمل'}` 
                       : 'أنت خارج نطاق العمل المسموح'}
             </h3>
-            <p className="text-sm mt-1 text-slate-500 dark:text-slate-400">
-              {isCooldownActive
-                ? `تم تسجيل حركتك بنجاح وموقعك معتمد. يُرجى انتظار انتهاء مهلة الأمان (${cooldownRemaining} ثانية) قبل أية محاولة جديدة.`
-                : loadingLocation 
-                  ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
-                  : telemetry?.source === 'mock_suspected'
-                    ? 'تم رصد إحداثيات مصمتة غير طبيعية تشير إلى استخدام تطبيق Fake GPS. تم حظر تثبيت البصمة تلقائياً.'
-                    : isAllowed
-                      ? 'موقعك مطابق لشروط البصمة الجغرافية. يمكنك تسجيل الحضور والانصراف.'
+            {/* الشرح التوضيحي يظهر فقط في الحالات الاستثنائية/خارج النطاق، وحُذف سطر الشرح تماماً في حالة المطابقة الطبيعية */}
+            {!isAllowed && (
+              <p className="text-xs sm:text-sm mt-1 text-slate-500 dark:text-slate-400">
+                {isCooldownActive
+                  ? `تم تسجيل حركتك بنجاح وموقعك معتمد. يُرجى انتظار انتهاء مهلة الأمان (${cooldownRemaining} ثانية) قبل أية محاولة جديدة.`
+                  : loadingLocation 
+                    ? 'يرجى الانتظار لحين تحديد الإحداثيات...' 
+                    : telemetry?.source === 'mock_suspected'
+                      ? 'تم رصد إحداثيات مصمتة غير طبيعية تشير إلى استخدام تطبيق Fake GPS. تم حظر تثبيت البصمة تلقائياً.'
                       : nearestLoc
                         ? `أقرب موقع عمل لك هو "${nearestLoc.name}" ويبعد عنك بمسافة ${nearestDistance && nearestDistance >= 1000 ? (nearestDistance / 1000).toFixed(2) + ' كيلومتر' : Math.round(nearestDistance || 0) + ' متر'}. (النطاق المطلوب: ${nearestLoc.radius_meters} متر)`
                         : 'لم يتم ربطك بأي موقع عمل بعد. يرجى مراجعة المشرف العام.'}
-            </p>
+              </p>
+            )}
           </div>
         </div>
 
         <button
           onClick={() => verifyLocationAndGeofence(true)}
           disabled={loadingLocation || (isCooldownActive)}
-          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-slate-700 dark:text-slate-300"
+          className="shrink-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 font-bold py-1.5 px-3 sm:px-4 rounded-xl shadow-sm transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-xs sm:text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap"
         >
-          <RefreshCw className={`w-4 h-4 ${loadingLocation ? 'animate-spin' : ''}`} />
-          تحديث الموقع الجغرافي
+          <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${loadingLocation ? 'animate-spin' : ''}`} />
+          <span>تحديث الموقع</span>
         </button>
       </motion.div>
 
       {/* ========== Telemetry & Anti-Spoofing Diagnostic Panel ========== */}
-      {telemetry && (
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur-sm p-4 text-xs text-slate-600 dark:text-slate-300 shadow-sm"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
-                <Radio className="w-4 h-4 text-indigo-500 animate-pulse" />
-                بيانات التتبع الجغرافي والأمان:
-              </span>
-              <span className="font-mono dir-ltr bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-semibold">
-                {telemetry.latitude.toFixed(6)}, {telemetry.longitude.toFixed(6)}
-              </span>
-              <a
-                href={`https://www.google.com/maps?q=${telemetry.latitude},${telemetry.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
-              >
-                (عرض في الخريطة)
-              </a>
-            </div>
+      {telemetry && (() => {
+        const hasAccuracyWarning = Boolean(telemetry.isDesktop || !telemetry.isAccuracyValid || telemetry.warningMessage);
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur-sm p-4 text-xs text-slate-600 dark:text-slate-300 shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+                  <Radio className="w-4 h-4 text-indigo-500 animate-pulse" />
+                  بيانات التتبع الجغرافي والأمان:
+                </span>
+                <span className="font-mono dir-ltr bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-semibold">
+                  {telemetry.latitude.toFixed(6)}, {telemetry.longitude.toFixed(6)}
+                </span>
+                <a
+                  href={`https://www.google.com/maps?q=${telemetry.latitude},${telemetry.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                >
+                  (عرض في الخريطة)
+                </a>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Badge: Accuracy */}
-              <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
-                telemetry.accuracy <= 30
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                  : telemetry.accuracy <= 65
-                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
-              }`}>
-                <span>دقة الإشارة: ±{telemetry.accuracy} متر</span>
-                {telemetry.accuracy <= 30 ? ' (GPS عالي الدقة)' : ' (تقدير تقريبي)'}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Badge: Accuracy (مع سهم طي/عرض الشرح الفني عند وجود تنبيه) */}
+                {hasAccuracyWarning ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAccuracyWarning(prev => !prev)}
+                    className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 transition-all cursor-pointer hover:opacity-90 active:scale-95 ${
+                      telemetry.accuracy <= 30
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                        : telemetry.accuracy <= 65
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                    }`}
+                    title="اضغط لعرض أو طي التنبيه الفني"
+                  >
+                    <span>دقة الإشارة: ±{telemetry.accuracy} متر</span>
+                    <span>{telemetry.accuracy <= 30 ? ' (GPS عالي الدقة)' : ' (تقدير تقريبي)'}</span>
+                    {showAccuracyWarning ? (
+                      <ChevronUp className="w-3.5 h-3.5 mr-0.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 mr-0.5" />
+                    )}
+                  </button>
+                ) : (
+                  <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
+                    telemetry.accuracy <= 30
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                      : telemetry.accuracy <= 65
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                  }`}>
+                    <span>دقة الإشارة: ±{telemetry.accuracy} متر</span>
+                    <span>{telemetry.accuracy <= 30 ? ' (GPS عالي الدقة)' : ' (تقدير تقريبي)'}</span>
+                  </span>
+                )}
 
-              {/* Badge: Device */}
-              <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
-                telemetry.isDesktop
-                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-              }`}>
-                {telemetry.isDesktop ? <Laptop className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
-                <span>{telemetry.isDesktop ? 'كمبيوتر مكتبي (شبكي)' : 'هاتف ذكي'}</span>
-              </span>
+                {/* Badge: Device */}
+                <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
+                  telemetry.isDesktop
+                    ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                }`}>
+                  {telemetry.isDesktop ? <Laptop className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+                  <span>{telemetry.isDesktop ? 'كمبيوتر مكتبي (شبكي)' : 'هاتف ذكي'}</span>
+                </span>
 
-              {/* Toggle details */}
-              <button
-                type="button"
-                onClick={() => setShowDiagnostics(prev => !prev)}
-                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 p-1"
-                title="تفاصيل تقرير الأمان"
-              >
-                {showDiagnostics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Warning banner if desktop or weak accuracy */}
-          {(telemetry.isDesktop || !telemetry.isAccuracyValid) && (
-            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              <div className="leading-relaxed">
-                <p className="font-bold">تنبيه فني بشأن دقة ومصدر الموقع الجغرافي:</p>
-                <p className="text-xs mt-0.5 opacity-90">
-                  {telemetry.warningMessage || (
-                    telemetry.isDesktop
-                      ? 'أجهزة الحاسوب المكتبية لا تحتوي على شريحة أقمار صناعية حقيقية (GPS)، ويتم استنتاج الإحداثيات عبر راوتر الـ Wi-Fi أو مزود الإنترنت بهامش خطأ. لضمان التواجد الفعلي داخل الدائرة بدون أي التباس، يوصى بالبصمة من الهاتف الذكي.'
-                      : `هامش الخطأ في موقعك الحالي (±${telemetry.accuracy}م) أعلى من المعتاد. يرجى تفعيل الموقع الدقيق في هاتفك.`
-                  )}
-                </p>
+                {/* Toggle details */}
+                <button
+                  type="button"
+                  onClick={() => setShowDiagnostics(prev => !prev)}
+                  className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 p-1"
+                  title="تفاصيل تقرير الأمان"
+                >
+                  {showDiagnostics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Warning banner: مطوي داخل البطاقة ويظهر فقط عند النقر على سهم البطاقة */}
+            <AnimatePresence>
+              {hasAccuracyWarning && showAccuracyWarning && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-3"
+                >
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="leading-relaxed">
+                      <p className="font-bold">تنبيه فني بشأن دقة ومصدر الموقع الجغرافي:</p>
+                      <p className="text-xs mt-0.5 opacity-90">
+                        {telemetry.warningMessage || (
+                          telemetry.isDesktop
+                            ? 'أجهزة الحاسوب المكتبية لا تحتوي على شريحة أقمار صناعية حقيقية (GPS)، ويتم استنتاج الإحداثيات عبر راوتر الـ Wi-Fi أو مزود الإنترنت بهامش خطأ. لضمان التواجد الفعلي داخل الدائرة بدون أي التباس، يوصى بالبصمة من الهاتف الذكي.'
+                            : `هامش الخطأ في موقعك الحالي (±${telemetry.accuracy}م) أعلى من المعتاد. يرجى تفعيل الموقع الدقيق في هاتفك.`
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           {/* Collapsible details */}
           {showDiagnostics && (
@@ -1578,7 +1568,8 @@ export default function AttendanceCheckInOut({
             </div>
           )}
         </motion.div>
-      )}
+      );
+    })()}
 
       {/* ========== تكامل الإجازات: بانرات حالة اليوم (ذكية حسب نوع الطلب) ========== */}
       {/* إجازة يوم كامل قبل أول بصمة: صارمة (أحمر) / واجب رسمي (أخضر) */}

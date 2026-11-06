@@ -380,7 +380,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             if (userError) throw userError;
 
             const { risk_percentage: _risk_percentage, ...financialPayload } = financialData;
-            const { error: finError } = await supabase
+            if (!financialPayload.id) {
+                delete financialPayload.id;
+            }
+            const { data: savedFin, error: finError } = await supabase
                 .from('financial_records')
                 .upsert({
                     ...financialPayload,
@@ -389,11 +392,16 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     last_modified_by: currentUser.id,
                     last_modified_by_name: currentUser.full_name,
                     last_modified_at: new Date().toISOString()
-                });
+                }, { onConflict: 'user_id' })
+                .select()
+                .maybeSingle();
             if (finError) throw finError;
+            if (savedFin) {
+                setFinancialData(savedFin);
+            }
 
             if (adminData) {
-                const { error: admError } = await supabase
+                const { data: savedAdm, error: admError } = await supabase
                     .from('administrative_summary')
                     .upsert({
                         ...adminData,
@@ -402,14 +410,19 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                         last_modified_by: currentUser.id,
                         last_modified_by_name: currentUser.full_name,
                         last_modified_at: new Date().toISOString()
-                    }, { onConflict: 'user_id' });
+                    }, { onConflict: 'user_id' })
+                    .select()
+                    .maybeSingle();
                 if (admError) throw admError;
+                if (savedAdm) {
+                    setAdminData(savedAdm);
+                }
             }
 
             if (yearlyData && yearlyData.length > 0) {
                 const { error: yError } = await supabase
                     .from('yearly_records')
-                    .upsert(yearlyData.map(r => ({ ...r, updated_at: new Date().toISOString() })));
+                    .upsert(yearlyData.map(r => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'user_id,year' });
                 if (yError) throw yError;
             }
 
