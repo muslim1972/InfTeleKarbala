@@ -348,12 +348,17 @@ export const TabAddEmployee = ({
                             type="text"
                             value={formData.username}
                             onChange={(e) => {
-                                const val = e.target.value.replace(/\s/g, ''); // منع المسافات
-                                setFormData({ ...formData, username: val });
+                                setFormData({ ...formData, username: e.target.value });
                             }}
-                            placeholder="مثال: صابرين أو sabreen"
-                            className={cn("font-mono text-left", !formData.username && "border-amber-300 dark:border-amber-700/50")}
-                            dir="ltr"
+                            onBlur={() => {
+                                const trimmed = (formData.username || '').trim().replace(/\s+/g, ' ');
+                                if (trimmed !== formData.username) {
+                                    setFormData({ ...formData, username: trimmed });
+                                }
+                            }}
+                            placeholder="مثال: يحيى علي أو sabreen"
+                            className={cn("font-mono", !formData.username && "border-amber-300 dark:border-amber-700/50")}
+                            dir="auto"
                             autoComplete="off"
                         />
                     </div>

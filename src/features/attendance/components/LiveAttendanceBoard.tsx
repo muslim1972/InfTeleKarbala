@@ -92,10 +92,16 @@ export default function LiveAttendanceBoard() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pageSize, setPageSize] = useState<number>(50);
-  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const printRef = useRef<HTMLDivElement>(null);
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (dir: 'left' | 'right') => {
+    if (tabsScrollRef.current) {
+      const offset = dir === 'left' ? -160 : 160;
+      tabsScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -219,20 +225,6 @@ export default function LiveAttendanceBoard() {
     });
   }, [allEmployees, search, selectedDept, statusFilter]);
 
-  // Reset pagination when filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedDept, statusFilter, pageSize]);
-
-  // Paginated records
-  const paginatedEmployees = useMemo(() => {
-    if (pageSize === -1) return filteredEmployees;
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredEmployees.slice(startIndex, startIndex + pageSize);
-  }, [filteredEmployees, currentPage, pageSize]);
-
-  const totalPages = pageSize === -1 ? 1 : Math.ceil(filteredEmployees.length / pageSize) || 1;
-
   const handlePrint = () => {
     window.print();
   };
@@ -289,51 +281,35 @@ export default function LiveAttendanceBoard() {
         <div className="absolute -left-10 -top-10 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-blue-600/30 border border-blue-400/30 text-blue-300 shrink-0">
-              <Calendar className="w-6 h-6" />
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4 relative z-10">
+          <div className="flex items-start gap-3 w-full min-w-0">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-blue-600/30 border border-blue-400/30 text-blue-300 shrink-0">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-extrabold text-lg text-white tracking-wide">
+                <h2 className="font-extrabold text-base sm:text-lg text-white tracking-wide">
                   {dutyInfo?.dayTypeLabel || 'الموقف الحي لدوام اليوم'}
                 </h2>
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30">
-                  {dutyInfo?.isHolidayOrWeekend ? 'مقتصر على كوادر المناوبة' : 'دوام كامل لجميع الأقسام'}
-                </span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {dutyInfo?.dayPhaseLabel || 'فترة العمل الحالية'}
                 </span>
               </div>
-              <p className="text-xs mt-1.5 text-slate-300 leading-relaxed max-w-2xl">
-                {dutyInfo?.isHolidayOrWeekend ? (
-                  <>عطلة رسمية — يقتصر الحضور على طواقم المناوبة والخفر المقيدين بجداول عمل خاصة.</>
-                ) : (
-                  <>
-                    إجمالي القوة المكلفة بالدوام اليوم: <span className="font-bold text-white">{totalScheduled} موظفاً</span>
-                    {' '}(باستثناء المناوبين في يوم استراحتهم الدورية).
-                  </>
-                )}
+              <p className="text-xs mt-1.5 text-slate-300 leading-normal truncate w-full">
+                إجمالي الموظفين عدا المناوبين لهذا اليوم: <span className="font-bold text-white">{totalScheduled} موظفاً</span>
               </p>
             </div>
           </div>
 
-          {/* Coverage KPI Widget */}
-          <div className="flex items-center gap-4 bg-white/10 dark:bg-slate-800/40 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/15 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-blue-200 font-medium">
-                <FileCheck className="w-4 h-4 text-emerald-400" />
-                <span>نسبة التغطية القانونية اليوم:</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">{coveragePercent}%</span>
-                <span className="text-[11px] text-slate-300">
-                  ({totalPresent + onLeaveCount + onDutyCount} من {totalScheduled})
-                </span>
-              </div>
-              <div className="w-40 bg-white/20 h-1.5 rounded-full overflow-hidden">
+          {/* Coverage KPI Widget — سطر مدمج أفقي موحد */}
+          <div className="flex items-center justify-between w-full lg:w-auto gap-3.5 bg-white/10 dark:bg-slate-800/40 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-white/15 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl sm:text-2xl font-black text-white">{coveragePercent}%</span>
+              <span className="text-xs text-slate-300 font-medium">
+                ({totalPresent + onLeaveCount + onDutyCount} من {totalScheduled})
+              </span>
+              <div className="w-20 sm:w-28 bg-white/20 h-1.5 rounded-full overflow-hidden hidden sm:block">
                 <div 
                   className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
                   style={{ width: `${Math.min(100, coveragePercent)}%` }}
@@ -341,21 +317,21 @@ export default function LiveAttendanceBoard() {
               </div>
             </div>
 
-            <div className="border-r border-white/20 pr-4 flex flex-col gap-1.5">
+            <div className="border-r border-white/20 pr-3 flex items-center gap-1.5">
+              <button
+                onClick={handlePrint}
+                title="طباعة تقرير الموقف اللحظي"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex items-center justify-center print:hidden"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 title="تحديث البيانات فوراً"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition flex items-center justify-center"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex items-center justify-center"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-300' : ''}`} />
-              </button>
-              <button
-                onClick={handlePrint}
-                title="طباعة تقرير الموقف اللحظي"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition flex items-center justify-center print:hidden"
-              >
-                <Printer className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -363,27 +339,27 @@ export default function LiveAttendanceBoard() {
       </motion.div>
 
       {/* ─── Executive KPI Cards (Interactive Filters) ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         
         {/* 1. Total Present */}
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'present_today' ? 'all' : 'present_today')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'present_today'
               ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 dark:bg-blue-950/40 dark:border-blue-500'
               : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
             <span className="text-xs font-bold">حضروا اليوم</span>
             <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{totalPresent}</span>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white min-w-[3.5rem] tracking-tight">{totalPresent}</span>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate text-left" dir="rtl">
               {totalPresent - lateCount} بالوقت • {lateCount} بتأخير
-            </p>
+            </span>
           </div>
         </motion.div>
 
@@ -391,21 +367,21 @@ export default function LiveAttendanceBoard() {
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'active_now' ? 'all' : 'active_now')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'active_now'
               ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 dark:bg-emerald-950/40 dark:border-emerald-500'
               : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-800/40 hover:border-emerald-300'
           }`}
         >
-          <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 mb-1">
+          <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 mb-0.5">
             <span className="text-xs font-bold">على رأس العمل الآن</span>
             <Clock className="w-4 h-4 animate-pulse" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">{activeNow}</span>
-            <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1 truncate">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300 min-w-[3.5rem] tracking-tight">{activeNow}</span>
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 truncate text-left" dir="rtl">
               {dutyInfo?.dayPhase.includes('evening') || dutyInfo?.dayPhase.includes('night') ? 'مناوبات مستمرة' : 'متواجدون حالياً'}
-            </p>
+            </span>
           </div>
         </motion.div>
 
@@ -413,21 +389,21 @@ export default function LiveAttendanceBoard() {
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'checked_out' ? 'all' : 'checked_out')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'checked_out'
               ? 'bg-slate-100 border-slate-500 ring-2 ring-slate-500/20 dark:bg-slate-700 dark:border-slate-400'
               : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 mb-1">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 mb-0.5">
             <span className="text-xs font-bold">أكملوا وانصرفوا</span>
             <LogOut className="w-4 h-4 text-slate-500" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">{completedDuty}</span>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 min-w-[3.5rem] tracking-tight">{completedDuty}</span>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate text-left" dir="rtl">
               بصمات خروج نظامية
-            </p>
+            </span>
           </div>
         </motion.div>
 
@@ -435,7 +411,7 @@ export default function LiveAttendanceBoard() {
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'missing_checkout' ? 'all' : 'missing_checkout')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'missing_checkout'
               ? 'bg-orange-100 border-orange-500 ring-2 ring-orange-500/20 dark:bg-orange-950/60 dark:border-orange-400'
               : missingCheckout > 0 
@@ -443,15 +419,15 @@ export default function LiveAttendanceBoard() {
                 : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'
           }`}
         >
-          <div className="flex items-center justify-between text-orange-700 dark:text-orange-400 mb-1">
+          <div className="flex items-center justify-between text-orange-700 dark:text-orange-400 mb-0.5">
             <span className="text-xs font-bold">معلق (بدون خروج)</span>
             <AlertTriangle className="w-4 h-4" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-orange-700 dark:text-orange-300">{missingCheckout}</span>
-            <p className="text-[11px] text-orange-600/80 dark:text-orange-400/80 mt-1 truncate">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-orange-700 dark:text-orange-300 min-w-[3.5rem] tracking-tight">{missingCheckout}</span>
+            <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300 truncate text-left" dir="rtl">
               انتهى دوامهم ولم يبصموا
-            </p>
+            </span>
           </div>
         </motion.div>
 
@@ -459,23 +435,23 @@ export default function LiveAttendanceBoard() {
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'authorized' ? 'all' : 'authorized')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'authorized'
               ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-500/20 dark:bg-blue-950/60 dark:border-blue-400'
               : 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-100 dark:border-blue-800/40 hover:border-blue-300'
           }`}
         >
-          <div className="flex items-center justify-between text-blue-700 dark:text-blue-400 mb-1">
+          <div className="flex items-center justify-between text-blue-700 dark:text-blue-400 mb-0.5">
             <span className="text-xs font-bold">مأذونون (إجازات وواجب)</span>
             <CheckCircle2 className="w-4 h-4" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-blue-700 dark:text-blue-300">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300 min-w-[3.5rem] tracking-tight">
               {onLeaveCount + onDutyCount}
             </span>
-            <p className="text-[11px] text-blue-600/80 dark:text-blue-400/80 mt-1 truncate">
-              {onLeaveCount} إجازات • {onDutyCount} واجب رسمي
-            </p>
+            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 truncate text-left" dir="rtl">
+              {onLeaveCount} إجازات • {onDutyCount} واجب
+            </span>
           </div>
         </motion.div>
 
@@ -483,21 +459,21 @@ export default function LiveAttendanceBoard() {
         <motion.div
           whileHover={{ y: -2 }}
           onClick={() => setStatusFilter(statusFilter === 'absent' ? 'all' : 'absent')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between ${
             statusFilter === 'absent'
               ? 'bg-red-100 border-red-500 ring-2 ring-red-500/20 dark:bg-red-950/60 dark:border-red-400'
               : 'bg-red-50/40 dark:bg-red-950/20 border-red-100 dark:border-red-800/40 hover:border-red-300'
           }`}
         >
-          <div className="flex items-center justify-between text-red-700 dark:text-red-400 mb-1">
+          <div className="flex items-center justify-between text-red-700 dark:text-red-400 mb-0.5">
             <span className="text-xs font-bold">غياب غير مبرر</span>
             <AlertCircle className="w-4 h-4" />
           </div>
-          <div className="mt-1">
-            <span className="text-3xl font-extrabold text-red-700 dark:text-red-300">{absentCount}</span>
-            <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-1 truncate">
+          <div className="mt-1 flex items-baseline justify-between gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-red-700 dark:text-red-300 min-w-[3.5rem] tracking-tight">{absentCount}</span>
+            <span className="text-[11px] font-bold text-red-700 dark:text-red-300 truncate text-left" dir="rtl">
               بدون طلب إجازة أو مهمة
-            </p>
+            </span>
           </div>
         </motion.div>
 
@@ -529,14 +505,14 @@ export default function LiveAttendanceBoard() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Department Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium">
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            {/* Department Selector (Dynamic width, shrinks gracefully) */}
+            <div className="flex-1 min-w-0 md:w-56 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 sm:px-3 py-2 text-xs font-medium">
               <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer"
+                className="w-full bg-transparent border-none outline-none text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer truncate"
               >
                 <option value="all">كافة الأقسام والشعب</option>
                 {departments.map((dept) => (
@@ -545,11 +521,11 @@ export default function LiveAttendanceBoard() {
               </select>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+            {/* View Mode Toggle (Fixed width, never wraps) */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700 shrink-0">
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'table'
                     ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
@@ -561,7 +537,7 @@ export default function LiveAttendanceBoard() {
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   viewMode === 'grid'
                     ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
@@ -572,69 +548,89 @@ export default function LiveAttendanceBoard() {
                 <span className="hidden sm:inline">بطاقات</span>
               </button>
             </div>
-
-            {/* Records Count Badge */}
-            <div className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold border border-slate-200/60 dark:border-slate-700">
-              المعروض: {filteredEmployees.length} من {totalScheduled}
-            </div>
           </div>
         </div>
 
-        {/* Filter Tabs Row */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin">
-          {[
-            { id: 'all', label: 'الكل', count: allEmployees.length },
-            { id: 'active_now', label: 'على رأس العمل الآن', count: activeNow },
-            { id: 'checked_out', label: 'أكملوا دوامهم (انصرفوا)', count: completedDuty },
-            { id: 'authorized', label: 'مأذونون (إجازة/واجب)', count: onLeaveCount + onDutyCount },
-            { id: 'late', label: 'متأخرون / جزاءات', count: lateCount },
-            { id: 'missing_checkout', label: 'معلق (لم يسجل خروج)', count: missingCheckout },
-            { id: 'upcoming_shift', label: 'بانتظار المناوبة', count: upcomingShiftCount },
-            { id: 'absent', label: 'غياب غير مبرر', count: absentCount }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                statusFilter === tab.id
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-2 ring-blue-500/20'
-                  : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              <span>{tab.label}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
+        {/* Filter Tabs Row with Smooth Navigation Arrows */}
+        <div className="relative flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => scrollTabs('right')}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition shrink-0 shadow-sm border border-slate-200/60 dark:border-slate-600"
+            title="تمرير لليمين"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          <div 
+            ref={tabsScrollRef}
+            className="flex-1 flex gap-1.5 overflow-x-auto py-1 scroll-smooth [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {[
+              { id: 'all', label: 'الكل', count: allEmployees.length },
+              { id: 'active_now', label: 'على رأس العمل الآن', count: activeNow },
+              { id: 'checked_out', label: 'أكملوا دوامهم (انصرفوا)', count: completedDuty },
+              { id: 'authorized', label: 'مأذونون (إجازة/واجب)', count: onLeaveCount + onDutyCount },
+              { id: 'late', label: 'متأخرون / جزاءات', count: lateCount },
+              { id: 'missing_checkout', label: 'معلق (لم يسجل خروج)', count: missingCheckout },
+              { id: 'upcoming_shift', label: 'بانتظار المناوبة', count: upcomingShiftCount },
+              { id: 'absent', label: 'غياب غير مبرر', count: absentCount }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                  statusFilter === tab.id
+                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-2 ring-blue-500/20'
+                    : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollTabs('left')}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition shrink-0 shadow-sm border border-slate-200/60 dark:border-slate-600"
+            title="تمرير لليسار"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {/* ─── Main Content: High-Density Table or Grid View ─── */}
       {viewMode === 'table' ? (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* الحاوية المحددة بارتفاع 4 أسماء كحد مرئي مع سكرول داخلي وترويسة ثابتة */}
+          <div className="overflow-x-auto max-h-[290px] overflow-y-auto scrollbar-thin">
             <table className="w-full text-right text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-extrabold select-none">
-                  <th className="py-3.5 px-3 w-10 text-center">#</th>
-                  <th className="py-3.5 px-3 min-w-[200px]">الموظف والرقم الوظيفي</th>
-                  <th className="py-3.5 px-3 min-w-[140px]">القسم / الشعبة</th>
-                  <th className="py-3.5 px-3 min-w-[120px]">جدول الدوام</th>
-                  <th className="py-3.5 px-3 text-center min-w-[90px]">الحضور</th>
-                  <th className="py-3.5 px-3 text-center min-w-[90px]">الانصراف</th>
-                  <th className="py-3.5 px-3 text-center min-w-[100px]">ساعات التواجد</th>
-                  <th className="py-3.5 px-3 text-center min-w-[140px]">الحالة المباشرة</th>
-                  <th className="py-3.5 px-3 min-w-[180px]">الملاحظات والجزاءات</th>
+              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
+                <tr className="text-slate-600 dark:text-slate-400 font-extrabold select-none">
+                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-3 min-w-[200px]">الموظف والرقم الوظيفي</th>
+                  <th className="py-3 px-3 min-w-[140px]">القسم / الشعبة</th>
+                  <th className="py-3 px-3 min-w-[120px]">جدول الدوام</th>
+                  <th className="py-3 px-3 text-center min-w-[90px]">الحضور</th>
+                  <th className="py-3 px-3 text-center min-w-[90px]">الانصراف</th>
+                  <th className="py-3 px-3 text-center min-w-[100px]">ساعات التواجد</th>
+                  <th className="py-3 px-3 text-center min-w-[140px]">الحالة المباشرة</th>
+                  <th className="py-3 px-3 min-w-[180px]">الملاحظات والجزاءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium">
-                {paginatedEmployees.map((emp, idx) => {
+                {filteredEmployees.map((emp, idx) => {
                   const cfg = getStatusConfig(emp.liveStatus);
                   const isPendingDevice = emp.isDevicePending;
-                  const rowNumber = pageSize === -1 ? idx + 1 : (currentPage - 1) * pageSize + idx + 1;
+                  const rowNumber = idx + 1;
 
                   return (
                     <tr 
@@ -760,53 +756,11 @@ export default function LiveAttendanceBoard() {
               </tbody>
             </table>
           </div>
-
-          {/* Table Pagination Bar */}
-          {filteredEmployees.length > 0 && (
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                <span>عرض</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 font-bold text-slate-700 dark:text-slate-200"
-                >
-                  <option value={25}>25 سجل</option>
-                  <option value={50}>50 سجل</option>
-                  <option value={100}>100 سجل</option>
-                  <option value={-1}>عرض الكل ({filteredEmployees.length})</option>
-                </select>
-                <span>في الصفحة الواحدة</span>
-              </div>
-
-              {pageSize !== -1 && totalPages > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <span className="px-3 font-bold text-slate-700 dark:text-slate-300">
-                    صفحة {currentPage} من {totalPages}
-                  </span>
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       ) : (
         /* ─── Grid View (Cards) ─── */
         <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {paginatedEmployees.map((emp) => {
+          {filteredEmployees.map((emp) => {
             const cfg = getStatusConfig(emp.liveStatus);
             const isPendingDevice = emp.isDevicePending;
 

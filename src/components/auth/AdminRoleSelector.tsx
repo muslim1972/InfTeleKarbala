@@ -111,13 +111,13 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
     const visibleCards = cards.filter(c => c.show);
 
     return (
-        <div className={`h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden font-tao scroll-smooth transition-colors duration-500 ${
+        <div className={`min-h-screen w-full flex items-start justify-center relative font-tajawal transition-colors duration-500 ${
             isDark ? 'bg-gray-900' : 'bg-slate-50'
         }`}>
             <ThemeToggleFloating />
             {/* Smart Background Layer - Fixed */}
             <div
-                className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 ${
+                className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 pointer-events-none ${
                     isDark ? 'opacity-100' : 'opacity-20'
                 }`}
                 style={{ backgroundImage: `url('/sign-in.jpg')` }}
@@ -128,7 +128,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             </div>
 
             {/* Main Content Container */}
-            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(5.5rem+env(safe-area-inset-top))] pb-32">
+            <div className="relative z-10 w-full max-w-lg p-6 flex flex-col items-center pt-[calc(5.5rem+env(safe-area-inset-top))] pb-44">
 
                 <div className="text-center mb-6 space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <h1 className={`text-2xl md:text-3xl font-bold font-tajawal drop-shadow-lg leading-relaxed transition-colors duration-500 ${

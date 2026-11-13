@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { timesheetService } from '../services/timesheetService';
 import { supabase } from '../../../lib/supabase';
+import { useGovernorate } from '../../../context/GovernorateContext';
+import { governorateName } from '../../../constants/governorates';
 import { computeWorkedMinutes, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X, RefreshCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -98,14 +100,26 @@ const extractPunchSnapshots = (rec: any): PunchGalleryItem[] => {
     });
 };
 
-const TimesheetEmployeeFilter = memo(({ onSelectEmployee, currentEmpId }: { onSelectEmployee: (id: string) => void; currentEmpId: string }) => {
+const TimesheetEmployeeFilter = memo(({ onSelectEmployee, currentEmpId, governorate, className }: { 
+  onSelectEmployee: (id: string) => void; 
+  currentEmpId: string; 
+  governorate?: string;
+  className?: string;
+}) => {
   const [query, setQuery] = useState('');
 
+  useEffect(() => {
+    if (currentEmpId === 'all') {
+      setQuery('');
+    }
+  }, [currentEmpId]);
+
   return (
-    <div className="w-56">
-      <label className="block text-xs font-medium text-slate-500 mb-1">الموظف</label>
+    <div className={className || "w-full"}>
+      <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">الموظف</label>
       <EmployeeSearch 
         value={query}
+        governorate={governorate}
         onChange={(val: string) => {
           setQuery(val);
           if (!val && currentEmpId !== 'all') {
@@ -117,12 +131,14 @@ const TimesheetEmployeeFilter = memo(({ onSelectEmployee, currentEmpId }: { onSe
           onSelectEmployee(emp.id);
         }}
         placeholder="كل الموظفين..."
+        inputClassName="py-2 text-xs sm:text-sm rounded-xl font-medium"
       />
     </div>
   );
 });
 
 export default function Timesheets() {
+  const { activeGovernorate } = useGovernorate();
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [departmentId, setDepartmentId] = useState('all');
@@ -154,51 +170,37 @@ export default function Timesheets() {
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [monthLeaves, setMonthLeaves] = useState<LeaveRequestLite[]>([]);
 
+  const loadFilters = useCallback(async () => {
+    try {
+      const [deps, schedules, emps, settingsRes, holidaysRes] = await Promise.all([
+        timesheetService.getDepartments(activeGovernorate),
+        timesheetService.getWorkSchedules(),
+        timesheetService.getEmployees(undefined, activeGovernorate),
+        supabase.from('attendance_settings').select('*').eq('id', 1).single(),
+        supabase.from('official_holidays').select('*')
+      ]);
+
+      setDepartments(deps);
+      setWorkSchedules(schedules);
+      setAllEmployees(emps);
+      if (settingsRes.data) setGlobalSettings(settingsRes.data);
+      if (holidaysRes.data) setGlobalHolidays(holidaysRes.data);
+    } catch (err) {
+      console.error('Failed to load filters', err);
+    }
+  }, [activeGovernorate]);
+
   useEffect(() => {
+    setDepartmentId('all');
+    setEmployeeId('all');
     loadFilters();
-  }, []);
+  }, [activeGovernorate, loadFilters]);
 
   useEffect(() => {
     if (departmentId !== 'all') {
       setEmployeeId('all');
     }
   }, [departmentId]);
-
-  useEffect(() => {
-    loadData();
-
-    const channel = supabase
-      .channel('timesheets_realtime_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
-        loadData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel).catch(() => {});
-    };
-  }, [year, month, departmentId, employeeId]);
-
-  const loadFilters = async () => {
-    try {
-      const deps = await timesheetService.getDepartments();
-      setDepartments(deps);
-      
-      const schedules = await timesheetService.getWorkSchedules();
-      setWorkSchedules(schedules);
-
-      const emps = await timesheetService.getEmployees();
-      setAllEmployees(emps);
-
-      const { data: settingsData } = await supabase.from('attendance_settings').select('*').eq('id', 1).single();
-      if (settingsData) setGlobalSettings(settingsData);
-
-      const { data: holidaysData } = await supabase.from('official_holidays').select('*');
-      if (holidaysData) setGlobalHolidays(holidaysData);
-    } catch (err) {
-      console.error('Failed to load filters', err);
-    }
-  };
 
   /**
    * فحص ساعات الذروة الصباحية وبعد الظهر لمنع الضغط وحماية السيرفر أثناء حضور وانصراف الموظفين
@@ -224,7 +226,7 @@ export default function Timesheets() {
     return null;
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const peakWarning = checkPeakHourRestriction();
     if (peakWarning) {
       toast(peakWarning, { icon: '⏳', duration: 7000 });
@@ -233,21 +235,45 @@ export default function Timesheets() {
 
     setLoading(true);
     try {
-      const data = await timesheetService.getMonthlyTimesheets(year, month, departmentId, employeeId);
-      setRecords(data);
+      const data = await timesheetService.getMonthlyTimesheets(year, month, departmentId, employeeId, activeGovernorate);
+      // حماية إضافية في الذاكرة لضمان عدم تسرب أي سجل من محافظة أخرى
+      const filteredRecords = (activeGovernorate && activeGovernorate !== 'all')
+        ? data.filter((r: any) => !r.employee?.governorate || r.employee.governorate === activeGovernorate)
+        : data;
+      setRecords(filteredRecords);
 
       // ─── تكامل الإجازات (تقارير): جلب إجازات الشهر المعتمدة لتمييز أيام الإجازة عن الغياب ───
       const lastDay = new Date(year, month, 0).getDate();
       const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
       const endStr = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-      const leaves = await getApprovedLeavesInRange(startStr, endStr);
+
+      const targetUserIds = (employeeId && employeeId !== 'all')
+        ? [employeeId]
+        : (allEmployees.length > 0 ? allEmployees.map(e => e.id) : undefined);
+
+      const leaves = await getApprovedLeavesInRange(startStr, endStr, targetUserIds);
       setMonthLeaves(leaves);
     } catch (err: any) {
       toast.error('فشل تحميل التقارير: ' + err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [year, month, departmentId, employeeId, activeGovernorate, allEmployees]);
+
+  useEffect(() => {
+    loadData();
+
+    const channel = supabase
+      .channel('timesheets_realtime_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel).catch(() => {});
+    };
+  }, [loadData]);
 
   const getShiftInfo = useCallback((empScheduleId: string | undefined, dateStr: string) => {
     const defaultSchedule = workSchedules.find(s => s.is_default) || workSchedules[0];
@@ -286,7 +312,7 @@ export default function Timesheets() {
 
     // Expected check-in & check-out times
     let expectedIn = '08:00';
-    let expectedOut = '15:00';
+    let expectedOut = '14:30';
 
     if (isRoster) {
       if (isMorning && isEvening && isNight) {
@@ -303,7 +329,7 @@ export default function Timesheets() {
         expectedOut = '08:00';
       } else if (isMorning) {
         expectedIn = '08:00';
-        expectedOut = '15:00';
+        expectedOut = '14:30';
       } else if (isEvening) {
         expectedIn = '14:30';
         expectedOut = '20:00';
@@ -312,12 +338,12 @@ export default function Timesheets() {
         expectedOut = '08:00';
       } else {
         expectedIn = '08:00';
-        expectedOut = '15:00';
+        expectedOut = '14:30';
       }
     } else {
       if (daySchedule && !daySchedule.is_rest_day) {
         expectedIn = daySchedule.start_time?.substring(0, 5) || '08:00';
-        expectedOut = daySchedule.end_time?.substring(0, 5) || '15:00';
+        expectedOut = daySchedule.end_time?.substring(0, 5) || '14:30';
       }
     }
 
@@ -384,6 +410,10 @@ export default function Timesheets() {
     const groups: Record<string, { employee: any, records: any[], totalWorkMins: number, totalDeficit: number, totalOvertime: number, lateCount: number, absenceCount: number, leaveCount: number }> = {};
 
     const relevantEmployees = allEmployees.filter(emp => {
+      // عزل المحافظة: استبعاد أي موظف خارج المحافظة النشطة
+      if (activeGovernorate && activeGovernorate !== 'all' && emp.governorate && emp.governorate !== activeGovernorate) {
+        return false;
+      }
       if (departmentId !== 'all' && emp.department_id !== departmentId) return false;
       if (employeeId !== 'all' && emp.id !== employeeId) return false;
       return true;
@@ -405,6 +435,18 @@ export default function Timesheets() {
     records.forEach(rec => {
       const empId = rec.employee_id;
       if (!groups[empId]) {
+        // حماية حتمية: نتأكد من المحافظة أولاً
+        const recGov = rec.employee?.governorate;
+        if (activeGovernorate && activeGovernorate !== 'all' && recGov && recGov !== activeGovernorate) {
+          return; // استبعاد قطعي لأي سجل من محافظة أخرى
+        }
+        if (departmentId !== 'all' && rec.department_id !== departmentId && rec.employee?.department_id !== departmentId) {
+          return;
+        }
+        if (employeeId !== 'all' && empId !== employeeId) {
+          return;
+        }
+
         groups[empId] = {
           employee: rec.employee || { id: empId, full_name: 'موظف' },
           records: [],
@@ -682,7 +724,7 @@ export default function Timesheets() {
           const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
           const isEarlyOut = Boolean(
             rec.check_out && !isRestOrHoliday && (
-              (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+              (expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
               (deficitMins > 0 && rec.check_out) ||
               rec.notes?.includes('خروج مبكر')
             )
@@ -723,7 +765,8 @@ export default function Timesheets() {
             timeLeaves: dayTimeLeaves
           });
 
-          const notesStyle = (isVirtualIn || isVirtualOut) 
+          const isOutsideLocation = smartNotes.includes('خارج موقع') || (rec.notes && rec.notes.includes('خارج موقع'));
+          const notesStyle = (isVirtualIn || isVirtualOut || isOutsideLocation) 
             ? 'font-size: 7.5px; color: #e11d48; font-weight: bold;' 
             : smartNotes.includes('⚠️') 
             ? 'font-size: 7.5px; color: #ea580c; font-weight: bold;' 
@@ -1171,7 +1214,7 @@ export default function Timesheets() {
             <td style="${tdNumStyle} ${deficitColor}">${deficitMins > 0 ? formatDurationDot(deficitMins) : '--'}</td>
             <td style="${tdNumStyle} ${overtimeColor}">${overtimeMins > 0 ? formatDurationDot(overtimeMins) : '--'}</td>
             <td style="${tdStyle} ${statusResult.style}">${statusResult.text}</td>
-            <td style="${tdStyle} font-size: 8px;">${smartNotes}</td>
+            <td style="${tdStyle} font-size: 8px; ${(isVirtualIn || isVirtualOut || (smartNotes && smartNotes.includes('خارج موقع')) || (rec.notes && rec.notes.includes('خارج موقع'))) ? 'color: #e11d48; font-weight: bold;' : ''}">${smartNotes}</td>
           </tr>
         `;
       }
@@ -1237,55 +1280,85 @@ export default function Timesheets() {
   return (
     <div className="space-y-6">
       {/* Header & Filters */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col md:flex-row gap-4 items-end justify-between">
-        <div className="flex flex-wrap items-center gap-4 flex-1">
+      <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm space-y-3">
+        {/* Row 1: السنة والشهر والمحافظة في سطر واحد ثابت وديناميكي دائماً */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">السنة</label>
-            <select value={year} onChange={e => setYear(Number(e.target.value))} className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none dark:text-white">
+            <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">السنة</label>
+            <select 
+              value={year} 
+              onChange={e => setYear(Number(e.target.value))} 
+              className="w-full h-10 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-2 sm:px-3 text-xs sm:text-sm outline-none dark:text-white text-center font-medium"
+            >
               {[0, 1, 2, 3].map(offset => (
                 <option key={offset} value={new Date().getFullYear() - offset}>{new Date().getFullYear() - offset}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">الشهر</label>
-            <select value={month} onChange={e => setMonth(Number(e.target.value))} className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none dark:text-white">
+            <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">الشهر</label>
+            <select 
+              value={month} 
+              onChange={e => setMonth(Number(e.target.value))} 
+              className="w-full h-10 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-1.5 sm:px-3 text-xs sm:text-sm outline-none dark:text-white text-center font-medium"
+            >
               {Array.from({ length: 12 }).map((_, i) => (
                 <option key={i+1} value={i+1}>{format(new Date(2000, i, 1), 'MMMM', { locale: arSA })}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">القسم</label>
-            <select value={departmentId} onChange={e => setDepartmentId(e.target.value)} className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none w-48 dark:text-white">
+            <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">المحافظة</label>
+            <div className="w-full h-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl text-xs sm:text-sm font-bold border border-blue-200/60 dark:border-blue-700/50">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+              <span className="truncate">{governorateName(activeGovernorate)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: القسم (1/3) والموظف (2/3) في سطر واحد دائماً */}
+        <div className="flex items-end gap-2 sm:gap-3 w-full">
+          <div className="w-1/3 min-w-0">
+            <label className="block text-[11px] sm:text-xs font-medium text-slate-500 mb-1">القسم</label>
+            <select 
+              value={departmentId} 
+              onChange={e => setDepartmentId(e.target.value)} 
+              className="w-full h-10 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl px-2 sm:px-3 text-xs sm:text-sm outline-none dark:text-white truncate font-medium"
+            >
               <option value="all">كل الأقسام</option>
               {departments.map(dep => (
                 <option key={dep.id} value={dep.id}>{dep.name}</option>
               ))}
             </select>
           </div>
-          <TimesheetEmployeeFilter onSelectEmployee={setEmployeeId} currentEmpId={employeeId} />
+          <div className="w-2/3 min-w-0">
+            <TimesheetEmployeeFilter 
+              onSelectEmployee={setEmployeeId} 
+              currentEmpId={employeeId} 
+              governorate={activeGovernorate} 
+              className="w-full"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Row 3: أزرار التحديث والتصدير */}
+        <div className="flex items-center justify-start sm:justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
           <button 
             onClick={loadData}
             disabled={loading}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium disabled:opacity-50"
+            className="flex-1 sm:flex-initial justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-xs sm:text-sm font-bold disabled:opacity-50"
             title="إعادة تحميل البيانات وتحديث التقرير"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
             تحديث التقرير
           </button>
-          <div>
-            <button 
-              onClick={() => exportToPDF()} 
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-sm font-medium"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              تصدير PDF
-            </button>
-          </div>
+          <button 
+            onClick={() => exportToPDF()} 
+            className="flex-1 sm:flex-initial justify-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap text-xs sm:text-sm font-bold shadow-sm"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            تصدير PDF
+          </button>
         </div>
       </div>
 
@@ -1301,57 +1374,76 @@ export default function Timesheets() {
           <p className="text-slate-500 mt-2">لا توجد سجلات حضور للمحددات المختارة في هذا الشهر.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {groupedData.map(group => (
-            <div id={`timesheet-emp-${group.employee.id}`} key={group.employee.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm transition-all">
-              {/* Summary Row */}
-              <div 
-                onClick={() => setExpandedEmp(expandedEmp === group.employee.id ? null : group.employee.id)}
-                className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center font-bold">
-                    {group.employee.full_name.charAt(0)}
+        /* قائمة الموظفين المتحدة بحاوية ذات ارتفاع أقصى وتمرير داخلي */
+        <div className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 ${expandedEmp ? 'max-h-[72vh]' : 'max-h-[205px]'} overflow-y-auto scrollbar-thin transition-all`}>
+          {groupedData.map(group => {
+            const isExpanded = expandedEmp === group.employee.id;
+            return (
+              <div id={`timesheet-emp-${group.employee.id}`} key={group.employee.id} className="transition-colors">
+                {/* Summary Row */}
+                <div 
+                  onClick={() => setExpandedEmp(isExpanded ? null : group.employee.id)}
+                  className={`py-2.5 px-3 sm:py-3 sm:px-4 flex items-center justify-between cursor-pointer transition-colors ${
+                    isExpanded 
+                      ? 'bg-blue-50/70 dark:bg-blue-950/30' 
+                      : 'hover:bg-slate-50/80 dark:hover:bg-slate-700/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 transition-colors ${
+                      isExpanded 
+                        ? 'bg-blue-600 text-white shadow-sm' 
+                        : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                    }`}>
+                      {group.employee.full_name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">
+                        {group.employee.full_name}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                        {group.employee.job_number}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white">{group.employee.full_name}</h4>
-                    <p className="text-xs text-slate-500">{group.employee.job_number}</p>
+                  
+                  {/* Desktop KPI stats */}
+                  <div className="hidden md:flex gap-5 text-center items-center">
+                    <div>
+                      <div className="text-[10px] text-slate-400 mb-0.5">الصافي</div>
+                      <div className="font-bold text-xs text-blue-600">{formatDurationDot(group.totalWorkMins)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 mb-0.5">النقص</div>
+                      <div className="font-bold text-rose-600">{formatDurationDot(group.totalDeficit)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 mb-0.5">الإضافي</div>
+                      <div className="font-bold text-emerald-600">{formatDurationDot(group.totalOvertime)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 mb-0.5">متأخر/غياب</div>
+                      <div className="font-bold text-xs text-slate-600 dark:text-slate-400">{group.lateCount} / {group.absenceCount}</div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="hidden md:flex gap-6 text-center items-center">
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">الصافي</div>
-                    <div className="font-bold text-blue-600">{formatDurationDot(group.totalWorkMins)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">النقص</div>
-                    <div className="font-bold text-rose-600">{formatDurationDot(group.totalDeficit)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">الإضافي</div>
-                    <div className="font-bold text-emerald-600">{formatDurationDot(group.totalOvertime)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">متأخر/غياب</div>
-                    <div className="font-bold text-slate-600 dark:text-slate-400">{group.lateCount} / {group.absenceCount}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {expandedEmp === group.employee.id && (
-                       <button
-                         onClick={(e) => exportSingleEmployee(e, group)}
-                         className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                       >
-                         <FileSpreadsheet className="w-3 h-3" />
-                         تصدير PDF
-                       </button>
+
+                  {/* Actions & Chevron (Always visible on mobile & desktop) */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isExpanded && (
+                      <button
+                        onClick={(e) => exportSingleEmployee(e, group)}
+                        className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                        title="تصدير تقرير هذا الموظف كملف PDF"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-red-600" />
+                        <span className="hidden sm:inline">تصدير PDF</span>
+                      </button>
                     )}
-                    <div className="text-slate-400">
-                      {expandedEmp === group.employee.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    <div className={`p-1 rounded-lg transition-transform ${isExpanded ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>
                 </div>
-              </div>
 
               {/* Detailed Records (Expanded) */}
               {expandedEmp === group.employee.id && (
@@ -1537,7 +1629,7 @@ export default function Timesheets() {
                           const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
                           const isEarlyOut = Boolean(
                             rec.check_out && !isRestOrHoliday && (
-                              (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+                              (expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
                               (deficitMins > 0 && rec.check_out) ||
                               rec.notes?.includes('خروج مبكر')
                             )
@@ -1634,7 +1726,8 @@ export default function Timesheets() {
                 </div>
               )}
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

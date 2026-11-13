@@ -26,6 +26,7 @@ export interface AppUser {
   unit_text?: string;
   has_capacities_access?: boolean;
   has_attendance_access?: boolean;
+  has_kiosk_access?: boolean;
   can_access_promotion?: boolean;
   is_promotion_lecturer?: boolean;
   is_training_supervisor?: boolean;
@@ -189,6 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               unit_text: profile.unit_text,
               has_capacities_access: profile.has_capacities_access,
               has_attendance_access: profile.has_attendance_access,
+              has_kiosk_access: profile.has_kiosk_access,
               can_access_promotion: profile.can_access_promotion,
               is_promotion_lecturer: profile.is_promotion_lecturer,
               is_training_supervisor: profile.is_training_supervisor,
@@ -364,6 +366,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         unit_text: fullProfile.unit_text,
         has_capacities_access: fullProfile.has_capacities_access,
         has_attendance_access: fullProfile.has_attendance_access,
+        has_kiosk_access: fullProfile.has_kiosk_access,
         can_access_promotion: fullProfile.can_access_promotion,
         is_promotion_lecturer: fullProfile.is_promotion_lecturer,
         is_training_supervisor: fullProfile.is_training_supervisor,

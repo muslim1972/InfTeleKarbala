@@ -123,26 +123,44 @@ export function categorizePunches(
   }
 
   if (filteredPunches.length === 2) {
-    const p2Date = new Date(filteredPunches[1].time);
+    const p2 = filteredPunches[1];
+    const p2Date = new Date(p2.time);
     const p2BaghdadHour = (p2Date.getUTCHours() + 3) % 24;
-    // إذا كانت البصمة الثانية في نهاية الدوام (>= 14:00 في الصباحي) نعتبرها انصرافاً، وإلا فاستراحة
-    if (shiftType === 'morning' ? p2BaghdadHour >= 14 : p2BaghdadHour >= 18) {
-      setOutData(updates, filteredPunches[1], 'check_out');
+
+    const isExplicitTimeLeaveOut = p2.target_slot === 'time_leave_out' || p2.notes?.includes('إجازة زمنية') || p2.notes?.includes('مغادرة مؤقتة');
+    const isExplicitCheckOut = p2.target_slot === 'check_out';
+    const isShiftEndWindow = shiftType === 'morning' ? p2BaghdadHour >= 14 : p2BaghdadHour >= 18;
+
+    if (isExplicitCheckOut || isShiftEndWindow) {
+      setOutData(updates, p2, 'check_out');
+    } else if (isExplicitTimeLeaveOut) {
+      setOutData(updates, p2, 'time_leave_out');
     } else {
-      setOutData(updates, filteredPunches[1], 'time_leave_out');
+      // بصمة تأكيدية إضافية أثناء التواجد في الدوام الصباحي دون طلب خروج
+      // تبقى مسجلة وموثقة في raw_punches، دون قطع الدوام أو فتح مغادرة مؤقتة
     }
   } else if (filteredPunches.length > 2) {
     // البصمة الأخيرة انصراف نهائي
     const lastPunch = filteredPunches[filteredPunches.length - 1];
     setOutData(updates, lastPunch, 'check_out');
 
-    // البصمات الوسطى تُوزع استراحات
+    // فحص البصمات الوسطى: فقط البصمات الموسومة صراحة كإجازة زمنية أو استراحة تُعيّن كـ time_leave
     const middlePunches = filteredPunches.slice(1, -1);
-    if (middlePunches.length > 0) setOutData(updates, middlePunches[0], 'time_leave_out');
-    if (middlePunches.length > 1) setOutData(updates, middlePunches[1], 'time_leave_return');
-    if (middlePunches.length > 2) setOutData(updates, middlePunches[2], 'time_leave_out_2');
-    if (middlePunches.length > 3) setOutData(updates, middlePunches[3], 'time_leave_return_2');
-    if (middlePunches.length > 4) {
+    const timeLeavePunches = middlePunches.filter(p => 
+      p.target_slot === 'time_leave_out' || 
+      p.target_slot === 'time_leave_return' || 
+      p.target_slot === 'time_leave_out_2' || 
+      p.target_slot === 'time_leave_return_2' ||
+      p.notes?.includes('إجازة زمنية') ||
+      p.notes?.includes('استراحة')
+    );
+
+    if (timeLeavePunches.length > 0) {
+      if (timeLeavePunches[0]) setOutData(updates, timeLeavePunches[0], 'time_leave_out');
+      if (timeLeavePunches[1]) setOutData(updates, timeLeavePunches[1], 'time_leave_return');
+      if (timeLeavePunches[2]) setOutData(updates, timeLeavePunches[2], 'time_leave_out_2');
+      if (timeLeavePunches[3]) setOutData(updates, timeLeavePunches[3], 'time_leave_return_2');
+    } else if (middlePunches.length > 4) {
       finalNotes = 'يرجى المراجعة , كثير البصمات';
     }
   }
@@ -150,8 +168,8 @@ export function categorizePunches(
   // 6. فحص وإدراج الخروج الافتراضي الإجباري عند نهاية اليوم إذا كانت البصمات فردية
   if (isEndOfDayEvaluation && filteredPunches.length % 2 === 1 && todayDateStr) {
     const virtualOutTime = shiftType === 'morning' 
-      ? toBaghdadIsoString(todayDateStr, 15, 0)  // 15:00 Baghdad
-      : toBaghdadIsoString(todayDateStr, 23, 59); // 23:59 Baghdad
+      ? toBaghdadIsoString(todayDateStr, 14, 30)  // 14:30 Baghdad نهاية الشفت الصباحي
+      : toBaghdadIsoString(todayDateStr, 23, 58); // 23:58 Baghdad (قبل حاجز فحص 23:59)
 
     updates.check_out = virtualOutTime;
     const virtualOutNote = '(خروج نهائي افتراضي)';

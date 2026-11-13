@@ -110,7 +110,7 @@ export const Login = (_props: { onBack?: () => void } = {}) => {
 
   if (showTraineeLogin) {
     return (
-      <div className={`h-screen w-full relative overflow-y-auto overflow-x-hidden ${theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'}`}>
+      <div className={`min-h-screen w-full relative ${theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'}`}>
         <button 
           onClick={() => setShowTraineeLogin(false)}
           className="fixed top-4 left-4 z-[60] px-4 py-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all text-sm backdrop-blur-md shadow-sm"
@@ -123,13 +123,13 @@ export const Login = (_props: { onBack?: () => void } = {}) => {
   }
 
   return (
-    <div className={`h-screen w-full flex items-start justify-center relative overflow-y-auto overflow-x-hidden font-tao scroll-smooth pb-12 transition-colors duration-500 ${
+    <div className={`min-h-screen w-full flex items-start justify-center relative font-tajawal pb-12 transition-colors duration-500 ${
       theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'
     }`}>
       <ThemeToggleFloating />
       {/* Smart Background Layer - Fixed to stay during scroll */}
       <div
-        className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 ${
+        className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 pointer-events-none ${
           theme === 'light' ? 'opacity-20' : 'opacity-100'
         }`}
         style={{ backgroundImage: `url('/sign-in.jpg')` }}

@@ -83,13 +83,13 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
     };
 
     return (
-        <div className={`min-h-screen w-full flex flex-col relative overflow-y-auto overflow-x-hidden font-tajawal scroll-smooth transition-colors duration-500 ${
+        <div className={`min-h-screen w-full flex flex-col relative font-tajawal transition-colors duration-500 ${
             isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
         }`} dir="rtl">
             <ThemeToggleFloating />
 
             {/* Animated Background */}
-            <div className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 ${
+            <div className={`fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105 pointer-events-none ${
                 isDark ? 'opacity-40' : 'opacity-20'
             }`} style={{ backgroundImage: `url('/sign-in.jpg')` }}></div>
 

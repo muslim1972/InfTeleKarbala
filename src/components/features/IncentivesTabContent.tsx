@@ -22,6 +22,8 @@ import {
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
+import { IncentivesCommitteesUploader } from "./IncentivesCommitteesUploader";
+import { UploadCloud, Sliders, FileText } from "lucide-react";
 
 
 interface IncentiveRecord {
@@ -78,6 +80,36 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
 
     // تبديل عرض شاشة المنتسب بين تفاصيل الحافز واللجان المعتمدة
     const [incentiveSubView, setIncentiveSubView] = useState<'details' | 'committees'>('details');
+    // تبويبة الإدارة: إعداد أم رفع ملف
+    const [adminTab, setAdminTab] = useState<'settings' | 'upload_file'>('settings');
+    // اللجان المعتمدة الشهرية للمنتسب
+    const [monthlyCommittees, setMonthlyCommittees] = useState<any[]>([]);
+    const [loadingCommittees, setLoadingCommittees] = useState(false);
+    const fetchMonthlyCommittees = async () => {
+        if (!currentUser?.id) return;
+        setLoadingCommittees(true);
+        try {
+            const { data, error } = await supabase
+                .from('monthly_incentive_committees')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('year', selectedYear)
+                .eq('month', selectedMonth)
+                .order('committee_order', { ascending: true });
+            if (!error && data) {
+                setMonthlyCommittees(data);
+            } else {
+                setMonthlyCommittees([]);
+            }
+        } catch {
+            setMonthlyCommittees([]);
+        } finally {
+            setLoadingCommittees(false);
+        }
+    };
+    useEffect(() => {
+        fetchMonthlyCommittees();
+    }, [currentUser?.id, selectedYear, selectedMonth]);
 
     // اقتطاع الاسم الأول والثاني فقط لاسم الموظف
     const getShortName = (fullName?: string) => {
@@ -696,30 +728,39 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                 </div>
 
                 {/* السطر الثاني: المستطيل رقم 1 (زر التبديل) + اختيار السنة والشهر */}
-                <div className="flex items-center justify-between gap-3 mb-5">
-                    {/* زر التبديل بين اللجان المعتمدة وتفاصيل الحافز */}
-                    <button
-                        type="button"
-                        onClick={() => setIncentiveSubView(prev => prev === 'details' ? 'committees' : 'details')}
-                        className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm shrink-0 ${
-                            incentiveSubView === 'committees'
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-amber-500/20'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-emerald-500/20'
-                        }`}
-                        title="تبديل العرض"
-                    >
-                        {incentiveSubView === 'committees' ? (
-                            <>
-                                <Coins className="w-4 h-4" />
-                                <span>تفاصيل الحافز</span>
-                            </>
-                        ) : (
-                            <>
-                                <Users className="w-4 h-4" />
-                                <span>اللجان المعتمدة</span>
-                            </>
-                        )}
-                    </button>
+                <div className="flex items-center justify-between gap-1 sm:gap-2 flex-nowrap w-full mb-3">
+                    {/* أزرار التبويب: تفاصيل الحافز واللجان المعتمدة */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIncentiveSubView('details')}
+                            className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 text-xs sm:text-sm shrink-0 ${
+                                incentiveSubView === 'details'
+                                    ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-amber-500/20'
+                                    : theme === 'light'
+                                        ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                            }`}
+                        >
+                            <Coins className="w-4 h-4" />
+                            <span>تفاصيل الحافز</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setIncentiveSubView('committees')}
+                            className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 text-xs sm:text-sm shrink-0 ${
+                                incentiveSubView === 'committees'
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-emerald-500/20'
+                                    : theme === 'light'
+                                        ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                            }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            <span>اللجان المعتمدة</span>
+                        </button>
+                    </div>
 
                     {/* قوائم اختيار التاريخ */}
                     <div className="flex gap-2">
@@ -747,7 +788,7 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                     </div>
                 </div>
 
-                {/* المحتوى المعروض بناءً على حالة زر التبديل */}
+                {/* المحتوى المعروض بناءً على حالة زر التبويب */}
                 {incentiveSubView === 'committees' ? (
                     /* حالة اللجان المعتمدة: أعمدة اسم اللجنة، رقم الأمر، تاريخ الأمر */
                     <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm transition-colors ${
@@ -761,7 +802,7 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                 </h3>
                             </div>
                             <span className="text-xs bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold px-2.5 py-0.5 rounded-full border border-indigo-200/50 dark:border-indigo-800/50">
-                                3 لجان معتمدة
+                                {loadingCommittees ? 'جاري التحقق...' : monthlyCommittees.length === 0 ? 'لا توجد لجان مسجلة' : monthlyCommittees.length === 1 ? 'لجنة واحدة معتمدة' : monthlyCommittees.length === 2 ? 'لجنتان معتمدتان' : '3 لجان معتمدة'}
                             </span>
                         </div>
 
@@ -779,61 +820,61 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
-                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">1</td>
-                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                                            اللجنة المعتمدة الأولى
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                قيد الربط...
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                -- / -- / {selectedYear}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">2</td>
-                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                                            اللجنة المعتمدة الثانية
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                قيد الربط...
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                -- / -- / {selectedYear}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">3</td>
-                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                                            اللجنة المعتمدة الثالثة
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                قيد الربط...
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-slate-500 dark:text-slate-400">
-                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                                                -- / -- / {selectedYear}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    {loadingCommittees ? (
+                                        <tr>
+                                            <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                                                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-brand-green" />
+                                                <span>جاري جلب اللجان المعتمدة...</span>
+                                            </td>
+                                        </tr>
+                                    ) : monthlyCommittees.length > 0 ? (
+                                        [1, 2, 3].map((orderNum) => {
+                                            const comm = monthlyCommittees.find(c => c.committee_order === orderNum);
+                                            if (comm) {
+                                                return (
+                                                    <tr key={orderNum} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                        <td className="py-3 px-3 font-mono font-bold text-slate-400">{orderNum}</td>
+                                                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                                                            {comm.committee_name}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center font-mono text-slate-600 dark:text-slate-300">
+                                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                                {comm.order_number || '—'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center font-mono text-slate-600 dark:text-slate-300">
+                                                            <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                                                                {comm.order_date || '—'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+                                            return (
+                                                <tr key={orderNum} className="opacity-40 text-muted-foreground">
+                                                    <td className="py-3 px-3 font-mono font-bold">{orderNum}</td>
+                                                    <td className="py-3 px-4 text-xs">لا توجد لجنة معتمدة</td>
+                                                    <td className="py-3 px-4 text-center text-xs">—</td>
+                                                    <td className="py-3 px-4 text-center text-xs">—</td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                                                <Users className="w-8 h-8 mx-auto opacity-30 mb-2" />
+                                                <p className="font-semibold text-xs">لا توجد لجان معتمدة مسجلة لحسابك في شهر {selectedMonth} / {selectedYear}</p>
+                                                <p className="text-[11px] text-muted-foreground/70">المشاركة في اللجان اختيارية وتُحتسب بحد أقصى 3 لجان شهرياً.</p>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
 
                         <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center">
                             <p className="text-xs text-muted-foreground">
-                                📌 تم تهيئة مساحة العرض الخاصة باللجان الثلاث المعتمدة لهذا الشهر، وستُربط بجدول البيانات فور توفره.
+                                📌 اللجان المعتمدة لاحتساب الحوافز بحد أقصى 3 لجان شهرياً وتؤثر مباشرة في نقاط واستحقاق الحافز المالي.
                             </p>
                         </div>
                     </div>
@@ -938,42 +979,91 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
 
     // عرض واجهة الإدخال والاحتساب للمسؤولين والمشرفين والمطور
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full px-2 md:container md:mx-auto items-start pb-20">
-            {/* الجزء الأيمن: البحث واختيار الموظف وقيمة النقطة */}
-            <div className="lg:col-span-1 space-y-6 relative z-30">
-                
-                {/* قيمة النقطة لهذا الشهر - تظهر للمطور والمشرف العام فقط */}
-                {isDeveloperOrGeneral && (
-                    <div className={`p-5 rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
-                        <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-brand-green"><Coins className="w-4 h-4" /> إعداد قيمة النقطة الواحدة</h3>
-                        <div className="space-y-4">
-                            <div className="flex gap-2">
-                                <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                                    <SelectTrigger className="flex-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {[2025, 2026, 2027].map(yr => (
-                                            <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+        <div className="w-full px-0 sm:px-2 md:container md:mx-auto pb-16 space-y-1.5 sm:space-y-2">
+            {/* المنطقة 1: الشريط العلوي المشترك (أزرار التبويب 2 + تحديد الشهر والسنة) */}
+            <div className={`p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border backdrop-blur-md flex items-center justify-between gap-1 sm:gap-2 flex-nowrap w-full shadow-sm ${
+                theme === 'light' ? 'bg-white/80 border-slate-200' : 'bg-slate-950/70 border-white/10'
+            }`}>
+                {/* أزرار 2: زر إعداد وزر رفع ملف */}
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setAdminTab('settings')}
+                        className={`font-bold py-1.5 px-2 sm:px-4 rounded-lg sm:rounded-xl border shadow-sm transition-all flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs md:text-sm shrink-0 ${
+                            adminTab === 'settings'
+                                ? 'bg-brand-green hover:bg-brand-green/90 text-white border-brand-green/80 shadow-emerald-500/20'
+                                : theme === 'light'
+                                    ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                        }`}
+                    >
+                        <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span>إعداد</span>
+                    </button>
 
-                                <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
-                                    <SelectTrigger className="flex-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(mth => (
-                                            <SelectItem key={mth} value={mth.toString()}>شهر {mth}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                    <button
+                        type="button"
+                        onClick={() => setAdminTab('upload_file')}
+                        className={`font-bold py-1.5 px-2 sm:px-4 rounded-lg sm:rounded-xl border shadow-sm transition-all flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs md:text-sm shrink-0 ${
+                            adminTab === 'upload_file'
+                                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-blue-500/20'
+                                : theme === 'light'
+                                    ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                        }`}
+                    >
+                        <UploadCloud className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span>رفع ملف</span>
+                    </button>
+                </div>
 
-                            <div className={`p-4 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-blue-50/50 border-blue-200/50' : 'bg-blue-950/10 border-blue-900/20'}`}>
-                                <div className="w-full space-y-3">
-                                    <span className="text-sm text-muted-foreground block font-bold">تحديد القيمة المعتمدة للشهر المختار:</span>
+                {/* تحديد التاريخ: تحديد شهر وتحديد سنة */}
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                    <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                        <SelectTrigger className="w-[68px] sm:w-24 h-8 sm:h-9 text-[11px] sm:text-xs px-1.5 sm:px-2">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {[2025, 2026, 2027].map(yr => (
+                                <SelectItem key={yr} value={yr.toString()}>{yr}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+                        <SelectTrigger className="w-[78px] sm:w-28 h-8 sm:h-9 text-[11px] sm:text-xs px-1.5 sm:px-2">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(mth => (
+                                <SelectItem key={mth} value={mth.toString()}>شهر {mth}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* محتوى التبويبة: إما رفع ملف أو إعداد النقاط وتقييم الموظف */}
+            {adminTab === 'upload_file' ? (
+                <IncentivesCommitteesUploader
+                    year={selectedYear}
+                    month={selectedMonth}
+                    theme={theme}
+                    onCommitteesUpdated={fetchMonthlyCommittees}
+                />
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-1.5 sm:gap-3 items-start">
+                    {/* الجزء الأيمن: تحديد القيمة المعتمدة واختيار الموظف */}
+                    <div className="lg:col-span-1 space-y-1.5 sm:space-y-2 relative z-30">
+{/* السطر الأول: تحديد القيمة المعتمدة للشهر المحدد أعلاه */}
+                        {isDeveloperOrGeneral && (
+                            <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border backdrop-blur-md shadow-sm ${
+                                theme === 'light' ? 'bg-blue-50/50 border-blue-200/60' : 'bg-blue-950/20 border-blue-900/30'
+                            }`}>
+                                <div className="space-y-2">
+                                    <span className="text-xs sm:text-sm text-muted-foreground block font-bold">
+                                        تحديد القيمة المعتمدة للشهر المحدد اعلاه
+                                    </span>
                                     <div className="flex flex-wrap items-center gap-2 w-full">
                                         <div className="relative flex-1 min-w-[120px]">
                                             <Input
@@ -984,7 +1074,7 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                                 className="no-spin pl-8 text-sm font-bold font-mono"
                                                 disabled={loadingPoint || savingPoint}
                                             />
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">د.ع</span>
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs sm:text-sm">د.ع</span>
                                         </div>
 
                                         <button
@@ -1009,13 +1099,10 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* البحث عن الموظفين */}
-                <div className={`p-5 rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><User className="w-4 h-4" /> اختيار الموظف</h3>
+                        )}
+{/* البحث عن الموظفين */}
+                <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border backdrop-blur-md ${theme === 'light' ? 'bg-white/60 border-gray-200' : 'bg-slate-950/60 border-white/10'}`}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><User className="w-4 h-4" /> اختيار الموظف لتحديد تقييمه ونقاطه</h3>
                     
                     <div className="relative overflow-visible" ref={searchRef}>
                         <div className="relative">
@@ -1428,6 +1515,8 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                     </div>
                 )}
             </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -317,8 +317,9 @@ function App() {
                       <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
                       <Route path="/" element={<AppContent />} />
                       <Route path="/login" element={<AppContent />} />
-                      {/* كيوسك البصمة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
+                      {/* البصمة البايومترية العامة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
                       <Route path="/kiosk" element={<KioskPage />} />
+                      <Route path="/kiosk/index.html" element={<KioskPage />} />
                       {/* التحقق الرقمي من صحة صدور الوثائق — مسار عام عبر QR Code بلا تسجيل دخول */}
                       <Route path="/verify/continuity/:id" element={<PublicContinuityVerifyPage />} />
                       <Route path="/*" element={<NotFound />} />

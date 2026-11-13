@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import packageJson from './package.json'
@@ -42,6 +43,10 @@ export default defineConfig({
       treeShaking: true,
     },
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        kiosk: resolve(__dirname, 'kiosk/index.html'),
+      },
       output: {
         sourcemap: false,
         manualChunks: {

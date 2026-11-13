@@ -370,7 +370,7 @@ export function getTimesheetSmartNotes(params: {
           const expDate = parseISO(expectedOutStr);
           if (isValid(expDate)) {
             const earlyMins = differenceInMinutes(expDate, outDate);
-            if (earlyMins > 15) {
+            if (earlyMins > 0 && !rec.notes?.includes('خروج مبكر')) {
               notes.push(`⚠️ خروج مبكر (${earlyMins} دقيقة)`);
             }
           }

@@ -42,6 +42,12 @@ import { AttendanceReceiptModal } from './AttendanceReceiptModal';
 
 import { savePendingSnapshot } from '../utils/pendingSnapshotStorage';
 import { useSilentPhotoSync } from '../hooks/useSilentPhotoSync';
+import {
+  loadDutyContext,
+  evaluateOfficialDutyStatus,
+  type DutyContext
+} from '../utils/dutyScheduleValidator';
+import { OutsideDutyConfirmModal } from './OutsideDutyConfirmModal';
 
 // ============================================
 // Manual Capture Variables
@@ -94,6 +100,11 @@ export default function AttendanceCheckInOut({
   const hasAcknowledgedTimeOffRef = useRef(false);
   const userOverrideReasonRef = useRef<string>('');
   const abortPunchRef = useRef(false);
+
+  // ─── سياق أوقات وشفتات الدوام الرسمي (المرحلة A) ───
+  const [dutyCtx, setDutyCtx] = useState<DutyContext | null>(null);
+  const [outsideDutyModal, setOutsideDutyModal] = useState<{ isOpen: boolean; reason: string; badgeText: string } | null>(null);
+  const bypassDutyWarningRef = useRef<boolean>(false);
 
   // ─── محرك التوجيه الذكي للبصمات (فصل الخانات بدقة واعتراض ذكي) ───
   type TargetSlotType = 'check_in' | 'time_leave_out' | 'time_leave_return' | 'check_out' | 'update_check_out' | undefined;
@@ -184,6 +195,12 @@ export default function AttendanceCheckInOut({
   }, [lastPunchTime, nowTick, hasConnectedShifts]);
 
   const isCooldownActive = cooldownRemaining > 0;
+
+  // ─── حاجز تسوية الدقيقة الأخيرة 23:59 لمنع التعارض مع الفحص المجدول ───
+  const isCloseoutMinute = useMemo(() => {
+    const bDate = getBaghdadDate(getServerNow());
+    return bDate.getHours() === 23 && bDate.getMinutes() === 59;
+  }, [nowTick]);
 
   // ─── التحقق من اعتماد الجهاز الحالي وإدارة طلبات اعتماد الأجهزة البديلة ───
   const [isCurrentDeviceAuthorized, setIsCurrentDeviceAuthorized] = useState<boolean | null>(null);
@@ -300,16 +317,9 @@ export default function AttendanceCheckInOut({
     };
   }, [checkCurrentDevice, todayAttendance, employeeId, onAttendanceUpdate]);
 
-  const hasExistingPunches = Boolean(
-    (todayAttendance?.raw_punches && todayAttendance.raw_punches.length > 0) ||
-    todayAttendance?.check_in
-  );
-
-  // حظر تسجيل البصمة الإضافية إذا كان الجهاز غير معتمد ولديه بصمة سابقة
+  // حظر تسجيل البصمة فوراً من البداية إذا كان الجهاز غير معتمد للموظف
   const isBlockedByUnapprovedDevice = Boolean(
-    hasExistingPunches && (
-      isCurrentDeviceAuthorized === false || todayAttendance?.is_device_pending
-    )
+    isCurrentDeviceAuthorized === false || todayAttendance?.is_device_pending
   );
 
   // تاريخ محلي — toISOString() يرجع UTC فيظل «أمس» حتى 03:00 صباحاً بغداد
@@ -321,9 +331,19 @@ export default function AttendanceCheckInOut({
     setLeaveCtx(ctx);
   }, [employeeId, todayStr]);
 
+  const loadDutyContextData = useCallback(async () => {
+    try {
+      const ctx = await loadDutyContext(employeeId, todayStr);
+      setDutyCtx(ctx);
+    } catch (err) {
+      console.warn('[DutyScheduleValidator] تعذر تحميل سياق الدوام:', err);
+    }
+  }, [employeeId, todayStr]);
+
   useEffect(() => {
     loadLeaveContext().catch(err => console.warn('[LeaveIntegration] تعذر جلب إجازات اليوم:', err));
-  }, [loadLeaveContext]);
+    loadDutyContextData().catch(err => console.warn('[DutyScheduleValidator] تعذر جلب سياق الدوام:', err));
+  }, [loadLeaveContext, loadDutyContextData]);
 
   const debugStatsRef = useRef({
     frames: 0,
@@ -595,6 +615,7 @@ export default function AttendanceCheckInOut({
     setProcessing(false);
     setCapturingAction(null);
     capturedRef.current = false;
+    bypassDutyWarningRef.current = false;
     handleStopCamera();
     toast('تم إلغاء عملية تثبيت البصمة', { icon: '🛑' });
   }, [handleStopCamera]);
@@ -615,7 +636,9 @@ export default function AttendanceCheckInOut({
           const warningText = ` (تثبيت بطلب الموظف: ${reasonStr})`;
           finalNotes = finalNotes ? finalNotes + warningText : warningText;
         }
-        await registerPunch(locationText, deviceId, false, snapshotResult.url, finalNotes, false, targetSlotRef.current);
+        const shouldBypassWarning = Boolean(bypassDutyWarningRef.current);
+        await registerPunch(locationText, deviceId, false, snapshotResult.url, finalNotes, shouldBypassWarning, targetSlotRef.current);
+        bypassDutyWarningRef.current = false;
       } catch (err: any) {
         // تحذير يوم الإجازة: يوقف التثبيت ويعرض مودال التأكيد بدل الخطأ
         if (err?.isLeaveDayWarning) {
@@ -849,9 +872,9 @@ export default function AttendanceCheckInOut({
   }, [user?.id, user?.face_descriptor, isEnrolled, captureAndUpload, completeAction, showDebugAlert, loadModels, detectFaceInFrame, videoRef, handleStopCamera]);
 
   const openCamera = useCallback(async (action: 'punch') => {
-    // 0. التحقق من اعتماد الجهاز: منع البصمة الثانية نهائياً من أي جهاز غير معتمد
+    // 0. التحقق من اعتماد الجهاز: منع البصمة نهائياً من أي جهاز غير معتمد
     if (isBlockedByUnapprovedDevice) {
-      toast.error('لا يمكن تسجيل بصمة ثانية من جهاز غير معتمد. يرجى مراجعة مسؤول البصمة لاعتماد جهازك أولاً.', {
+      toast.error('لا يمكن تسجيل البصمة من جهاز غير معتمد. يرجى مراجعة مسؤول البصمة لاعتماد جهازك أولاً.', {
         id: 'device-block',
         duration: 5000
       });
@@ -1048,9 +1071,47 @@ export default function AttendanceCheckInOut({
   // ---- Cancel Camera ----
   const cancelCamera = useCallback(() => {
     capturedRef.current = true; // prevent further captures
+    bypassDutyWarningRef.current = false;
     handleStopCamera();
     setCapturingAction(null);
   }, [handleStopCamera]);
+
+  // ---- النقر على زر تثبيت البصمة الأخضر مع التحقق المسبق من أوقات وشفتات الدوام الرسمي (المرحلة A) ----
+  const handlePunchButtonClick = useCallback(() => {
+    targetSlotRef.current = undefined;
+    setSelectedTargetSlot(undefined);
+
+    // 0. حظر مباشر من البداية إذا كان الجهاز غير معتمد
+    if (isBlockedByUnapprovedDevice) {
+      toast.error('لا يمكن تسجيل البصمة من جهاز غير معتمد. يرجى مراجعة مسؤول البصمة أولاً.', { id: 'device-block' });
+      return;
+    }
+
+    // 0.1 حاجز دقيقة التسوية اليومية في السيرفر 23:59 لمنع التعارض
+    if (isCloseoutMinute) {
+      toast.error('تجري الآن عملية المعالجة المجدولة لنهاية اليوم (23:59). يُرجى الانتظار دقيقة واحدة حتى 00:00 لبدء تسجيل بصمة اليوم الجديد.', {
+        id: 'closeout-lock',
+        duration: 5000
+      });
+      return;
+    }
+
+    // 1. التحقق اللحظي المسبق من أوقات وشفتات الدوام الرسمي قبل لمس الكاميرا (0ms Latency من الذاكرة)
+    if (!bypassDutyWarningRef.current) {
+      const dutyEval = evaluateOfficialDutyStatus(dutyCtx, getServerNow());
+      if (!dutyEval.isWithinOfficialDuty) {
+        setOutsideDutyModal({
+          isOpen: true,
+          reason: dutyEval.reason,
+          badgeText: dutyEval.badgeText
+        });
+        return;
+      }
+    }
+
+    // 2. إذا كان ضمن الدوام الرسمي أو تم تأكيد التخطي
+    openCamera('punch');
+  }, [isBlockedByUnapprovedDevice, isCloseoutMinute, dutyCtx, openCamera]);
 
 
   // ---- Helpers ----
@@ -1180,27 +1241,35 @@ export default function AttendanceCheckInOut({
               </div>
             )}
 
+            {/* تنبيه حاجز التسوية اليومية 23:59 لمنع التعارض مع الفحص المجدول */}
+            {isCloseoutMinute && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3.5 text-amber-900 dark:text-amber-200 flex items-center gap-2.5 shadow-sm">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-spin" />
+                <div className="text-xs leading-relaxed font-bold">
+                  تجري الآن المعالجة المجدولة لنهاية اليوم في السيرفر (23:59). سيتوفر تسجيل بصمة اليوم الجديد فوراً عند الساعة 00:00.
+                </div>
+              </div>
+            )}
+
             {/* الأزرار الذكية: تثبيت البصمة وإعادة تثبيت الوجه في سطر واحد */}
             {(() => {
               const isBaseDisabled = loading || processing || cameraOpen || loadingLocation || !geofenceChecked || !isAllowed;
-              const isActionDisabled = isBaseDisabled || (isCooldownActive) || isBlockedByUnapprovedDevice;
+              const isActionDisabled = isBaseDisabled || (isCooldownActive) || isBlockedByUnapprovedDevice || isCloseoutMinute;
 
               return (
                 <div className={`grid gap-2 ${isEnrolled ? 'grid-cols-1 min-[420px]:grid-cols-5' : 'grid-cols-1'}`}>
                   {/* زر تثبيت البصمة */}
                   <button
-                    onClick={() => {
-                      targetSlotRef.current = undefined;
-                      setSelectedTargetSlot(undefined);
-                      openCamera('punch');
-                    }}
+                    onClick={handlePunchButtonClick}
                     disabled={isActionDisabled}
                     className={`${isEnrolled ? 'min-[420px]:col-span-3' : 'w-full'} py-3.5 px-4 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.98] ${
                       !isActionDisabled
                         ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg shadow-emerald-600/25 ring-2 ring-emerald-100 dark:ring-emerald-900/30'
                         : isBlockedByUnapprovedDevice
                           ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-2 border-rose-300 dark:border-rose-800 cursor-not-allowed pointer-events-none text-xs'
-                          : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
+                          : isCloseoutMinute
+                            ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-2 border-amber-300 dark:border-amber-800 cursor-not-allowed pointer-events-none text-xs font-bold'
+                            : 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed pointer-events-none'
                     }`}
                   >
                     <Fingerprint className={`w-6 h-6 shrink-0 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
@@ -1209,7 +1278,9 @@ export default function AttendanceCheckInOut({
                         ? `مهلة الأمان (${cooldownRemaining} ث)` 
                         : isBlockedByUnapprovedDevice
                           ? 'جهاز غير معتمد'
-                          : 'تثبيت البصمة'}
+                          : isCloseoutMinute
+                            ? 'تسوية نهاية اليوم (23:59)'
+                            : 'تثبيت البصمة'}
                     </span>
                   </button>
 
@@ -2070,6 +2141,22 @@ export default function AttendanceCheckInOut({
           }}
         />
       )}
+
+      {/* مودال التحقق المسبق من أوقات وشفتات الدوام الرسمي (المرحلة A) */}
+      <OutsideDutyConfirmModal
+        isOpen={Boolean(outsideDutyModal?.isOpen)}
+        reason={outsideDutyModal?.reason}
+        badgeText={outsideDutyModal?.badgeText}
+        onConfirm={() => {
+          setOutsideDutyModal(null);
+          bypassDutyWarningRef.current = true;
+          openCamera('punch');
+        }}
+        onCancel={() => {
+          setOutsideDutyModal(null);
+          bypassDutyWarningRef.current = false;
+        }}
+      />
 
       {/* مودال إيصال الحضور الذكي والتأخير المريح (10 ثوانٍ) */}
       <AttendanceReceiptModal

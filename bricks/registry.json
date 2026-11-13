@@ -180,7 +180,8 @@
       "name": "Incentives",
       "status": "inventoried",
       "owns": [
-        "src/components/features/IncentivesTabContent.tsx"
+        "src/components/features/IncentivesTabContent.tsx",
+        "src/components/features/IncentivesCommitteesUploader.tsx"
       ]
     },
     {
@@ -535,14 +536,20 @@
       "status": "signed-draft",
       "contract": "bricks/ATT-04-roster-engine/BRICK.md",
       "owns": [
-        "scripts/sql/roster_engine.sql"
+        "scripts/sql/roster_engine.sql",
+        "scripts/sql/morning_shift_daily_evaluator.sql"
       ],
       "db": [
         "roster_evaluate_day",
         "roster_evaluate_all",
         "roster_evaluate_me",
         "roster_real_punches",
-        "roster_unit_attended"
+        "roster_unit_attended",
+        "extract_tripartite_name",
+        "get_next_official_work_day",
+        "get_direct_supervisor_id",
+        "evaluate_morning_shift_daily_attendance",
+        "rpc_evaluate_morning_shift_attendance"
       ]
     },
     {
@@ -566,6 +573,7 @@
         "admin_set_kiosk_password",
         "kiosk_activate",
         "kiosk_device_check",
+        "kiosk_get_authorized_supervisors",
         "kiosk_get_employees",
         "log_device_enrollment_changes",
         "notify_admins_new_device",

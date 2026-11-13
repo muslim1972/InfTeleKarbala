@@ -847,6 +847,18 @@ export const AppNotifications = () => {
                                                         </div>
                                                     );
                                                 }
+                                                // إشعارات الفحص اليومي للشفت الصباحي: زر «اطلعت» لحفظ الإشعار وأرشفته
+                                                if (metaType === 'morning_attendance_alert' || notification.type?.startsWith('attendance_morning_')) {
+                                                    return (
+                                                        <button
+                                                            onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                            className="w-full mt-2 py-2 px-3 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+                                                        >
+                                                            <CheckCircle size={15} />
+                                                            اطلعت
+                                                        </button>
+                                                    );
+                                                }
                                                 return (
                                                     <button
                                                         onClick={() => handleMarkSystemNotificationRead(notification.id)}

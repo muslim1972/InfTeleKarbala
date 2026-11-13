@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="google" content="notranslate" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
+  <title>البصمة البايومترية العامة</title>
+
+  <!-- أيقونة التبويبة والمفضلة للمتصفح -->
+  <link rel="icon" type="image/png" href="/kiosk-icon-192.png?v=3" />
+
+  <!-- دعم هواتف آيفون ونظام iOS (Safari PWA) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="البصمة العامة" />
+  <link rel="apple-touch-icon" href="/kiosk-icon-192.png?v=3" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/kiosk-icon-192.png?v=3" />
+  <link rel="apple-touch-icon" sizes="512x512" href="/kiosk-icon-512.png?v=3" />
+
+  <!-- دعم هواتف أندرويد ونظام Android (Chrome WebAPK PWA) -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#020617" />
+  <link id="manifest-link" rel="manifest" href="/manifest-kiosk.json?v=3" />
+
+  <!-- تسجيل الـ Service Worker المعزول فورياً للطرفية -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw-kiosk.js?v=3', { scope: '/kiosk/' }).catch(function () {});
+      });
+    }
+  </script>
+
+  <script src="/error-handler.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

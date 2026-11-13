@@ -446,7 +446,6 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         
         const full_name = formData.full_name?.trim();
         const job_number = formData.job_number?.trim();
-        const username = formData.username?.trim();
         const password = formData.password?.trim();
 
         // 1. التحقق الصارم والمفصل للحقول الإلزامية برقم ورسالة واضحة
@@ -470,13 +469,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             return;
         }
 
-        if (!username) {
-            toast.error("يرجى كتابة اسم المستخدم المؤقت للدخول");
-            return;
-        }
+        const cleanUsername = (formData.username || '').trim().replace(/\s+/g, ' ');
 
-        if (username.includes(" ")) {
-            toast.error("اسم المستخدم لا يمكن أن يحتوي على مسافات");
+        if (!cleanUsername) {
+            toast.error("يرجى كتابة اسم المستخدم المؤقت للدخول");
             return;
         }
 
@@ -487,15 +483,18 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         setLoading(true);
         try {
-            const { data: existingUsers } = await supabase
-                .from('profiles')
-                .select('job_number, username')
-                .or(`job_number.eq.${job_number}, username.eq.${username}`);
+            const [{ data: byJob }, { data: byUser }] = await Promise.all([
+                supabase.from('profiles').select('id, job_number').eq('job_number', job_number).limit(1),
+                supabase.from('profiles').select('id, username').eq('username', cleanUsername).limit(1)
+            ]);
 
-            if (existingUsers && existingUsers.length > 0) {
-                const existing = existingUsers[0];
-                if (existing.job_number === job_number) toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
-                else toast.error("اسم المستخدم هذا موجود بالفعل!");
+            if (byJob && byJob.length > 0) {
+                toast.error("هذا الرقم الوظيفي مستخدم بالفعل!");
+                setLoading(false);
+                return;
+            }
+            if (byUser && byUser.length > 0) {
+                toast.error("اسم المستخدم هذا موجود بالفعل!");
                 setLoading(false);
                 return;
             }
@@ -553,7 +552,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     id: actualUserId, 
                     full_name, 
                     job_number, 
-                    username, 
+                    username: cleanUsername, 
                     role: formData.role || 'user',
                     admin_role: safeAdminRole, // عزل صارم: لا يحمل الموظف العادي أي admin_role أبداً
                     birth_date: safeBirthDate,

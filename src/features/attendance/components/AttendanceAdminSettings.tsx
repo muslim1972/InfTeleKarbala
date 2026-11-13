@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { workLocationService } from '../services/workLocationService';
 import type { WorkLocation } from '../types';
@@ -7,7 +7,7 @@ import {
   BarChart3, MapPinned, UserPlus, UserMinus,
   Check, X, Navigation, ShieldCheck, AlertTriangle, Edit2, Save,
   Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone,
-  RefreshCw, Clock, AlertCircle
+  RefreshCw, Clock, AlertCircle, Tablet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -24,8 +24,9 @@ import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
 import { fetchDailyAttendanceStats, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
+import { KioskAdminPanel } from '../../kiosk/KioskAdminPanel';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays';
+type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays' | 'kiosks';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ export default function AttendanceAdminSettings() {
   const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
   const isAttendanceAdmin = isHighAdmin || user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.has_attendance_access === true || user?.username === 'attend';
   const canManageDevices = user?.admin_role === 'general' || user?.admin_role === 'biometric';
+  const canManageKiosks = isHighAdmin || user?.admin_role === 'biometric' || user?.has_kiosk_access === true;
   
   const [activeTab, setActiveTab] = useState<Tab>(isAttendanceAdmin ? 'liveBoard' : 'locations');
   const [locations, setLocations] = useState<WorkLocation[]>([]);
@@ -570,11 +572,16 @@ export default function AttendanceAdminSettings() {
           is_auto_check_in,
           is_auto_check_out,
           admin_notes,
-          employee:profiles!attendance_records_employee_id_fkey (
+          employee:profiles!inner!attendance_records_employee_id_fkey (
             full_name,
-            job_number
+            job_number,
+            governorate
           )
         `);
+
+      if (activeGovernorate && activeGovernorate !== 'all') {
+        query = query.eq('employee.governorate', activeGovernorate);
+      }
 
       if (reportType === 'daily') {
         query = query
@@ -595,7 +602,8 @@ export default function AttendanceAdminSettings() {
 
       if (error) throw error;
 
-      const formatted = (data || []).map((r: any) => {
+      const recordsData = (data || []).filter((r: any) => !activeGovernorate || activeGovernorate === 'all' || !r.employee?.governorate || r.employee.governorate === activeGovernorate);
+      const formatted = recordsData.map((r: any) => {
         let verifyMethod = 'يدوي';
         if (r.check_in_snapshot_url) verifyMethod = 'بصمة وجه';
         else if (r.check_in_location) verifyMethod = 'موقع جغرافي';
@@ -753,7 +761,7 @@ export default function AttendanceAdminSettings() {
     setLocLat(loc.latitude);
     setLocLng(loc.longitude);
     setLocRadius(loc.radius_meters);
-    setShowAddForm(true);
+    setShowAddForm(false);
   };
 
   /**
@@ -902,7 +910,7 @@ export default function AttendanceAdminSettings() {
 
   return (
     <div className="w-full text-slate-900 dark:text-white transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-1 sm:px-4 pt-0 pb-32">
+      <div className="max-w-7xl mx-auto px-1 sm:px-4 pt-0 pb-4">
         
         {/* Print Stylesheet */}
         <style>{`
@@ -1033,6 +1041,20 @@ export default function AttendanceAdminSettings() {
             <Calendar className="w-4 h-4" />
             إعدادات العطل
           </button>
+
+          {canManageKiosks && (
+            <button
+              onClick={() => setActiveTab('kiosks')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                activeTab === 'kiosks'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Tablet className="w-4 h-4" />
+              البصمة البايومترية العامة
+            </button>
+          )}
           </div>
 
           <button 
@@ -1215,6 +1237,7 @@ export default function AttendanceAdminSettings() {
                     onSave={handleInlineSaveLocation}
                     onCancel={() => {
                       setEditingLocationId(null);
+                      setShowAddForm(false);
                       setLocName('');
                     }}
                     onDelete={handleDeleteLocation}
@@ -2153,6 +2176,10 @@ export default function AttendanceAdminSettings() {
 
       {activeTab === 'holidays' && (
         <HolidaysTab />
+      )}
+
+      {activeTab === 'kiosks' && canManageKiosks && (
+        <KioskAdminPanel />
       )}
     </div>
 

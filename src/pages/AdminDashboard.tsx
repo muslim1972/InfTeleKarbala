@@ -220,7 +220,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative min-h-screen bg-transparent" onBack={onBack}>
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative bg-transparent !pb-14 md:!pb-16" onBack={onBack}>
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
                 <DepartmentsManager theme={theme} />
@@ -296,7 +296,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
             {/* ======= الحوافز TAB ======= */}
             {activeTab === 'admin_incentives' && (
-                <div className="max-w-7xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                <div className="max-w-7xl mx-auto px-0 sm:px-2 relative pb-20 mt-0 sm:mt-1 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                     <IncentivesTabContent isAdminView={true} />
                 </div>
             )}

@@ -53,7 +53,8 @@ foreach ($rel in $toUpload) {
     $i++
     $localPath = Join-Path $localDist ($rel.Replace('/', '\'))
     $remotePath = "$remoteBase$rel"
-    & $plink -batch -pw $pw $host_ "mkdir -p $(Split-Path $remotePath -Parent)" | Out-Null
+    $remoteDir = (Split-Path $remotePath -Parent).Replace('\', '/')
+    & $plink -batch -pw $pw $host_ "mkdir -p '$remoteDir'" | Out-Null
     & $pscp -batch -pw $pw $localPath "${host_}:$remotePath" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { $failed += $rel; Write-Host "فشل: $rel" -ForegroundColor Red }
     else { Write-Host "[$i/$($toUpload.Count)] $rel" -ForegroundColor Green }

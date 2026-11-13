@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2, Network, Check, Fingerprint } from "lucide-react";
+import { Search, Save, Undo2, Shield, ChevronDown, Building2, UserCheck, Hash, Loader2, Network, Check, Fingerprint, Tablet } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { cn } from "../../lib/utils";
@@ -16,7 +16,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
 
     // البحث العالمي للموظفين
     const { query: searchQuery, setQuery: setSearchQuery, results: rawSuggestions } = useEmployeeSearch({
-        selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access',
+        selectFields: 'id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access, has_kiosk_access',
         limit: 50,
         debounceMs: 300,
         usePublicView: true
@@ -41,6 +41,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
     const [selectedRoleLabel, setSelectedRoleLabel] = useState("موظف");
     const [hasCapacitiesAccess, setHasCapacitiesAccess] = useState(false);
     const [hasAttendanceAccess, setHasAttendanceAccess] = useState(false);
+    const [hasKioskAccess, setHasKioskAccess] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -70,7 +71,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         try {
             const { data: freshProfile } = await supabase
                 .from('profiles')
-                .select('id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access')
+                .select('id, full_name, job_number, role, admin_role, department_id, has_capacities_access, has_attendance_access, has_kiosk_access')
                 .eq('id', employee.id)
                 .maybeSingle();
 
@@ -87,6 +88,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         setSelectedRoleLabel(getRoleLabel(emp));
         setHasCapacitiesAccess(emp.has_capacities_access || false);
         setHasAttendanceAccess(emp.has_attendance_access || false);
+        setHasKioskAccess(emp.has_kiosk_access || false);
 
         // Fetch department info
         if (emp.department_id) {
@@ -162,6 +164,7 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
         setSelectedRoleLabel("موظف");
         setHasCapacitiesAccess(false);
         setHasAttendanceAccess(false);
+        setHasKioskAccess(false);
         setShowDropdown(false);
     };
 
@@ -179,7 +182,8 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                     role, 
                     admin_role, 
                     has_capacities_access: hasCapacitiesAccess,
-                    has_attendance_access: hasAttendanceAccess
+                    has_attendance_access: hasAttendanceAccess,
+                    has_kiosk_access: hasKioskAccess
                 })
                 .eq('id', selectedEmployee.id);
 
@@ -445,6 +449,34 @@ export const SupervisorPermissions = ({ theme }: SupervisorPermissionsProps) => 
                                     : isLight ? "bg-white border-gray-300" : "bg-white/5 border-white/20"
                             )}>
                                 {hasAttendanceAccess && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                            </div>
+                        </div>
+
+                        {/* Kiosk Boolean Toggle (مشرف البصمة البايومترية العامة) */}
+                        <div 
+                            onClick={() => setHasKioskAccess(!hasKioskAccess)}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-4 py-3 border cursor-pointer transition-all",
+                                hasKioskAccess
+                                    ? "bg-emerald-50 border-emerald-200 hover:border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800"
+                                    : isLight
+                                        ? "bg-gray-50 border-gray-100 hover:border-gray-200"
+                                        : "bg-white/5 border-white/5 hover:border-white/10"
+                            )}>
+                            <Tablet className={cn("w-4 h-4 shrink-0 transition-colors", hasKioskAccess ? "text-emerald-600" : isLight ? "text-gray-400" : "text-white/30")} />
+                            <div className="flex-1">
+                                <p className={cn("text-[10px] font-bold transition-colors", hasKioskAccess ? "text-emerald-600/70" : isLight ? "text-gray-400" : "text-white/30")}>صلاحية وصول إضافية</p>
+                                <p className={cn("text-sm font-bold transition-colors", hasKioskAccess ? "text-emerald-800 dark:text-emerald-300" : isLight ? "text-gray-900" : "text-white")}>
+                                مشرف البصمة البايومترية العامة
+                                </p>
+                            </div>
+                            <div className={cn(
+                                "w-5 h-5 rounded flex items-center justify-center transition-colors border",
+                                hasKioskAccess 
+                                    ? "bg-emerald-600 border-emerald-600 shadow-sm" 
+                                    : isLight ? "bg-white border-gray-300" : "bg-white/5 border-white/20"
+                            )}>
+                                {hasKioskAccess && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </div>
                         </div>
 

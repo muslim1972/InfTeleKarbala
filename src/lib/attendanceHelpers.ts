@@ -440,7 +440,7 @@ export async function fetchTrueAbsentCount(dateStr: string, gov: string): Promis
 
 /** فحص خفيف لنوع اليوم (عطلة نهاية أسبوع/رسمية) — بديل fetchDailyAttendanceStats في مسار تسجيل البصمة */
 export async function fetchDayType(dateStr: string): Promise<{ isHolidayOrWeekend: boolean; dayTypeLabel: string }> {
-  const dayOfWeek = new Date(`T00:00:00+03:00`).getDay();
+  const dayOfWeek = new Date(`${dateStr}T00:00:00+03:00`).getDay();
   const dayNamesEng = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayNamesArabic = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   const [settingsRes, holidaysRes] = await Promise.all([
