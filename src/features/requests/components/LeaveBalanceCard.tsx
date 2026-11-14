@@ -1,5 +1,5 @@
 import React from 'react';
-import { Stethoscope, Clock, UserX } from 'lucide-react';
+import { CalendarCheck, Stethoscope, Clock, UserX, CalendarDays, ShieldCheck } from 'lucide-react';
 
 export type LeaveType = 
   | 'regular' 
@@ -19,29 +19,6 @@ export interface LeaveBalanceCardProps {
   isLoading?: boolean;
 }
 
-function CalendarCheck({ size = 24, className = '' }: { size?: number; className?: string }) {
-  return (
-    <svg 
-      xmlns='http://www.w3.org/2000/svg' 
-      width={size} 
-      height={size} 
-      viewBox='0 0 24 24' 
-      fill='none' 
-      stroke='currentColor' 
-      strokeWidth='2' 
-      strokeLinecap='round' 
-      strokeLinejoin='round' 
-      className={className}
-    >
-      <rect width='18' height='18' x='3' y='4' rx='2' ry='2' />
-      <line x1='16' x2='16' y1='2' y2='6' />
-      <line x1='8' x2='8' y1='2' y2='6' />
-      <line x1='3' x2='21' y1='10' y2='10' />
-      <path d='m9 16 2 2 4-4' />
-    </svg>
-  );
-}
-
 export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   leaveType,
   regularBalance = 0,
@@ -54,7 +31,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
 
   if (isLoading) {
     return (
-      <div className="w-full h-32 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse shadow-sm"></div>
+      <div className="w-full h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse border border-slate-200/60 dark:border-slate-700/50"></div>
     );
   }
 
@@ -63,93 +40,134 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
 
   if (isNonConsuming) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 transition-all duration-300">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gray-200/50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
-            <Clock size={20} />
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-700/80 transition-all duration-300">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-slate-200/60 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300">
+            <Clock size={18} />
           </div>
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-            هذا النوع لا يستهلك من رصيد الإجازات
-          </p>
+          <div>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
+              طلب إداري مباشر
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              هذا النوع لا يستهلك من رصيد الإجازات
+            </p>
+          </div>
         </div>
 
-        {/* عداد الغياب المثبت حتى في الطلبات غير المستهلكة */}
-        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 border border-gray-200/70 dark:border-slate-600">
-          <UserX size={16} className={unpaidLeavesTotal > 0 ? 'text-red-500' : 'text-gray-400'} />
-          <span className="text-xs text-gray-500 dark:text-gray-400">أيام الغياب المثبتة:</span>
-          <span className={`text-sm font-bold ${unpaidLeavesTotal > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {unpaidLeavesTotal} يوم
-          </span>
+        <div className="flex items-center gap-2">
+          {/* عداد الغياب المثبت */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700/80 border border-slate-200/70 dark:border-slate-600 text-[11px]">
+            <UserX size={14} className={unpaidLeavesTotal > 0 ? 'text-rose-500' : 'text-slate-400'} />
+            <span className="text-slate-500 dark:text-slate-400">الغياب المثبت:</span>
+            <span className={`font-black ${unpaidLeavesTotal > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
+              {unpaidLeavesTotal} يوم
+            </span>
+          </div>
+
+          {expiryDate && (
+            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700/80 border border-slate-200/70 dark:border-slate-600 text-[11px] text-slate-500 dark:text-slate-400">
+              <CalendarDays size={13} className="text-slate-400" />
+              <span>مُحتسب لغاية: <strong className="font-bold text-slate-700 dark:text-slate-200">{expiryDate}</strong></span>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  const balance = isRegular ? regularBalance : sickBalance;
-  const title = isRegular ? 'رصيد الإجازات الاعتيادية' : 'رصيد الإجازات المرضية';
-  
-  const gradientClass = isRegular 
-    ? 'from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-800' 
-    : 'from-emerald-400 to-green-600 dark:from-emerald-600 dark:to-green-800';
-  
-  const Icon = isRegular ? CalendarCheck : Stethoscope;
-
   return (
-    <div className={`relative overflow-hidden rounded-2xl p-6 text-white shadow-lg bg-gradient-to-r ${gradientClass} transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}>
-      {/* Background Decoration */}
-      <div className="absolute -top-10 -end-10 opacity-10 pointer-events-none transform -scale-x-100 rtl:scale-x-100">
-        <Icon size={120} />
-      </div>
-      
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-        {/* رصيد الإجازات المتبقي */}
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-inner">
-            <Icon size={28} className="text-white" />
+    <div className="w-full rounded-2xl bg-white dark:bg-slate-850/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-3 sm:p-3.5 transition-all duration-300">
+      {/* ── الترويسة المدمجة: عنوان الكارت + تاريخ الاحتساب في سطر واحد ── */}
+      <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100 dark:border-slate-750">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+          <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400" />
+          <span>حالة الأرصدة وسجل الغياب المعتمد</span>
+        </div>
+
+        {expiryDate && (
+          <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60">
+            <CalendarDays size={12} className="text-slate-500 dark:text-slate-400" />
+            <span>مُحتسب لغاية: <strong className="font-bold text-slate-900 dark:text-white">{expiryDate}</strong></span>
           </div>
-          <div>
-            <h3 className="text-white/90 text-sm font-medium mb-1">{title}</h3>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold tracking-tight">{balance}</span>
-              <span className="text-white/80 font-medium">يوم</span>
+        )}
+      </div>
+
+      {/* ── شبكة الأرصدة الثلاثية المدمجة المتوازنة ── */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        {/* 1. رصيد الإجازات الاعتيادية */}
+        <div className={`p-2.5 rounded-xl border transition-all ${
+          isRegular
+            ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/60 shadow-sm ring-1 ring-blue-400/40'
+            : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/70 dark:border-slate-700/50'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 truncate">رصيد الاعتيادية</span>
+            <div className="w-5 h-5 rounded-md bg-blue-500/15 dark:bg-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <CalendarCheck size={12} />
             </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl sm:text-2xl font-black text-blue-700 dark:text-blue-400">{regularBalance}</span>
+            <span className="text-[10px] sm:text-xs font-bold text-blue-600/80 dark:text-blue-400/80">يوم</span>
           </div>
         </div>
 
-        {/* عداد أيام الغياب المثبتة والمعتمدة نهائياً */}
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-black/15 dark:bg-black/25 backdrop-blur-md border border-white/15">
-          <div className={`p-2 rounded-lg ${unpaidLeavesTotal > 0 ? 'bg-red-500/30 text-red-200' : 'bg-white/10 text-white/80'}`}>
-            <UserX size={20} />
+        {/* 2. رصيد الإجازات المرضية */}
+        <div className={`p-2.5 rounded-xl border transition-all ${
+          !isRegular
+            ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 shadow-sm ring-1 ring-emerald-400/40'
+            : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/70 dark:border-slate-700/50'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 truncate">الرصيد المرضي</span>
+            <div className="w-5 h-5 rounded-md bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Stethoscope size={12} />
+            </div>
           </div>
-          <div>
-            <div className="text-xs text-white/80 font-medium">أيام الغياب المثبتة (نهائي)</div>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className={`text-2xl font-black ${unpaidLeavesTotal > 0 ? 'text-amber-200' : 'text-white'}`}>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400">{sickBalance}</span>
+            <span className="text-[10px] sm:text-xs font-bold text-emerald-600/80 dark:text-emerald-400/80">يوم</span>
+          </div>
+        </div>
+
+        {/* 3. أيام الغياب المثبتة */}
+        <div className={`p-2.5 rounded-xl border transition-all ${
+          unpaidLeavesTotal > 0
+            ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 shadow-sm'
+            : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/70 dark:border-slate-700/50'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-300 truncate">الغياب المثبت</span>
+            <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
+              unpaidLeavesTotal > 0 
+                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' 
+                : 'bg-slate-500/10 text-slate-500 dark:text-slate-400'
+            }`}>
+              <UserX size={12} />
+            </div>
+          </div>
+          <div className="flex items-baseline justify-between gap-1">
+            <div className="flex items-baseline gap-1">
+              <span className={`text-xl sm:text-2xl font-black ${
+                unpaidLeavesTotal > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-white'
+              }`}>
                 {unpaidLeavesTotal}
               </span>
-              <span className="text-xs text-white/70 font-medium">يوم</span>
-              {unpaidLeavesTotal === 0 ? (
-                <span className="text-[10px] text-emerald-200 bg-emerald-500/20 px-1.5 py-0.5 rounded-full mr-1">
-                  سجل نظيف
-                </span>
-              ) : (
-                <span className="text-[10px] text-red-200 bg-red-500/30 px-1.5 py-0.5 rounded-full mr-1 font-bold">
-                  بدون راتب
-                </span>
-              )}
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400">يوم</span>
             </div>
+            {unpaidLeavesTotal === 0 ? (
+              <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/40 px-1 py-0.5 rounded">
+                نظيف
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100/80 dark:bg-rose-900/40 px-1 py-0.5 rounded">
+                بدون راتب
+              </span>
+            )}
           </div>
         </div>
       </div>
-
-      {expiryDate && (
-        <div className="relative z-10 mt-4 pt-4 border-t border-white/20">
-          <p className="text-xs text-white/80 flex items-center gap-1.5">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/70"></span>
-            صالح حتى: {expiryDate}
-          </p>
-        </div>
-      )}
     </div>
   );
 };

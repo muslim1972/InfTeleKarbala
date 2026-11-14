@@ -1,5 +1,5 @@
 {
- "created": "2026-11-13T18:07:24.897Z",
+ "created": "2026-11-14T11:52:54.026Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -243,7 +243,7 @@
   },
   "src/components/auth/AdminRoleSelector.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "295b461cf35b"
+   "sha": "0f22ad3ed3b3"
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
@@ -1027,7 +1027,7 @@
   },
   "src/features/requests/components/LeaveBalanceCard.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "b76bf5acf2f8"
+   "sha": "43b66c3467ec"
   },
   "src/features/requests/components/LeavePayToggle.tsx": {
    "brick": "FE-LEV-01",
@@ -1051,7 +1051,7 @@
   },
   "src/features/requests/components/RequestsTabContent.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "b9094eba82aa"
+   "sha": "2a54232aefd0"
   },
   "src/features/requests/components/ServiceContinuityRequestForm.tsx": {
    "brick": "FE-LEV-01",
