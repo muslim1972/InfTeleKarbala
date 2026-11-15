@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
-import QRCode from 'qrcode';
+import { useState, useMemo } from 'react';
 import {
     FileText,
     Printer,
@@ -12,8 +11,7 @@ import {
     Plus,
     Trash2,
     Share2,
-    Tag,
-    ShieldCheck
+    Tag
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useTheme } from '../../../context/ThemeContext';
@@ -26,13 +24,22 @@ export interface ContinuityRequestItem {
     destination_entity: string;
     include_nominal_salary: boolean;
     include_total_salary: boolean;
+    include_salary_details?: boolean;
     nominal_salary_snapshot: number;
     total_salary_snapshot: number;
+    gross_salary_snapshot?: number;
     notes?: string | null;
-    status: 'pending_supervisor' | 'rejected_by_supervisor' | 'pending_hr' | 'rejected_by_hr' | 'issued_and_dispatched';
+    status: 'pending_finance' | 'rejected_by_finance' | 'pending_print' | 'completed' | 'no_manager_available' | 'pending_supervisor' | 'rejected_by_supervisor' | 'pending_hr' | 'rejected_by_hr' | 'issued_and_dispatched';
     supervisor_id?: string | null;
     supervisor_decision_at?: string | null;
     supervisor_notes?: string | null;
+    approved_by_id?: string | null;
+    approved_by_name?: string | null;
+    approved_by_title?: string | null;
+    rejection_reason?: string | null;
+    is_printed?: boolean;
+    printed_by_id?: string | null;
+    printed_at?: string | null;
     hr_processor_id?: string | null;
     hr_decision_at?: string | null;
     hr_notes?: string | null;
@@ -68,6 +75,13 @@ export const getHonorific = (gender: number | string | undefined | null, fullNam
         return 'السيدة';
     }
     return 'السيد';
+};
+
+export const getTripartiteName = (fullName: string | undefined | null): string => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 3) return parts.join(' ');
+    return parts.slice(0, 3).join(' ');
 };
 
 export const getCcActionPhrase = (entityName: string): string => {
@@ -110,25 +124,8 @@ export const ServiceContinuityProcessModal = ({
     const [rejectReason, setRejectReason] = useState('');
     const [showRejectBox, setShowRejectBox] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-
-    // QR Code Data URL State
-    const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-
-    useEffect(() => {
-        if (!request.id) return;
-        const origin = window.location.origin;
-        const verifyUrl = `${origin}/verify/continuity/${request.id}`;
-        QRCode.toDataURL(verifyUrl, {
-            width: 160,
-            margin: 1,
-            color: {
-                dark: '#0f172a',
-                light: '#ffffff'
-            }
-        })
-            .then((url) => setQrCodeDataUrl(url))
-            .catch((err) => console.error('Failed to generate letter QR code:', err));
-    }, [request.id]);
+    const [cadreType, setCadreType] = useState<'permanent' | 'contract'>('permanent');
+    const cadrePhrase = cadreType === 'permanent' ? 'على الملاك الدائم' : 'على نظام العقود';
 
     // CC (نسخة منه إلى) State
     const [ccRecipients, setCcRecipients] = useState<string[]>(() => {
@@ -192,27 +189,30 @@ export const ServiceContinuityProcessModal = ({
             ? ` وذلك لغرض (${cleanedPurpose})`
             : '';
 
-        const salaryHtml = (request.include_nominal_salary || request.include_total_salary) ? `
+        const salaryHtml = (request.include_nominal_salary || request.include_total_salary || (request as any).include_salary_details) ? `
             <div class="salary-container">
                 <div class="salary-heading">علماً أن:</div>
                 <div class="salary-items">
-                    ${request.include_nominal_salary ? `
-                        <div class="salary-row">
-                            <span class="salary-label">الراتب الاسمي /</span>
-                            <span class="salary-val">${Number(request.nominal_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
-                        </div>
-                    ` : ''}
-                    ${request.include_total_salary ? `
-                        <div class="salary-row">
-                            <span class="salary-label">الراتب الكلي /</span>
-                            <span class="salary-val">${Number(request.total_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
-                        </div>
-                        <div class="salary-row">
-                            <span class="salary-label">الراتب الصافي /</span>
-                            <span class="salary-val">${Number(request.total_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
-                        </div>
-                    ` : ''}
+                    <div class="salary-row">
+                        <span class="salary-label">الراتب الكلي /</span>
+                        <span class="salary-val">${Number((request as any).gross_salary_snapshot || request.total_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
+                    </div>
+                    <div class="salary-row">
+                        <span class="salary-label">الراتب الصافي /</span>
+                        <span class="salary-val">${Number((request as any).net_salary_snapshot || request.total_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
+                    </div>
+                    <div class="salary-row">
+                        <span class="salary-label">الراتب الاسمي /</span>
+                        <span class="salary-val">${Number(request.nominal_salary_snapshot || 0).toLocaleString('ar-IQ')} دينار</span>
+                    </div>
                 </div>
+            </div>
+        ` : '';
+
+        const approverTripartiteName = getTripartiteName(request.approved_by_name);
+        const approverHtml = approverTripartiteName ? `
+            <div class="approved-by-box">
+                <div class="approved-by-name">تدقيق واعتماد: ${approverTripartiteName}</div>
             </div>
         ` : '';
 
@@ -228,7 +228,7 @@ export const ServiceContinuityProcessModal = ({
                     `).join('')}
                 </ul>
             </div>
-        ` : '<div class="cc-box" style="visibility: hidden; flex: 1; max-width: 50%;"></div>';
+        ` : '';
 
         const htmlContent = `
             <!DOCTYPE html>
@@ -358,10 +358,11 @@ export const ServiceContinuityProcessModal = ({
                         color: #0f172a;
                     }
                     .header-left h4 {
-                        font-size: 10.5px;
+                        font-size: 9.8px;
                         font-weight: 700;
                         margin: 0 0 1px 0;
                         color: #1e293b;
+                        white-space: nowrap;
                     }
                     .header-left h5 {
                         font-size: 10.5px;
@@ -385,7 +386,7 @@ export const ServiceContinuityProcessModal = ({
                     }
                     /* Dispatch Office 3-line Blank Space */
                     .dispatch-gap {
-                        height: 65px;
+                        height: 110px;
                         width: 100%;
                     }
                     /* Destination & Subject */
@@ -456,18 +457,21 @@ export const ServiceContinuityProcessModal = ({
                     .sig-cc-section {
                         display: flex;
                         justify-content: space-between;
-                        align-items: flex-end;
+                        align-items: flex-start;
                         margin-top: auto;
-                        padding-top: 16px;
+                        margin-bottom: auto;
+                        padding-top: 8px;
                         padding-bottom: 8px;
                         page-break-inside: avoid;
                     }
                     .cc-box {
                         text-align: right;
-                        max-width: 55%;
+                        width: 100%;
+                        max-width: calc(100% - 225px);
                         font-size: 11px;
                         line-height: 1.6;
                         color: #1e293b;
+                        padding-top: 56px;
                     }
                     .cc-title {
                         font-weight: 900;
@@ -483,8 +487,8 @@ export const ServiceContinuityProcessModal = ({
                         margin: 0;
                     }
                     .cc-list li {
-                        border-bottom: 1px dotted #cbd5e1;
                         padding: 1.5px 0;
+                        white-space: nowrap;
                     }
                     .cc-name {
                         font-weight: 700;
@@ -520,10 +524,20 @@ export const ServiceContinuityProcessModal = ({
                         color: #334155;
                         margin: 0;
                     }
-                    /* Footer */
+                    /* Footer & Fixed Approver Accreditation */
                     .footer-container {
-                        margin-top: auto;
-                        padding-top: 4px;
+                        margin-top: 0;
+                        padding-top: 6px;
+                    }
+                    .approved-by-box {
+                        text-align: right;
+                        margin-bottom: 3px;
+                        line-height: 1.25;
+                    }
+                    .approved-by-name {
+                        font-size: 11px;
+                        font-weight: 800;
+                        color: #0f172a;
                     }
                     .footer-info-row {
                         display: flex;
@@ -532,11 +546,12 @@ export const ServiceContinuityProcessModal = ({
                         padding-top: 5px;
                     }
                     .footer-address {
-                        font-size: 10px;
+                        font-size: 9.5px;
                         line-height: 1.5;
                         color: #334155;
                         text-align: right;
                         font-weight: 600;
+                        width: 100%;
                     }
                     .footer-qr-container {
                         display: flex;
@@ -610,7 +625,7 @@ export const ServiceContinuityProcessModal = ({
 
                         <!-- Official Body Text -->
                         <div class="body-paragraph">
-                            نؤيد لكم بأن ${honorific} ( <b>${employeeName}</b> ) أحد منتسبي هذه المديرية على الملاك الدائم وما زال مستمراً بالخدمة في الوقت الحاضر وبناءً على طلبه زُوّد بهذا التأييد${purposeClause}
+                            نؤيد لكم بأن ${honorific} ( <b>${employeeName}</b> ) أحد منتسبي هذه المديرية ${cadrePhrase} وما زال مستمراً بالخدمة في الوقت الحاضر وبناءً على طلبه زُوّد بهذا التأييد${purposeClause}
                         </div>
 
                         <!-- Appreciation -->
@@ -623,7 +638,9 @@ export const ServiceContinuityProcessModal = ({
 
                         <!-- Signatures & CC Section -->
                         <div class="sig-cc-section">
-                            ${ccHtml}
+                            <div style="flex: 1; max-width: calc(100% - 225px);">
+                                ${ccHtml}
+                            </div>
 
                             <div class="director-box">
                                 <p class="director-title-top">الدكتور المهندس</p>
@@ -633,22 +650,14 @@ export const ServiceContinuityProcessModal = ({
                             </div>
                         </div>
 
-                        <!-- Footer -->
+                        <!-- Footer & Approver Accreditation -->
                         <div class="footer-container">
+                            ${approverHtml}
                             <div class="double-divider"></div>
                             <div class="footer-info-row">
                                 <div class="footer-address">
                                     <div>العنوان : محافظة كربلاء المقدسة – شارع العباس -ع-</div>
-                                    <div>رقم الهاتف : 032333316 &nbsp;|&nbsp; البريد الألكتروني : kerbalatelecoms@itpc.gov.iq</div>
-                                    <div>الموقع الألكتروني : www.itpc.gov.iq</div>
-                                </div>
-                                <div class="footer-qr-container">
-                                    ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" class="footer-qr-img" alt="QR" />` : ''}
-                                    <div class="footer-qr-text">
-                                        <div><b>وثيقة رسمية معتمدة</b></div>
-                                        <div style="font-family: monospace;">كود: #${request.id.slice(0, 8)}</div>
-                                        <div style="font-size: 8.5px; color: #64748b;">امسح الرمز للتحقق الرقمي</div>
-                                    </div>
+                                    <div>رقم الهاتف : 032333316 &nbsp;|&nbsp; البريد الألكتروني : kerbalatelecoms@itpc.gov.iq &nbsp;|&nbsp; الموقع الألكتروني : www.itpc.gov.iq</div>
                                 </div>
                             </div>
                         </div>
@@ -913,6 +922,57 @@ export const ServiceContinuityProcessModal = ({
                         </div>
                     </div>
 
+                    {/* Cadre Type Selector (الملاك الدائم / العقود) */}
+                    <div
+                        className={cn(
+                            'p-3.5 rounded-xl border space-y-2.5',
+                            isDark ? 'bg-slate-800/50 border-indigo-500/30' : 'bg-indigo-50/50 border-indigo-200'
+                        )}
+                    >
+                        <div className="flex items-center justify-between">
+                            <label className="block font-bold text-xs text-indigo-700 dark:text-indigo-400">
+                                صفة تعيين المنتسب في نص الكتاب الرسمي *
+                            </label>
+                            <span className="text-[11px] font-bold text-muted-foreground">
+                                النص الظاهر: <b className="text-foreground">{cadrePhrase}</b>
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setCadreType('permanent')}
+                                className={cn(
+                                    'py-2.5 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2',
+                                    cadreType === 'permanent'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-500/20'
+                                        : isDark
+                                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                                )}
+                            >
+                                <span className={cn('w-2.5 h-2.5 rounded-full', cadreType === 'permanent' ? 'bg-white' : 'bg-slate-400')} />
+                                <span>الملاك الدائم</span>
+                                <span className="text-[10px] opacity-80">(على الملاك الدائم)</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCadreType('contract')}
+                                className={cn(
+                                    'py-2.5 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2',
+                                    cadreType === 'contract'
+                                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm ring-2 ring-amber-500/20'
+                                        : isDark
+                                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                                )}
+                            >
+                                <span className={cn('w-2.5 h-2.5 rounded-full', cadreType === 'contract' ? 'bg-white' : 'bg-slate-400')} />
+                                <span>العقود</span>
+                                <span className="text-[10px] opacity-80">(على نظام العقود)</span>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* CC Section: جهات «نسخة منه إلى» */}
                     <div
                         className={cn(
@@ -1067,7 +1127,7 @@ export const ServiceContinuityProcessModal = ({
                                 </div>
                                 <div className="text-center space-y-0.5 text-[10px] font-sans text-slate-800" dir="ltr">
                                     <h4 className="font-bold text-[11px] text-slate-950">Ministry of Communications</h4>
-                                    <h5 className="font-semibold text-slate-800">Informatics & Telecommunications Public Company</h5>
+                                    <h5 className="font-semibold text-slate-800 whitespace-nowrap text-[9.5px]">Informatics & Telecommunications Public Company</h5>
                                     <h5 className="font-bold text-slate-950">Karbala Telecom & Informatics Directorate</h5>
                                     <p className="font-medium text-slate-700">Financial & Administrative Department</p>
                                     <p className="font-medium text-slate-700">Human Resources Division</p>
@@ -1078,7 +1138,7 @@ export const ServiceContinuityProcessModal = ({
                             <div className="border-t-[2.5px] border-b-[0.8px] border-slate-900 h-1 my-1" />
 
                             {/* Dispatch Office Blank Space (Visual guide in modal preview) */}
-                            <div className="h-12 border border-dashed border-slate-300 rounded-lg flex items-center justify-between px-3 text-[10.5px] text-slate-400 bg-slate-50/60 my-1">
+                            <div className="h-24 border border-dashed border-slate-300 rounded-lg flex items-center justify-between px-3 text-[10.5px] text-slate-400 bg-slate-50/60 my-1">
                                 <span>مساحة مخصصة لطابعة الصادرة (تُسحب الورقة فارغة ليُطبع فيها العدد والتاريخ)</span>
                                 <span className="font-mono font-bold text-slate-500">العدد: {letterNumber} | التاريخ: {letterDate}</span>
                             </div>
@@ -1098,7 +1158,7 @@ export const ServiceContinuityProcessModal = ({
                             {/* Body - Streamlined according to official instructions */}
                             <div className="text-justify leading-relaxed text-xs space-y-3 font-tajawal">
                                 <p className="leading-loose text-[13.5px] text-justify text-slate-900">
-                                    نؤيد لكم بأن {honorific} ( <b>{employeeName}</b> ) أحد منتسبي هذه المديرية على الملاك الدائم وما زال مستمراً بالخدمة في الوقت الحاضر وبناءً على طلبه زُوّد بهذا التأييد
+                                    نؤيد لكم بأن {honorific} ( <b>{employeeName}</b> ) أحد منتسبي هذه المديرية {cadrePhrase} وما زال مستمراً بالخدمة في الوقت الحاضر وبناءً على طلبه زُوّد بهذا التأييد
                                     {cleanedPurpose ? (
                                         <span>
                                             {' '}وذلك لغرض (<b>{cleanedPurpose}</b>)
@@ -1112,28 +1172,22 @@ export const ServiceContinuityProcessModal = ({
                                 </div>
 
                                 {/* Salary Section: ONLY if requested */}
-                                {(request.include_nominal_salary || request.include_total_salary) && (
+                                {(request.include_nominal_salary || request.include_total_salary || (request as any).include_salary_details) && (
                                     <div className="p-2.5 rounded-lg bg-slate-50/80 border border-slate-200 text-slate-900 leading-normal text-xs space-y-1 my-2">
                                         <p className="font-extrabold text-slate-950">علماً أن:</p>
                                         <div className="pr-3 space-y-1">
-                                            {request.include_nominal_salary && (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold min-w-[90px]">الراتب الاسمي /</span>
-                                                    <span className="font-mono font-bold text-emerald-700">{formatIQD(request.nominal_salary_snapshot)}</span>
-                                                </div>
-                                            )}
-                                            {request.include_total_salary && (
-                                                <>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold min-w-[90px]">الراتب الكلي /</span>
-                                                        <span className="font-mono font-bold text-emerald-700">{formatIQD(request.total_salary_snapshot)}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold min-w-[90px]">الراتب الصافي /</span>
-                                                        <span className="font-mono font-bold text-emerald-700">{formatIQD(request.total_salary_snapshot)}</span>
-                                                    </div>
-                                                </>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold min-w-[90px]">الراتب الكلي /</span>
+                                                <span className="font-mono font-bold text-cyan-800">{formatIQD((request as any).gross_salary_snapshot || request.total_salary_snapshot)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold min-w-[90px]">الراتب الصافي /</span>
+                                                <span className="font-mono font-bold text-emerald-700">{formatIQD((request as any).net_salary_snapshot || request.total_salary_snapshot)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold min-w-[90px]">الراتب الاسمي /</span>
+                                                <span className="font-mono font-bold text-slate-900">{formatIQD(request.nominal_salary_snapshot)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1141,29 +1195,29 @@ export const ServiceContinuityProcessModal = ({
 
                             {/* Signatures & Footer Layout */}
                             <div className="space-y-4 pt-3">
-                                {/* Dynamic Balanced Row: CC on the Right, Director Signature on the Left */}
-                                <div className="flex items-end justify-between gap-4 w-full">
-                                    {/* CC Recipients Block (نسخة منه إلى) on Right */}
-                                    {cleanCcList.length > 0 ? (
-                                        <div className="text-right space-y-1 text-xs max-w-sm">
-                                            <p className="font-bold text-slate-900 underline underline-offset-4 text-[11.5px]">نسخة منه إلى /</p>
-                                            <ul className="space-y-0.5 text-slate-800 pr-1 text-[11px]">
-                                                {cleanCcList.map((cc, idx) => (
-                                                    <li
-                                                        key={idx}
-                                                        className="border-b border-dotted border-slate-200 pb-0.5 last:border-b-0"
-                                                    >
-                                                        <span className="font-bold text-slate-900">• {cc}</span>
-                                                        <span className="text-slate-600 font-medium text-[10.5px] pr-1">
-                                                            {getCcActionPhrase(cc)}
-                                                        </span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        <div className="max-w-sm flex-1" />
-                                    )}
+                                {/* Dynamic Balanced Row: CC on the Right (aligned horizontally with كربلاء المقدسة), Director Signature on the Left */}
+                                <div className="flex items-start justify-between gap-4 w-full">
+                                    {/* Right Block: CC Recipients starting at the horizontal level of كربلاء المقدسة extending towards director */}
+                                    <div className="flex flex-col text-right space-y-1 flex-1 max-w-[calc(100%-220px)] pt-[54px]">
+                                        {cleanCcList.length > 0 && (
+                                            <div className="text-right space-y-1 text-xs">
+                                                <p className="font-bold text-slate-900 underline underline-offset-4 text-[11.5px]">نسخة منه إلى /</p>
+                                                <ul className="space-y-0.5 text-slate-800 pr-1 text-[11px]">
+                                                    {cleanCcList.map((cc, idx) => (
+                                                        <li
+                                                            key={idx}
+                                                            className="pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis"
+                                                        >
+                                                            <span className="font-bold text-slate-900">• {cc}</span>
+                                                            <span className="text-slate-600 font-medium text-[10.5px] pr-1">
+                                                                {getCcActionPhrase(cc)}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
 
                                     {/* Director Signature permanently anchored on the Left */}
                                     <div className="text-center space-y-0.5 shrink-0 min-w-[200px] mr-auto">
@@ -1174,37 +1228,20 @@ export const ServiceContinuityProcessModal = ({
                                     </div>
                                 </div>
 
-                                {/* Bottom Footer with Double Line and Details */}
+                                {/* Bottom Footer with Fixed Approver Accreditation above the Double Line */}
                                 <div className="pt-2">
+                                    {request.approved_by_name && (
+                                        <div className="text-right pb-1">
+                                            <p className="text-[11px] font-bold text-slate-900">
+                                                تدقيق واعتماد: {getTripartiteName(request.approved_by_name)}
+                                            </p>
+                                        </div>
+                                    )}
                                     <div className="border-t-[2.5px] border-b-[0.8px] border-slate-900 h-1 mb-2" />
                                     <div className="flex items-center justify-between text-[10px] text-slate-700 leading-tight">
-                                        <div className="space-y-0.5 text-right font-medium">
+                                        <div className="space-y-0.5 text-right font-medium w-full">
                                             <p>العنوان : محافظة كربلاء المقدسة – شارع العباس -ع-</p>
-                                            <p>رقم الهاتف : 032333316 &nbsp;|&nbsp; البريد الألكتروني : kerbalatelecoms@itpc.gov.iq</p>
-                                            <p>الموقع الألكتروني : www.itpc.gov.iq</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {qrCodeDataUrl ? (
-                                                <div className="p-0.5 rounded border border-slate-300 bg-white shrink-0">
-                                                    <img
-                                                        src={qrCodeDataUrl}
-                                                        alt="QR Code للتحقق"
-                                                        className="w-12 h-12 object-contain block"
-                                                    />
-                                                </div>
-                                            ) : null}
-                                            <div className="space-y-0.5 text-[9.5px] text-slate-600 font-sans text-right">
-                                                <p className="font-bold text-slate-900 flex items-center gap-1">
-                                                    <ShieldCheck size={11} className="text-emerald-600 shrink-0" />
-                                                    <span>وثيقة رسمية معتمدة</span>
-                                                </p>
-                                                <p className="font-mono text-slate-500">
-                                                    كود: #{request.id.slice(0, 8)}
-                                                </p>
-                                                <p className="text-[8.5px] text-slate-400 leading-tight">
-                                                    امسح الرمز للتحقق الرقمي
-                                                </p>
-                                            </div>
+                                            <p>رقم الهاتف : 032333316 &nbsp;|&nbsp; البريد الألكتروني : kerbalatelecoms@itpc.gov.iq &nbsp;|&nbsp; الموقع الألكتروني : www.itpc.gov.iq</p>
                                         </div>
                                     </div>
                                 </div>

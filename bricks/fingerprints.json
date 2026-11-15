@@ -1,5 +1,5 @@
 {
- "created": "2026-11-14T11:52:54.026Z",
+ "created": "2026-11-15T07:33:37.217Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -103,7 +103,7 @@
   },
   "src/components/admin/DepartmentsManager.tsx": {
    "brick": "FE-HR-01",
-   "sha": "7f7156d3613c"
+   "sha": "c0005028b8db"
   },
   "src/components/admin/FieldPermissionsModal.tsx": {
    "brick": "FE-HR-01",
@@ -171,7 +171,7 @@
   },
   "src/components/admin/SupervisorPermissions.tsx": {
    "brick": "FE-HR-01",
-   "sha": "50623e750437"
+   "sha": "7faac63be4ce"
   },
   "src/components/admin/TipsEditor.tsx": {
    "brick": "FE-MED-01",
@@ -243,7 +243,7 @@
   },
   "src/components/auth/AdminRoleSelector.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "0f22ad3ed3b3"
+   "sha": "d7ad534ba010"
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
@@ -335,7 +335,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "be60311b2851"
+   "sha": "bb390b824af3"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -931,7 +931,7 @@
   },
   "src/features/hr/components/HRRequestsHub.tsx": {
    "brick": "FE-HR-01",
-   "sha": "e86309cf96fc"
+   "sha": "83761027c0fa"
   },
   "src/features/hr/components/IssuedContinuityCard.tsx": {
    "brick": "FE-HR-01",
@@ -943,11 +943,19 @@
   },
   "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
    "brick": "FE-HR-01",
-   "sha": "b266067a4c38"
+   "sha": "a168ebb14522"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
    "sha": "516d33af5a19"
+  },
+  "src/features/hr/utils/continuityPrintAssets.ts": {
+   "brick": "FE-HR-01",
+   "sha": "509e3bd95803"
+  },
+  "src/features/hr/utils/printContinuityDirect.ts": {
+   "brick": "FE-HR-01",
+   "sha": "79245dc2931f"
   },
   "src/features/kiosk/KioskAdminPanel.tsx": {
    "brick": "FE-ATT-02",
@@ -1055,7 +1063,7 @@
   },
   "src/features/requests/components/ServiceContinuityRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "a0a93f8f4f42"
+   "sha": "732b151e4517"
   },
   "src/features/requests/components/SubstituteSelector.tsx": {
    "brick": "FE-LEV-01",
@@ -1656,6 +1664,26 @@
   "supabase/migrations/20261113190000_att06_add_kiosk_delete_rpc.sql": {
    "brick": "BE-MIG-01",
    "sha": "be90b482a593"
+  },
+  "supabase/migrations/20261114160000_hr01_service_continuity_salary_details.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "edd2c40572f1"
+  },
+  "supabase/migrations/20261115000000_hr01_service_continuity_deputy_and_printer.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "db6a2a882861"
+  },
+  "supabase/migrations/20261115010000_hr01_service_continuity_include_purpose_in_notification.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "a020c102dd14"
+  },
+  "supabase/migrations/20261115020000_hr01_service_continuity_printer_permissions_and_rpc.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "f499222706b8"
+  },
+  "supabase/migrations/20261115030000_hr01_service_continuity_cadre_and_direct_print.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "27d3ecb9b51a"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

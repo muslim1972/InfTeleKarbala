@@ -6,7 +6,6 @@ import {
     Layers,
     CheckCircle2,
     RefreshCw,
-    Building,
     Scissors,
     ArrowRight
 } from 'lucide-react';
@@ -50,7 +49,6 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
 
     // ── Continuity Requests State ────────────────────────────────────────────
     const [isLoadingContinuity, setIsLoadingContinuity] = useState(true);
-    const [pendingContinuity, setPendingContinuity] = useState<ContinuityRequestItem[]>([]);
     const [issuedContinuity, setIssuedContinuity] = useState<ContinuityRequestItem[]>([]);
     const [isIssuedContinuityExpanded, setIsIssuedContinuityExpanded] = useState(false);
     const [selectedContinuityReq, setSelectedContinuityReq] = useState<ContinuityRequestItem | null>(null);
@@ -140,11 +138,9 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
                         employee: pMap[r.user_id] || null
                     }));
 
-                    setPendingContinuity(mapped.filter((r: any) => r.status === 'pending_hr'));
                     setIssuedContinuity(mapped.filter((r: any) => r.status === 'issued_and_dispatched'));
                 }
             } else if (data) {
-                setPendingContinuity(data.filter((r: any) => r.status === 'pending_hr') as any);
                 setIssuedContinuity(data.filter((r: any) => r.status === 'issued_and_dispatched') as any);
             }
         } catch (err) {
@@ -398,10 +394,9 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
         }
     };
 
-    // Calculate pending totals for badges
+    // Calculate pending totals for badges (طلبات الاستمرارية انتقلت لموظف الطابعة في الإشعارات)
     const totalPendingLeaves = cutApprovalRecords.length;
-    const totalPendingContinuity = pendingContinuity.length;
-    const totalPending = totalPendingLeaves + totalPendingContinuity;
+    const totalPending = totalPendingLeaves;
 
     return (
         <div className="space-y-5 animate-in fade-in duration-300">
@@ -465,9 +460,9 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
                     >
                         <FileText className="w-3.5 h-3.5" />
                         <span>تأييدات الاستمرارية والوثائق</span>
-                        {totalPendingContinuity > 0 && (
-                            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-500 text-white font-bold animate-pulse">
-                                {totalPendingContinuity}
+                        {issuedContinuity.length > 0 && (
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold">
+                                {issuedContinuity.length}
                             </span>
                         )}
                     </button>
@@ -524,55 +519,6 @@ export const HRRequestsHub = ({ highlightRequestId }: HRRequestsHubProps) => {
                     </div>
 
                     <div className="space-y-2.5">
-                        {/* Pending Continuity Requests */}
-                        {(activeCategory === 'all' || activeCategory === 'continuity') && pendingContinuity.map(req => (
-                            <div
-                                key={req.id}
-                                className={cn(
-                                    "p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all",
-                                    isDark ? "bg-slate-900 border-slate-700 hover:border-blue-500/50" : "bg-white border-slate-200 hover:border-blue-400 shadow-sm"
-                                )}
-                            >
-                                <div className="space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                            تأييد استمرارية بالخدمة
-                                        </span>
-                                        <span className="font-bold text-xs text-foreground">
-                                            {req.employee?.full_name || 'موظف'}
-                                        </span>
-                                        <span className="text-[11px] text-muted-foreground font-mono">
-                                            رقم: {req.employee?.job_number || '—'}
-                                        </span>
-                                        <span className="text-[11px] text-muted-foreground">
-                                            ({req.employee?.department || 'المديرية'})
-                                        </span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
-                                        <span className="flex items-center gap-1 text-foreground/80">
-                                            <Building className="w-3.5 h-3.5 text-emerald-500" />
-                                            معنون إلى: <b className="text-foreground">{req.destination_entity}</b>
-                                        </span>
-                                        <span className="text-muted-foreground/40">•</span>
-                                        <span className="text-[11px]">
-                                            تاريخ الطلب: <b className="font-mono">{new Date(req.created_at).toLocaleDateString('ar-IQ')}</b>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedContinuityReq(req)}
-                                        className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all active:scale-95"
-                                    >
-                                        <FileText className="w-3.5 h-3.5" />
-                                        <span>معالجة وإصدار الكتاب الرسمي</span>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-
                         {/* Pending Leave Cut Requests */}
                         {(activeCategory === 'all' || activeCategory === 'leaves') && cutApprovalRecords.map(record => (
                             <div

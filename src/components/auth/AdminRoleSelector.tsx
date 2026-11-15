@@ -137,7 +137,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
     };
 
     return (
-        <div className={`min-h-screen w-full flex flex-col justify-center items-center relative font-tajawal transition-colors duration-500 overflow-x-hidden ${
+        <div className={`min-h-screen w-full flex flex-col items-center justify-between relative font-tajawal transition-colors duration-500 overflow-x-hidden ${
             isDark ? 'bg-gray-900' : 'bg-slate-50'
         }`}>
             <ThemeToggleFloating />
@@ -153,30 +153,27 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                 }`}></div>
             </div>
 
-            {/* Main Content Container - Vertically Centered */}
-            <div className={`relative z-10 w-full max-w-lg my-auto flex flex-col items-center justify-center transition-all duration-500 ${
-                isCompact 
-                    ? 'px-4 pt-16 pb-8 sm:py-10' 
-                    : 'p-6 pt-20 pb-12 sm:py-12'
+            {/* 1. Greeting Header - Fixed at Top, independent from card centering */}
+            <div className={`relative z-10 w-full max-w-lg text-center pt-[calc(4.75rem+env(safe-area-inset-top))] sm:pt-20 px-4 animate-in fade-in slide-in-from-top-6 duration-700 ${
+                isCompact ? 'space-y-1' : 'space-y-2'
             }`}>
+                <h1 className={`font-bold font-tajawal drop-shadow-lg transition-colors duration-500 ${
+                    isCompact ? 'text-xl sm:text-2xl leading-snug' : 'text-2xl sm:text-3xl leading-relaxed'
+                } ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    مرحباً بك، {user?.full_name}
+                </h1>
+                <p className={`italic transition-colors duration-500 ${
+                    isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+                } ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
+                    يرجى اختيار طريقة الدخول
+                </p>
+                <div className={`bg-brand-green mx-auto rounded-full shadow-lg ${
+                    isCompact ? 'h-1 w-12 mt-1.5' : 'h-1.5 w-16 mt-2'
+                }`} />
+            </div>
 
-                <div className={`text-center animate-in fade-in slide-in-from-bottom-8 duration-700 ${
-                    isCompact ? 'mb-4 space-y-1' : 'mb-6 space-y-2.5'
-                }`}>
-                    <h1 className={`font-bold font-tajawal drop-shadow-lg transition-colors duration-500 ${
-                        isCompact ? 'text-xl sm:text-2xl leading-snug' : 'text-2xl sm:text-3xl leading-relaxed'
-                    } ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        مرحباً بك، {user?.full_name}
-                    </h1>
-                    <p className={`italic transition-colors duration-500 ${
-                        isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
-                    } ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
-                        يرجى اختيار طريقة الدخول
-                    </p>
-                    <div className={`bg-brand-green mx-auto rounded-full shadow-lg ${
-                        isCompact ? 'h-1 w-12 mt-1.5' : 'h-1.5 w-16 mt-2'
-                    }`} />
-                </div>
+            {/* 2. Cards Container - Vertically Centered in remaining viewport area */}
+            <div className="relative z-10 w-full max-w-lg flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6">
 
                 {isCompact ? (
                     /* النمط الرشيق المدمج (Compact 2-Column Grid) للبطاقات الكثيرة (5 فأكثر) لمنع السكرول */

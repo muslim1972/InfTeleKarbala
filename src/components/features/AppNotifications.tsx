@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCircle, Clock } from 'lucide-react';
+import { Bell, X, CheckCircle, Clock, Printer, Edit2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useGovernorate } from '../../context/GovernorateContext';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 import { NotificationHistoryModal } from '../notifications/NotificationHistoryModal';
+import { printContinuityLetterDirect } from '../../features/hr/utils/printContinuityDirect';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
 import { toast } from 'react-hot-toast';
 
@@ -56,6 +57,16 @@ export const AppNotifications = () => {
     const [smartActionLoading, setSmartActionLoading] = useState<string | null>(null);
     // طلب معلق يُفتح من إشعار «بصمة مع طلب قيد المراجعة» في نموذج الاعتماد المعتمد
     const [smartApprovalRequest, setSmartApprovalRequest] = useState<any>(null);
+
+    // حالات التفاعل مع طلبات الاستمرارية المالية
+    const [rejectingFinanceNotifId, setRejectingFinanceNotifId] = useState<string | null>(null);
+    const [financeRejectionReason, setFinanceRejectionReason] = useState("");
+    const [editingFinanceNotifId, setEditingFinanceNotifId] = useState<string | null>(null);
+    const [financeEditDestination, setFinanceEditDestination] = useState("");
+    const [financeEditNotes, setFinanceEditNotes] = useState("");
+    const [financeCadreMap, setFinanceCadreMap] = useState<Record<string, 'permanent' | 'contract'>>({});
+    const [financeCcMap, setFinanceCcMap] = useState<Record<string, string[]>>({});
+    const [financeCcInputMap, setFinanceCcInputMap] = useState<Record<string, string>>({});
 
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
@@ -482,6 +493,198 @@ export const AppNotifications = () => {
         }
     };
 
+    // إدارة صفة التعيين والنسخ لطلب الاستمرارية لدى مسؤول المالية
+    const setNotificationCadre = (notifId: string, cadre: 'permanent' | 'contract') => {
+        setFinanceCadreMap(prev => ({ ...prev, [notifId]: cadre }));
+    };
+
+    const handleAddCcRecipient = (notifId: string, customText?: string) => {
+        const textToAdd = (customText !== undefined ? customText : (financeCcInputMap[notifId] || '')).trim();
+        if (!textToAdd) return;
+        setFinanceCcMap(prev => {
+            const existing = prev[notifId] || [];
+            if (existing.includes(textToAdd)) return prev;
+            return { ...prev, [notifId]: [...existing, textToAdd] };
+        });
+        if (customText === undefined) {
+            setFinanceCcInputMap(prev => ({ ...prev, [notifId]: '' }));
+        }
+    };
+
+    const handleRemoveCcRecipient = (notifId: string, indexToRemove: number) => {
+        setFinanceCcMap(prev => {
+            const existing = prev[notifId] || [];
+            return { ...prev, [notifId]: existing.filter((_, idx) => idx !== indexToRemove) };
+        });
+    };
+
+    // إجراءات اعتماد ومراجعة وتعديل طلب الاستمرارية من قبل مسؤول الإدارة والمالية وبديله
+    const handleFinanceContinuityApprove = async (notificationId: string, requestId: string) => {
+        const cadreType = financeCadreMap[notificationId] || 'permanent';
+        const ccRecipients = financeCcMap[notificationId] || [];
+        try {
+            setSmartActionLoading(`finance-app-${notificationId}`);
+            const { data, error } = await supabase.rpc('approve_continuity_by_finance', {
+                p_request_id: requestId,
+                p_cadre_type: cadreType,
+                p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null
+            });
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر اعتماد الطلب');
+                return;
+            }
+            toast.success(res?.message || 'تمت الموافقة بنجاح وأحيل الطلب لموظف الطابعة');
+            await handleMarkSystemNotificationRead(notificationId);
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error approving continuity:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء اعتماد الطلب');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleFinanceContinuityReject = async (notificationId: string, requestId: string) => {
+        try {
+            setSmartActionLoading(`finance-rej-${notificationId}`);
+            const { data, error } = await supabase.rpc('reject_continuity_by_finance', {
+                p_request_id: requestId,
+                p_reason: financeRejectionReason.trim() || null
+            });
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر رفض الطلب');
+                return;
+            }
+            toast.success(res?.message || 'تم رفض الطلب بنجاح وإشعار الموظف');
+            setRejectingFinanceNotifId(null);
+            setFinanceRejectionReason("");
+            await handleMarkSystemNotificationRead(notificationId);
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error rejecting continuity:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء رفض الطلب');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleFinanceContinuityEdit = async (notificationId: string, requestId: string) => {
+        if (!financeEditDestination.trim()) {
+            toast.error('يرجى تحديد الجهة المعنون إليها الكتاب');
+            return;
+        }
+        const cadreType = financeCadreMap[notificationId] || 'permanent';
+        const ccRecipients = financeCcMap[notificationId] || [];
+        try {
+            setSmartActionLoading(`finance-edit-${notificationId}`);
+            const { data, error } = await supabase.rpc('update_and_approve_continuity_by_finance', {
+                p_request_id: requestId,
+                p_destination_entity: financeEditDestination.trim(),
+                p_notes: financeEditNotes.trim() || null,
+                p_cadre_type: cadreType,
+                p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null
+            });
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر حفظ التعديل');
+                return;
+            }
+            toast.success(res?.message || 'تم حفظ التعديل واعتماد الطلب وإحالته للطابعة');
+            setEditingFinanceNotifId(null);
+            await handleMarkSystemNotificationRead(notificationId);
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error updating continuity:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء حفظ التعديل');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handlePrintContinuityByOperator = async (notificationId: string, requestId: string) => {
+        try {
+            setSmartActionLoading(`finance-print-${notificationId}`);
+            // جلب البيانات عبر الدالة الذرية المخصصة
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_service_continuity_request_for_print', {
+                p_request_id: requestId
+            });
+
+            let reqData: any = null;
+            if (!rpcErr && rpcRes && (rpcRes as any).success && (rpcRes as any).request) {
+                reqData = (rpcRes as any).request;
+            } else {
+                // الاستعلام الاحتياطي المباشر
+                const { data, error } = await supabase
+                    .from('service_continuity_requests')
+                    .select(`
+                        *,
+                        employee:profiles!service_continuity_requests_user_id_fkey(
+                            full_name,
+                            job_number,
+                            dept_text,
+                            section_text,
+                            gender
+                        ),
+                        supervisor:profiles!service_continuity_requests_supervisor_id_fkey(
+                            full_name
+                        )
+                    `)
+                    .eq('id', requestId)
+                    .single();
+
+                if (error || !data) {
+                    // Fallback direct query if joins have any mismatch
+                    const { data: rawReq, error: rawErr } = await supabase
+                        .from('service_continuity_requests')
+                        .select('*')
+                        .eq('id', requestId)
+                        .single();
+                    if (rawErr || !rawReq) throw rawErr || new Error('تعذر العثور على سجل الطلب');
+
+                    const { data: empProf } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, job_number, dept_text, section_text, gender')
+                        .eq('id', rawReq.user_id)
+                        .maybeSingle();
+
+                    reqData = {
+                        ...rawReq,
+                        employee: empProf || null
+                    };
+                } else {
+                    reqData = data;
+                }
+            }
+
+            if (!reqData) {
+                throw new Error('تعذر تحميل بيانات كتاب الاستمرارية للطباعة');
+            }
+
+            // طباعة المستند مباشرة وحفظ كـ PDF فوراً بنقرة واحدة بدون أي واجهات وسيطة
+            const printed = await printContinuityLetterDirect(reqData);
+            if (printed) {
+                // توثيق الطباعة رسمياً في قاعدة البيانات
+                await supabase.rpc('mark_continuity_printed', { p_request_id: requestId });
+                // تعليم الإشعار كمقروء
+                await handleMarkSystemNotificationRead(notificationId);
+                toast.success('تم فتح أمر طباعة / حفظ الكتاب بنجاح');
+                fetchSystemNotifications();
+            } else {
+                toast.error('تعذر تجهيز نافذة الطباعة');
+            }
+        } catch (err: any) {
+            console.error('Error printing continuity letter:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء طباعة كتاب الاستمرارية');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
     const handleResolveShiftAbsenceOrPenalty = async (notificationId: string, decision: 'approve_leave' | 'unexcused_absence') => {
         try {
             setSmartActionLoading(`resolve-${notificationId}`);
@@ -790,6 +993,280 @@ export const AppNotifications = () => {
                                                         </div>
                                                     );
                                                 }
+                                                // إشعار مسؤول القسم المالي والإداري وبديله لطلب تأييد الاستمرارية بالخدمة
+                                                const isFinanceContinuity = notification.type === 'service_continuity_finance' || (notification.type === 'service_continuity_request' && meta.continuity_step === 'finance');
+                                                if (isFinanceContinuity) {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading?.startsWith('finance-') && smartActionLoading?.includes(notification.id);
+                                                    const isRejecting = rejectingFinanceNotifId === notification.id;
+                                                    const isEditing = editingFinanceNotifId === notification.id;
+                                                    const currentCadre = financeCadreMap[notification.id] || 'permanent';
+                                                    const currentCcList = financeCcMap[notification.id] || [];
+                                                    const currentCcInput = financeCcInputMap[notification.id] || '';
+
+                                                    return (
+                                                        <div className="flex flex-col gap-2.5 mt-2 pt-2 border-t border-cyan-100 dark:border-cyan-900/40">
+                                                            {/* عرض الغرض أو الملاحظات إن وُجدت */}
+                                                            {meta?.notes && (
+                                                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200/80 dark:border-cyan-800/60 text-xs text-slate-800 dark:text-slate-200">
+                                                                    <span className="font-bold text-cyan-950 dark:text-cyan-200 shrink-0">الغرض:</span>
+                                                                    <span className="font-semibold">{meta.notes}</span>
+                                                                </div>
+                                                            )}
+
+                                                            {/* أزرار تحديد صفة التعيين: ملاك دائم / عقود */}
+                                                            <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">صفة التعيين في الكتاب:</span>
+                                                                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                                                        {currentCadre === 'contract' ? 'سيظهر: (بصفة عقد)' : 'سيظهر: (على الملاك الدائم)'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-1.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setNotificationCadre(notification.id, 'permanent')}
+                                                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border ${
+                                                                            currentCadre === 'permanent'
+                                                                                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                                                                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                                        }`}
+                                                                    >
+                                                                        <span>الملاك الدائم (افتراضي)</span>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setNotificationCadre(notification.id, 'contract')}
+                                                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border ${
+                                                                            currentCadre === 'contract'
+                                                                                ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                                                                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                                        }`}
+                                                                    >
+                                                                        <span>عقود</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* حقل إدخال جهات (نسخة منه إلى) مع اقتراحات سريعة */}
+                                                            <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                                                                <label className="text-[11px] font-bold text-indigo-950 dark:text-indigo-200">
+                                                                    أدخل نسخة منه إلى (اختياري):
+                                                                </label>
+                                                                <div className="flex gap-1.5">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={currentCcInput}
+                                                                        onChange={(e) => setFinanceCcInputMap(prev => ({ ...prev, [notification.id]: e.target.value }))}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') {
+                                                                                e.preventDefault();
+                                                                                handleAddCcRecipient(notification.id);
+                                                                            }
+                                                                        }}
+                                                                        placeholder="اكتب الجهة، مثل: الإضبارة الشخصية"
+                                                                        className="flex-1 p-1.5 text-xs rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-500"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleAddCcRecipient(notification.id)}
+                                                                        className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shrink-0"
+                                                                    >
+                                                                        إضافة
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* اقتراحات سريعة بنقرة واحدة */}
+                                                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                                                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">اقتراح سريع:</span>
+                                                                    {['الإضبارة الشخصية', 'المومأ إليه', 'ديوان محافظة كربلاء'].map(suggest => (
+                                                                        <button
+                                                                            key={suggest}
+                                                                            type="button"
+                                                                            onClick={() => handleAddCcRecipient(notification.id, suggest)}
+                                                                            className="text-[10px] font-bold py-0.5 px-2 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition"
+                                                                        >
+                                                                            + {suggest}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+
+                                                                {/* قائمة النسخ المضافة */}
+                                                                {currentCcList.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mt-1 pt-1.5 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                                        {currentCcList.map((cc, idx) => (
+                                                                            <span
+                                                                                key={idx}
+                                                                                className="inline-flex items-center gap-1 py-0.5 px-2 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 rounded-md text-[11px] font-bold"
+                                                                            >
+                                                                                <span>{cc}</span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleRemoveCcRecipient(notification.id, idx)}
+                                                                                    className="text-indigo-600 dark:text-indigo-400 hover:text-rose-600 dark:hover:text-rose-400 font-bold ml-0.5"
+                                                                                    title="حذف"
+                                                                                >
+                                                                                    ×
+                                                                                </button>
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* الأزرار التفاعلية الثلاثة */}
+                                                            {!isRejecting && !isEditing && (
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <button
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => handleFinanceContinuityApprove(notification.id, reqId)}
+                                                                        className="flex-1 min-w-[70px] py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-60"
+                                                                        title="موافقة واعتماد فوري وإحالة للطباعة"
+                                                                    >
+                                                                        <CheckCircle size={15} />
+                                                                        موافق
+                                                                    </button>
+
+                                                                    <button
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => {
+                                                                            setRejectingFinanceNotifId(null);
+                                                                            setEditingFinanceNotifId(notification.id);
+                                                                            setFinanceEditDestination(meta.destination_entity || '');
+                                                                            setFinanceEditNotes(meta.notes || '');
+                                                                        }}
+                                                                        className="py-2 px-3.5 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-xl text-xs font-bold transition disabled:opacity-60 flex items-center gap-1"
+                                                                        title="تعديل الجهة المعنون إليها أو الملاحظات"
+                                                                    >
+                                                                        <Edit2 size={14} />
+                                                                        تعديل
+                                                                    </button>
+
+                                                                    <button
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => {
+                                                                            setEditingFinanceNotifId(null);
+                                                                            setRejectingFinanceNotifId(notification.id);
+                                                                            setFinanceRejectionReason("");
+                                                                        }}
+                                                                        className="py-2 px-3.5 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition disabled:opacity-60 flex items-center gap-1"
+                                                                        title="رفض الطلب مع بيان السبب"
+                                                                    >
+                                                                        <X size={14} />
+                                                                        رفض
+                                                                    </button>
+                                                                </div>
+                                                            )}
+
+                                                            {/* حقل الرفض المدمج مع حقل النص حتى 256 حرف */}
+                                                            {isRejecting && (
+                                                                <div className="flex flex-col gap-1.5 p-2 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg animate-in fade-in duration-200">
+                                                                    <div className="flex justify-between items-center text-[11px] font-bold text-rose-900 dark:text-rose-200">
+                                                                        <span>سبب الرفض (اختياري):</span>
+                                                                        <span className="text-[10px] text-slate-500 font-mono">{financeRejectionReason.length}/256</span>
+                                                                    </div>
+                                                                    <textarea
+                                                                        value={financeRejectionReason}
+                                                                        onChange={(e) => setFinanceRejectionReason(e.target.value.slice(0, 256))}
+                                                                        placeholder="اكتب سبب الرفض هنا ليظهر للموظف..."
+                                                                        rows={2}
+                                                                        className="w-full p-1.5 text-xs rounded border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-rose-500"
+                                                                        autoFocus
+                                                                    />
+                                                                    <div className="flex gap-1.5 justify-end">
+                                                                        <button
+                                                                            disabled={isLoadingThis}
+                                                                            onClick={() => handleFinanceContinuityReject(notification.id, reqId)}
+                                                                            className="py-1 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition flex items-center gap-1 disabled:opacity-60"
+                                                                        >
+                                                                            <X size={13} />
+                                                                            تأكيد الرفض
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setRejectingFinanceNotifId(null)}
+                                                                            className="py-1 px-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded text-xs font-bold hover:bg-gray-300 transition"
+                                                                        >
+                                                                            إلغاء
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* حقول التعديل المدمجة */}
+                                                            {isEditing && (
+                                                                <div className="flex flex-col gap-2 p-2.5 bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-lg animate-in fade-in duration-200">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <label className="text-[11px] font-bold text-sky-950 dark:text-sky-200">
+                                                                            الجهة المعنون إليها الكتاب:
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={financeEditDestination}
+                                                                            onChange={(e) => setFinanceEditDestination(e.target.value)}
+                                                                            placeholder="مثال: مصرف الرافدين / فرع كربلاء"
+                                                                            className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
+                                                                            autoFocus
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <label className="text-[11px] font-bold text-sky-950 dark:text-sky-200">
+                                                                            ملاحظات إضافية أو الغرض (اختياري):
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={financeEditNotes}
+                                                                            onChange={(e) => setFinanceEditNotes(e.target.value)}
+                                                                            placeholder="مثال: كفالة السيد محمد علي..."
+                                                                            className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex gap-1.5 justify-end">
+                                                                        <button
+                                                                            disabled={isLoadingThis}
+                                                                            onClick={() => handleFinanceContinuityEdit(notification.id, reqId)}
+                                                                            className="py-1 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded text-xs font-bold transition flex items-center gap-1 disabled:opacity-60"
+                                                                        >
+                                                                            <CheckCircle size={13} />
+                                                                            حفظ واعتماد وإحالة للطابعة
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setEditingFinanceNotifId(null)}
+                                                                            className="py-1 px-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded text-xs font-bold hover:bg-gray-300 transition"
+                                                                        >
+                                                                            إلغاء
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                {/* إشعار موظف الطابعة الجاهز للطباعة المباشرة */}
+                                                if (notification.type === 'service_continuity_print') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading === `finance-print-${notification.id}`;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                            {/* عرض الغرض أو الملاحظات إن وُجدت */}
+                                                            {meta?.notes && (
+                                                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs text-slate-800 dark:text-slate-200">
+                                                                    <span className="font-bold text-indigo-950 dark:text-indigo-200 shrink-0">الغرض:</span>
+                                                                    <span className="font-semibold">{meta.notes}</span>
+                                                                </div>
+                                                            )}
+                                                            <button
+                                                                disabled={isLoadingThis}
+                                                                onClick={() => handlePrintContinuityByOperator(notification.id, reqId)}
+                                                                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                                                            >
+                                                                <Printer size={16} />
+                                                                {isLoadingThis ? 'جارٍ فتح أمر الطباعة / التصدير...' : 'طباعة الكتاب الرسمي (A4 / PDF)'}
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 const isSupervisorActionable = (notification.type === 'service_continuity_request' || meta.request_type === 'service_continuity') && meta.continuity_step !== 'hr' && !notification.title.includes('جاهز للإصدار');
                                                 if (isSupervisorActionable) {
                                                     const reqId = meta.request_id;

@@ -13,7 +13,9 @@ interface Department {
     level: number;
     parent_id: string | null;
     manager_id: string | null;
+    deputy_manager_id?: string | null;
     manager_name?: string; // Fetched from profiles
+    deputy_manager_name?: string;
 }
 
 interface UserProfile {
@@ -39,7 +41,9 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
     // Inline Manager Editing State
     const [editingManagerNodeId, setEditingManagerNodeId] = useState<string | null>(null);
-    const [managerSearch, setManagerSearch] = useState("");
+
+    // Inline Deputy Manager Editing State
+    const [editingDeputyNodeId, setEditingDeputyNodeId] = useState<string | null>(null);
 
     // Inline Name Editing State
     const [editingNameNodeId, setEditingNameNodeId] = useState<string | null>(null);
@@ -371,6 +375,35 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         }
     };
 
+    const saveInlineDeputyManager = async (deptId: string, newDeputyId: string | null) => {
+        setSaving(true);
+        try {
+            const { data, error } = await supabase
+                .from('departments')
+                .update({ deputy_manager_id: newDeputyId, updated_at: new Date().toISOString() })
+                .eq('id', deptId)
+                .select();
+
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("لم يتم التحديث في قاعدة البيانات (قد يكون بسبب صلاحيات الوصول RLS).");
+            }
+
+            toast.success("تم تحديث البديل بنجاح");
+
+            // Update local state
+            setDepartments(departments.map(d => d.id === deptId ? { ...d, deputy_manager_id: newDeputyId } : d));
+            setEditingDeputyNodeId(null);
+
+            await fetchUsers();
+        } catch (error: any) {
+            console.error("Inline deputy save error:", error);
+            toast.error("فشل تحديث البديل: " + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const saveInlineName = async (deptId: string, newName: string) => {
         if (!newName.trim()) {
             toast.error("لا يمكن ترك اسم التشكيل فارغاً");
@@ -410,96 +443,146 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
         const isExpanded = expandedNodeIds.has(dept.id);
 
         return (
-            <div key={dept.id} className={`w-full relative ${editingManagerNodeId === dept.id ? 'z-50' : 'z-10'}`}>
-                <div className={`flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-100 dark:border-white/10 rounded-xl shadow-sm transition-all hover:shadow-md backdrop-blur-sm ${theme === 'light' ? 'bg-white/70' : 'bg-slate-800/60'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
-                            <Network className="w-5 h-5" />
+            <div key={dept.id} className={`w-full relative ${editingManagerNodeId === dept.id || editingDeputyNodeId === dept.id ? 'z-50' : 'z-10'}`}>
+                <div className={`p-3 border border-gray-100 dark:border-white/10 rounded-xl shadow-sm transition-all hover:shadow-md backdrop-blur-sm ${theme === 'light' ? 'bg-white/70' : 'bg-slate-800/60'}`}>
+                    {/* السطر الأول: الأيقونة، الاسم، المستوى، وأزرار التعديل والحذف في سطر واحد */}
+                    <div className="flex items-center justify-between gap-2 w-full">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                                <Network className="w-4 h-4" />
+                            </div>
+                            {editingNameNodeId === dept.id ? (
+                                <div className="flex items-center gap-2 w-full max-w-sm">
+                                    <input
+                                        type="text"
+                                        value={tempNodeName}
+                                        onChange={(e) => setTempNodeName(e.target.value)}
+                                        className={`flex-1 px-2 py-1 text-xs font-bold rounded border outline-none ${theme === 'light' ? 'bg-white border-brand-green/50 focus:ring-2 focus:ring-brand-green/30' : 'bg-slate-900 border-brand-green/50 focus:ring-2 focus:ring-brand-green/30 text-white'}`}
+                                        autoFocus
+                                        onKeyDown={(e) => { if (e.key === 'Enter') saveInlineName(dept.id, tempNodeName); if (e.key === 'Escape') setEditingNameNodeId(null); }}
+                                    />
+                                    <button onClick={() => saveInlineName(dept.id, tempNodeName)} className="p-1 text-white bg-brand-green hover:bg-brand-green/90 rounded shrink-0 transition-colors" title="حفظ الاسم"><Check className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setEditingNameNodeId(null)} className="p-1 text-gray-600 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 rounded shrink-0 transition-colors" title="إلغاء"><X className="w-3.5 h-3.5" /></button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                    <span className={`font-bold text-sm truncate ${theme === 'light' ? 'text-gray-800' : 'text-gray-100'}`} title={dept.name}>
+                                        {dept.name}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
+                                        مستوى {dept.level}
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex flex-col w-full">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 w-full">
-                                {editingNameNodeId === dept.id ? (
-                                    <div className="flex items-center gap-2 w-full max-w-sm">
-                                        <input
-                                            type="text"
-                                            value={tempNodeName}
-                                            onChange={(e) => setTempNodeName(e.target.value)}
-                                            className={`flex-1 px-2 py-1 text-sm font-bold rounded border outline-none ${theme === 'light' ? 'bg-white border-brand-green/50 focus:ring-2 focus:ring-brand-green/30' : 'bg-slate-900 border-brand-green/50 focus:ring-2 focus:ring-brand-green/30 text-white'}`}
-                                            autoFocus
-                                            onKeyDown={(e) => { if (e.key === 'Enter') saveInlineName(dept.id, tempNodeName); if (e.key === 'Escape') setEditingNameNodeId(null); }}
-                                        />
-                                        <button onClick={() => saveInlineName(dept.id, tempNodeName)} className="p-1.5 text-white bg-brand-green hover:bg-brand-green/90 rounded shrink-0 transition-colors" title="حفظ الاسم"><Check className="w-3.5 h-3.5" /></button>
-                                        <button onClick={() => setEditingNameNodeId(null)} className="p-1.5 text-gray-600 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 rounded shrink-0 transition-colors" title="إلغاء"><X className="w-3.5 h-3.5" /></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className={`font-bold ${theme === 'light' ? 'text-gray-800' : 'text-gray-100'}`}>
-                                            {dept.name}
-                                        </span>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full w-fit ${theme === 'light' ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/20 text-brand-green'}`}>
-                                            مستوى {dept.level}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
 
-                            <div className="flex flex-col mt-1 w-full">
-                                <span className={`text-[11px] ml-1 mb-1 block ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>المسؤول:</span>
-                                {editingManagerNodeId === dept.id ? (
-                                    <div className="w-full max-w-sm relative">
-                                        <div className={`flex flex-col gap-1 w-full p-2 rounded-lg border shadow-sm ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-slate-900 border-white/10'}`}>
-                                            <div className="relative w-full z-[999]">
-                                                <EmployeeSearch
-                                                    onSelect={(u) => saveInlineManager(dept.id, u.id)}
-                                                    placeholder="البحث باسم الموظف..."
-                                                    autoFocus
-                                                    clearOnSelect
-                                                    showIcon={false}
-                                                    inputClassName="py-1.5 text-xs bg-white dark:bg-slate-800"
-                                                />
-                                            </div>
-                                            <div className="flex gap-2 w-full mt-1">
-                                                <button onClick={() => saveInlineManager(dept.id, null)} className={`flex-1 flex justify-center items-center py-1.5 text-xs rounded transition-colors ${theme === 'light' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'}`}>إزالة المسؤول</button>
-                                                <button onClick={() => setEditingManagerNodeId(null)} className={`flex-1 py-1.5 text-xs rounded transition-colors ${theme === 'light' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>إلغاء</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div
-                                        className="flex items-center gap-2 group/manager cursor-pointer w-fit"
-                                        onClick={() => {
-                                            setEditingManagerNodeId(dept.id);
-                                            setManagerSearch("");
-                                        }}
-                                        title="انقر لتعيين مسؤول"
-                                    >
-                                        <span 
-                                            id={`emp-badge-${dept.manager_id}`}
-                                            className={`text-[12px] font-semibold transition-all duration-300 rounded px-1 ${highlightedEmpId === dept.manager_id ? 'ring-2 ring-brand-green bg-brand-green/20 animate-pulse scale-105 inline-block' : ''} ${theme === 'light' ? 'text-gray-700 hover:text-brand-green' : 'text-gray-300 hover:text-brand-green'} ${!dept.manager_id && 'text-red-500/80'}`}
-                                        >
-                                            {users.find(u => u.id === dept.manager_id)?.full_name || 'لا يوجد مسؤول (انقر للتعيين)'}
-                                        </span>
-                                        <Edit2 className="w-3 h-3 opacity-0 group-hover/manager:opacity-100 transition-opacity text-brand-green" />
-                                    </div>
-                                )}
-                            </div>
+                        {/* أزرار التعديل والحذف مرفوعة هنا بجانب العنوان */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                                onClick={() => {
+                                    setEditingNameNodeId(dept.id);
+                                    setTempNodeName(dept.name);
+                                }}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-blue-400 bg-blue-900/20 hover:bg-blue-900/40'}`}
+                                title="تعديل اسم التشكيل"
+                            >
+                                <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={() => handleDelete(dept.id)}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-red-400 bg-red-900/20 hover:bg-red-900/40'}`}
+                                title="حذف التشكيل"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 mt-3 md:mt-0 justify-end md:justify-start">
-                        <button
-                            onClick={() => {
-                                setEditingNameNodeId(dept.id);
-                                setTempNodeName(dept.name);
-                            }}
-                            className={`p-2 rounded-lg transition-colors ${theme === 'light' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-blue-400 bg-blue-900/20 hover:bg-blue-900/40'}`}
-                            title="تعديل اسم التشكيل"
-                        >
-                            <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(dept.id)} className={`p-2 rounded-lg transition-colors ${theme === 'light' ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-red-400 bg-red-900/20 hover:bg-red-900/40'}`} title="حذف التشكيل">
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                    {/* السطر الثاني: المسؤول والبديل متجاوران في سطر واحد */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-white/5 w-full">
+                        {/* عمود المسؤول */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`text-[11px] font-bold shrink-0 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                المسؤول:
+                            </span>
+                            {editingManagerNodeId === dept.id ? (
+                                <div className="w-full relative z-[999]">
+                                    <div className={`flex flex-col gap-1 w-full p-2 rounded-lg border shadow-lg ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/20'}`}>
+                                        <EmployeeSearch
+                                            onSelect={(u) => saveInlineManager(dept.id, u.id)}
+                                            placeholder="البحث باسم المسؤول..."
+                                            autoFocus
+                                            clearOnSelect
+                                            showIcon={false}
+                                            inputClassName="py-1 text-xs bg-white dark:bg-slate-800"
+                                        />
+                                        <div className="flex gap-1.5 w-full mt-1">
+                                            <button onClick={() => saveInlineManager(dept.id, null)} className="flex-1 py-1 text-[10px] font-bold rounded bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">إزالة المسؤول</button>
+                                            <button onClick={() => setEditingManagerNodeId(null)} className="flex-1 py-1 text-[10px] font-bold rounded bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-gray-200 hover:bg-gray-300">إلغاء</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    className="flex items-center gap-1.5 group/manager cursor-pointer min-w-0 flex-1 hover:opacity-80 transition-opacity"
+                                    onClick={() => {
+                                        setEditingDeputyNodeId(null);
+                                        setEditingManagerNodeId(dept.id);
+                                    }}
+                                    title="انقر لتعيين أو تغيير المسؤول"
+                                >
+                                    <span 
+                                        id={`emp-badge-${dept.manager_id}`}
+                                        className={`text-[11px] font-semibold truncate rounded px-1 ${highlightedEmpId === dept.manager_id ? 'ring-2 ring-brand-green bg-brand-green/20 animate-pulse' : ''} ${theme === 'light' ? 'text-gray-800' : 'text-gray-200'} ${!dept.manager_id && 'text-red-500/80 font-normal italic'}`}
+                                    >
+                                        {users.find(u => u.id === dept.manager_id)?.full_name || 'لا يوجد مسؤول'}
+                                    </span>
+                                    <Edit2 className="w-3 h-3 shrink-0 text-brand-green opacity-70 group-hover/manager:opacity-100" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* عمود البديل */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`text-[11px] font-bold shrink-0 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                البديل:
+                            </span>
+                            {editingDeputyNodeId === dept.id ? (
+                                <div className="w-full relative z-[999]">
+                                    <div className={`flex flex-col gap-1 w-full p-2 rounded-lg border shadow-lg ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-slate-900 border-white/20'}`}>
+                                        <EmployeeSearch
+                                            onSelect={(u) => saveInlineDeputyManager(dept.id, u.id)}
+                                            placeholder="البحث باسم البديل..."
+                                            autoFocus
+                                            clearOnSelect
+                                            showIcon={false}
+                                            inputClassName="py-1 text-xs bg-white dark:bg-slate-800"
+                                        />
+                                        <div className="flex gap-1.5 w-full mt-1">
+                                            <button onClick={() => saveInlineDeputyManager(dept.id, null)} className="flex-1 py-1 text-[10px] font-bold rounded bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">إزالة البديل</button>
+                                            <button onClick={() => setEditingDeputyNodeId(null)} className="flex-1 py-1 text-[10px] font-bold rounded bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-gray-200 hover:bg-gray-300">إلغاء</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    className="flex items-center gap-1.5 group/deputy cursor-pointer min-w-0 flex-1 hover:opacity-80 transition-opacity"
+                                    onClick={() => {
+                                        setEditingManagerNodeId(null);
+                                        setEditingDeputyNodeId(dept.id);
+                                    }}
+                                    title="انقر لتعيين أو تغيير البديل"
+                                >
+                                    <span 
+                                        id={`emp-badge-${dept.deputy_manager_id}`}
+                                        className={`text-[11px] font-semibold truncate rounded px-1 ${highlightedEmpId === dept.deputy_manager_id ? 'ring-2 ring-blue-500 bg-blue-500/20 animate-pulse' : ''} ${theme === 'light' ? 'text-gray-800' : 'text-gray-200'} ${!dept.deputy_manager_id && 'text-slate-400 font-normal italic'}`}
+                                    >
+                                        {users.find(u => u.id === dept.deputy_manager_id)?.full_name || 'لا يوجد بديل'}
+                                    </span>
+                                    <Edit2 className="w-3 h-3 shrink-0 text-blue-500 opacity-70 group-hover/deputy:opacity-100" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
