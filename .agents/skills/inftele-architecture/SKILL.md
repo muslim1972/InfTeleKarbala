@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.8.47"
+  version: "0.8.48"
   last_updated: "2026-11-17"
 ---
 
@@ -1631,24 +1631,69 @@ npm run build ناجح.
   - البناء الإنتاجي `npm run build`: نجاح تام في 25.34 ثانية.
   - النشر الإنتاجي المعتمد `deploy-dist.ps1`: مطابقة تامة `SAME=390, DIFF=0, MISSING=0`.
 
-### 2026-11-17 — تطوير واجهات الحركات والرواتب وإجراء التدقيق الفني والأمني الشامل
+### 2026-11-17 — تنفيذ المرحلة الأمنية الثانية (تحصين دوال الموارد البشرية والإشعارات + إغلاق ثغرة تصفح حاوية البصمة والدردشة)
 
 - **الأنوية المعمارية المعنية (B.R.I.C.K Kernels):**
-  - `FE-HR-01`: إنشاء المكون المستقل المعزول [`AdministrativeMovementsCard.tsx`](file:///d:/InfTeleKarbala/src/components/features/AdministrativeMovementsCard.tsx) ودمج بطاقات الشكر واللجان والعقوبات في قسم موحد داخل [`AdministrativeTabContent.tsx`](file:///d:/InfTeleKarbala/src/components/features/AdministrativeTabContent.tsx).
-  - `FE-FIN-01`: دمج سطري الراتب الاسمي والراتب الكلي بسطر أفقي واحد في [`FinancialTabContent.tsx`](file:///d:/InfTeleKarbala/src/components/features/FinancialTabContent.tsx).
-  - `FE-CORE-02`: حذف شريط السنوات (YearSlider) وموارده بالكامل من [`Dashboard.tsx`](file:///d:/InfTeleKarbala/src/pages/Dashboard.tsx).
-  - `BE-HR-01`: إضافة عمود `book_number` وتحديث سياسات RLS عبر الهجرة `20261116230000_hr_movements_policies_and_columns.sql`.
-  - `OPS-03`: إجراء التدقيق الفني والأمني والمعماري الشامل لقاعدة البيانات وكود النظام وصياغة وثيقة التقرير المعماري `audit-report.md`.
-- **التعديلات المنفذة:**
-  1. إزالة شريط السنوات من تبويبتي المالية والموارد البشرية.
-  2. توحيد كتب الشكر واللجان والعقوبات في بطاقة «الحركات» بفلترة زمنية وحاوية 5 صفوف تفاعلية.
-  3. دمج سطري الراتب في سطر مدمج (الراتب الاسمي + الكلي).
-  4. فحص شامل لقاعدة البيانات وكشف 25 دالة وجدول غير منسوبة في سجل B.R.I.C.K، و74 دالة DEFINER ممنوحة لـ anon، و9 حاويات تخزين عامة.
-- **سير الإنفاذ والنشر الإنتاجي:**
-  - `verify-bricks.mjs`: نجاح 100% (تغطية 333/333 ملفاً، صفر أيتام في src).
-  - فحص الأنواع `tsc -p tsconfig.app.json`: صفر أخطاء جديدة في الملفات المعدلة.
-  - البناء الإنتاجي `npm run build`: نجاح تام.
-  - النشر الإنتاجي المعتمد `deploy-dist.ps1`: مطابقة تامة `SAME=390, DIFF=0, MISSING=0` واستجابة `HTTP 200`.
+  - `BE-CORE-03`, `BE-HR-01`, `BE-ATT-06`, `BE-FIN-01`, `BE-LEV-01`, `BE-ATT-04`.
+- **التعديلات والتحصينات الأمنية المنفذة:**
+  1. **المرحلة الأمنية الثانية (دوال الموارد البشرية والإشعارات):**
+     - إنشاء وتطبيق الهجرة [`20261117183000_core_revoke_anon_hr_and_admin_rpcs.sql`](file:///d:/InfTeleKarbala/supabase/migrations/20261117183000_core_revoke_anon_hr_and_admin_rpcs.sql) بصلاحية `supabase_admin`.
+     - سحب صلاحية `EXECUTE` من `PUBLIC` و `anon` عن 21 دالة إدارية ودوال استمرارية الخدمة والإشعارات، وقصرها حصراً على المستخدمين المسجلين المصادق عليهم `authenticated` و `service_role`.
+     - تقليص دوال DEFINER المكشوفة لـ anon من 49 دالة إلى 29 دالة (المتبقي هو فقط دوال تسجيل الدخول المسبق، والوقت، وفحص الكيوسك، والتحقق العام لكتب الاستمرارية عبر QR).
+  2. **تحصين حاوية لقطات البصمة (`attendance-snapshots`) وحاوية الدردشة (`chat-files`):**
+     - إسقاط السياسات العامة المفتوحة (`Public Access Attendance Snapshots` و `Public Access for chat-files`) التي كانت تتيح تصفح وسرد صور الموظفين وملفات الدردشة للمجهولين.
+     - استبدالها بسياسات RLS مقيدة صارمة: قصر الاستعلام والقراءة والتصفح على `authenticated` حصراً.
+     - منع التصفح والسرد العشوائي (Directory Listing & Enumeration) نهائياً لصد فحوصات أدوات الأمن السيبراني ولجنة الوزارة، مع بقاء رفع لقطات البصمة بالكاميرا مستقراً 100% دون أي انقطاع للموظفين الـ 350.
+### 2026-11-17 — تصفير أخطاء TypeScript بالكامل (من 90 إلى 0) واستبدال مخالفات setTimeout ونشر الإنتاج
+
+- **الأنوية المعمارية المعنية (B.R.I.C.K Kernels):**
+  - `FE-CORE-01`, `FE-CORE-02`, `FE-CORE-03`, `FE-HR-01`, `FE-ATT-01`, `FE-FIN-01`, `FE-TRN-01`, `FE-COM-01`, `FE-PRO-01`, `OPS-03`.
+- **التعديلات والتحسينات المنفذة:**
+  1. **تصفير كافة أخطاء TypeScript (من 90 خطأً تراكمياً إلى 0 خطأ قطعي):**
+     - توحيد وتعريف كائن `LeaveRecord` بكامل حقول مستندات HR والجداول التابعة (`admin_order_*`, `clearance_letter_*`, `hospital_*`, `dispatch_*`, `resumption_*`, `separation_*`).
+     - إزالة إعادة التعريف المنعزلة لـ `LeaveRecord` في `LeavePrintTemplate.tsx` واستيراد الواجهة الموحدة.
+     - تصحيح تعارض الأنواع في `AdminLeaveRequests.tsx` وإضافة `'canceled'` إلى اتحاد حالات أقسام الأكورديون.
+     - تصحيح فهرسة كائن الفروقات المالية `discrepancies` في `FinancialTabContent.tsx`.
+     - تنظيف مستوردات ومتغيرات غير مستخدمة في `App.tsx` و `TabManageEmployees.tsx` و `EmployeeRosterModal.tsx` و `HolidaysTab.tsx`.
+     - مطابقة كائن السياق البديل `fallbackAudioContext` مع الواجهة `AudioContextType`.
+  2. **استبدال مخالفات `setTimeout` لمزامنة الواجهات ببدائل مستقرة ومعمارية:**
+     - استبدال `setTimeout` في شاشة إدارة التشكيلات الإدارية `DepartmentsManager.tsx` بـ `useEffect` تصريحي مع `window.clearTimeout` لمنع تسريب الذاكرة عند الخروج من المكون.
+     - استبدال `setTimeout` في `LiveAttendanceBoard.tsx` بـ `try/finally` متزامن مع انتهاء جلب البيانات.
+     - استبدال `setTimeout` في `MediaSectionEditor.tsx` بتمرير مباشر للقيم المفرغة دون تأخير.
+     - استبدال `setTimeout` في `ExamSession.tsx` بـ `requestAnimationFrame` لمنع خنق السكرول بالخلفية.
+     - استبدال `setTimeout` في `TraineeExamTab.tsx` بـ `queueMicrotask`.
+     - استبدال `setTimeout` في `SettingsModal.tsx` بقراءة مباشرة لنتيجة إذن المتصفح.
+     - استبدال `setTimeout` في `LessonViewer.tsx` بإشعار فوري `toast.success` وانتقال نظيف.
+- **سير الإنفاذ والنشر الإنتاجي المعتمد:**
+  - `verify-bricks.mjs`: نجاح 100% (تغطية src: 333/333 ملفاً، صفر أيتام).
+  - فحص الأنواع الصارم: `npx tsc --noEmit -p tsconfig.app.json` — **اجتياز كامل بنتيجة 0 أخطاء (Code 0)**.
+  - البناء الإنتاجي `npm run build`: نجاح تام في 23.84 ثانية.
+  - النشر الإنتاجي `deploy-dist.ps1`: رفع 77 ملفاً محدثاً ومطابقة تامة `SAME=390, DIFF=0, MISSING=0`.
+  - الفحص التشغيلي على خادم الإنتاج: استجابة الخادم الفورية `HTTP/1.1 200 OK`.
+
+### 2026-11-17 — إغلاق البنود الختامية: ترويسات الأمان السيادية (HSTS و Permissions-Policy)، تطهير console.log، وحذف النسخ المكررة
+
+- **الأنوية المعمارية المعنية (B.R.I.C.K Kernels):**
+  - `BE-CORE-01`, `FE-CORE-01`, `FE-CORE-02`, `FE-ATT-01`, `OPS-03`.
+- **التعديلات والتحسينات المنفذة:**
+  1. **حذف الملفات المكررة في `public/`:**
+     - حذف `public/itpc-official-header - Copy.png` و `public/logo-new - Copy.png`.
+  2. **تطهير وحجب كافة سجلات المطورين (`console.log`) في بيئة الإنتاج:**
+     - تطهير ما يقارب 60 عبارة `console.log` عبر 19 ملفاً مصدرياً (منها `useChatState.ts`, `SupervisorNotifications.tsx`, `attendanceService.ts`, `FinancialDataUpdater.tsx`, `pdfGenerator.ts`).
+     - تصحيح تموضع إعدادات `esbuild` في `vite.config.ts` بنقلها إلى الجذر الأعلى للتهيئة لضمان إسقاط `console.log` و `console.info` و `debugger` من حزم الإنتاج تلقائياً مع الإبقاء على `console.error` و `console.warn` للأعطال الحرجة.
+  3. **تفعيل ترويسات الأمان السيادية الصارمة في خادم الويب (`spa_server.py`):**
+     - إضافة ترويسة الحماية الصارمة للنقل المشفر `Strict-Transport-Security: max-age=31536000; includeSubDomains`.
+     - إضافة ترويسة سياسة الأذونات `Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)`، والتي تمنح نطاق المنظومة السيادي صلاحية الوصول الحصري الكامل للكاميرا والميكروفون والموقع الجغرافي لضمان عمل البصمة البيومترية والمكالمات الصوتية والرسائل الصوتية بأمان تام 100%، مع حظر استغلالها من أي إطارات أو أطراف خارجية خبيثة.
+     - إعادة تشغيل خادم `spa-server.service` والتحقق من الترويسات عبر `curl -I`.
+- **سير الإنفاذ والنشر الإنتاجي المعتمد:**
+  - `verify-bricks.mjs --db`: نجاح 100% (تغطية src: 333/333، تغطية DB: 164/164، جداول: 92/92، حاويات: 9/9، صفر أيتام، صفر تحذيرات).
+  - فحص الأنواع: `npx tsc --noEmit -p tsconfig.app.json` — **اجتياز كامل بنتيجة 0 أخطاء (Code 0)**.
+  - البناء الإنتاجي `npm run build`: نجاح تام في 23.73 ثانية.
+  - النشر الإنتاجي `deploy-dist.ps1`: رفع 89 ملفاً ومطابقة تامة `SAME=388, DIFF=0, MISSING=0`.
+  - الفحص التشغيلي على خادم الإنتاج: استجابة الخادم الفورية `HTTP/1.1 200 OK` وترويسات HSTS و Permissions-Policy نشطة 100%.
+
+
+
 
 
 

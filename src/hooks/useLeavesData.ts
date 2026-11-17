@@ -21,11 +21,8 @@ async function fetchLeavesData(userId: string, year: number): Promise<LeavesData
     // محاولة جلب من الكاش
     const cached = await cacheManager.get<LeavesData>(cacheKey);
     if (cached) {
-        console.log('[useLeavesData] جلب من الكاش');
         return cached;
     }
-
-    console.log('[useLeavesData] جلب من قاعدة البيانات...');
 
     // جلب الإجازات وإجمالي الاستخدام بالتوازي
     const [leavesResult, lifetimeResult] = await Promise.all([

@@ -18,8 +18,6 @@ interface EmployeeFinancialData {
  * جلب البيانات المالية والإدارية للموظف مع الكاش
  */
 async function fetchEmployeeData(userId: string): Promise<EmployeeFinancialData> {
-    console.log('[useEmployeeData] جلب من قاعدة البيانات للحصول على أرصدة دقيقة...');
-
     // جلب كل البيانات بالتوازي
     const [financialResult, adminResult, yearlyResult] = await Promise.all([
         supabase

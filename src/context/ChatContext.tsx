@@ -151,7 +151,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 schema: 'public', 
                 table: 'conversations' 
             }, () => {
-                console.log('ChatContext: Conversations changed, refreshing...');
                 fetchConversations();
             })
             // Buzz Sound: Listen for both INSERT (first buzz) and UPDATE (stacked buzz)
@@ -185,8 +184,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Helper: Play buzz sound with 3x repeat using a FRESH Audio object each time
         function playBuzzSound() {
-            console.log('📢 [Global Buzz] Playing alert...');
-            
             let playCount = 0;
             const maxPlays = 3;
             

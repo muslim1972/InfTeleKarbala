@@ -10,10 +10,7 @@ import {
     ShieldAlert, 
     Scissors, 
     Wallet, 
-    Coins,
     Loader2,
-    Check,
-    X,
     History
 } from "lucide-react";
 import { AccordionSection } from "../../ui/AccordionSection";
@@ -41,8 +38,6 @@ const FixLeaveBalanceModal = React.lazy(() => import('../FixLeaveBalanceModal').
 const FieldPermissionsModal = React.lazy(() => import('../FieldPermissionsModal').then(m => ({ default: m.FieldPermissionsModal })));
 const RequestsTabPermissionsModal = React.lazy(() => import('../RequestsTabPermissionsModal').then(m => ({ default: m.RequestsTabPermissionsModal })));
 const SnapshotBrowser = React.lazy(() => import('../../snapshots/SnapshotBrowser').then(m => ({ default: m.SnapshotBrowser })));
-import { supabase } from "../../../lib/supabase";
-import { toast } from "react-hot-toast";
 
 
 interface TabManageEmployeesProps {

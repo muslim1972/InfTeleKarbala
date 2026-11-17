@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { 
   Calendar, Clock, Sun, Sunset, Moon, ShieldCheck, 
-  Save, X, Check, Users, Plus, AlertCircle, Info
+  Save, X, Users, Info
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';

@@ -66,7 +66,6 @@ export const sendPushNotification = async (
       }
     } else {
       consecutiveFailures = 0;
-      console.log('📬 Push notification sent successfully to', recipientId);
     }
   } catch (error) {
     consecutiveFailures++;

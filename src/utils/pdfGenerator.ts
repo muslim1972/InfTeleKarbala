@@ -24,21 +24,17 @@ export const generateLeavePDF = async (formData: LeaveFormData) => {
         const templatePath = (formData.unpaid_days && formData.unpaid_days > 0)
             ? '/new_leave_template.pdf'
             : '/leave_template.pdf';
-        console.log("Fetching template:", templatePath);
         const templateRes = await fetch(templatePath);
         if (!templateRes.ok) throw new Error(`Template fetch failed with status: ${templateRes.status}`);
         const existingPdfBytes = await templateRes.arrayBuffer();
 
-        console.log("Loading PDF document...");
         const pdfDoc = await PDFDocument.load(existingPdfBytes);
         pdfDoc.registerFontkit(fontkit);
 
-        console.log("Fetching font...");
         const fontRes = await fetch('/fonts/Amiri-Regular.ttf');
         if (!fontRes.ok) throw new Error(`Font fetch failed with status: ${fontRes.status}`);
         const fontBytes = await fontRes.arrayBuffer();
 
-        console.log("Embedding font...");
         const arabicFont = await pdfDoc.embedFont(fontBytes);
 
         // 2. Magic function to fix Arabic text shaping and RTL natively

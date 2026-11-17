@@ -251,21 +251,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 const fallbackAudioContext: AudioContextType = {
     isPlaying: false,
     currentTrack: null,
-    tracks: [],
-    currentTime: 0,
+    progress: 0,
     duration: 0,
+    currentTime: 0,
     volume: 1,
     isMuted: false,
+    glowIntensity: 0,
+    isQuranPlayerVisible: false,
+    setIsQuranPlayerVisible: () => {},
     playTrack: () => {},
     togglePlay: () => {},
+    stopAudio: () => {},
     playNext: () => {},
-    playPrevious: () => {},
-    seek: () => {},
+    playPrev: () => {},
     setVolume: () => {},
-    toggleMute: () => {},
-    addTrack: () => {},
-    removeTrack: () => {},
-    formatTime: () => '0:00'
+    setIsMuted: () => {},
+    seek: () => {},
+    quranTracks: []
 };
 
 export const useAudio = () => {

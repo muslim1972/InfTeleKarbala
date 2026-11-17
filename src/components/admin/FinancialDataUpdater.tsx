@@ -370,7 +370,6 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 if (pError) throw pError;
                 if (batchProfiles) profiles.push(...batchProfiles);
                 const currentP = Math.round(((i + batchJobNums.length) / jobNumbers.length) * 50);
-                console.log(`[Diagnostic] Profiles chunk: ${profiles.length}/${jobNumbers.length} (${currentP}%)`);
                 setProgress(currentP);
             }
 
@@ -390,7 +389,6 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
             
             for (let i = 0; i < userIds.length; i += FIN_BATCH_SIZE) {
                 const batchUserIds = userIds.slice(i, i + FIN_BATCH_SIZE);
-                console.log(`[Diagnostic] Fetching financial batch for ${batchUserIds.length} users...`);
                 const { data: batchFin, error: fError } = await supabase
                     .from('financial_records')
                     .select('*')
@@ -402,7 +400,6 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                 }
                 if (batchFin) currentFinancials.push(...batchFin);
                 const currentP = 50 + Math.round(((i + batchUserIds.length) / userIds.length) * 50);
-                console.log(`[Diagnostic] Financials chunk: ${currentFinancials.length}/${userIds.length} (${currentP}%)`);
                 setProgress(currentP);
             }
 
@@ -445,13 +442,6 @@ export const FinancialDataUpdater: React.FC<FinancialDataUpdaterProps> = ({ onCl
                                 modified: modified
                             };
                             if (modified) hasChanges = true;
-
-                            // Debug logging for the first few rows
-                            if (previewRows.length < 5) {
-                                console.log(`[Diagnostic] Row ${previewRows.length} - ${field.key}: Mapping "${mapping[field.key]}" -> Value: ${excelValue} (Modified: ${modified})`);
-                            }
-                        } else if (previewRows.length < 5 && mapping[field.key]) {
-                            console.warn(`[Diagnostic] Row ${previewRows.length} - ${field.key}: Column "${mapping[field.key]}" exists but cell is empty.`);
                         }
                     });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import { useKnowledgeProgress } from "../../../hooks/useKnowledgeProgress";
 import type { LessonContent, LessonBlock } from "../../../types/knowledge";
 import { Loader2, AlertCircle, Info, CheckCircle, Quote } from "lucide-react";
@@ -244,7 +245,8 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
                 <button
                     onClick={() => {
                         markLessonCompleted(lessonData.id);
-                        setTimeout(onBack, 800); // Give a small delay for the success state to show
+                        toast.success('تم إكمال الدرس بنجاح!');
+                        onBack();
                     }}
                     disabled={completed || !scrolledToBottom}
                     className={`flex items-center gap-4 px-10 py-5 rounded-[2rem] font-black text-lg md:text-xl transition-all duration-500 shadow-2xl ${

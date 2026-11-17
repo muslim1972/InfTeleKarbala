@@ -64,15 +64,10 @@ export const ExamSession = ({ questions, courseType, subject, durationMinutes, o
 
     useEffect(() => {
         if (submitted) {
-            const scrollToTop = () => {
-                window.scrollTo(0, 0);
-                if (topRef.current) {
-                    topRef.current.scrollIntoView(true);
-                }
-            };
-            
-            setTimeout(scrollToTop, 100);
-            setTimeout(scrollToTop, 500); // Fallback to ensure it scrolls
+            requestAnimationFrame(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                topRef.current?.scrollIntoView({ behavior: 'smooth' });
+            });
         }
     }, [submitted]);
 

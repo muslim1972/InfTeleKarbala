@@ -188,7 +188,7 @@ export function computeDeficitMinutes(
  */
 export function computeOvertimeMinutes(
   record: AttendanceRecord,
-  scheduleStart: string | undefined,
+  _scheduleStart: string | undefined,
   scheduleEnd: string | undefined,
   shiftType: ShiftType = 'morning'
 ): number {

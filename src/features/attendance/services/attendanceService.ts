@@ -334,7 +334,6 @@ async function notifySupervisorsOfDeviceMismatch(
   oldDeviceId: string,
   newDeviceId: string | undefined
 ) {
-  console.log('[DeviceMismatch] ▶ START notifySupervisorsOfDeviceMismatch', { employeeId, oldDeviceId, newDeviceId });
   try {
     // 1. Safe insert into device_change_requests via SECURITY DEFINER RPC
     try {
@@ -345,23 +344,18 @@ async function notifySupervisorsOfDeviceMismatch(
       });
       if (dcrError) {
         console.warn('[DeviceMismatch] submit_device_change_request RPC error:', dcrError);
-      } else {
-        console.log('[DeviceMismatch] ✅ submit_device_change_request succeeded');
       }
     } catch (dcrErr) {
       console.warn('[DeviceMismatch] submit_device_change_request threw:', dcrErr);
     }
 
     // 2. Insert system notifications via dedicated RPC (SECURITY DEFINER, bypasses RLS)
-    console.log('[DeviceMismatch] Calling notify_device_mismatch RPC...');
-    const { data: notifyResult, error: notifyError } = await supabase.rpc('notify_device_mismatch', {
+    const { data: _notifyResult, error: notifyError } = await supabase.rpc('notify_device_mismatch', {
       p_employee_id: employeeId
     });
 
     if (notifyError) {
       console.error('[DeviceMismatch] ❌ notify_device_mismatch RPC FAILED:', notifyError);
-    } else {
-      console.log('[DeviceMismatch] ✅ notify_device_mismatch succeeded, notifications inserted count:', notifyResult);
     }
 
     // 3. Optional Push Notifications via OneSignal Edge Function
@@ -408,8 +402,6 @@ async function notifySupervisorsOfDeviceMismatch(
     } catch (pushErr) {
       console.warn('[DeviceMismatch] Push notification error (non-critical):', pushErr);
     }
-
-    console.log('[DeviceMismatch] ▶ END notifySupervisorsOfDeviceMismatch');
   } catch (err) {
     console.error('[DeviceMismatch] ❌ FATAL error:', err);
   }

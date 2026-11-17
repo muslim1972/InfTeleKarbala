@@ -104,16 +104,6 @@ export function useChatState(conversationId: string) {
       console.error('Error fetching messages:', error);
       toast.error('فشل تحميل الرسائل');
     } else {
-      // Diagnostic Log
-      if (data && data.length > 0) {
-        const last = data[data.length - 1];
-        console.log('Last message received:', { 
-            id: last.id, 
-            text: last.text, 
-            buzz_count: last.buzz_count,
-            all_keys: Object.keys(last)
-        });
-      }
       setMessages(data || []);
 
       // Mark unread messages as read for this user
@@ -152,8 +142,6 @@ export function useChatState(conversationId: string) {
     // Use the ref so this effect only depends on conversationId
     fetchMessagesRef.current();
 
-    console.log('useChatState: Subscribing to chat', conversationId);
-
     // Use a stable channel name so Supabase can reuse it if the component re-renders
     const channelId = `chat_room_${conversationId}_${Math.random().toString(36).substring(7)}`;
     const channel = supabase.channel(channelId);
@@ -168,8 +156,6 @@ export function useChatState(conversationId: string) {
           // Removing server-side filter for now to guarantee delivery and filter manually
         },
         (payload) => {
-          console.log(`Realtime Event [${conversationId}]:`, payload.eventType, payload);
-
           const newMsg = (payload.new || payload.old) as Message & { deleted_by?: string[] };
           const eventType = payload.eventType;
 
@@ -255,12 +241,9 @@ export function useChatState(conversationId: string) {
           }
         }
       )
-      .subscribe((status) => {
-        console.log(`useChatState: Status for ${conversationId}:`, status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('useChatState: Cleaning up channel for', conversationId);
       // Safely remove channel, ignore errors if already closed
       supabase.removeChannel(channel).catch(() => { });
     };
@@ -397,7 +380,6 @@ export function useChatState(conversationId: string) {
 
     try {
       // 1. Upload to storage
-      console.log(`Uploading voice: ${filePath}, size: ${audioBlob.size}, type: ${audioBlob.type}`);
       const { error: uploadError } = await supabase.storage
         .from('voice-messages')
         .upload(filePath, audioBlob, {
@@ -413,7 +395,6 @@ export function useChatState(conversationId: string) {
         .getPublicUrl(filePath);
 
       const audioUrl = urlData.publicUrl;
-      console.log('Voice URL:', audioUrl);
 
       // 3. Insert message with audio_url
       const { error: insertError } = await supabase
@@ -518,8 +499,6 @@ export function useChatState(conversationId: string) {
         }
       }
 
-      console.log('[DeleteMessages] Own:', ownMsgIds, 'Received:', receivedMsgIds);
-
       // Hard delete own messages (RLS allows this - same as before)
       if (ownMsgIds.length > 0) {
         const { error } = await supabase
@@ -527,7 +506,6 @@ export function useChatState(conversationId: string) {
           .delete()
           .in('id', ownMsgIds);
         if (error) throw error;
-        console.log('[DeleteMessages] Own messages deleted successfully');
       }
 
       // Soft delete received messages using RPC (SECURITY DEFINER bypasses RLS)
@@ -540,7 +518,6 @@ export function useChatState(conversationId: string) {
           console.error('[DeleteMessages] RPC error for', msgId, ':', error);
           throw error;
         }
-        console.log('[DeleteMessages] Received message soft-deleted:', msgId);
       }
 
       // Optimistic delete
@@ -615,9 +592,7 @@ export function useChatState(conversationId: string) {
       // 2. Compress image
       let imageBlob: Blob;
       try {
-        console.log(`[ImageSend] Compressing image: ${file.name}, size: ${(file.size / 1024).toFixed(0)}KB`);
         imageBlob = await compressImage(file, MAX_IMAGE_SIZE_BYTES);
-        console.log(`[ImageSend] Compressed to: ${(imageBlob.size / 1024).toFixed(0)}KB`);
       } catch (compressErr) {
         console.error('[ImageSend] Compression failed:', compressErr);
         toast.error('فشل ضغط الصورة. جرّب صورة أخرى');
@@ -638,7 +613,6 @@ export function useChatState(conversationId: string) {
 
       // 4. Upload to storage
       const filePath = `${user.id}/${optimisticId}.jpeg`;
-      console.log(`[ImageSend] Uploading to: image-message/${filePath}`);
       const imageFileToUpload = new File([imageBlob], "image.jpeg", { type: "image/jpeg" });
       const { error: uploadError } = await supabase.storage
         .from('image-message')
@@ -651,17 +625,14 @@ export function useChatState(conversationId: string) {
         console.error('[ImageSend] Upload failed:', uploadError);
         throw uploadError;
       }
-      console.log('[ImageSend] Upload successful');
 
       // 5. Get public URL
       const { data: urlData } = supabase.storage
         .from('image-message')
         .getPublicUrl(filePath);
       const imageUrl = urlData.publicUrl;
-      console.log('[ImageSend] Public URL:', imageUrl);
 
       // 6. Insert message
-      console.log('[ImageSend] Inserting message into DB...');
       const { error: insertError } = await supabase
         .from('messages')
         .insert({
@@ -676,7 +647,6 @@ export function useChatState(conversationId: string) {
         console.error('[ImageSend] DB insert failed:', insertError);
         throw insertError;
       }
-      console.log('[ImageSend] Message inserted successfully');
 
       // 7. Update optimistic message with real URL
       URL.revokeObjectURL(localPreviewUrl);

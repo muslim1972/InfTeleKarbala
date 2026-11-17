@@ -45,6 +45,34 @@ export interface LeaveRecord {
     time_duration_minutes?: number;
     time_off_subtype?: string;
     is_mandatory?: boolean;
+    hr_status?: string;
+    admin_order_number?: string;
+    admin_order_date?: string;
+    admin_order_image_url?: string;
+    clearance_letter_number?: string;
+    clearance_letter_date?: string;
+    clearance_letter_image_url?: string;
+    hospital_referral_letter_number?: string;
+    hospital_referral_letter_date?: string;
+    hospital_referral_letter_image_url?: string;
+    hospital_response_letter_number?: string;
+    hospital_response_letter_date?: string;
+    hospital_response_letter_image_url?: string;
+    hospital_response_letter_days?: number | string;
+    dispatch_order_number?: string;
+    dispatch_order_date?: string;
+    dispatch_order_image_url?: string;
+    dispatch_end_letter_number?: string;
+    dispatch_end_letter_date?: string;
+    dispatch_end_letter_image_url?: string;
+    dispatch_end_letter_days?: number | string;
+    duty_paper_image_url?: string;
+    resumption_letter_number?: string;
+    resumption_letter_date?: string;
+    resumption_letter_image_url?: string;
+    separation_letter_number?: string;
+    separation_letter_date?: string;
+    separation_letter_image_url?: string;
 }
 
 export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestId }: AdminLeaveRequestsProps) => {
@@ -54,7 +82,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
     const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
     // Accordion state
-    const [expandedSection, setExpandedSection] = useState<'cut' | 'approved' | 'archive' | null>(null);
+    const [expandedSection, setExpandedSection] = useState<'cut' | 'approved' | 'canceled' | 'archive' | null>(null);
 
     // Approved requests state (all employees)
     const [isLoadingApproved, setIsLoadingApproved] = useState(true);
@@ -339,7 +367,7 @@ export const AdminLeaveRequests = ({ employeeId, employeeName, highlightRequestI
             // Real-time guard: Check if the leave was cancelled by the employee right before printing
             const { data: latestRecord, error: checkError } = await supabase
                 .from('leave_requests')
-                .select('cancellation_status')
+                .select('cancellation_status, created_at')
                 .eq('id', record.id)
                 .single();
 

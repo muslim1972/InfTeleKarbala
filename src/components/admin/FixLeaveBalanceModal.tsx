@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Loader2, Search, X, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import { createPortal } from 'react-dom';
 import { HistoryViewer } from './HistoryViewer';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +13,6 @@ interface FixLeaveBalanceModalProps {
 }
 
 export function FixLeaveBalanceModal({ onClose, type = 'regular' }: FixLeaveBalanceModalProps) {
-    const { theme } = useTheme();
     const { user: currentUser } = useAuth();
     // البحث العالمي للموظفين
     const { query: searchQuery, setQuery: setSearchQuery, results: suggestions, isSearching } = useEmployeeSearch({
@@ -256,7 +254,6 @@ export function FixLeaveBalanceModal({ onClose, type = 'regular' }: FixLeaveBala
                                         recordId={financialRecord.id}
                                         tableName="financial_records"
                                         fieldName={balanceField}
-                                        theme={theme}
                                     />
                                 </div>
                             )}

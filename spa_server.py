@@ -62,6 +62,8 @@ class MultiSPARequestHandler(http.server.SimpleHTTPRequestHandler):
         )
         self.send_header("Content-Security-Policy", csp)
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        self.send_header("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(self)")
 
         status = getattr(self, "_response_code", 200)
         raw_path = urllib.parse.urlparse(self.path).path

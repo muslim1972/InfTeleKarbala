@@ -157,7 +157,6 @@ export function useVoiceRecorder() {
       mediaRecorder.onstop = () => {
         const mimeType = mediaRecorder.mimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        console.log(`Voice recording stopped. Blob size: ${blob.size}, type: ${blob.type}, chunks: ${chunksRef.current.length}`);
         setState(prev => ({
           ...prev,
           isRecording: false,

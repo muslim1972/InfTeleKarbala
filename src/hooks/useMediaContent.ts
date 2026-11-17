@@ -29,12 +29,8 @@ async function fetchMediaContent(userId: string, governorate: string): Promise<M
     // محاولة جلب من الكاش أولاً
     const cached = await cacheManager.get<MediaContent>(cacheKey);
     if (cached) {
-        console.log('[useMediaContent] ✅ جلب من الكاش');
         return cached;
     }
-
-    console.log('[useMediaContent] 📡 جلب من قاعدة البيانات...');
-    const startTime = Date.now();
 
     // جلب كل شيء بالتوازي (أسرع بكثير!)
     const [directiveResult, conferenceResult, allAcknowledgments, pollLinkResult, pollLinkTrainingResult] = await Promise.all([
@@ -92,8 +88,6 @@ async function fetchMediaContent(userId: string, governorate: string): Promise<M
         pollLinkTraining: pollLinkTrainingResult.data || null,
         isDirectiveAcknowledged
     };
-
-    console.log(`[useMediaContent] ⏱️ استغرق ${Date.now() - startTime}ms`);
 
     // حفظ في الكاش
     await cacheManager.set(cacheKey, data, 2 * 60 * 1000);

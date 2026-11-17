@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { Plus, Trash2, Calendar, Settings, Edit2, Save, X, Activity } from 'lucide-react';
+import { Plus, Trash2, Calendar, Settings, Edit2, Save, Activity } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
@@ -89,7 +89,7 @@ export default function HolidaysTab() {
     }
   };
 
-  const handleSubmitHoliday = async (e: React.FormEvent) => {
+  const handleSubmitHoliday = async (e: FormEvent) => {
     e.preventDefault();
     if (!holidayName || !startDate || !endDate) {
       return toast.error('يرجى ملء جميع الحقول');

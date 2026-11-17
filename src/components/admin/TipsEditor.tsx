@@ -22,6 +22,12 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
+        if (saveStatus === 'idle') return;
+        const timer = window.setTimeout(() => setSaveStatus('idle'), 3000);
+        return () => window.clearTimeout(timer);
+    }, [saveStatus]);
+
+    useEffect(() => {
         // عزل صارم: لا جلب بدون محافظة محددة (لا يوجد fallback لكربلاء)
         const activeGov = activeGovernorate || user?.governorate || '';
         if (!activeGov) {
@@ -111,12 +117,10 @@ const TipsEditor = ({ appName }: TipsEditorProps) => {
             setOriginalContent(content);
             setSaveStatus('success');
             toast.success('تم حفظ الأخبار بنجاح ✅');
-            setTimeout(() => setSaveStatus('idle'), 3000);
         } catch (err: any) {
             console.error('Error saving tip:', err);
             alert(`فشل الحفظ: ${err.message || JSON.stringify(err)}`);
             setSaveStatus('error');
-            setTimeout(() => setSaveStatus('idle'), 3000);
         } finally {
             setSaving(false);
         }

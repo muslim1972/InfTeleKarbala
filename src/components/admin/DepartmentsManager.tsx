@@ -77,6 +77,13 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
     const [highlightedEmpId, setHighlightedEmpId] = useState<string | null>(null);
 
+    // تنظيف مؤقت التمييز البصري تلقائياً وبأمان لمنع التسريب
+    useEffect(() => {
+        if (!highlightedEmpId) return;
+        const timer = window.setTimeout(() => setHighlightedEmpId(null), 5000);
+        return () => window.clearTimeout(timer);
+    }, [highlightedEmpId]);
+
     // Helper to get the path of a department node back to the root
     const getDeptPathToRoot = (deptId: string): string[] => {
         const path: string[] = [];
@@ -123,10 +130,6 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             // 350 offset puts it around the upper-middle of most screens
             smoothScrollToId(`emp-badge-${selectedUser.id}`, 350);
-
-            setTimeout(() => {
-                setHighlightedEmpId(null);
-            }, 5000);
         } else {
             toast.error("لم يتم العثور على الموظف في أي تشكيل إداري");
         }

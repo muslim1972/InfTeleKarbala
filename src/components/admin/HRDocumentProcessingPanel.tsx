@@ -88,7 +88,7 @@ export function HRDocumentProcessingPanel({ record, onClose, onSuccess, currentU
       };
 
       // Only include relevant fields based on leave type
-      if (['long_regular', 'long_sick'].includes(record.leave_type)) {
+      if (Boolean(record.leave_type && ['long_regular', 'long_sick'].includes(record.leave_type))) {
         updatePayload.admin_order_number = formData.admin_order_number;
         updatePayload.admin_order_date = formData.admin_order_date;
         updatePayload.admin_order_image_url = formData.admin_order_image_url;
@@ -97,7 +97,7 @@ export function HRDocumentProcessingPanel({ record, onClose, onSuccess, currentU
         updatePayload.clearance_letter_image_url = formData.clearance_letter_image_url;
       }
 
-      if (['sick', 'long_sick'].includes(record.leave_type)) {
+      if (Boolean(record.leave_type && ['sick', 'long_sick'].includes(record.leave_type))) {
         updatePayload.hospital_referral_letter_number = formData.hospital_referral_letter_number;
         updatePayload.hospital_referral_letter_date = formData.hospital_referral_letter_date;
         updatePayload.hospital_referral_letter_image_url = formData.hospital_referral_letter_image_url;
@@ -243,14 +243,14 @@ export function HRDocumentProcessingPanel({ record, onClose, onSuccess, currentU
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           <form id="hr-docs-form" onSubmit={handleSubmit} className="space-y-6">
             
-            {['long_regular', 'long_sick'].includes(record.leave_type) && (
+            {Boolean(record.leave_type && ['long_regular', 'long_sick'].includes(record.leave_type)) && (
               <>
                 {renderDocumentSection('الأمر الإداري', 'admin_order')}
                 {renderDocumentSection('براءة الذمة', 'clearance_letter')}
               </>
             )}
 
-            {['sick', 'long_sick'].includes(record.leave_type) && (
+            {Boolean(record.leave_type && ['sick', 'long_sick'].includes(record.leave_type)) && (
               <>
                 {renderDocumentSection('كتاب الإرسال للمستشفى', 'hospital_referral_letter')}
                 {renderDocumentSection('كتاب المستشفى (القرار الطبي)', 'hospital_response_letter', true)}

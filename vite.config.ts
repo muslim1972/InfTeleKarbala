@@ -6,6 +6,13 @@ import packageJson from './package.json'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // إزالة console.log و debugger من الإنتاج مع إبقاء console.error و console.warn
+  esbuild: {
+    pure: ['console.log', 'console.info', 'console.debug'],
+    drop: ['debugger'],
+    legalComments: 'none',
+    treeShaking: true,
+  },
   server: {
     proxy: {
       // وسيط Deezer API - لتجاوز CORS
@@ -35,13 +42,6 @@ export default defineConfig({
     sourcemap: false,
     minify: 'esbuild',
     cssCodeSplit: true,
-    // إزالة console.log و debugger من الإنتاج مع إبقاء console.error و console.warn
-    esbuild: {
-      pure: ['console.log', 'console.info', 'console.debug'],
-      drop: ['debugger'],
-      legalComments: 'none',
-      treeShaking: true,
-    },
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),

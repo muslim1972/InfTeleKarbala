@@ -105,8 +105,6 @@ export function usePromotionData() {
                 ? 'application/pdf'
                 : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-            console.log('[Promotion Upload] Uploading to:', path, 'Size:', file.size, 'Type:', contentType);
-
             const { data, error } = await supabase.storage
                 .from('Lectures')
                 .upload(path, file, {
@@ -125,7 +123,6 @@ export function usePromotionData() {
                 return { success: false, error: 'لم يتم استلام تأكيد من الخادم' };
             }
 
-            console.log('[Promotion Upload] Success:', data);
             return { success: true };
         } catch (err: any) {
             const msg = err?.message || 'خطأ غير معروف';

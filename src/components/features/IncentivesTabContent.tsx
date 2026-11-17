@@ -23,7 +23,7 @@ import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
 import { IncentivesCommitteesUploader } from "./IncentivesCommitteesUploader";
-import { UploadCloud, Sliders, FileText } from "lucide-react";
+import { UploadCloud } from "lucide-react";
 
 
 interface IncentiveRecord {

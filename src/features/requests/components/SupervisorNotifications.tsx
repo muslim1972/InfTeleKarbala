@@ -13,20 +13,17 @@ export const SupervisorNotifications = () => {
 
     const fetchPendingRequests = async () => {
         if (!user || user.id === 'visitor-id') {
-            console.log('AdminNotifications: No user or is visitor');
             return;
         }
-
-        console.log('AdminNotifications: Fetching for supervisor:', user.id);
 
         // Fetch requests where supervisor_id matches current user AND any status is pending
         // IMPORTANT FIX: Supabase .eq() combined with .or() on the same level can sometimes
         // cause unexpected filtering if not grouped properly.
         // We will fetch all requests that have ANY pending status, and then firmly filter
         // them on the client side to ensure 'status' is also 'pending' or whatever logic is needed.
-        const { data, count, error } = await supabase
+        const { data, error } = await supabase
             .from('leave_requests')
-            .select('*', { count: 'exact' })
+            .select('*')
             .eq('supervisor_id', user.id)
             .or('status.eq.pending,leave_status.eq.pending,cancellation_status.eq.pending,cut_status.eq.pending');
 
@@ -62,13 +59,10 @@ export const SupervisorNotifications = () => {
             activeRequests = Array.from(uniqueMap.values());
 
             if (activeRequests.length === 0) {
-                console.log('AdminNotifications: All requests were already processed.');
                 setPendingRequests([]);
                 setPendingCount(0);
                 return;
             }
-
-            console.log('AdminNotifications: Found unique requests:', activeRequests.length, 'Total fetched:', data.length);
 
             // Secondary query to fetch user profiles
             const validIds = activeRequests.map(r => r.user_id).filter(Boolean);
@@ -100,7 +94,6 @@ export const SupervisorNotifications = () => {
             setPendingRequests(formattedData);
             setPendingCount(activeRequests.length); // Use the filtered length
         } else {
-            console.log('AdminNotifications: Found requests: 0 Count:', count || 0);
             setPendingRequests([]);
             setPendingCount(0);
         }
@@ -138,8 +131,6 @@ export const SupervisorNotifications = () => {
             setShowModal(true);
         }
     };
-
-    console.log('AdminNotifications: Render. Pending count:', pendingCount);
 
     if (pendingCount === 0) return null;
 

@@ -50,7 +50,7 @@ export const FinancialTabContent = ({
 
 
 
-    const validation = financialData ? validateFinancialRecord(financialData) : { discrepancies: {} };
+    const validation = financialData ? validateFinancialRecord(financialData) : { discrepancies: {} as Record<string, string> };
 
     const financialGroups = [
         {

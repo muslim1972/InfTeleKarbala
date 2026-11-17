@@ -367,11 +367,15 @@
         "gov_display_name",
         "media_in_my_gov",
         "poll_in_my_gov",
-        "core_require_role"
+        "core_require_role",
+        "toggle_requests_tab_all",
+        "get_requests_tab_all_status",
+        "sync_printer_operator_flags"
       ],
       "tables": [
         "field_permissions",
-        "field_user_permissions"
+        "field_user_permissions",
+        "app_settings"
       ],
       "contract": "bricks/BE-CORE-03-permissions/BRICK.md"
     },
@@ -405,7 +409,8 @@
         "log_field_changes",
         "log_table_activity",
         "append_deleted_by",
-        "append_deleted_by__impl"
+        "append_deleted_by__impl",
+        "get_active_visitors_by_range"
       ],
       "tables": [
         "activity_logs",
@@ -426,7 +431,14 @@
         "sync_work_locations_on_department_rename",
         "ensure_work_locations_for_governorate",
         "clone_departments_tree__impl",
-        "fn_sync_profile_dept_texts"
+        "fn_sync_profile_dept_texts",
+        "sync_department_manager_to_profile",
+        "sync_work_location_to_profile_dept",
+        "sync_work_location_emp_to_profile",
+        "sync_dept_manager_assignment",
+        "sync_profile_to_work_location_and_manager",
+        "sync_profile_dept_to_work_location",
+        "sync_work_location_on_dept_rename"
       ],
       "tables": [
         "departments",
@@ -453,7 +465,13 @@
         "submit_service_continuity_request",
         "process_service_continuity_supervisor",
         "process_service_continuity_hr_issue",
-        "verify_continuity_letter"
+        "verify_continuity_letter",
+        "approve_continuity_by_finance",
+        "reject_continuity_by_finance",
+        "update_and_approve_continuity_by_finance",
+        "mark_continuity_printed",
+        "get_service_continuity_request_for_print",
+        "get_unspecified_gender_profiles"
       ],
       "tables": [
         "profiles",
@@ -485,7 +503,8 @@
         "commit_monthly_snapshot__impl",
         "delete_monthly_snapshot__impl",
         "sync_active_monthly_snapshot__impl",
-        "get_historical_user_data"
+        "get_historical_user_data",
+        "rename_monthly_snapshot"
       ],
       "tables": [
         "financial_records",
@@ -550,7 +569,8 @@
         "get_next_official_work_day",
         "get_direct_supervisor_id",
         "evaluate_morning_shift_daily_attendance",
-        "rpc_evaluate_morning_shift_attendance"
+        "rpc_evaluate_morning_shift_attendance",
+        "resolve_shift_absence_or_penalty"
       ]
     },
     {
@@ -568,6 +588,7 @@
       "status": "inventoried",
       "db": [
         "admin_create_kiosk_device",
+        "admin_delete_kiosk_device",
         "admin_list_kiosk_devices",
         "admin_regenerate_kiosk_code",
         "admin_set_kiosk_active",
@@ -609,7 +630,9 @@
       "contract": "bricks/ATT/BRICK.md",
       "db": [
         "can_manage_work_locations",
-        "work_locations_audit_trigger"
+        "work_locations_audit_trigger",
+        "get_department_for_work_location",
+        "get_work_location_for_department"
       ]
     },
     {
@@ -628,7 +651,10 @@
         "cleanup_orphaned_leave_request",
         "cleanup_request_notifications_on_process",
         "convert_cumulative_time",
-        "get_lifetime_leaves_usage"
+        "get_lifetime_leaves_usage",
+        "log_leave_insert_history",
+        "respond_to_substitute_request",
+        "trg_fn_accumulate_time_off"
       ],
       "tables": [
         "leave_requests",

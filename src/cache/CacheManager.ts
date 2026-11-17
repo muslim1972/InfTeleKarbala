@@ -88,7 +88,6 @@ class CacheManager {
     async clear(): Promise<void> {
         try {
             await this.store.clear();
-            console.log('[CacheManager] تم مسح الكاش بالكامل');
         } catch (error) {
             console.error('[CacheManager] خطأ في المسح:', error);
         }

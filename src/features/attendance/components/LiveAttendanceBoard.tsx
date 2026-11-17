@@ -105,8 +105,11 @@ export default function LiveAttendanceBoard() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refetch();
-    setTimeout(() => setIsRefreshing(false), 600);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Distinct departments list for filtering

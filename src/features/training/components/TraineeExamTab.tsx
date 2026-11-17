@@ -77,8 +77,7 @@ export const TraineeExamTab = ({ student, onLogout }: TraineeExamTabProps) => {
                     onRetry={() => {
                         setIsExamStarted(false);
                         loadAttemptData();
-                        // Wait a tick before restarting
-                        setTimeout(() => handleStartExam(), 100);
+                        queueMicrotask(() => handleStartExam());
                     }}
                 />
             </div>

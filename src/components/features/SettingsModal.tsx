@@ -78,18 +78,15 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             
             await requestNotificationPermission();
             
-            // Re-check permission after a slight delay to allow OS to update state
-            setTimeout(() => {
-                const currentStatus = Notification.permission;
-                setNotifStatus(currentStatus);
-                if (currentStatus === 'granted') {
-                    toast.success('تم تفعيل الإشعارات بنجاح!');
-                } else if (currentStatus === 'denied') {
-                    toast.error('تم رفض الإشعارات من قبل المتصفح أو النظام');
-                } else {
-                    toast.error('لم يتم اتخاذ إجراء، أو تم إلغاء الطلب');
-                }
-            }, 500);
+            const currentStatus = Notification.permission;
+            setNotifStatus(currentStatus);
+            if (currentStatus === 'granted') {
+                toast.success('تم تفعيل الإشعارات بنجاح!');
+            } else if (currentStatus === 'denied') {
+                toast.error('تم رفض الإشعارات من قبل المتصفح أو النظام');
+            } else {
+                toast.error('لم يتم اتخاذ إجراء، أو تم إلغاء الطلب');
+            }
 
         } catch (err: any) {
             toast.error('تعذر طلب صلاحية الإشعارات: ' + (err.message || 'خطأ غير معروف'));

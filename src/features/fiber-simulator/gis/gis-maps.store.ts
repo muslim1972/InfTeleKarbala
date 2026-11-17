@@ -130,9 +130,9 @@ export const useGisMaps = create<GisMapsState>()(
       name: STORAGE_KEY,
       /* مفتاح فعلي لكل مالك — نتجاهل name الثابت ونركّب مفتاح المالك */
       storage: createJSONStorage(() => ({
-        getItem: (name) => localStorage.getItem(storageKeyFor()),
-        setItem: (name, value) => localStorage.setItem(storageKeyFor(), value),
-        removeItem: (name) => localStorage.removeItem(storageKeyFor()),
+        getItem: (_name) => localStorage.getItem(storageKeyFor()),
+        setItem: (_name, value) => localStorage.setItem(storageKeyFor(), value),
+        removeItem: (_name) => localStorage.removeItem(storageKeyFor()),
       })),
       /* نُصرّح بالحقل الوحيد — لا نُخزن شيئاً غير الخرائط */
       partialize: (state) => ({ maps: state.maps }),

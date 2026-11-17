@@ -101,7 +101,6 @@ class GeolocationManager {
         );
 
         this.activeWatches.push(watchId);
-        console.log(`📍 Started Geolocation Watch: ${watchId}`);
         return watchId;
     }
 
@@ -112,7 +111,6 @@ class GeolocationManager {
         if (watchId === -1) return;
         navigator.geolocation.clearWatch(watchId);
         this.activeWatches = this.activeWatches.filter(id => id !== watchId);
-        console.log(`📍 Cleared Geolocation Watch: ${watchId}`);
     }
 
     /**
@@ -121,7 +119,6 @@ class GeolocationManager {
     public clearAllWatches() {
         if (this.activeWatches.length === 0) return;
         
-        console.log(`📍 Clearing all (${this.activeWatches.length}) Geolocation watches...`);
         this.activeWatches.forEach(id => {
             navigator.geolocation.clearWatch(id);
         });

@@ -79,9 +79,9 @@ export function determineShiftType(
  * (تم تعطيل الشرط مؤقتاً لتسهيل الفحص التجريبي والتطوير بناءً على توجيه الإدارة)
  */
 export function validateEarlyCheckIn(
-  shiftType: ShiftType,
-  d: Date = getServerNow(),
-  isFollowUpOvernight: boolean = false
+  _shiftType: ShiftType,
+  _d: Date = getServerNow(),
+  _isFollowUpOvernight: boolean = false
 ): { allowed: boolean; message?: string } {
   // تم إزالة القيد مؤقتاً لتسهيل الفحص والتطوير في أي وقت
   return { allowed: true };

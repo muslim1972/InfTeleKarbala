@@ -33,11 +33,8 @@ async function fetchPolls(category: 'media' | 'training' = 'media', governorate:
     // محاولة جلب من الكاش
     const cached = await cacheManager.get<Poll[]>(cacheKey);
     if (cached) {
-        console.log('[usePolls] جلب من الكاش:', cached.length, 'استطلاع');
         return cached;
     }
-
-    console.log('[usePolls] جلب من قاعدة البيانات...');
 
     // جلب الاستطلاعات
     const { data: pollsData, error: pollsError } = await supabase

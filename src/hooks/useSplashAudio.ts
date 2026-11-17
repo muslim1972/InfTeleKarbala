@@ -183,7 +183,7 @@ export const useSplashAudio = () => {
         });
         // نتحقق فوراً: هل نجح الاستئناف بشكل متزامن؟
         // في بعض المتصفحات ctx.state يتغير فوراً
-        if (ctx.state === 'running') {
+        if ((ctx.state as AudioContextState) === 'running') {
           isPlayingRef.current = true;
           _startNotes(ctx);
           return true;

@@ -1,31 +1,5 @@
 
-export interface LeaveRecord {
-    id: string;
-    user_id: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    days_count: number;
-    reason: string;
-    supervisor_id: string;
-    created_at: string;
-    employee_name?: string;
-    employee_job_number?: string;
-    employee_job_title?: string;
-    employee_department?: string;
-    employee_balance?: number;
-    cut_status?: string;
-    hr_cut_status?: string;
-    is_archived?: boolean;
-    cut_date?: string;
-    supervisor: {
-        full_name: string;
-        job_title?: string;
-        engineering_allowance?: number;
-    } | null;
-    unpaid_days?: number;
-    cancellation_status?: string;
-}
+import type { LeaveRecord } from './AdminLeaveRequests';
 
 interface LeavePrintTemplateProps {
     printingRecord: LeaveRecord | null;

@@ -3,8 +3,8 @@ import { useCall } from '../../context/CallContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, Volume1, VideoOff, Video, User, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useLocalParticipant, useTracks, VideoTrack, AudioTrack, RoomAudioRenderer, useRoomContext, useConnectionState, ConnectionState } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { useLocalParticipant, useTracks, VideoTrack, RoomAudioRenderer, useRoomContext, useConnectionState } from '@livekit/components-react';
+import { Track, ConnectionState } from 'livekit-client';
 
 // مؤقت المكالمة
 const CallTimer = memo(() => {
@@ -107,7 +107,7 @@ const ActiveCallUI = () => {
         {tracks.filter(t => t.source === Track.Source.Camera || t.publication?.kind === Track.Kind.Video).map((trackReference) => (
           <VideoTrack 
             key={trackReference.publication?.trackSid || trackReference.participant.identity + '-video'} 
-            trackRef={trackReference} 
+            trackRef={trackReference as any} 
             className="w-full h-full object-cover" 
           />
         ))}

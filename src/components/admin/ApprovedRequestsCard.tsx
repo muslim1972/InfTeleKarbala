@@ -135,7 +135,7 @@ export function ApprovedRequestsCard({
                                             )}
 
                                             {/* HR Status Indicator */}
-                                            {['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type) && (
+                                            {Boolean(record.leave_type && ['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type)) && (
                                                 <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700/50">
                                                     {record.hr_status === 'completed' ? (
                                                         <span className="inline-flex items-center gap-1 text-[11px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 px-2 py-1 rounded-md font-bold">
@@ -150,7 +150,7 @@ export function ApprovedRequestsCard({
                                             )}
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            {['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type) && record.hr_status !== 'completed' && (
+                                            {Boolean(record.leave_type && ['long_regular', 'sick', 'long_sick', 'dispatch', 'duty'].includes(record.leave_type)) && record.hr_status !== 'completed' && (
                                                 <button
                                                     onClick={() => setSelectedRecordForHR(record)}
                                                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition shadow-md"

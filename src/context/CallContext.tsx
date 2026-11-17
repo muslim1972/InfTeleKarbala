@@ -44,7 +44,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const callIdRef = useRef<string | null>(null);
 
   const cleanupCall = useCallback(() => {
-    console.log('📞 Cleaning up call resources...');
     globalAudioManager.stopAllAudio();
     if (ringbackRef.current) {
       ringbackRef.current.stop();

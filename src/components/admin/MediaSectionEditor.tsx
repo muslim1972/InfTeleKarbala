@@ -85,7 +85,7 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (overrideContent?: string, overrideActive?: boolean) => {
         if (!user?.id) return;
 
         setSaving(true);
@@ -98,10 +98,13 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
                 return;
             }
 
+            const finalContent = overrideContent !== undefined ? overrideContent : content;
+            const finalActive = overrideActive !== undefined ? overrideActive : isActive;
+
             const payload = {
                 type,
-                content,
-                is_active: isActive,
+                content: finalContent,
+                is_active: finalActive,
                 updated_at: new Date().toISOString(),
                 updated_by: user.id,
                 governorate: user.governorate // عزل: المحتوى يخص محافظة ناشره فقط
@@ -141,8 +144,7 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
         if (!confirm('هل أنت متأكد من مسح المحتوى؟ سيتم إخفاء الزر لدى المستخدمين.')) return;
         setContent('');
         setIsActive(false);
-        // We trigger save immediately to reflect "emptied" state
-        setTimeout(() => handleSave(), 100);
+        await handleSave('', false);
     };
 
     if (loading) {
@@ -197,7 +199,7 @@ export function MediaSectionEditor({ type, title, placeholder }: MediaSectionEdi
                     {saveStatus === 'error' && <span className="text-destructive text-xs flex items-center gap-1"><AlertCircle size={14} /> خطأ</span>}
 
                     <Button
-                        onClick={handleSave}
+                        onClick={() => handleSave()}
                         disabled={saving || (content === originalContent && isActive)}
                         className={cn(
                             "flex items-center justify-center gap-2 px-6 h-9 rounded-lg font-bold text-sm transition-all",

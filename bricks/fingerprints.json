@@ -1,9 +1,9 @@
 {
- "created": "2026-11-16T21:38:50.241Z",
+ "created": "2026-11-17T15:41:45.676Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "5bfcdfa52ac8"
+   "sha": "0b1bc3992e20"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -51,7 +51,7 @@
   },
   "spa_server.py": {
    "brick": "OPS-02",
-   "sha": "803a2293da49"
+   "sha": "ce9f379a0f7c"
   },
   "src/App.css": {
    "brick": "FE-CORE-01",
@@ -59,7 +59,7 @@
   },
   "src/App.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "62cfe8238395"
+   "sha": "86192529efa3"
   },
   "src/assets/react.svg": {
    "brick": "FE-CORE-01",
@@ -71,7 +71,7 @@
   },
   "src/cache/CacheManager.ts": {
    "brick": "FE-CORE-04",
-   "sha": "55685e362682"
+   "sha": "a9cc08708c3a"
   },
   "src/components/admin/AdminLeaveArchive.tsx": {
    "brick": "FE-LEV-01",
@@ -79,11 +79,11 @@
   },
   "src/components/admin/AdminLeaveRequests.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "db6b8688d28f"
+   "sha": "ad5a2406054a"
   },
   "src/components/admin/ApprovedRequestsCard.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "fe59e5d9bcd2"
+   "sha": "aa1441b8b408"
   },
   "src/components/admin/CanceledRequestsCard.tsx": {
    "brick": "FE-LEV-01",
@@ -103,7 +103,7 @@
   },
   "src/components/admin/DepartmentsManager.tsx": {
    "brick": "FE-HR-01",
-   "sha": "c0005028b8db"
+   "sha": "fc2c062a6d72"
   },
   "src/components/admin/FieldPermissionsModal.tsx": {
    "brick": "FE-HR-01",
@@ -111,7 +111,7 @@
   },
   "src/components/admin/FinancialDataUpdater.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "aa07b417f445"
+   "sha": "6d549493b3bd"
   },
   "src/components/admin/FiveYearLeaveDetailsModal.tsx": {
    "brick": "FE-LEV-01",
@@ -123,7 +123,7 @@
   },
   "src/components/admin/FixLeaveBalanceModal.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "3b7d136b23e3"
+   "sha": "aaf247f7ed27"
   },
   "src/components/admin/FullAudit.tsx": {
    "brick": "FE-HR-01",
@@ -131,7 +131,7 @@
   },
   "src/components/admin/HRDocumentProcessingPanel.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "85269f106eb4"
+   "sha": "6dcc0218bf9a"
   },
   "src/components/admin/HistoryViewer.tsx": {
    "brick": "FE-HR-01",
@@ -139,7 +139,7 @@
   },
   "src/components/admin/LeavePrintTemplate.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "f1960368b91a"
+   "sha": "11cf84128f12"
   },
   "src/components/admin/LeaveTypeBadge.tsx": {
    "brick": "FE-LEV-01",
@@ -147,7 +147,7 @@
   },
   "src/components/admin/MediaSectionEditor.tsx": {
    "brick": "FE-MED-01",
-   "sha": "d70fa4aab1be"
+   "sha": "5b77606e462e"
   },
   "src/components/admin/PendingCutApprovalsCard.tsx": {
    "brick": "FE-LEV-01",
@@ -175,7 +175,7 @@
   },
   "src/components/admin/TipsEditor.tsx": {
    "brick": "FE-MED-01",
-   "sha": "4e03f8b82601"
+   "sha": "bc1b5e9a7e3c"
   },
   "src/components/admin/UniversalPatcher.tsx": {
    "brick": "FE-HR-02",
@@ -207,7 +207,7 @@
   },
   "src/components/admin/dashboard/TabManageEmployees.tsx": {
    "brick": "FE-HR-01",
-   "sha": "2668698b3d9b"
+   "sha": "a684ca0f883a"
   },
   "src/components/admin/data-patcher/ManualStep.tsx": {
    "brick": "FE-HR-02",
@@ -247,7 +247,7 @@
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
-   "sha": "9dfee1946f09"
+   "sha": "a1c972970381"
   },
   "src/components/call/CallOverlayWrapper.tsx": {
    "brick": "FE-COM-01",
@@ -327,7 +327,7 @@
   },
   "src/components/common/ErrorBoundary.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "12f547a73e55"
+   "sha": "b95a54151e8c"
   },
   "src/components/features/AdministrativeMovementsCard.tsx": {
    "brick": "FE-HR-01",
@@ -355,7 +355,7 @@
   },
   "src/components/features/FinancialTabContent.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "bc40527f1fa4"
+   "sha": "8757e654e81e"
   },
   "src/components/features/FloatingAudioPlayer.tsx": {
    "brick": "FE-MED-01",
@@ -363,11 +363,11 @@
   },
   "src/components/features/IncentivesCommitteesUploader.tsx": {
    "brick": "FE-INC-01",
-   "sha": "e8ff0a930bc7"
+   "sha": "d06d405140bc"
   },
   "src/components/features/IncentivesTabContent.tsx": {
    "brick": "FE-INC-01",
-   "sha": "cd54a47d3e10"
+   "sha": "8b5ed6253cd7"
   },
   "src/components/features/PollItem.tsx": {
    "brick": "FE-MED-01",
@@ -383,7 +383,7 @@
   },
   "src/components/features/SettingsModal.tsx": {
    "brick": "FE-CORE-03",
-   "sha": "a2a7f9dd06c7"
+   "sha": "5429d8aadef4"
   },
   "src/components/features/StatCard.tsx": {
    "brick": "FE-UI-01",
@@ -419,7 +419,7 @@
   },
   "src/components/features/knowledge/LessonViewer.tsx": {
    "brick": "FE-MED-01",
-   "sha": "765509f36848"
+   "sha": "db62516e4cc1"
   },
   "src/components/features/knowledge/LevelPlacementQuiz.tsx": {
    "brick": "FE-MED-01",
@@ -551,7 +551,7 @@
   },
   "src/context/AudioContext.tsx": {
    "brick": "FE-MED-01",
-   "sha": "9d73018ba4e8"
+   "sha": "0cd1f82deebc"
   },
   "src/context/AuthContext.tsx": {
    "brick": "FE-CORE-02",
@@ -559,11 +559,11 @@
   },
   "src/context/CallContext.tsx": {
    "brick": "FE-COM-01",
-   "sha": "d236ef3d7af2"
+   "sha": "03557d9cbc78"
   },
   "src/context/ChatContext.tsx": {
    "brick": "FE-COM-01",
-   "sha": "cdc74eee4efd"
+   "sha": "1e54b4f75add"
   },
   "src/context/ChatSettingsContext.tsx": {
    "brick": "FE-COM-01",
@@ -595,7 +595,7 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "390cbfd60177"
+   "sha": "ec266045de6b"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
@@ -623,7 +623,7 @@
   },
   "src/features/attendance/components/EmployeeRosterModal.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "c677d1cee9a3"
+   "sha": "070999844156"
   },
   "src/features/attendance/components/FaceEnrollment.tsx": {
    "brick": "FE-ATT-01",
@@ -631,11 +631,11 @@
   },
   "src/features/attendance/components/HolidaysTab.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "5e1c1c5c8788"
+   "sha": "165a2a6aab87"
   },
   "src/features/attendance/components/LiveAttendanceBoard.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "70aa76c6d77c"
+   "sha": "b93fd47982c6"
   },
   "src/features/attendance/components/LocationSearch.tsx": {
    "brick": "FE-ATT-01",
@@ -703,7 +703,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "5bc1f1842c93"
+   "sha": "666b91949fab"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -739,7 +739,7 @@
   },
   "src/features/attendance/utils/attendanceCalc.ts": {
    "brick": "FE-ATT-01",
-   "sha": "741ade724c24"
+   "sha": "003a6c393fd2"
   },
   "src/features/attendance/utils/dutyScheduleValidator.ts": {
    "brick": "FE-ATT-01",
@@ -767,7 +767,7 @@
   },
   "src/features/attendance/utils/shiftRules.ts": {
    "brick": "FE-ATT-01",
-   "sha": "6f0357f1c626"
+   "sha": "cd839955c5d6"
   },
   "src/features/attendance/utils/snapshotStorage.ts": {
    "brick": "FE-ATT-01",
@@ -843,7 +843,7 @@
   },
   "src/features/fiber-simulator/gis/gis-maps.store.ts": {
    "brick": "FE-FIB-01",
-   "sha": "55deb094d45b"
+   "sha": "cf2737e1a451"
   },
   "src/features/fiber-simulator/gis/sim-map-library.service.ts": {
    "brick": "FE-FIB-01",
@@ -999,7 +999,7 @@
   },
   "src/features/promotion/components/ExamSession.tsx": {
    "brick": "FE-PRO-01",
-   "sha": "4bf121674f65"
+   "sha": "0c1e26b180fe"
   },
   "src/features/promotion/components/ExamTab.tsx": {
    "brick": "FE-PRO-01",
@@ -1011,7 +1011,7 @@
   },
   "src/features/promotion/hooks/usePromotionData.ts": {
    "brick": "FE-PRO-01",
-   "sha": "2ec8cec10d63"
+   "sha": "c95311e7a9ce"
   },
   "src/features/promotion/types.ts": {
    "brick": "FE-PRO-01",
@@ -1039,7 +1039,7 @@
   },
   "src/features/requests/components/HRLeaveNotifications.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "e96a41231e1c"
+   "sha": "e5f103030291"
   },
   "src/features/requests/components/LeaveBalanceCard.tsx": {
    "brick": "FE-LEV-01",
@@ -1079,7 +1079,7 @@
   },
   "src/features/requests/components/SupervisorNotifications.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "2566d7119520"
+   "sha": "9c25322af5dd"
   },
   "src/features/requests/components/SupervisorSelector.tsx": {
    "brick": "FE-LEV-01",
@@ -1115,7 +1115,7 @@
   },
   "src/features/training/components/TraineeExamTab.tsx": {
    "brick": "FE-TRN-01",
-   "sha": "be78fdf51bb0"
+   "sha": "b8e9e384a584"
   },
   "src/features/training/components/TraineeLoginPage.tsx": {
    "brick": "FE-TRN-01",
@@ -1147,7 +1147,7 @@
   },
   "src/hooks/useChatState.ts": {
    "brick": "FE-COM-01",
-   "sha": "c07697c215f0"
+   "sha": "6a343cc0b048"
   },
   "src/hooks/useConversationDetails.ts": {
    "brick": "FE-COM-01",
@@ -1167,7 +1167,7 @@
   },
   "src/hooks/useEmployeeData.ts": {
    "brick": "FE-HR-01",
-   "sha": "2b0ff1293245"
+   "sha": "1e458a5c8585"
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
@@ -1183,7 +1183,7 @@
   },
   "src/hooks/useLeavesData.ts": {
    "brick": "FE-LEV-01",
-   "sha": "54d90d4940be"
+   "sha": "2082aab8da1d"
   },
   "src/hooks/useLongPress.ts": {
    "brick": "FE-UI-01",
@@ -1191,11 +1191,11 @@
   },
   "src/hooks/useMediaContent.ts": {
    "brick": "FE-MED-01",
-   "sha": "9e28b1a58c1d"
+   "sha": "c7e11d6201f0"
   },
   "src/hooks/usePolls.ts": {
    "brick": "FE-MED-01",
-   "sha": "e47c802b0e22"
+   "sha": "4ad3c316ca9c"
   },
   "src/hooks/useSmoothScroll.ts": {
    "brick": "FE-UI-01",
@@ -1203,7 +1203,7 @@
   },
   "src/hooks/useSplashAudio.ts": {
    "brick": "FE-SPL-01",
-   "sha": "de7037e88bbc"
+   "sha": "31d10ec42ee3"
   },
   "src/hooks/useUniversalPatcher.ts": {
    "brick": "FE-HR-02",
@@ -1211,7 +1211,7 @@
   },
   "src/hooks/useVoiceRecorder.ts": {
    "brick": "FE-COM-01",
-   "sha": "d4b3fcb84f2a"
+   "sha": "aef7acbf6517"
   },
   "src/index.css": {
    "brick": "FE-CORE-01",
@@ -1295,7 +1295,7 @@
   },
   "src/services/notifications/PushService.ts": {
    "brick": "FE-CORE-05",
-   "sha": "951a3c788931"
+   "sha": "3e1dfacee259"
   },
   "src/services/notifications/index.ts": {
    "brick": "FE-CORE-05",
@@ -1307,7 +1307,7 @@
   },
   "src/utils/GeolocationManager.ts": {
    "brick": "FE-CORE-04",
-   "sha": "70980e23ef8c"
+   "sha": "0095751bc2f2"
   },
   "src/utils/antiSpoofing.ts": {
    "brick": "FE-CORE-02",
@@ -1351,7 +1351,7 @@
   },
   "src/utils/pdfGenerator.ts": {
    "brick": "FE-HR-01",
-   "sha": "f16e26c2be0c"
+   "sha": "da11c0e3e179"
   },
   "src/utils/pdfListGenerator.ts": {
    "brick": "FE-HR-01",
@@ -1700,6 +1700,14 @@
   "supabase/migrations/20261116230000_hr_movements_policies_and_columns.sql": {
    "brick": "BE-MIG-01",
    "sha": "8c6ba5bab037"
+  },
+  "supabase/migrations/20261117180000_core_revoke_anon_trigger_rpcs.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "df633ed3eb32"
+  },
+  "supabase/migrations/20261117183000_core_revoke_anon_hr_and_admin_rpcs.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "e931b1056d48"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

@@ -3,7 +3,7 @@
  */
 
 import { Suspense, lazy, useState, useEffect, useCallback } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -53,7 +53,6 @@ const LoadingScreen = () => (
 const AppContent = () => {
   const { user, loading, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
 
 
@@ -91,7 +90,6 @@ const AppContent = () => {
   const CAPACITIES_DEPT_ID = '33333333-2222-2222-2222-222222222222';
 
   const [hasCapacities, setHasCapacities] = useState(false);
-  const [capacitiesChecked, setCapacitiesChecked] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -166,7 +164,6 @@ const AppContent = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        console.log("🌓 Tab hidden: Stopping geolocation watches...");
         geolocationManager.clearAllWatches();
       }
     };
