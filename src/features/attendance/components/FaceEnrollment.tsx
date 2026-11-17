@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { Camera, ShieldCheck, X, Loader2 } from 'lucide-react';
+import { Camera, ShieldCheck, X, Loader2, Sparkles, Clock3, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCamera } from '../hooks/useCamera';
 import { useFaceDetection } from '../hooks/useFaceDetection';
@@ -20,6 +20,9 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
     const [errorMsg, setErrorMsg] = useState('');
     const [capturedCount, setCapturedCount] = useState(0);
     const [descriptors, setDescriptors] = useState<number[][]>([]);
+    const [countdownSeconds, setCountdownSeconds] = useState(8);
+    const [timeoutWarning, setTimeoutWarning] = useState<string | null>(null);
+    const animFrameRef = useRef<number | null>(null);
     
     const { videoRef, startCamera, stopCamera } = useCamera();
     const { loadModels, extractFaceDescriptor } = useFaceDetection();
@@ -61,25 +64,84 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
         }
     };
 
-    // Cleanup camera on unmount
+    // Cleanup camera and timer on unmount
     useEffect(() => {
         return () => {
             stopCamera();
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         };
     }, [stopCamera]);
 
-    // 4. Capture and Save Descriptor
+    // 4. Capture and Save Descriptor via Offscreen Canvas and Watchdog Timer
     const handleCapture = async () => {
         if (!videoRef.current) return;
-        
+        const video = videoRef.current;
+        if (video.readyState < 2 || video.videoWidth === 0) {
+            toast.error('الكاميرا غير جاهزة بعد، يرجى الانتظار ثانية');
+            return;
+        }
+
+        setTimeoutWarning(null);
+
+        // انتظار استقرار اللمس لتفادي ركّة اليد لحظة ضغط الزر
+        await new Promise((resolve) => window.setTimeout(resolve, 200));
+
+        // التقاط الإطار في لوحة Canvas وسيطة بدقة 416x416 لعزل الكاميرا وحماية كارت الشاشة
+        const canvas = document.createElement('canvas');
+        canvas.width = 416;
+        canvas.height = 416;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+            toast.error('تعذر تهيئة لوحة المعالجة');
+            return;
+        }
+
+        // قص مربع متمركز من منتصف الفيديو
+        const minDim = Math.min(video.videoWidth, video.videoHeight);
+        const startX = (video.videoWidth - minDim) / 2;
+        const startY = (video.videoHeight - minDim) / 2;
+        ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, 416, 416);
+
         setStep('processing');
-        
+        setCountdownSeconds(8);
+
+        // شريط تنازلي 8 ثوانٍ ناعم
+        const startTime = performance.now();
+        const DURATION_MS = 8000;
+        let isRunning = true;
+
+        const updateTimer = () => {
+            if (!isRunning) return;
+            const elapsed = performance.now() - startTime;
+            const remaining = Math.max(0, Math.ceil((DURATION_MS - elapsed) / 1000));
+            setCountdownSeconds(remaining);
+            if (elapsed < DURATION_MS) {
+                animFrameRef.current = requestAnimationFrame(updateTimer);
+            }
+        };
+        animFrameRef.current = requestAnimationFrame(updateTimer);
+
+        let timerId: number | null = null;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timerId = window.setTimeout(() => {
+                reject(new Error('TIMEOUT_EXCEEDED'));
+            }, DURATION_MS);
+        });
+
         try {
-            // Detect single face and compute descriptor using our hook (using SSD MobileNet for better accuracy)
-            const descriptorArray = await extractFaceDescriptor(videoRef.current);
+            // معالجة الوجه من الـ Canvas مع حارس الأمان (Watchdog)
+            const descriptorArray = await Promise.race([
+                extractFaceDescriptor(canvas),
+                timeoutPromise
+            ]);
+
+            // إلغاء المؤقت فور الاستجابة السريعة
+            isRunning = false;
+            if (timerId) window.clearTimeout(timerId);
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
 
             if (!descriptorArray) {
-                toast.error("لم يتم العثور على وجه واضح أو الإضاءة غير كافية، يرجى المحاولة مرة أخرى.");
+                toast.error("لم يتم العثور على وجه واضح وثابت، يرجى تثبيت الهاتف والمحاولة مرة أخرى.");
                 setStep('camera');
                 return;
             }
@@ -127,8 +189,17 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
             }
 
         } catch (err: any) {
-            console.error("Enrollment error:", err);
-            toast.error("حدث خطأ أثناء التسجيل: " + (err?.message || "خطأ غير معروف"));
+            isRunning = false;
+            if (timerId) window.clearTimeout(timerId);
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+            if (err?.message === 'TIMEOUT_EXCEEDED') {
+                setTimeoutWarning('استغرقت معالجة الوجه وقتاً طويلاً نظراً لمحدودية موارد هذا الجهاز — يُرجى المحاولة في مكان ذي إضاءة ممتازة، أو إتمام تعريف الوجه من خلال هاتف المشرف المعتمد.');
+                toast.error('انتهت مهلة التشفير (8 ثوانٍ) — تعذر المعالجة على هذا الجهاز');
+            } else {
+                console.error("Enrollment error:", err);
+                toast.error("حدث خطأ أثناء التسجيل: " + (err?.message || "خطأ غير معروف"));
+            }
             setStep('camera');
         }
     };
@@ -195,13 +266,43 @@ export const FaceEnrollment = ({ employeeId, onClose, onSuccess }: FaceEnrollmen
                                 <div className="absolute inset-0 border-[4px] border-dashed border-white/50 rounded-full m-8 pointer-events-none" />
                                 
                                 {step === 'processing' && (
-                                    <div className="absolute inset-0 bg-brand-green/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
-                                        <Loader2 className="w-12 h-12 animate-spin mb-2" />
-                                        <p className="font-bold">جاري تشفير الوجه...</p>
+                                    <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center text-white p-5 z-20">
+                                        <div className="relative mb-3 flex items-center justify-center">
+                                            <div className="w-14 h-14 rounded-full border-4 border-emerald-500/30 border-t-emerald-400 animate-spin" />
+                                            <Sparkles className="w-6 h-6 text-emerald-400 absolute" />
+                                        </div>
+                                        <p className="font-extrabold text-sm mb-1 text-white">جاري تشفير ملامح الوجه...</p>
+                                        <p className="text-[11px] text-slate-300 mb-3 text-center">
+                                            يُرجى البقاء ثابتاً أمام الكاميرا
+                                        </p>
+
+                                        {/* شريط العد التنازلي التفاعلي المباشر (8 ثوانٍ) */}
+                                        <div className="w-full max-w-[200px] space-y-1">
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-300">
+                                                <span className="flex items-center gap-1 text-emerald-400">
+                                                    <Clock3 className="w-3 h-3" />
+                                                    مهلة الأمان
+                                                </span>
+                                                <span className="font-mono text-emerald-400 font-extrabold">{countdownSeconds} ث</span>
+                                            </div>
+                                            <div className="w-full bg-slate-800 rounded-full h-2 p-0.5 overflow-hidden border border-slate-700/60 shadow-inner">
+                                                <div 
+                                                    className="bg-gradient-to-l from-emerald-400 to-teal-500 h-full rounded-full transition-all duration-300 ease-out"
+                                                    style={{ width: `${(countdownSeconds / 8) * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                             
+                            {timeoutWarning && (
+                                <div className="w-full mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2 leading-relaxed">
+                                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                    <span>{timeoutWarning}</span>
+                                </div>
+                            )}
+
                             <p className="text-center font-bold text-lg text-emerald-600 mb-2">
                                 الخطوة {capturedCount + 1} من 3
                             </p>

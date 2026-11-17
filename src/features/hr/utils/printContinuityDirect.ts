@@ -74,7 +74,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
             return;
         }
 
-        const employeeName = req.employee?.full_name || 'الموظف';
+        const employeeName = getTripartiteName(req.employee?.full_name) || 'الموظف';
         const honorific = getHonorific(req.employee?.gender, employeeName);
         const letterNumber = req.official_letter_number || `ت/${new Date().getFullYear()}/${Math.floor(Math.random() * 800 + 100)}`;
 
@@ -301,7 +301,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         margin-bottom: 8px;
                     }
                     .destination-text {
-                        font-size: 16px;
+                        font-size: 18px;
                         font-weight: 900;
                         text-decoration: underline;
                         text-underline-offset: 5px;
@@ -312,13 +312,13 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         margin: 6px 0 16px 0;
                     }
                     .subject-text {
-                        font-size: 15px;
+                        font-size: 17px;
                         font-weight: 900;
                         color: #0f172a;
                     }
                     /* Body Paragraph */
                     .body-paragraph {
-                        font-size: 14.5px;
+                        font-size: 16.5px;
                         line-height: 2.2;
                         text-align: justify;
                         color: #0f172a;
@@ -326,7 +326,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                     }
                     .salutation-appreciation {
                         text-align: center;
-                        font-size: 14.5px;
+                        font-size: 16.5px;
                         font-weight: 900;
                         color: #0f172a;
                         margin: 14px 0;
@@ -334,7 +334,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                     /* Salary details */
                     .salary-container {
                         margin: 12px 0 16px 0;
-                        font-size: 13.5px;
+                        font-size: 15.5px;
                         line-height: 1.9;
                         color: #0f172a;
                     }
@@ -352,12 +352,12 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                     }
                     .salary-label {
                         font-weight: 800;
-                        min-width: 110px;
+                        min-width: 120px;
                     }
                     .salary-val {
                         font-weight: 900;
                         font-family: monospace;
-                        font-size: 14px;
+                        font-size: 16px;
                     }
                     /* Signatures and CC Section */
                     .sig-cc-section {
@@ -366,15 +366,15 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         align-items: flex-start;
                         margin-top: auto;
                         margin-bottom: auto;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
+                        padding-top: 6px;
+                        padding-bottom: 6px;
                         page-break-inside: avoid;
                     }
                     .cc-box {
                         text-align: right;
                         width: 100%;
-                        max-width: calc(100% - 225px);
-                        font-size: 11px;
+                        max-width: calc(100% - 235px);
+                        font-size: 13px;
                         line-height: 1.6;
                         color: #1e293b;
                         padding-top: 56px;
@@ -384,7 +384,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         text-decoration: underline;
                         text-underline-offset: 4px;
                         margin-bottom: 4px;
-                        font-size: 11.5px;
+                        font-size: 13.5px;
                         color: #0f172a;
                     }
                     .cc-list {
@@ -401,31 +401,31 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         color: #0f172a;
                     }
                     .cc-action {
-                        font-size: 10.5px;
+                        font-size: 12.5px;
                         color: #475569;
                         font-weight: 600;
                         padding-right: 4px;
                     }
                     .director-box {
                         text-align: center;
-                        min-width: 215px;
+                        min-width: 225px;
                         line-height: 1.45;
                         margin-right: auto;
                     }
                     .director-title-top {
-                        font-size: 13px;
+                        font-size: 15px;
                         font-weight: 700;
                         color: #1e293b;
                         margin: 0 0 2px 0;
                     }
                     .director-name-main {
-                        font-size: 16.5px;
+                        font-size: 18.5px;
                         font-weight: 900;
                         color: #0f172a;
                         margin: 0 0 2px 0;
                     }
                     .director-post-sub {
-                        font-size: 11.5px;
+                        font-size: 13.5px;
                         font-weight: 700;
                         color: #334155;
                         margin: 0;
@@ -441,7 +441,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         line-height: 1.25;
                     }
                     .approved-by-name {
-                        font-size: 11px;
+                        font-size: 13px;
                         font-weight: 800;
                         color: #0f172a;
                     }
@@ -528,7 +528,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                             <div class="director-box">
                                 <p class="director-title-top">الدكتور المهندس</p>
                                 <p class="director-name-main">علي عباس جاسم الصباغ</p>
-                                <p class="director-post-sub">مدير مديرية اتصالات ومعلوماتية</p>
+                                <p class="director-post-sub">مدير اتصالات ومعلوماتية</p>
                                 <p class="director-post-sub">كربلاء المقدسة</p>
                             </div>
                         </div>

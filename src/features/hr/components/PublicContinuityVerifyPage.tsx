@@ -297,7 +297,7 @@ export const PublicContinuityVerifyPage: React.FC = () => {
                                     <div className="text-center space-y-0.5 shrink-0 min-w-[200px] mr-auto">
                                         <p className="text-[12px] text-slate-700 font-bold">الدكتور المهندس</p>
                                         <p className="font-extrabold text-sm text-slate-950">علي عباس جاسم الصباغ</p>
-                                        <p className="text-[11px] text-slate-700 font-semibold">مدير مديرية اتصالات ومعلوماتية</p>
+                                        <p className="text-[11px] text-slate-700 font-semibold">مدير اتصالات ومعلوماتية</p>
                                         <p className="text-[11px] text-slate-700 font-semibold">كربلاء المقدسة</p>
                                     </div>
                                 </div>

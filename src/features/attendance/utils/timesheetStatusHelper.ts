@@ -436,6 +436,13 @@ export function getTimesheetSmartNotes(params: {
     }
   }
 
+  // 12. تنبيه البصمات الإضافية بعد البصمة السادسة (لتقرير الـ PDF والشاشة)
+  if (rec.admin_notes && rec.admin_notes.includes('تنبيه: توجد بصمات إضافية مسجلة بعد البصمة السادسة')) {
+    notes.push(rec.admin_notes);
+  } else if (Array.isArray(rec.raw_punches) && rec.raw_punches.length > 6) {
+    notes.push(`تنبيه: توجد بصمات إضافية مسجلة بعد البصمة السادسة (العدد الإجمالي: ${rec.raw_punches.length})، يرجى مراجعة تفاصيل الحركات في النظام`);
+  }
+
   // إزالة أي تكرار نهائي
   const uniqueNotes = Array.from(new Set(notes));
 

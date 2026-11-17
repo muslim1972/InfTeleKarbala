@@ -21,6 +21,13 @@ interface WorkLocationCardProps {
  * مبدأ التفاعل: لا تُفتح بطاقة ثانية أسفل البطاقة المُعدَّلة — التحويل يتم
  * داخل نفس الوحدة حفاظاً على علاقة "أنا أعدّل هذا" لدى المستخدم.
  */
+const normalizeCoordsInput = (val: string): string => {
+    return val
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+        .replace(/،/g, '.')
+        .trim();
+};
+
 export default function WorkLocationCard({
     loc,
     onToggleActive,
@@ -32,7 +39,8 @@ export default function WorkLocationCard({
 }: WorkLocationCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [radius, setRadius] = useState<number>(loc.radius_meters);
-    const [coords, setCoords] = useState({ lat: loc.latitude, lng: loc.longitude });
+    const [latStr, setLatStr] = useState<string>(loc.latitude != null ? String(loc.latitude) : '');
+    const [lngStr, setLngStr] = useState<string>(loc.longitude != null ? String(loc.longitude) : '');
     const [isGettingLocation, setIsGettingLocation] = useState(false);
     const [gpsError, setGpsError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -43,7 +51,8 @@ export default function WorkLocationCard({
     useEffect(() => {
         if (!isEditing) {
             setRadius(loc.radius_meters);
-            setCoords({ lat: loc.latitude, lng: loc.longitude });
+            setLatStr(loc.latitude != null ? String(loc.latitude) : '');
+            setLngStr(loc.longitude != null ? String(loc.longitude) : '');
             setGpsError(null);
             setCoordsChanged(false);
         }
@@ -58,7 +67,8 @@ export default function WorkLocationCard({
 
     const handleStartEdit = () => {
         setRadius(loc.radius_meters);
-        setCoords({ lat: loc.latitude, lng: loc.longitude });
+        setLatStr(loc.latitude != null ? String(loc.latitude) : '');
+        setLngStr(loc.longitude != null ? String(loc.longitude) : '');
         setGpsError(null);
         setCoordsChanged(false);
         setIsEditing(true);
@@ -68,7 +78,8 @@ export default function WorkLocationCard({
     const handleCancel = () => {
         setIsEditing(false);
         setRadius(loc.radius_meters);
-        setCoords({ lat: loc.latitude, lng: loc.longitude });
+        setLatStr(loc.latitude != null ? String(loc.latitude) : '');
+        setLngStr(loc.longitude != null ? String(loc.longitude) : '');
         setGpsError(null);
         setCoordsChanged(false);
         onCancel();
@@ -80,7 +91,8 @@ export default function WorkLocationCard({
         try {
             const result = await onGetCurrentLocation();
             if (result) {
-                setCoords({ lat: result.latitude, lng: result.longitude });
+                setLatStr(result.latitude.toFixed(6));
+                setLngStr(result.longitude.toFixed(6));
                 setCoordsChanged(true);
             }
         } catch (e: any) {
@@ -91,16 +103,30 @@ export default function WorkLocationCard({
     };
 
     const handleSave = async () => {
+        const cleanLat = normalizeCoordsInput(latStr);
+        const cleanLng = normalizeCoordsInput(lngStr);
+        const parsedLat = parseFloat(cleanLat);
+        const parsedLng = parseFloat(cleanLng);
+
+        if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+            setGpsError('خط العرض (ع) غير صالح — يجب أن يكون رقماً بين -90 و 90');
+            return;
+        }
+        if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+            setGpsError('خط الطول (ط) غير صالح — يجب أن يكون رقماً بين -180 و 180');
+            return;
+        }
         if (!Number.isFinite(radius) || radius < 10 || radius > 1000) {
             setGpsError('نصف القطر يجب أن يكون بين 10 و 1000 متر.');
             return;
         }
+
         setIsSaving(true);
         try {
             await onSave(loc, {
                 radius_meters: radius,
-                latitude: coords.lat,
-                longitude: coords.lng
+                latitude: parsedLat,
+                longitude: parsedLng
             });
             setIsEditing(false);
             setCoordsChanged(false);
@@ -137,22 +163,59 @@ export default function WorkLocationCard({
             </div>
 
             {/* الإحداثيات + نصف القطر */}
-            <div className="px-4 pb-3 space-y-1.5">
+            <div className="px-4 pb-3 space-y-2">
                 {isEditing ? (
                     <>
-                        <div className="flex items-center gap-2 rounded-lg bg-slate-50 dark:bg-slate-900/60 px-3 py-2 border border-slate-200 dark:border-slate-700">
-                            <span className="text-[11px] font-bold text-slate-400 shrink-0">إحداثيات</span>
-                            <span className="flex-1 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 truncate" dir="ltr">
-                                ع: {coords.lat.toFixed(6)} / ط: {coords.lng.toFixed(6)}
-                            </span>
-                            {coordsChanged && (
-                                <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                                    محدّث
-                                </span>
-                            )}
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-2 border border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-[11px] font-bold text-slate-400">إحداثيات</span>
+                                {coordsChanged && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                        محدّث
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex-1 flex items-center gap-2 min-w-0">
+                                {/* حقل خط العرض (ع) */}
+                                <div className="flex-1 flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 rounded-lg px-2 py-1 shadow-sm transition-all min-w-0">
+                                    <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 shrink-0 select-none">ع:</span>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={latStr}
+                                        onChange={(e) => {
+                                            setLatStr(e.target.value);
+                                            setCoordsChanged(true);
+                                        }}
+                                        placeholder="32.612050"
+                                        title="خط العرض (Latitude)"
+                                        className="w-full min-w-0 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none"
+                                        dir="ltr"
+                                    />
+                                </div>
+
+                                {/* حقل خط الطول (ط) */}
+                                <div className="flex-1 flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 rounded-lg px-2 py-1 shadow-sm transition-all min-w-0">
+                                    <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 shrink-0 select-none">ط:</span>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={lngStr}
+                                        onChange={(e) => {
+                                            setLngStr(e.target.value);
+                                            setCoordsChanged(true);
+                                        }}
+                                        placeholder="44.034337"
+                                        title="خط الطول (Longitude)"
+                                        className="w-full min-w-0 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none"
+                                        dir="ltr"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/25 px-3 py-2 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/25 px-3 py-2 border border-blue-200 dark:border-blue-800">
                             <label htmlFor={`radius-${loc.id}`} className="text-[11px] font-bold text-blue-600 dark:text-blue-400 shrink-0">
                                 نصف القطر
                             </label>
@@ -175,7 +238,7 @@ export default function WorkLocationCard({
                         {/* سطر واحد: خط العرض / خط الطول */}
                         <div className="flex items-center justify-between gap-2 text-xs">
                             <span className="font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap" dir="ltr">
-                                ع: {loc.latitude.toFixed(6)} / ط: {loc.longitude.toFixed(6)}
+                                ع: {loc.latitude != null ? loc.latitude.toFixed(6) : '—'} / ط: {loc.longitude != null ? loc.longitude.toFixed(6) : '—'}
                             </span>
                         </div>
                         {/* سطر نصف القطر */}

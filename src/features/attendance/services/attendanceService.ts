@@ -866,11 +866,11 @@ export const attendanceRecordService = {
     const nowServer = getServerNow();
     const nowIso = nowServer.toISOString();
 
-    // فحص مهلة الأمان (180 ثانية للمعتاد، و60 ثانية للمناوب بالشفتات المتصلة) بين البصمات لمنع التكرار العرضي
+    // فحص مهلة الأمان (180 ثانية / 3 دقائق صارمة لجميع الموظفين) بين البصمات لمنع التكرار العرضي
     if (record && Array.isArray(record.raw_punches) && record.raw_punches.length > 0 && !notes?.includes('تجاوز المهلة')) {
       const lastPunchTime = new Date(record.raw_punches[record.raw_punches.length - 1].time).getTime();
       const elapsedSeconds = Math.floor((nowServer.getTime() - lastPunchTime) / 1000);
-      const cooldownSeconds = (shiftType === 'shift' && hasConnectedShifts) ? 60 : 180;
+      const cooldownSeconds = 180; // 3 دقائق صارمة لجميع الحالات
       if (elapsedSeconds < cooldownSeconds && !bypassLeaveWarning) {
         const remaining = cooldownSeconds - elapsedSeconds;
         throw new Error(`يرجى الانتظار ${remaining} ثانية قبل تسجيل بصمة جديدة (مهلة الأمان بين البصمات لمنع التكرار العرضي)`);
@@ -913,6 +913,15 @@ export const attendanceRecordService = {
       target_slot: targetSlot
     };
 
+    // فحص حظر الحضور الصباحي قبل 6:00 ص لموظفي الصباحي
+    if (shiftType === 'morning' && !record) {
+      const { checkMorningEarlyPunchAllowed } = await import('../engines/morningAttendanceEngine');
+      const earlyCheck = checkMorningEarlyPunchAllowed(nowIso);
+      if (!earlyCheck.allowed) {
+        throw new Error(earlyCheck.message || 'الدوام الصباحي يبدأ على أقل تقدير عند الساعة 6:00 صباحاً');
+      }
+    }
+
     // 8. Update raw_punches
     let rawPunches: any[] = [];
     if (record && record.raw_punches) {
@@ -942,9 +951,39 @@ export const attendanceRecordService = {
     rawPunches.push(newPunch);
 
     // 9. Run categorizer with shift rules
-    const updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false, hasConnectedShifts);
-    if (!updates.raw_punches || updates.raw_punches.length === 0) {
-      updates.raw_punches = rawPunches;
+    let updates: Partial<AttendanceRecord>;
+    if (shiftType === 'morning') {
+      const { evaluateMorningAttendance } = await import('../engines/morningAttendanceEngine');
+      const { data: approvedLeavesData } = await supabase
+        .from('leave_requests')
+        .select('id, leave_type, start_date, end_date, leave_start_time, leave_end_time, time_duration_minutes, status, reason')
+        .eq('user_id', employeeId)
+        .eq('status', 'approved')
+        .lte('start_date', today)
+        .or(`end_date.gte.${today},end_date.is.null`);
+
+      const morningResult = evaluateMorningAttendance(
+        rawPunches,
+        today,
+        (approvedLeavesData || []) as any,
+        { isRestDay, isOfficialHoliday: false, isCompensatory: false },
+        false
+      );
+
+      updates = {
+        raw_punches: morningResult.rawPunches,
+        ...(morningResult.slots as any),
+        status: morningResult.status,
+        notes: morningResult.notes || undefined
+      };
+      if (morningResult.pdfNote) {
+        (updates as any).admin_notes = morningResult.pdfNote;
+      }
+    } else {
+      updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false, hasConnectedShifts);
+      if (!updates.raw_punches || updates.raw_punches.length === 0) {
+        updates.raw_punches = rawPunches;
+      }
     }
 
     // إذا تم استبدال خروج افتراضي ببصمة حقيقية، نضمن إزالة أعلام الافتراضي من التحديثات
@@ -1004,11 +1043,13 @@ export const attendanceRecordService = {
       savedRecord = await this.saveSecure(employeeId, null, updates);
     }
 
-    try {
-      // تطبيق العقوبات الإلزامية ومعادلات الحضور والانصراف فورياً على كل بصمة
-      await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
-    } catch (e) {
-      console.error('Error applying mandatory penalties:', e);
+    if (shiftType !== 'morning') {
+      try {
+        // للمناوبين فقط حتى يتم عزل ملف المناوبة: تشغيل تقييم المناوبة
+        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
+      } catch (e) {
+        console.error('Error applying mandatory penalties:', e);
+      }
     }
     // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
     return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
@@ -2139,19 +2180,7 @@ export const attendanceRecordService = {
       const penaltyDaysCount = (morningPenalty === 'day_double') ? 2 : 1;
 
       if (!existingFullDay) {
-        await supabase.from('leave_requests').insert({
-          user_id: employeeId,
-          leave_type: 'regular',
-          start_date: dateStr,
-          end_date: dateStr,
-          days_count: penaltyDaysCount,
-          reason: fullDayReason,
-          status: 'approved',
-          leave_status: 'approved',
-          is_mandatory: true,
-          with_request: false
-        });
-
+        // تم إلغاء سلطة التطبيق في إنشاء إجازات اعتيادية إجبارية تلقائية
         await sendPenaltyAlert(morningPenalty === 'day_double' ? 'day_double' : 'day', fullDayReason, morningPenalty === 'day' || morningPenalty === 'day_double' || midShiftPenalty === 'day', morningDelayMinutes || eveningEarlyMinutes || midShiftDelayMinutes);
       } else if (existingFullDay.reason !== fullDayReason || (existingFullDay as any).days_count !== penaltyDaysCount) {
         await supabase.from('leave_requests').update({ reason: fullDayReason, days_count: penaltyDaysCount }).eq('id', existingFullDay.id);
@@ -2175,21 +2204,7 @@ export const attendanceRecordService = {
       // 1. التعامل مع التأخير الصباحي (إذا وجد)
       if (typeof morningPenalty === 'number' && morningPenalty > 0) {
         if (!lateLeave) {
-          await supabase.from('leave_requests').insert({
-            user_id: employeeId,
-            leave_type: 'time_off',
-            start_date: dateStr,
-            end_date: dateStr,
-            leave_start_time: morningStartStr,
-            leave_end_time: morningEndStr,
-            time_duration_minutes: morningPenalty,
-            reason: morningReason,
-            status: 'approved',
-            leave_status: 'approved',
-            is_mandatory: true,
-            time_off_subtype: 'shift_start',
-            with_request: false
-          });
+          // تم إلغاء إنشاء إجازات زمنية تلقائية
           await sendPenaltyAlert(morningPenalty, morningReason, true, morningDelayMinutes);
         } else if (lateLeave.leave_type === 'time_off' && lateLeave.time_duration_minutes !== morningPenalty) {
           await supabase.from('leave_requests').update({
@@ -2211,21 +2226,7 @@ export const attendanceRecordService = {
       // 2. التعامل مع الخروج المبكر (إذا وجد)
       if (typeof eveningPenalty === 'number' && eveningPenalty > 0) {
         if (!earlyLeave) {
-          await supabase.from('leave_requests').insert({
-            user_id: employeeId,
-            leave_type: 'time_off',
-            start_date: dateStr,
-            end_date: dateStr,
-            leave_start_time: eveningStartStr,
-            leave_end_time: eveningEndStr,
-            time_duration_minutes: eveningPenalty,
-            reason: eveningReason,
-            status: 'approved',
-            leave_status: 'approved',
-            is_mandatory: true,
-            time_off_subtype: 'shift_end',
-            with_request: false
-          });
+          // تم إلغاء إنشاء إجازات زمنية تلقائية
           await sendPenaltyAlert(eveningPenalty, eveningReason, false, eveningEarlyMinutes);
         } else if (earlyLeave.leave_type === 'time_off' && earlyLeave.time_duration_minutes !== eveningPenalty) {
           await supabase.from('leave_requests').update({
@@ -2247,22 +2248,7 @@ export const attendanceRecordService = {
       // 3. التعامل مع إجازة وسط الدوام (إذا وجدت)
       if (typeof midShiftPenalty === 'number' && midShiftPenalty > 0) {
         if (!midLeave) {
-          await supabase.from('leave_requests').insert({
-            user_id: employeeId,
-            leave_type: 'time_off',
-            start_date: dateStr,
-            end_date: dateStr,
-            leave_start_time: midShiftStartStr,
-            leave_end_time: midShiftEndStr,
-            time_duration_minutes: midShiftPenalty,
-            days_count: 1,
-            reason: midShiftReason,
-            status: 'approved',
-            leave_status: 'approved',
-            is_mandatory: true,
-            time_off_subtype: 'mid_shift',
-            with_request: false
-          });
+          // تم إلغاء إنشاء إجازات زمنية تلقائية
           await sendPenaltyAlert(midShiftPenalty, midShiftReason, true, midShiftDelayMinutes);
         } else if (midLeave.leave_type === 'time_off' && midLeave.time_duration_minutes !== midShiftPenalty) {
           await supabase.from('leave_requests').update({

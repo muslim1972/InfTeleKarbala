@@ -146,53 +146,12 @@ export default function AttendanceCheckInOut({
     return last?.time ? new Date(last.time).getTime() : 0;
   }, [todayAttendance?.raw_punches]);
 
-  const [hasConnectedShifts, setHasConnectedShifts] = useState(false);
-
-  useEffect(() => {
-    async function checkConnectedShifts() {
-      try {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('work_schedule_id')
-          .eq('id', employeeId)
-          .maybeSingle();
-
-        if (prof?.work_schedule_id) {
-          const { data: sched } = await supabase
-            .from('work_schedules')
-            .select('type, name, work_schedule_days(*)')
-            .eq('id', prof.work_schedule_id)
-            .maybeSingle();
-
-          const isRoster = Boolean(sched && (sched.type === 'roster' || (sched.name || '').includes('مناوب') || (sched.name || '').includes('خفر')));
-          const days = sched?.work_schedule_days;
-          if (isRoster && Array.isArray(days)) {
-            const bDate = getBaghdadDate();
-            const dow = bDate.getDay();
-            const todayDay = days.find((d: any) => d.day_of_week === dow);
-            if (todayDay) {
-              const activeCount = [todayDay.is_morning, todayDay.is_evening, todayDay.is_night].filter(Boolean).length;
-              if (activeCount > 1) {
-                setHasConnectedShifts(true);
-                return;
-              }
-            }
-          }
-        }
-        setHasConnectedShifts(false);
-      } catch (e) {
-        console.warn('Error checking connected shifts:', e);
-      }
-    }
-    checkConnectedShifts();
-  }, [employeeId]);
-
   const cooldownRemaining = useMemo(() => {
     if (!lastPunchTime) return 0;
     const elapsed = Math.floor((nowTick - lastPunchTime) / 1000);
-    const cooldownDuration = hasConnectedShifts ? 60 : 180;
+    const cooldownDuration = 180; // 3 دقائق صارمة لجميع الموظفين (180 ثانية)
     return Math.max(0, cooldownDuration - elapsed);
-  }, [lastPunchTime, nowTick, hasConnectedShifts]);
+  }, [lastPunchTime, nowTick]);
 
   const isCooldownActive = cooldownRemaining > 0;
 
@@ -970,10 +929,19 @@ export default function AttendanceCheckInOut({
 
     const shiftType = determineShiftType(user as any, null);
     if (!hasExistingPunch) {
-      const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow());
-      if (!earlyCheck.allowed) {
-        toast.error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
-        return;
+      if (shiftType === 'morning') {
+        const nowServer = getServerNow();
+        const bDate = getBaghdadDate(nowServer);
+        if (bDate.getHours() < 6) {
+          toast.error('الدوام الصباحي يبدأ على أقل تقدير عند الساعة 6:00 صباحاً');
+          return;
+        }
+      } else {
+        const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow());
+        if (!earlyCheck.allowed) {
+          toast.error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
+          return;
+        }
       }
     }
 
@@ -1176,13 +1144,15 @@ export default function AttendanceCheckInOut({
             {isCooldownActive && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-mono font-bold shrink-0 text-xs shadow-sm">
-                    {cooldownRemaining}s
+                  <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-mono font-bold shrink-0 text-xs shadow-sm">
+                    {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}
                   </div>
                   <div>
-                    <p className="font-bold text-xs">مهلة الأمان بين البصمات نشطة (متبقي {cooldownRemaining} ثانية)</p>
+                    <p className="font-bold text-xs">
+                      مهلة الأمان بين البصمات نشطة (متبقي {Math.floor(cooldownRemaining / 60)} د و {cooldownRemaining % 60} ث)
+                    </p>
                     <p className="text-[11px] text-amber-700/90 dark:text-amber-300/90 mt-0.5">
-                      تم تسجيل بصمتك بنجاح. لمنع البصمات المزدوجة العرضية، يُرجى الانتظار لحين اكتمال المهلة.
+                      تم تسجيل بصمتك بنجاح. لمنع البصمات المزدوجة العرضية، يُرجى الانتظار 3 دقائق قبل أية بصمة جديدة.
                     </p>
                   </div>
                 </div>
@@ -1275,7 +1245,7 @@ export default function AttendanceCheckInOut({
                     <Fingerprint className={`w-6 h-6 shrink-0 ${!isActionDisabled ? 'animate-pulse' : ''}`} />
                     <span className="text-sm sm:text-base whitespace-nowrap">
                       {isCooldownActive 
-                        ? `مهلة الأمان (${cooldownRemaining} ث)` 
+                        ? `مهلة الأمان (${Math.floor(cooldownRemaining / 60)}:${String(cooldownRemaining % 60).padStart(2, '0')})` 
                         : isBlockedByUnapprovedDevice
                           ? 'جهاز غير معتمد'
                           : isCloseoutMinute

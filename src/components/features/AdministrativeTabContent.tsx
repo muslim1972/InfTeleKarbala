@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Award, User, FileText, Scissors, Loader2 } from 'lucide-react';
+import { User, Scissors, Activity } from 'lucide-react';
 import { AccordionSection } from "../ui/AccordionSection";
-import { RecordList } from "./RecordList";
+import { AdministrativeMovementsCard } from "./AdministrativeMovementsCard";
 import { GlassCard } from "../ui/GlassCard";
 import { cn } from "../../lib/utils";
 import { getRoleLabel } from "../../utils/formatRoles";
@@ -33,12 +33,12 @@ interface BasicInfoField {
 
 interface AdministrativeTabContentProps {
     currentYearRecord: any;
-    expandedDetail: 'thanks' | 'committees' | 'penalties' | 'leaves' | null;
-    handleDetailClick: (type: 'thanks' | 'committees' | 'penalties' | 'leaves') => void;
-    detailLoading: boolean;
-    detailItems: any[];
+    expandedDetail?: 'thanks' | 'committees' | 'penalties' | 'leaves' | null;
+    handleDetailClick?: (type: 'thanks' | 'committees' | 'penalties' | 'leaves') => void;
+    detailLoading?: boolean;
+    detailItems?: any[];
     financialData: any;
-    selectedYear: number;
+    selectedYear?: number;
     leavesList: any[];
     selectedLeave: any;
     setSelectedLeave: (leave: any | null) => void;
@@ -78,12 +78,7 @@ const basicInfoFields: BasicInfoField[] = [
 
 export const AdministrativeTabContent = ({
     currentYearRecord,
-    expandedDetail,
-    handleDetailClick,
-    detailLoading,
-    detailItems,
     financialData,
-    selectedYear,
     leavesList,
     selectedLeave,
     setSelectedLeave,
@@ -190,94 +185,17 @@ export const AdministrativeTabContent = ({
                 </AccordionSection>
             </motion.div>
 
-            {/* Thanks Books */}
+            {/* بطاقة الحركات المدمجة (كتب الشكر / اللجان / العقوبات) */}
             <motion.div variants={itemVariants}>
                 <AccordionSection
-                    id="thanks"
-                    title={`كتب الشكر (${currentYearRecord.thanks_books_count || 0})`}
-                    icon={Award}
-                    className="border-yellow-500/20"
-                    color="from-yellow-600 to-yellow-500"
-                    isOpen={expandedDetail === 'thanks'}
-                    onToggle={() => handleDetailClick('thanks')}
+                    id="movements"
+                    title="الحركات"
+                    icon={Activity}
+                    color="from-purple-600 to-indigo-600"
+                    isOpen={openSection === 'movements'}
+                    onToggle={() => toggleSection('movements')}
                 >
-                    {detailLoading ? (
-                        <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
-                    ) : detailItems.length === 0 ? (
-                        <p className="text-center text-amber-600/70 dark:text-amber-400/70 text-sm py-4 font-medium">
-                            تفاصيل كتب الشكر غير متوفرة حالياً
-                        </p>
-                    ) : (
-                        <RecordList
-                            data={detailItems}
-                            fields={[
-                                { key: 'book_number', label: 'رقم الكتاب' },
-                                { key: 'reason', label: 'السبب' }
-                            ]}
-                            readOnly={true}
-                        />
-                    )}
-                </AccordionSection>
-            </motion.div>
-
-            {/* Committees */}
-            <motion.div variants={itemVariants}>
-                <AccordionSection
-                    id="committees"
-                    title={`اللجان (${currentYearRecord.committees_count || 0})`}
-                    icon={User}
-                    color="from-blue-600 to-blue-500"
-                    className="border-blue-500/20"
-                    isOpen={expandedDetail === 'committees'}
-                    onToggle={() => handleDetailClick('committees')}
-                >
-                    {detailLoading ? (
-                        <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
-                    ) : detailItems.length === 0 ? (
-                        <p className="text-center text-blue-600/70 dark:text-blue-400/70 text-sm py-4 font-medium">
-                            تفاصيل اللجان غير متوفرة حالياً
-                        </p>
-                    ) : (
-                        <RecordList
-                            data={detailItems}
-                            fields={[
-                                { key: 'committee_name', label: 'اسم اللجنة' },
-                                { key: 'role', label: 'الصفة' }
-                            ]}
-                            readOnly={true}
-                        />
-                    )}
-                </AccordionSection>
-            </motion.div>
-
-            {/* Penalties */}
-            <motion.div variants={itemVariants}>
-                <AccordionSection
-                    id="penalties"
-                    title={`العقوبات (${currentYearRecord.penalties_count || 0})`}
-                    icon={FileText}
-                    color="from-red-600 to-red-500"
-                    className="border-red-500/20"
-                    isOpen={expandedDetail === 'penalties'}
-                    onToggle={() => handleDetailClick('penalties')}
-                >
-                    {detailLoading ? (
-                        <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
-                    ) : detailItems.length === 0 ? (
-                        <p className="text-center text-red-600/70 dark:text-red-400/70 text-sm py-4 font-medium">
-                            تفاصيل العقوبات غير متوفرة حالياً
-                        </p>
-                    ) : (
-                        <RecordList
-                            data={detailItems}
-                            fields={[
-                                { key: 'penalty_type', label: 'نوع العقوبة' },
-                                { key: 'reason', label: 'السبب' }
-                            ]}
-                            type="penalties"
-                            readOnly={true}
-                        />
-                    )}
+                    <AdministrativeMovementsCard userId={user?.id} />
                 </AccordionSection>
             </motion.div>
 
@@ -289,8 +207,8 @@ export const AdministrativeTabContent = ({
                     icon={Scissors}
                     color="from-green-600 to-green-500"
                     className="border-green-500/20"
-                    isOpen={expandedDetail === 'leaves'}
-                    onToggle={() => handleDetailClick('leaves')}
+                    isOpen={openSection === 'leaves'}
+                    onToggle={() => toggleSection('leaves')}
                 >
                     <div className="space-y-4">
                         <h3 className="text-foreground font-bold border-r-4 border-brand-green pr-3">
@@ -385,7 +303,7 @@ export const AdministrativeTabContent = ({
 
                         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                             <h4 className="text-xs font-bold text-muted-foreground px-4 py-3 bg-muted/50 border-b border-border">
-                                سجل اجازات {selectedYear}
+                                سجل الإجازات
                             </h4>
                             <div className="max-h-48 overflow-y-auto p-2 space-y-2 custom-scrollbar">
                                 {leavesList.length > 0 ? (
@@ -413,7 +331,7 @@ export const AdministrativeTabContent = ({
                                     ))
                                 ) : (
                                     <div className="text-center py-8 text-muted-foreground text-sm">
-                                        لا توجد اجازات مسجلة في {selectedYear}
+                                        لا توجد اجازات مسجلة
                                     </div>
                                 )}
                             </div>

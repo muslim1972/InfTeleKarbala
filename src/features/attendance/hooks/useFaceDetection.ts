@@ -91,23 +91,23 @@ export const useFaceDetection = () => {
     await globalLoadingPromise;
   }, []);
 
-  const extractFaceDescriptor = useCallback(async (videoElement: HTMLVideoElement) => {
+  const extractFaceDescriptor = useCallback(async (input: HTMLVideoElement | HTMLCanvasElement) => {
     if (!faceApiRef.current || (!globalDetectionModelsLoaded && !globalEnrollmentModelsLoaded)) {
       throw new Error('Models not loaded');
     }
     const faceapi = faceApiRef.current;
 
-    // Use SSD MobileNet if loaded, otherwise fallback to TinyFaceDetector
+    // Use strict score threshold (0.65) exclusively during enrollment to guarantee immaculate reference templates
     let detection: any = null;
     if (globalEnrollmentModelsLoaded) {
       detection = await faceapi.detectSingleFace(
-        videoElement, 
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 })
+        input, 
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.65 })
       ).withFaceLandmarks().withFaceDescriptor();
     } else {
       detection = await faceapi.detectSingleFace(
-        videoElement,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 })
+        input,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.65 })
       ).withFaceLandmarks().withFaceDescriptor();
     }
 

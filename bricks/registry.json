@@ -131,6 +131,7 @@
         "src/components/admin/FullAudit.tsx",
         "src/components/admin/HistoryViewer.tsx",
         "src/components/features/AdministrativeTabContent.tsx",
+        "src/components/features/AdministrativeMovementsCard.tsx",
         "src/components/features/RecordList.tsx",
         "src/components/features/DirectivesModal.tsx",
         "src/hooks/useDashboardData.ts",

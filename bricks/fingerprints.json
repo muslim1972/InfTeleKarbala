@@ -1,9 +1,9 @@
 {
- "created": "2026-11-15T07:33:37.217Z",
+ "created": "2026-11-16T21:38:50.241Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "abc358dc0ac5"
+   "sha": "5bfcdfa52ac8"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -39,7 +39,7 @@
   },
   "scripts/sql/morning_shift_daily_evaluator.sql": {
    "brick": "BE-ATT-04",
-   "sha": "37ec07f06baa"
+   "sha": "a17f977264e6"
   },
   "scripts/sql/roster_engine.sql": {
    "brick": "BE-ATT-04",
@@ -329,9 +329,13 @@
    "brick": "FE-CORE-01",
    "sha": "12f547a73e55"
   },
+  "src/components/features/AdministrativeMovementsCard.tsx": {
+   "brick": "FE-HR-01",
+   "sha": "8550406b63cd"
+  },
   "src/components/features/AdministrativeTabContent.tsx": {
    "brick": "FE-HR-01",
-   "sha": "06835a1b3574"
+   "sha": "f8fd381bcdcc"
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
@@ -351,7 +355,7 @@
   },
   "src/components/features/FinancialTabContent.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "d03ae510ec4d"
+   "sha": "bc40527f1fa4"
   },
   "src/components/features/FloatingAudioPlayer.tsx": {
    "brick": "FE-MED-01",
@@ -591,7 +595,7 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "66a3304de4b8"
+   "sha": "390cbfd60177"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
@@ -623,7 +627,7 @@
   },
   "src/features/attendance/components/FaceEnrollment.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "125930d84bc2"
+   "sha": "244f2fcf91b0"
   },
   "src/features/attendance/components/HolidaysTab.tsx": {
    "brick": "FE-ATT-01",
@@ -651,7 +655,7 @@
   },
   "src/features/attendance/components/WorkLocationCard.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "170fe779cd6d"
+   "sha": "000e86794c8e"
   },
   "src/features/attendance/components/WorkScheduleForm.tsx": {
    "brick": "FE-ATT-01",
@@ -660,6 +664,10 @@
   "src/features/attendance/components/WorkSchedulesTab.tsx": {
    "brick": "FE-ATT-01",
    "sha": "ebe2c3c1fb5e"
+  },
+  "src/features/attendance/engines/morningAttendanceEngine.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "ed8f8bdda19a"
   },
   "src/features/attendance/hooks/useAttendance.ts": {
    "brick": "FE-ATT-01",
@@ -671,7 +679,7 @@
   },
   "src/features/attendance/hooks/useFaceDetection.ts": {
    "brick": "FE-ATT-01",
-   "sha": "de5a3ff29e90"
+   "sha": "2aac3e0658c9"
   },
   "src/features/attendance/hooks/useLiveAttendance.ts": {
    "brick": "FE-ATT-01",
@@ -695,7 +703,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "422c0853f5f5"
+   "sha": "5bc1f1842c93"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -767,7 +775,7 @@
   },
   "src/features/attendance/utils/timesheetStatusHelper.ts": {
    "brick": "FE-ATT-01",
-   "sha": "5fe5f64e5a2d"
+   "sha": "53818fd20d45"
   },
   "src/features/fiber-simulator/FiberSimulatorLauncher.tsx": {
    "brick": "FE-FIB-01",
@@ -939,11 +947,11 @@
   },
   "src/features/hr/components/PublicContinuityVerifyPage.tsx": {
    "brick": "FE-HR-01",
-   "sha": "64c21b21dd8b"
+   "sha": "9a5d7b66778f"
   },
   "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
    "brick": "FE-HR-01",
-   "sha": "a168ebb14522"
+   "sha": "8a427299619f"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
@@ -951,11 +959,11 @@
   },
   "src/features/hr/utils/continuityPrintAssets.ts": {
    "brick": "FE-HR-01",
-   "sha": "509e3bd95803"
+   "sha": "335f896e5052"
   },
   "src/features/hr/utils/printContinuityDirect.ts": {
    "brick": "FE-HR-01",
-   "sha": "79245dc2931f"
+   "sha": "9591f9deb8d9"
   },
   "src/features/kiosk/KioskAdminPanel.tsx": {
    "brick": "FE-ATT-02",
@@ -1063,7 +1071,7 @@
   },
   "src/features/requests/components/ServiceContinuityRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "732b151e4517"
+   "sha": "81eeed8cfc5a"
   },
   "src/features/requests/components/SubstituteSelector.tsx": {
    "brick": "FE-LEV-01",
@@ -1239,7 +1247,7 @@
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "d88a4396d402"
+   "sha": "a1ad874a1142"
   },
   "src/pages/GovernorateSelection.tsx": {
    "brick": "FE-CORE-03",
@@ -1684,6 +1692,14 @@
   "supabase/migrations/20261115030000_hr01_service_continuity_cadre_and_direct_print.sql": {
    "brick": "BE-MIG-01",
    "sha": "27d3ecb9b51a"
+  },
+  "supabase/migrations/20261115040000_hr01_defer_employee_continuity_notification_until_printed.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "741e7f506af7"
+  },
+  "supabase/migrations/20261116230000_hr_movements_policies_and_columns.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "8c6ba5bab037"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

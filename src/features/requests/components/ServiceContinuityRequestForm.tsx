@@ -518,7 +518,7 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
                 <div className="flex flex-col items-center text-center font-bold text-slate-800 dark:text-slate-100 space-y-0.5 leading-snug shrink-0">
                   <div className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400">الدكتور المهندس</div>
                   <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">د. علي عباس جاسم الصباغ</div>
-                  <div className="text-[10px] sm:text-xs text-cyan-800 dark:text-cyan-300 font-semibold">مدير مديرية اتصالات ومعلوماتية</div>
+                  <div className="text-[10px] sm:text-xs text-cyan-800 dark:text-cyan-300 font-semibold">مدير اتصالات ومعلوماتية</div>
                   <div className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400">كربلاء المقدسة</div>
                 </div>
               </div>

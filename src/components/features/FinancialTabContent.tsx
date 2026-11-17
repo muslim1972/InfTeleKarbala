@@ -132,20 +132,20 @@ export const FinancialTabContent = ({
                 className="space-y-4"
             >
                 <motion.div variants={itemVariants} className="space-y-3 mb-2">
-                    {/* الراتب الاسمي */}
-                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80">
-                        <span className="text-muted-foreground text-sm font-bold">الراتب الاسمي</span>
-                        <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
-                            {Math.round(Number(financialData?.nominal_salary || 0)).toLocaleString()}
-                        </span>
-                    </div>
-
-                    {/* الراتب قبل الاستقطاع */}
-                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80">
-                        <span className="text-muted-foreground text-sm font-bold">الراتب قبل الاستقطاع</span>
-                        <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
-                            {Math.round(Number(financialData?.gross_salary || 0)).toLocaleString()}
-                        </span>
+                    {/* الراتب الاسمي والكلي مدمج في سطر واحد */}
+                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80 text-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-bold">الراتب الاسمي</span>
+                            <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
+                                {Math.round(Number(financialData?.nominal_salary || 0)).toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-bold">الكلي</span>
+                            <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
+                                {Math.round(Number(financialData?.gross_salary || 0)).toLocaleString()}
+                            </span>
+                        </div>
                     </div>
 
                     {/* الراتب الصافي */}

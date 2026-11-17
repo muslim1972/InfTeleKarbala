@@ -1,7 +1,16 @@
 -- =====================================================================
 -- morning_shift_daily_evaluator.sql
--- محرك الفحص اليومي للشفت الصباحي والإشعارات المزدوجة عند الساعة 23:59
+-- محرك الفحص والتشخيص اليومي للشفت الصباحي والتبليغات الرسمية
 -- النواة المعمارية: BE-ATT-04 (Roster & Daily Attendance Rules Engine)
+-- 
+-- الضوابط المقررة من الإدارة:
+-- 1. التطبيق جهة رصد وتشخيص وتبليغ فقط، ومجرد تماماً من سلطة إصدار أو تحويل إجازات إجبارية.
+-- 2. استيعاب البصمات حتى 6 بصمات، وما بعدها يحل محل السادسة في الانصراف.
+-- 3. فحص التأخير الصباحي بعد 8:30، والمغادرة المبكرة قبل 14:30.
+-- 4. إغلاق اليوم عند غياب الانصراف ببصمة افتراضية عند 15:00.
+-- 5. فحص الإجازة الزمنية وتطبيق قاعدة حصر البصمات داخل وقت الزمنية.
+-- 6. تشخيص المغادرات غير المبررة مع دمج الإشعارين عند وجود مغادرتين.
+-- 7. تخطي الجمع والسبت والعطل الرسمية والإجازات المعتمدة.
 -- =====================================================================
 
 -- 1. دالة استخراج الاسم الثلاثي للموظف بدقة
@@ -116,7 +125,7 @@ BEGIN
 END;
 $$;
 
--- 4. المحرك السيادي للفحص اليومي للشفت الصباحي عند 23:59
+-- 4. المحرك السيادي للفحص اليومي للشفت الصباحي عند 23:59 أو بأثر رجعي
 CREATE OR REPLACE FUNCTION public.evaluate_morning_shift_daily_attendance(
   p_date date DEFAULT ((now() AT TIME ZONE 'Asia/Baghdad') - INTERVAL '2 hours')::date
 )
@@ -134,31 +143,44 @@ DECLARE
   v_day_name_ar text;
   v_emp record;
   v_att record;
-  v_real_punches jsonb;
-  v_earliest_punch timestamptz;
-  v_punch_time time;
-  v_punch_time_str text;
-  v_delay_minutes int;
+  v_raw_list jsonb;
+  v_punches_arr jsonb[] := '{}';
+  v_p record;
+  v_prev_t timestamptz;
+  v_curr_t timestamptz;
+  v_count int;
+  v_first_punch jsonb;
+  v_last_punch jsonb;
+  v_first_time time;
+  v_last_time time;
+  v_delay_mins int;
+  v_early_mins int;
   v_emp_tri_name text;
   v_sup_id uuid;
-  v_notif_emp_content text;
-  v_notif_sup_content text;
+  v_notif_content text;
   v_eval_type text;
+  v_time_leave record;
+  v_tl_start time;
+  v_tl_end time;
+  v_unjustified_count int := 0;
+  v_unjustified_first_time text := '';
+  v_virtual_iso timestamptz;
   v_day_names text[] := ARRAY['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   
-  -- عدادات الإحصاء للتقرير
+  -- عدادات الإحصاء
   v_total_evaluated int := 0;
   v_on_time_count int := 0;
   v_delayed_count int := 0;
-  v_after_hours_count int := 0;
+  v_early_leave_count int := 0;
   v_absent_count int := 0;
   v_notifications_sent int := 0;
 BEGIN
-  -- صمام أمان نهاري: منع تشغيل الفحص النهاري التلقائي أثناء ساعات الدوام إذا لم يُمرر تاريخ صريح في الماضي
+  -- صمام أمان نهاري: منع تشغيل الفحص النهاري التلقائي أثناء ساعات الدوام إذا طُلب لليوم الحالي
   IF (now() AT TIME ZONE 'Asia/Baghdad')::time BETWEEN '06:00:00'::time AND '20:00:00'::time 
      AND p_date = (now() AT TIME ZONE 'Asia/Baghdad')::date THEN
     RAISE EXCEPTION 'لا يمكن تشغيل فحص الإغلاق الصباحي التلقائي نهاراً أثناء ساعات الدوام الفعلي (الوقت الحالي في بغداد: %)', (now() AT TIME ZONE 'Asia/Baghdad')::time;
   END IF;
+
   -- حساب يوم الدوام الرسمي القادم
   v_next_work_date := public.get_next_official_work_day(p_date);
   v_date_str := to_char(p_date, 'YYYY/MM/DD');
@@ -166,16 +188,13 @@ BEGIN
   v_dow := EXTRACT(DOW FROM v_next_work_date)::int;
   v_day_name_ar := v_day_names[v_dow + 1];
   
-  -- صياغة عبارة الموعد القانوني للاستيضاح
   IF v_next_work_date = p_date + 1 THEN
     v_deadline_phrase := 'من يوم غد ' || v_next_date_str;
   ELSE
     v_deadline_phrase := 'من يوم ' || v_day_name_ar || ' ' || v_next_date_str;
   END IF;
 
-  -- التكرار على جميع الموظفين المطالبين بالشفت الصباحي لهذا اليوم:
-  -- أ. الموظفون الصباحيون (ليسوا مناوبين)
-  -- ب. الموظفون المناوبون الذين لديهم شفت صباحي مجدول لهذا اليوم
+  -- التكرار على جميع موظفي الشفت الصباحي
   FOR v_emp IN
     SELECT 
       p.id,
@@ -193,29 +212,19 @@ BEGIN
       ON wsd.schedule_id = ws.id 
       AND wsd.day_of_week = EXTRACT(DOW FROM p_date)::int
     WHERE 
-      -- استبعاد الحسابات الوهمية أو الملغاة
       p.id IS NOT NULL
       AND (
-        -- الحالة أ: دوام صباحي اعتيادي
+        -- دوام صباحي اعتيادي (غير مناوب)
         (
           (ws.id IS NULL OR ws.type <> 'roster' AND COALESCE(ws.name, '') NOT ILIKE '%مناوب%' AND COALESCE(ws.name, '') NOT ILIKE '%خفر%')
-          -- الصباحي الاعتيادي يُستثنى في عطلة نهاية الأسبوع (الجمعة والسبت)
-          AND EXTRACT(DOW FROM p_date)::int NOT IN (5, 6)
-          -- والصباحي الاعتيادي يُستثنى في العطل الرسمية
+          AND EXTRACT(DOW FROM p_date)::int NOT IN (5, 6) -- تخطي الجمعة والسبت
           AND NOT EXISTS (
             SELECT 1 FROM public.official_holidays h
             WHERE p_date >= h.start_date AND p_date <= h.end_date
           )
         )
-        OR
-        -- الحالة ب: مناوب ولديه شفت صباحي مجدول اليوم وليس في استراحة
-        (
-          (ws.type = 'roster' OR COALESCE(ws.name, '') ILIKE '%مناوب%' OR COALESCE(ws.name, '') ILIKE '%خفر%')
-          AND COALESCE(wsd.is_morning, false) = true
-          AND COALESCE(wsd.is_rest_day, false) = false
-        )
       )
-      -- استبعاد من لديهم إجازة معتمدة (اعتيادية، مرضية، واجب، إيفاد) تغطي هذا اليوم
+      -- استبعاد من لديهم إجازة يوم كامل معتمدة تغطي هذا اليوم
       AND NOT EXISTS (
         SELECT 1 FROM public.leave_requests lr
         WHERE lr.user_id = p.id
@@ -238,177 +247,41 @@ BEGIN
           (check_in AT TIME ZONE 'Asia/Baghdad')::date = p_date
           OR (created_at AT TIME ZONE 'Asia/Baghdad')::date = p_date
         )
-      ORDER BY check_in ASC NULLS LAST
+      ORDER BY created_at DESC
       LIMIT 1;
 
-      -- استخراج أول بصمة حقيقية (استبعاد البصمات الافتراضية)
-      v_earliest_punch := NULL;
-      
+      -- استخراج البصمات وتطبيق مهلة الـ 3 دقائق (Debounce)
+      v_punches_arr := '{}';
+      v_prev_t := NULL;
+
       IF v_att.id IS NOT NULL AND v_att.raw_punches IS NOT NULL AND jsonb_array_length(v_att.raw_punches) > 0 THEN
-        SELECT (punch->>'time')::timestamptz INTO v_earliest_punch
-        FROM jsonb_array_elements(v_att.raw_punches) AS punch
-        WHERE COALESCE((punch->>'is_virtual')::boolean, false) = false
-          AND COALESCE(punch->>'notes', '') NOT LIKE '%افتراضي%'
-          AND ((punch->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad')::date = p_date
-        ORDER BY (punch->>'time')::timestamptz ASC
-        LIMIT 1;
+        FOR v_p IN 
+          SELECT punch 
+          FROM jsonb_array_elements(v_att.raw_punches) AS punch
+          WHERE COALESCE((punch->>'is_virtual')::boolean, false) = false
+            AND COALESCE(punch->>'notes', '') NOT LIKE '%افتراضي%'
+            AND ((punch->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad')::date = p_date
+          ORDER BY (punch->>'time')::timestamptz ASC
+        LOOP
+          v_curr_t := (v_p.punch->>'time')::timestamptz;
+          IF v_prev_t IS NULL OR EXTRACT(EPOCH FROM (v_curr_t - v_prev_t)) > 180 THEN
+            v_punches_arr := array_append(v_punches_arr, v_p.punch);
+            v_prev_t := v_curr_t;
+          END IF;
+        END LOOP;
       END IF;
 
-      -- احتياط: إذا لم نجد في raw_punches، نتحقق من check_in الأصلي
-      IF v_earliest_punch IS NULL AND v_att.check_in IS NOT NULL THEN
-        IF COALESCE(v_att.check_out_is_virtual, false) = false AND COALESCE(v_att.notes, '') NOT LIKE '%افتراضي%' THEN
-          IF ((v_att.check_in AT TIME ZONE 'Asia/Baghdad')::date = p_date) THEN
-            v_earliest_punch := v_att.check_in;
-          END IF;
-        END IF;
-      END IF;
+      v_count := array_length(v_punches_arr, 1);
 
-      -- =================================================================
-      -- تقييم الحالات الأربع الصباحية:
-      -- =================================================================
-
-      IF v_earliest_punch IS NOT NULL THEN
-        v_punch_time := (v_earliest_punch AT TIME ZONE 'Asia/Baghdad')::time;
-        v_punch_time_str := to_char(v_earliest_punch AT TIME ZONE 'Asia/Baghdad', 'HH24:MI');
-
-        -- الحالة 1: بصمة في الموعد (<= 08:30)
-        IF v_punch_time <= '08:30:00'::time THEN
-          v_on_time_count := v_on_time_count + 1;
-          
-          -- تثبيت البصمة في السجل دون أي إشعار أو إجراء جزائي
-          IF v_att.check_in IS NULL THEN
-            UPDATE public.attendance_records
-            SET check_in = v_earliest_punch,
-                status = 'present'
-            WHERE id = v_att.id;
-          END IF;
-
-        -- الحالة 2: تأخير عن الدوام الصباحي (> 08:30 ولغاية 14:30)
-        ELSIF v_punch_time > '08:30:00'::time AND v_punch_time <= '14:30:00'::time THEN
-          v_delayed_count := v_delayed_count + 1;
-          v_eval_type := 'morning_delay';
-          
-          -- حساب الفرق بالدقائق من 08:30
-          v_delay_minutes := floor(EXTRACT(EPOCH FROM (v_punch_time - '08:30:00'::time)) / 60)::int;
-          IF v_delay_minutes < 1 THEN v_delay_minutes := 1; END IF;
-
-          v_notif_emp_content := 'إن لديك تأخير عن الدوام الرسمي بتاريخ ' || v_date_str || 
-            ' بمقدار (' || v_delay_minutes || ' دقيقة) بدون عذر رسمي ، لذا توجب عليك تقديم إستيضاح مكتوب إلى المسؤول المباشر خلال 24 ساعة تنتهي عند 10:30 ' || 
-            v_deadline_phrase || ' لتجنب اتخاذ الإجراء الرسمي بحقك';
-
-          v_notif_sup_content := 'أن الموظف ' || v_emp_tri_name || ' ، لديه بصمة متأخرة ليوم ' || 
-            v_date_str || ' بمقدار (' || v_delay_minutes || ' دقيقة) ، وتم إشعاره بضرورة تقديم استيضاح خلال 24 ساعة تنتهي عند 10:30 ' || 
-            v_deadline_phrase;
-
-          -- إرسال الإشعار للموظف (مع حماية عدم التكرار Idempotency)
-          IF NOT EXISTS (
-            SELECT 1 FROM public.system_notifications
-            WHERE recipient_id = v_emp.id
-              AND (metadata->>'record_date') = p_date::text
-              AND (metadata->>'eval_type') = v_eval_type
-          ) THEN
-            INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
-            VALUES (
-              v_emp.id,
-              'attendance_morning_delay',
-              'تنبيه تأخر عن الدوام الرسمي',
-              v_notif_emp_content,
-              false,
-              jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'delay_minutes', v_delay_minutes)
-            );
-            v_notifications_sent := v_notifications_sent + 1;
-          END IF;
-
-          -- إرسال الإشعار للمسؤول المباشر
-          IF v_sup_id IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM public.system_notifications
-            WHERE recipient_id = v_sup_id
-              AND (metadata->>'record_date') = p_date::text
-              AND (metadata->>'employee_id') = v_emp.id::text
-              AND (metadata->>'eval_type') = v_eval_type
-          ) THEN
-            INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
-            VALUES (
-              v_sup_id,
-              'attendance_morning_delay_supervisor',
-              'إشعار تأخر موظف في قسمك',
-              v_notif_sup_content,
-              false,
-              jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'employee_id', v_emp.id, 'delay_minutes', v_delay_minutes)
-            );
-            v_notifications_sent := v_notifications_sent + 1;
-          END IF;
-
-        -- الحالة 3: أول بصمة بعد نهاية الشفت الصباحي (> 14:30)
-        ELSE
-          v_after_hours_count := v_after_hours_count + 1;
-          v_eval_type := 'morning_punch_after_hours';
-
-          v_notif_emp_content := 'إن لديك تغيب عن الدوام الرسمي بتاريخ ' || v_date_str || 
-            ' مع وجود بصمة اولى بعد وقت الدوام الرسمي عند الساعة ' || v_punch_time_str || 
-            ' بدون عذر رسمي ، لذا توجب عليك تقديم إستيضاح مكتوب إلى المسؤول المباشر خلال 24 ساعة تنتهي عند 10:30 ' || 
-            v_deadline_phrase || ' لتجنب اتخاذ الإجراء الرسمي بحقك';
-
-          v_notif_sup_content := 'أن الموظف ' || v_emp_tri_name || ' ، لديه بصمة خارج وقت الدوام الرسمي للشفت الصباحي ليوم ' || 
-            v_date_str || ' عند الساعة ' || v_punch_time_str || 
-            ' ، وتم إشعاره باعتباره متغيبا وابلغ بضرورة تقديم استيضاح خلال 24 ساعة تنتهي عند 10:30 ' || 
-            v_deadline_phrase;
-
-          -- إرسال الإشعار للموظف
-          IF NOT EXISTS (
-            SELECT 1 FROM public.system_notifications
-            WHERE recipient_id = v_emp.id
-              AND (metadata->>'record_date') = p_date::text
-              AND (metadata->>'eval_type') = v_eval_type
-          ) THEN
-            INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
-            VALUES (
-              v_emp.id,
-              'attendance_morning_absence_after_hours',
-              'إشعار تغيب وبصمة بعد نهاية الدوام',
-              v_notif_emp_content,
-              false,
-              jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'punch_time', v_punch_time_str)
-            );
-            v_notifications_sent := v_notifications_sent + 1;
-          END IF;
-
-          -- إرسال الإشعار للمسؤول المباشر
-          IF v_sup_id IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM public.system_notifications
-            WHERE recipient_id = v_sup_id
-              AND (metadata->>'record_date') = p_date::text
-              AND (metadata->>'employee_id') = v_emp.id::text
-              AND (metadata->>'eval_type') = v_eval_type
-          ) THEN
-            INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
-            VALUES (
-              v_sup_id,
-              'attendance_morning_absence_after_hours_supervisor',
-              'إشعار تغيب موظف (بصمة متأخرة)',
-              v_notif_sup_content,
-              false,
-              jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'employee_id', v_emp.id, 'punch_time', v_punch_time_str)
-            );
-            v_notifications_sent := v_notifications_sent + 1;
-          END IF;
-
-        END IF;
-
-      -- الحالة 4: لا توجد أي بصمة للموظف طوال اليوم حتى 23:59
-      ELSE
+      -- الحالة (1): لا توجد أي بصمة طوال اليوم (غياب تام)
+      IF v_count IS NULL OR v_count = 0 THEN
         v_absent_count := v_absent_count + 1;
         v_eval_type := 'morning_total_absence';
 
-        v_notif_emp_content := 'إن لديك تغيب عن الدوام الرسمي بتاريخ ' || v_date_str || 
+        v_notif_content := 'إن لديك تغيب عن الدوام الرسمي بتاريخ ' || v_date_str || 
           ' بدون عذر رسمي ، لذا توجب عليك تقديم إستيضاح مكتوب إلى المسؤول المباشر خلال 24 ساعة تنتهي عند 10:30 ' || 
           v_deadline_phrase || ' لتجنب اتخاذ الإجراء الرسمي بحقك';
 
-        v_notif_sup_content := 'أن الموظف ' || v_emp_tri_name || ' ، ليس لديه بصمة للشفت الصباحي ليوم ' || 
-          v_date_str || ' ، وتم إشعاره باعتباره متغيبا وابلغ بضرورة تقديم استيضاح خلال 24 ساعة تنتهي عند 10:30 ' || 
-          v_deadline_phrase;
-
-        -- إرسال الإشعار للموظف
         IF NOT EXISTS (
           SELECT 1 FROM public.system_notifications
           WHERE recipient_id = v_emp.id
@@ -420,38 +293,195 @@ BEGIN
             v_emp.id,
             'attendance_morning_absence',
             'إشعار تغيب عن الدوام الرسمي',
-            v_notif_emp_content,
+            v_notif_content,
             false,
             jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text)
           );
           v_notifications_sent := v_notifications_sent + 1;
         END IF;
 
-        -- إرسال الإشعار للمسؤول المباشر
-        IF v_sup_id IS NOT NULL AND NOT EXISTS (
-          SELECT 1 FROM public.system_notifications
-          WHERE recipient_id = v_sup_id
-            AND (metadata->>'record_date') = p_date::text
-            AND (metadata->>'employee_id') = v_emp.id::text
-            AND (metadata->>'eval_type') = v_eval_type
-        ) THEN
-          INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
-          VALUES (
-            v_sup_id,
-            'attendance_morning_absence_supervisor',
-            'إشعار تغيب موظف في قسمك',
-            v_notif_sup_content,
-            false,
-            jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'employee_id', v_emp.id)
-          );
-          v_notifications_sent := v_notifications_sent + 1;
+      ELSE
+        -- توجد بصمات: فحص البصمة الأولى والبصمة الأخيرة والبصمات الوسطى
+        v_first_punch := v_punches_arr[1];
+        v_last_punch := v_punches_arr[v_count];
+        v_first_time := ((v_first_punch->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad')::time;
+        v_last_time := ((v_last_punch->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad')::time;
+
+        -- أ. تقييم وقت الحضور الصباحي
+        IF v_first_time <= '08:30:00'::time THEN
+          v_on_time_count := v_on_time_count + 1;
+        ELSE
+          -- تأخير صباحي بعد 8:30
+          v_delayed_count := v_delayed_count + 1;
+          v_eval_type := 'morning_delay';
+          v_delay_mins := floor(EXTRACT(EPOCH FROM (v_first_time - '08:30:00'::time)) / 60)::int;
+          IF v_delay_mins < 1 THEN v_delay_mins := 1; END IF;
+
+          v_notif_content := 'لديك تأخير بمقدار (' || v_delay_mins || ' دقيقة) في بداية الدوام ليوم ' || 
+            v_date_str || '، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.';
+
+          IF NOT EXISTS (
+            SELECT 1 FROM public.system_notifications
+            WHERE recipient_id = v_emp.id
+              AND (metadata->>'record_date') = p_date::text
+              AND (metadata->>'eval_type') = v_eval_type
+          ) THEN
+            INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
+            VALUES (
+              v_emp.id,
+              'attendance_morning_delay',
+              'تبليغ استيضاح: تأخير في بداية الدوام',
+              v_notif_content,
+              false,
+              jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'delay_minutes', v_delay_mins)
+            );
+            v_notifications_sent := v_notifications_sent + 1;
+          END IF;
+        END IF;
+
+        -- ب. تقييم وقت الانصراف النهائي
+        IF v_count = 1 THEN
+          -- بصمة واحدة فقط طوال اليوم: حقن بصمة افتراضية حمراء عند 15:00
+          v_virtual_iso := (p_date::text || ' 12:00:00+00')::timestamptz; -- 15:00 بغداد
+          UPDATE public.attendance_records
+          SET check_out = v_virtual_iso,
+              check_out_is_virtual = true,
+              check_out_virtual_reason = 'خروج افتراضي بنهاية الدوام الصباحي',
+              notes = CASE 
+                WHEN notes IS NULL OR notes = '' THEN '(خروج نهائي افتراضي 15:00)'
+                WHEN notes LIKE '%(خروج نهائي افتراضي 15:00)%' THEN notes
+                ELSE notes || ' | (خروج نهائي افتراضي 15:00)'
+              END
+          WHERE id = v_att.id;
+        ELSIF v_count >= 2 THEN
+          -- إذا كان الانصراف قبل 14:30 -> مغادرة مبكرة
+          IF v_last_time < '14:30:00'::time THEN
+            v_early_leave_count := v_early_leave_count + 1;
+            v_eval_type := 'morning_early_leave';
+            v_early_mins := floor(EXTRACT(EPOCH FROM ('14:30:00'::time - v_last_time)) / 60)::int;
+            IF v_early_mins < 1 THEN v_early_mins := 1; END IF;
+
+            v_notif_content := 'لديك مغادرة مبكرة بمقدار (' || v_early_mins || ' دقيقة) في نهاية الدوام ليوم ' || 
+              v_date_str || '، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.';
+
+            IF NOT EXISTS (
+              SELECT 1 FROM public.system_notifications
+              WHERE recipient_id = v_emp.id
+                AND (metadata->>'record_date') = p_date::text
+                AND (metadata->>'eval_type') = v_eval_type
+            ) THEN
+              INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
+              VALUES (
+                v_emp.id,
+                'attendance_morning_early_leave',
+                'تبليغ استيضاح: مغادرة مبكرة قبل نهاية الدوام',
+                v_notif_content,
+                false,
+                jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'early_minutes', v_early_mins)
+              );
+              v_notifications_sent := v_notifications_sent + 1;
+            END IF;
+          END IF;
+        END IF;
+
+        -- ج. تقييم البصمات الوسطى (بين الأولى والأخيرة)
+        IF v_count >= 3 THEN
+          -- فحص وجود إجازة زمنية معتمدة تغطي اليوم
+          SELECT * INTO v_time_leave
+          FROM public.leave_requests
+          WHERE user_id = v_emp.id
+            AND status = 'approved'
+            AND start_date = p_date
+            AND (leave_type = 'time_off' OR leave_type = 'time_leave' OR time_duration_minutes > 0)
+            AND leave_start_time IS NOT NULL 
+            AND leave_end_time IS NOT NULL
+          LIMIT 1;
+
+          IF v_time_leave.id IS NOT NULL THEN
+            -- لديه إجازة زمنية معتمدة: فحص العودة المتأخرة بعد نهاية وقت الزمنية
+            v_tl_end := v_time_leave.leave_end_time::time;
+            -- إذا وُجدت بصمة عودة بعد وقت نهاية الزمنية وقبل الانصراف النهائي
+            IF v_count >= 3 THEN
+              DECLARE
+                v_mid_ret time := ((v_punches_arr[3]->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad')::time;
+                v_ret_late_mins int;
+              BEGIN
+                IF v_mid_ret > v_tl_end AND v_mid_ret < '14:30:00'::time THEN
+                  v_ret_late_mins := floor(EXTRACT(EPOCH FROM (v_mid_ret - v_tl_end)) / 60)::int;
+                  IF v_ret_late_mins > 0 THEN
+                    v_eval_type := 'time_leave_late_return';
+                    v_notif_content := 'لديك عودة متأخرة بعد الزمنية بمقدار (' || v_ret_late_mins || ' دقيقة) ليوم ' || 
+                      v_date_str || '، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.';
+
+                    IF NOT EXISTS (
+                      SELECT 1 FROM public.system_notifications
+                      WHERE recipient_id = v_emp.id
+                        AND (metadata->>'record_date') = p_date::text
+                        AND (metadata->>'eval_type') = v_eval_type
+                    ) THEN
+                      INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
+                      VALUES (
+                        v_emp.id,
+                        'attendance_time_leave_late_return',
+                        'تبليغ استيضاح: تأخر في العودة من الإجازة الزمنية',
+                        v_notif_content,
+                        false,
+                        jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'late_minutes', v_ret_late_mins)
+                      );
+                      v_notifications_sent := v_notifications_sent + 1;
+                    END IF;
+                  END IF;
+                END IF;
+              END;
+            END IF;
+
+          ELSE
+            -- لا توجد إجازة زمنية: فحص المغادرات غير المبررة
+            -- البصمة 2 هي خروج غير مبرر
+            v_unjustified_count := 1;
+            v_unjustified_first_time := to_char(((v_punches_arr[2]->>'time')::timestamptz AT TIME ZONE 'Asia/Baghdad'), 'HH24:MI');
+
+            -- إذا كان المجموع 5 أو 6 بصمات، فالبصمة 4 هي خروج غير مبرر ثانٍ
+            IF v_count >= 5 THEN
+              v_unjustified_count := 2;
+            END IF;
+
+            IF v_unjustified_count = 1 THEN
+              v_eval_type := 'unjustified_exit_single';
+              v_notif_content := 'لديك مغادرة غير مبررة عند الساعة (' || v_unjustified_first_time || ') ليوم ' || 
+                v_date_str || '، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.';
+            ELSE
+              -- دمج المغادرتين في إشعار واحد حتمي
+              v_eval_type := 'unjustified_exit_double';
+              v_notif_content := 'لديك مغادرتان غير مبررتان ليوم ' || 
+                v_date_str || '، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.';
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM public.system_notifications
+              WHERE recipient_id = v_emp.id
+                AND (metadata->>'record_date') = p_date::text
+                AND (metadata->>'eval_type') = v_eval_type
+            ) THEN
+              INSERT INTO public.system_notifications(recipient_id, type, title, content, is_read, metadata)
+              VALUES (
+                v_emp.id,
+                'attendance_unjustified_exit',
+                'تبليغ استيضاح: مغادرة أثناء الدوام بدون مبرر',
+                v_notif_content,
+                false,
+                jsonb_build_object('type', 'morning_attendance_alert', 'eval_type', v_eval_type, 'record_date', p_date::text, 'count', v_unjustified_count)
+              );
+              v_notifications_sent := v_notifications_sent + 1;
+            END IF;
+
+          END IF;
         END IF;
 
       END IF;
 
     EXCEPTION WHEN OTHERS THEN
-      -- عزل أخطاء أي موظف شاذ حتى لا يتوقف فحص باقي موظفي المديرية
-      RAISE WARNING 'فشل فحص موظف % ليوم %: %', v_emp.id, p_date, SQLERRM;
+      RAISE WARNING 'فشل تقييم موظف % ليوم %: %', v_emp.id, p_date, SQLERRM;
     END;
   END LOOP;
 
@@ -463,42 +493,10 @@ BEGIN
     'total_evaluated', v_total_evaluated,
     'on_time', v_on_time_count,
     'delayed', v_delayed_count,
-    'after_hours', v_after_hours_count,
+    'early_leave', v_early_leave_count,
     'absent', v_absent_count,
     'notifications_sent', v_notifications_sent
   );
-END;
-$$;
-
--- 5. غلاف الاستدعاء للمشرفين والمسؤولين للفحص اليدوي أو التشخيصي
-CREATE OR REPLACE FUNCTION public.rpc_evaluate_morning_shift_attendance(
-  p_date date DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_target_date date;
-  v_caller uuid := auth.uid();
-  v_is_admin boolean;
-BEGIN
-  IF v_caller IS NULL THEN
-    RAISE EXCEPTION 'غير مصرح: يلزم تسجيل الدخول';
-  END IF;
-
-  SELECT (role = 'admin' OR admin_role IN ('biometric', 'attendance_supervisor', 'general', 'developer', 'it_supervisor'))
-  INTO v_is_admin
-  FROM public.profiles
-  WHERE id = v_caller;
-
-  IF NOT COALESCE(v_is_admin, false) THEN
-    RAISE EXCEPTION 'صلاحيات غير كافية لتشغيل فحص الدوام الصباحي';
-  END IF;
-
-  v_target_date := COALESCE(p_date, (now() AT TIME ZONE 'Asia/Baghdad')::date);
-  RETURN public.evaluate_morning_shift_daily_attendance(v_target_date);
 END;
 $$;
 
@@ -508,25 +506,3 @@ GRANT EXECUTE ON FUNCTION public.evaluate_morning_shift_daily_attendance(date) T
 
 REVOKE ALL ON FUNCTION public.rpc_evaluate_morning_shift_attendance(date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_evaluate_morning_shift_attendance(date) TO authenticated;
-
--- جدولة المهمة اليومية عند الساعة 23:59 بتوقيت بغداد (20:59 بتوقيت خادم UTC) عبر pg_cron (إن وُجد)
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    -- حذف أي جدولة سابقة بنفس الاسم
-    PERFORM cron.unschedule('morning_shift_evaluation_2359')
-    WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'morning_shift_evaluation_2359');
-
-    PERFORM cron.unschedule('evaluate_morning_shift_daily')
-    WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'evaluate_morning_shift_daily');
-
-    -- جدولة عند 20:59 UTC يومياً (تطابق 23:59:00 تماماً بتوقيت بغداد الشتوي/الصيفي UTC+3)
-    PERFORM cron.schedule(
-      'evaluate_morning_shift_daily',
-      '59 20 * * *',
-      'SELECT public.evaluate_morning_shift_daily_attendance();'
-    );
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'pg_cron غير متاح أو تطلب صلاحيات عليا: %', SQLERRM;
-END $$;

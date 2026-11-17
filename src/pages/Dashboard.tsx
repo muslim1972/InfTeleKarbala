@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { TabSystem } from "../components/features/TabSystem";
-import { YearSlider } from "../components/features/YearSlider";
 import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
 import { AudioHub } from "../components/features/AudioHub";
@@ -30,7 +29,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const {
         financialData, loading, departmentInfo,
         openSection, toggleSection,
-        selectedYear, setSelectedYear, adminData, currentYearRecord,
+        adminData, currentYearRecord,
         expandedDetail, handleDetailClick, detailLoading, detailItems,
         leavesList, selectedLeave, setSelectedLeave
     } = useDashboardData(activeTab);
@@ -81,9 +80,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const headerContent = (
         <div className="flex flex-col gap-2 w-full">
             <TabSystem activeTab={activeTab} onTabChange={setActiveTab} />
-            {(activeTab === 'financial' || activeTab === 'administrative') && (
-                <YearSlider selectedYear={selectedYear} onYearChange={setSelectedYear} />
-            )}
         </div>
     );
 
@@ -115,7 +111,6 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                         detailLoading={detailLoading}
                         detailItems={detailItems}
                         financialData={financialData}
-                        selectedYear={selectedYear}
                         leavesList={leavesList}
                         selectedLeave={selectedLeave}
                         setSelectedLeave={setSelectedLeave}
