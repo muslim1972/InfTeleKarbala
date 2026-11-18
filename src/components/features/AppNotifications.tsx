@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCircle, Clock, Printer, Edit2 } from 'lucide-react';
+import { Bell, X, CheckCircle, Clock, Printer, Edit2, CheckCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useGovernorate } from '../../context/GovernorateContext';
@@ -63,6 +63,7 @@ export const AppNotifications = () => {
     const [financeRejectionReason, setFinanceRejectionReason] = useState("");
     const [editingFinanceNotifId, setEditingFinanceNotifId] = useState<string | null>(null);
     const [financeEditDestination, setFinanceEditDestination] = useState("");
+    const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
     const [financeEditNotes, setFinanceEditNotes] = useState("");
     const [financeCadreMap, setFinanceCadreMap] = useState<Record<string, 'permanent' | 'contract'>>({});
     const [financeCcMap, setFinanceCcMap] = useState<Record<string, string[]>>({});
@@ -294,7 +295,83 @@ export const AppNotifications = () => {
         (employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length) +
         systemNotificationsCount;
 
+    // فحص ما إذا كان الإشعار يتطلب إجراءً أو مراجعة أو موافقة (حتى لا يتم تجاوزه بـ "الكل")
+    const isNotificationActionable = (notif: any): boolean => {
+        const meta = notif.metadata || {};
+        const metaType = meta.type as string | undefined;
+
+        if (metaType === 'leave_punch_alert') return true;
+        if (metaType === 'pending_request_punch') return true;
+        if (notif.type === 'leave_request') return true;
+        if (notif.type === 'device_mismatch') return true;
+        if (notif.type === 'substitute_request') return true;
+        
+        const isFinanceContinuity = notif.type === 'service_continuity_finance' || (notif.type === 'service_continuity_request' && meta.continuity_step === 'finance');
+        if (isFinanceContinuity) return true;
+        
+        if (notif.type === 'service_continuity_print') return true;
+        
+        const isSupervisorActionable = (notif.type === 'service_continuity_request' || meta.request_type === 'service_continuity') && meta.continuity_step !== 'hr' && !notif.title?.includes('جاهز للإصدار');
+        if (isSupervisorActionable) return true;
+        
+        if (meta.requires_decision || meta.type === 'shift_absence_resolution' || meta.type === 'mandatory_penalty_decision') return true;
+
+        return false;
+    };
+
     // Actions
+    const handleMarkAllInformationalAsRead = async () => {
+        const informationalSystemNotifs = systemNotifications.filter(n => !isNotificationActionable(n));
+        const informationalSystemIds = informationalSystemNotifs.map(n => n.id);
+
+        const activeEmployeeRequests = employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id));
+        const employeeRequestIds = activeEmployeeRequests.map(r => r.id);
+
+        if (informationalSystemIds.length === 0 && employeeRequestIds.length === 0) {
+            toast('لا توجد إشعارات علم أو اطلاع إضافية للقراءة', { icon: 'ℹ️' });
+            return;
+        }
+
+        setIsMarkingAllRead(true);
+        try {
+            if (informationalSystemIds.length > 0) {
+                const { error: sysErr } = await supabase
+                    .from('system_notifications')
+                    .update({ is_read: true })
+                    .in('id', informationalSystemIds);
+                if (sysErr) throw sysErr;
+            }
+
+            if (employeeRequestIds.length > 0) {
+                const { error: empErr } = await supabase
+                    .from('leave_requests')
+                    .update({ is_read_by_employee: true })
+                    .in('id', employeeRequestIds);
+                if (empErr) throw empErr;
+            }
+
+            const remainingSystem = systemNotifications.filter(n => isNotificationActionable(n));
+            setSystemNotifications(remainingSystem);
+            setSystemNotificationsCount(remainingSystem.length);
+
+            setDismissedEmployeeRequestIds(prev => {
+                const next = new Set(prev);
+                employeeRequestIds.forEach(id => next.add(id));
+                return next;
+            });
+            setEmployeeRequests([]);
+            setEmployeeUnreadCount(0);
+
+            const totalMarked = informationalSystemIds.length + employeeRequestIds.length;
+            toast.success(`تم تعليم (${totalMarked}) إشعار اطلاع كمقروء`);
+        } catch (err: any) {
+            console.error('Error marking all informational notifications as read:', err);
+            toast.error('حدث خطأ أثناء تعليم الإشعارات كمقروءة');
+        } finally {
+            setIsMarkingAllRead(false);
+        }
+    };
+
     const handleMarkSystemNotificationRead = async (id: string) => {
         try {
             const { error } = await supabase.from('system_notifications').update({ is_read: true }).eq('id', id);
@@ -739,14 +816,23 @@ export const AppNotifications = () => {
                             </h3>
                             <div className="flex items-center gap-2">
                                 <button
+                                    onClick={handleMarkAllInformationalAsRead}
+                                    disabled={isMarkingAllRead}
+                                    className="bg-indigo-700 hover:bg-indigo-800 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition border border-indigo-500/50 shadow-sm cursor-pointer disabled:opacity-60"
+                                    title="تعليم كافة إشعارات العلم والاطلاع كمقروءة عدا ما يتطلب مراجعة أو موافقة"
+                                >
+                                    <CheckCheck size={14} className={isMarkingAllRead ? 'animate-spin' : ''} />
+                                    <span>{isMarkingAllRead ? 'جارٍ القراءة...' : 'الكل'}</span>
+                                </button>
+                                <button
                                     onClick={() => setShowHistoryModal(true)}
-                                    className="bg-indigo-700 hover:bg-indigo-800 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition border border-indigo-500/50 shadow-sm"
+                                    className="bg-indigo-700 hover:bg-indigo-800 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition border border-indigo-500/50 shadow-sm cursor-pointer"
                                     title="استعراض مخزن وسجل الحركات"
                                 >
                                     <Clock size={14} />
                                     <span>السجل</span>
                                 </button>
-                                <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-xl transition">
+                                <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-xl transition cursor-pointer">
                                     <X size={20} />
                                 </button>
                             </div>
