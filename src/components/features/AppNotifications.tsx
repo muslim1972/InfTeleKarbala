@@ -294,9 +294,6 @@ export const AppNotifications = () => {
         (employeeRequests.filter(r => !dismissedEmployeeRequestIds.has(r.id)).length) +
         systemNotificationsCount;
 
-    // Always show the bell so the user knows where notifications will appear
-    if (totalNotifications === 0) return null;
-
     // Actions
     const handleMarkSystemNotificationRead = async (id: string) => {
         try {
@@ -715,15 +712,19 @@ export const AppNotifications = () => {
             <button
                 onClick={() => setShowModal(true)}
                 className="fixed bottom-[68px] left-3 md:bottom-[76px] md:left-4 z-[100] bg-white dark:bg-slate-800 w-12 h-12 md:w-14 md:h-14 rounded-full shadow-2xl border-2 border-indigo-500 transition-all duration-300 transform hover:scale-110 active:scale-95 group p-0 flex items-center justify-center focus:outline-none"
-                title="الإشعارات الشاملة"
+                title="الإشعارات الشاملة وسجل الحركات"
             >
                 <div className="relative w-full h-full flex items-center justify-center">
                     <Bell className="text-gray-700 dark:text-gray-200" size={24} />
-                    <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-lg animate-bounce">
-                        {totalNotifications > 99 ? '99+' : totalNotifications}
-                    </span>
+                    {totalNotifications > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-lg animate-bounce">
+                            {totalNotifications > 99 ? '99+' : totalNotifications}
+                        </span>
+                    )}
                 </div>
-                <div className="absolute inset-0 rounded-full border-[3px] border-indigo-500/50 animate-pulse pointer-events-none"></div>
+                {totalNotifications > 0 && (
+                    <div className="absolute inset-0 rounded-full border-[3px] border-indigo-500/50 animate-pulse pointer-events-none"></div>
+                )}
             </button>
 
             {showModal && (
@@ -734,7 +735,7 @@ export const AppNotifications = () => {
                         <div className="bg-indigo-600 p-4 text-white flex justify-between items-center shrink-0">
                             <h3 className="font-bold text-lg flex items-center gap-2">
                                 <Bell size={20} />
-                                الإشعارات ({totalNotifications})
+                                الإشعارات {totalNotifications > 0 ? `(${totalNotifications})` : ''}
                             </h3>
                             <div className="flex items-center gap-2">
                                 <button
@@ -755,12 +756,20 @@ export const AppNotifications = () => {
                         <div className="overflow-y-auto p-4 flex-1 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/50">
 
                             {totalNotifications === 0 && (
-                                <div className="flex flex-col items-center justify-center p-8 text-center opacity-70">
+                                <div className="flex flex-col items-center justify-center p-8 text-center opacity-90">
                                     <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
                                         <Bell size={28} className="text-slate-400 dark:text-slate-500" />
                                     </div>
-                                    <h4 className="font-bold text-slate-600 dark:text-slate-300 mb-1">لا توجد إشعارات جديدة</h4>
-                                    <p className="text-xs text-slate-500">أنت على إطلاع بكل جديد، استمتع بيومك!</p>
+                                    <h4 className="font-bold text-slate-700 dark:text-slate-200 mb-1">لا توجد إشعارات جديدة بانتظار الإجراء</h4>
+                                    <p className="text-xs text-slate-500 mb-4">أنت على اطلاع بكل جديد، ويمكنك مراجعة السجل أو إعادة الطباعة في أي وقت.</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowModal(false); setShowHistoryModal(true); }}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer"
+                                    >
+                                        <Clock size={15} />
+                                        <span>فتح مخزن وسجل الإشعارات</span>
+                                    </button>
                                 </div>
                             )}
 
