@@ -169,6 +169,7 @@ export default function Timesheets() {
   const [globalHolidays, setGlobalHolidays] = useState<any[]>([]);
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [monthLeaves, setMonthLeaves] = useState<LeaveRequestLite[]>([]);
+  const [monthExemptions, setMonthExemptions] = useState<any[]>([]);
 
   const loadFilters = useCallback(async () => {
     try {
@@ -253,6 +254,13 @@ export default function Timesheets() {
 
       const leaves = await getApprovedLeavesInRange(startStr, endStr, targetUserIds);
       setMonthLeaves(leaves);
+
+      // جلب سجلات التفرغ الأسبوعي المعتمدة
+      const { data: exemptionsData } = await supabase
+        .from('employee_weekly_exemptions')
+        .select('*')
+        .gte('valid_until', startStr);
+      setMonthExemptions(exemptionsData || []);
     } catch (err: any) {
       toast.error('فشل تحميل التقارير: ' + err.message);
     } finally {
@@ -275,12 +283,20 @@ export default function Timesheets() {
     };
   }, [loadData]);
 
-  const getShiftInfo = useCallback((empScheduleId: string | undefined, dateStr: string) => {
+  const getShiftInfo = useCallback((empScheduleId: string | undefined, dateStr: string, empId?: string) => {
     const defaultSchedule = workSchedules.find(s => s.is_default) || workSchedules[0];
     const schedule = empScheduleId ? workSchedules.find(s => s.id === empScheduleId) : defaultSchedule;
     
     const dateObj = new Date(dateStr);
     const dayOfWeek = dateObj.getDay();
+    const dateOnlyStr = dateStr.includes('T') ? dateStr.substring(0, 10) : dateStr;
+
+    const hasExemption = empId && monthExemptions?.some((ex: any) => 
+      ex.employee_id === empId &&
+      ex.day_of_week === dayOfWeek &&
+      (!ex.valid_until || dateOnlyStr <= ex.valid_until)
+    );
+
     const isRoster = schedule?.type === 'roster';
     const daySchedule = schedule?.days?.find((d: any) => d.day_of_week === dayOfWeek);
 
@@ -289,11 +305,15 @@ export default function Timesheets() {
     const isNight = daySchedule?.is_night ?? (daySchedule?.start_time?.startsWith('20') || daySchedule?.end_time?.startsWith('08'));
 
     const hasShifts = isMorning || isEvening || isNight;
-    const isRest = isRoster ? !hasShifts : (daySchedule?.is_rest_day ?? false);
+    const isRest = hasExemption ? true : (isRoster ? !hasShifts : (daySchedule?.is_rest_day ?? false));
 
     // Label
     let label = 'صباحي';
-    if (isRoster) {
+    if (hasExemption) {
+      label = 'تفرغ';
+    } else if (schedule?.type === 'special' || schedule?.name?.includes('دوام خاص')) {
+      label = 'دوام خاص';
+    } else if (isRoster) {
       if (!hasShifts) label = 'استراحة';
       else if (isMorning && isEvening && isNight) label = 'صباحي + مسائي + خفر (24س)';
       else if (isEvening && isNight) label = 'مسائي + خفر';
@@ -357,9 +377,10 @@ export default function Timesheets() {
       hasShifts,
       label,
       expectedIn,
-      expectedOut
+      expectedOut,
+      hasExemption: Boolean(hasExemption)
     };
-  }, [workSchedules]);
+  }, [workSchedules, monthExemptions]);
 
   const getDayTypeStr = useCallback((dateObj: Date, schedule: any) => {
     const isRoster = schedule?.type === 'roster';
@@ -480,9 +501,10 @@ export default function Timesheets() {
        for (let day = 1; day <= 31; day++) {
            if (day <= daysInMonth) {
                const currentDateObj = new Date(year, month - 1, day);
-               const shiftInfo = getShiftInfo(empScheduleId, currentDateObj.toISOString());
-               const dayType = getDayTypeStr(currentDateObj, shiftInfo.schedule);
-               const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
+               const shiftInfo = getShiftInfo(empScheduleId, currentDateObj.toISOString(), group.employee?.id);
+               const isExemption = shiftInfo.hasExemption;
+               const dayType = isExemption ? 'تفرغ' : getDayTypeStr(currentDateObj, shiftInfo.schedule);
+               const isRestOrHoliday = isExemption || dayType === 'استراحة' || dayType.startsWith('عطلة') || dayType === 'تفرغ';
 
                if (recordsByDay[day] && recordsByDay[day].length > 0) {
                    const rec = recordsByDay[day][0];
@@ -520,7 +542,7 @@ export default function Timesheets() {
                    if (rec.status === 'late' && !isRestOrHoliday && !dayLeave?.is_mandatory) group.lateCount++;
                } else {
                    const fakeDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
-                   const isWorkingDay = dayType === 'يوم عمل';
+                   const isWorkingDay = !isExemption && dayType === 'يوم عمل';
 
                    // ─── تكامل الإجازات: هل اليوم مغطى بإجازة معتمدة (يوم كامل)؟ ───
                    const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
@@ -528,6 +550,8 @@ export default function Timesheets() {
 
                    if (dayLeave) {
                      group.leaveCount++;
+                   } else if (isExemption) {
+                     // يوم تفرغ رسمي - معفى أصولياً ولا يُحتسب غياباً إطلاقاً
                    } else if (isWorkingDay) {
                      group.absenceCount++;
                    }
@@ -535,8 +559,8 @@ export default function Timesheets() {
                    newRecords.push({
                        _isEmpty: true,
                        check_in: fakeDate,
-                       status: dayLeave ? 'leave' : (isWorkingDay ? 'absent' : (dayType === 'استراحة' ? 'rest' : 'holiday')),
-                       leaveLabel: dayLeave ? (LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة') : undefined
+                       status: dayLeave ? 'leave' : (isExemption ? 'rest' : (isWorkingDay ? 'absent' : (dayType === 'استراحة' ? 'rest' : 'holiday'))),
+                       leaveLabel: dayLeave ? (LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة') : (isExemption ? 'تفرغ رسمي' : undefined)
                    });
                }
            } else {
@@ -637,7 +661,7 @@ export default function Timesheets() {
           const dateObj = parseISO(dateStrRaw);
           const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
           const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
-          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw, group.employee?.id);
           const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
           
           if (rec._isEmpty) {
@@ -1073,7 +1097,7 @@ export default function Timesheets() {
         const dateObj = parseISO(dateStrRaw);
         const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
         const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
-        const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+        const shiftInfo = getShiftInfo(scheduleId, dateStrRaw, group.employee?.id);
         const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
 
         if (rec._isEmpty) {
@@ -1483,7 +1507,7 @@ export default function Timesheets() {
                           const dateObj = parseISO(dateStrRaw);
                           const dateStr = format(dateObj, 'EEEE d / M / yyyy', { locale: arSA });
                           const scheduleId = rec.work_schedule_id || group.employee?.work_schedule_id;
-                          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw);
+                          const shiftInfo = getShiftInfo(scheduleId, dateStrRaw, group.employee?.id);
                           const dayType = getDayTypeStr(dateObj, shiftInfo.schedule);
                           
                           if (rec._isEmpty) {

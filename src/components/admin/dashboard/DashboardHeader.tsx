@@ -64,26 +64,25 @@ export const DashboardHeader = ({
     const { isHistorical, historicalSnapshot, exitHistoricalView } = useSnapshots();
 
     const tabs = (() => {
-        const canAccessNews = !isFieldReadOnly('tab_news');
+        const isBiometricAdmin = currentUser?.admin_role === 'biometric' || currentUser?.admin_role === 'attendance_supervisor' || currentUser?.username === 'attend';
+        const canAccessNews = !isBiometricAdmin && !isFieldReadOnly('tab_news');
         const canManageAttendance = Boolean(
             canAccessAttendance ||
             isRoleEditable ||
             currentUser?.has_attendance_access === true ||
-            currentUser?.admin_role === 'biometric' ||
-            currentUser?.admin_role === 'attendance_supervisor' ||
-            currentUser?.username === 'attend'
+            isBiometricAdmin
         );
 
         const allTabs = [
             ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
-            { id: 'admin_manage', label: 'إدارة الموظفين' },
-            { id: 'admin_records', label: 'إدارة السجلات' },
-            { id: 'admin_incentives', label: 'الحوافز' },
+            ...(!isBiometricAdmin ? [{ id: 'admin_manage', label: 'إدارة الموظفين' }] : []),
+            ...(!isBiometricAdmin ? [{ id: 'admin_records', label: 'إدارة السجلات' }] : []),
+            ...(!isBiometricAdmin ? [{ id: 'admin_incentives', label: 'الحوافز' }] : []),
             { id: 'admin_stats', label: 'الإحصاءات' },
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
-            { id: 'admin_departments', label: 'الهيكلية الإدارية' },
+            ...(!isBiometricAdmin ? [{ id: 'admin_departments', label: 'الهيكلية الإدارية' }] : []),
             { id: 'admin_audio', label: 'القرآن الكريم' },
-            ...(isFieldReadOnly('tab_supervisors') ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
+            ...((isBiometricAdmin || isFieldReadOnly('tab_supervisors')) ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
             ...((currentUser?.admin_role === 'general' || isDeveloperLevel(currentUser?.admin_role)) ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),
             ...(canManageAttendance ? [{ id: 'admin_attendance', label: 'إدارة البصمة' }] : [])
         ];

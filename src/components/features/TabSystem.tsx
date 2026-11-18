@@ -1,15 +1,17 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 import { isDeveloperLevel } from "../../utils/permissions";
 
+export type UserDashboardTab = 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'attendance_admin' | 'attendance_stats';
+
 interface TabSystemProps {
-    activeTab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge';
-    onTabChange: (tab: 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge') => void;
+    activeTab: UserDashboardTab;
+    onTabChange: (tab: UserDashboardTab) => void;
 }
 
 export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
@@ -60,16 +62,27 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         user?.full_name?.includes('مسلم عقيل') ||
         user?.full_name?.includes('مسلم قيل');
 
-    const baseTabs = [
+    const canAccessBiometricAdmin = Boolean(
+        user?.admin_role === 'biometric' ||
+        user?.admin_role === 'attendance_supervisor' ||
+        user?.username === 'attend' ||
+        user?.has_attendance_access ||
+        isAdmin ||
+        isDeveloper
+    );
+
+    const tabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },
+        ...(canAccessBiometricAdmin ? [
+            { id: 'attendance_admin', label: 'إدارة البصمة', icon: Fingerprint },
+            { id: 'attendance_stats', label: 'الإحصاءات', icon: BarChart3 }
+        ] as const : [])
     ] as const;
-
-    const tabs = baseTabs; // التبويبات أصبحت متاحة للجميع
 
     const checkScroll = () => {
         if (scrollContainerRef.current) {

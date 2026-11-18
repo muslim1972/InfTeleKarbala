@@ -24,17 +24,19 @@ import {
   FileCheck
 } from 'lucide-react';
 import type { ScheduledEmployeeLiveInfo, LiveEmployeeStatus } from '../../../lib/attendanceHelpers';
+import { baghdadDateStr } from '../../../lib/attendanceHelpers';
 
 // A simple timer component that ticks every minute to update the "worked duration" visually
-const LiveDurationBadge = ({ employee }: { employee: ScheduledEmployeeLiveInfo }) => {
+const LiveDurationBadge = ({ employee, isLive = true }: { employee: ScheduledEmployeeLiveInfo; isLive?: boolean }) => {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
+    if (!isLive) return;
     if (employee.liveStatus === 'working' || employee.liveStatus === 'on_break' || employee.liveStatus === 'late') {
       const interval = setInterval(() => setNow(new Date()), 60000);
       return () => clearInterval(interval);
     }
-  }, [employee.liveStatus]);
+  }, [employee.liveStatus, isLive]);
 
   if (!employee.checkIn) {
     return <span className="text-slate-400 font-mono text-xs">--</span>;
@@ -42,7 +44,7 @@ const LiveDurationBadge = ({ employee }: { employee: ScheduledEmployeeLiveInfo }
 
   // Calculate duration
   const inDate = new Date(employee.checkIn);
-  const outDate = employee.checkOut ? new Date(employee.checkOut) : now;
+  const outDate = employee.checkOut ? new Date(employee.checkOut) : isLive ? now : inDate;
   let mins = Math.max(0, Math.floor((outDate.getTime() - inDate.getTime()) / 60000));
   
   if (employee.timeLeaveOut && employee.timeLeaveReturn) {
@@ -51,7 +53,12 @@ const LiveDurationBadge = ({ employee }: { employee: ScheduledEmployeeLiveInfo }
     mins = Math.max(0, mins - Math.floor((lRet.getTime() - lOut.getTime()) / 60000));
   } else if (employee.timeLeaveOut && !employee.timeLeaveReturn && !employee.checkOut) {
     const lOut = new Date(employee.timeLeaveOut);
-    mins = Math.max(0, mins - Math.floor((now.getTime() - lOut.getTime()) / 60000));
+    const refDate = isLive ? now : inDate;
+    mins = Math.max(0, mins - Math.floor((refDate.getTime() - lOut.getTime()) / 60000));
+  }
+
+  if (mins === 0 && !employee.checkOut && !isLive) {
+    return <span className="text-slate-400 font-mono text-xs">لم ينصرف</span>;
   }
 
   const h = Math.floor(mins / 60);
@@ -79,13 +86,29 @@ const formatDisplayTime = (isoString?: string | null) => {
 
 export default function LiveAttendanceBoard() {
   const { activeGovernorate } = useGovernorate();
+  const todayStr = useMemo(() => baghdadDateStr(), []);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const isLive = selectedDate === todayStr;
+
   const { 
     allEmployees, 
     loading, 
     error, 
     refetch, 
     dutyInfo 
-  } = useLiveAttendance(activeGovernorate);
+  } = useLiveAttendance(activeGovernorate, selectedDate);
+
+  const governorateLabel = activeGovernorate === 'babil' ? 'بابل' : 'كربلاء المقدسة';
+
+  const handleShiftDay = (delta: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + delta);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
+
+  const handleResetToToday = () => {
+    setSelectedDate(todayStr);
+  };
 
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('all');
@@ -272,7 +295,88 @@ export default function LiveAttendanceBoard() {
   const coveragePercent = dutyInfo?.coveragePercent ?? Math.round(((totalPresent + onLeaveCount + onDutyCount) / (totalScheduled || 1)) * 100);
 
   return (
-    <div className="space-y-6 print:space-y-4" ref={printRef}>
+    <div className="space-y-4 print:space-y-4" ref={printRef}>
+
+      {/* ─── Official Print Header (وزارة الاتصالات - الكتب الرسمية) ─── */}
+      <div className="hidden print:block text-center mb-6">
+        <h1 className="text-xl font-bold text-black">وزارة الاتصالات - الشركة العامة للاتصالات والمعلوماتية</h1>
+        <h2 className="text-lg font-bold text-slate-900 mt-1">مديرية اتصالات ومعلوماتية {governorateLabel}</h2>
+        <h3 className="text-sm font-bold text-slate-700 mt-2">
+          تقرير موقف حضور وانصراف الموظفين {isLive ? 'اللحظي' : 'المعتمد'} لتاريخ: {selectedDate} ({dutyInfo?.dayTypeLabel || ''})
+        </h3>
+        <div className="w-full border-b-2 border-slate-900 mt-4 mb-4"></div>
+      </div>
+
+      {/* ─── Smart Temporal Control Strip (تحديد التاريخ الذكي بدون تلوث بصري) ─── */}
+      <div className="flex items-center justify-between flex-wrap gap-2.5 p-2 sm:p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs no-print">
+        {/* Live vs History Switch & Quick Navigation */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {isLive ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-bold tracking-wide">الموقف المباشر (اليوم)</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResetToToday}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+              title="العودة للموقف المباشر لليوم"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>العودة لليوم</span>
+            </button>
+          )}
+
+          {/* Quick Day Stepper */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => handleShiftDay(-1)}
+              className="px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="اليوم السابق"
+            >
+              ◀ الأمس
+            </button>
+            <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-0.5"></div>
+            <button
+              type="button"
+              onClick={() => handleShiftDay(1)}
+              disabled={selectedDate >= todayStr}
+              className="px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              title="اليوم التالي"
+            >
+              غداً ▶
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar Date Picker & Archive Status Pill */}
+        <div className="flex items-center gap-2">
+          {!isLive && (
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              سجل أرشيفي محفوظ
+            </span>
+          )}
+
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+            <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <input
+              type="date"
+              max={todayStr}
+              value={selectedDate}
+              onChange={(e) => {
+                if (e.target.value) setSelectedDate(e.target.value);
+              }}
+              className="bg-transparent border-none outline-none font-bold text-slate-700 dark:text-slate-200 text-xs cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
       
       {/* ─── Smart Header & Day Phase Banner ─── */}
       <motion.div
@@ -292,11 +396,15 @@ export default function LiveAttendanceBoard() {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-extrabold text-base sm:text-lg text-white tracking-wide">
-                  {dutyInfo?.dayTypeLabel || 'الموقف الحي لدوام اليوم'}
+                  {isLive ? (dutyInfo?.dayTypeLabel || 'الموقف الحي لدوام اليوم') : `سجل موقف دوام: ${selectedDate}`}
                 </h2>
-                <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                <span className={`text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1 ${
+                  isLive 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' 
+                    : 'bg-slate-700/60 text-slate-200 border-slate-600'
+                }`}>
                   <Clock className="w-3 h-3" />
-                  {dutyInfo?.dayPhaseLabel || 'فترة العمل الحالية'}
+                  {isLive ? (dutyInfo?.dayPhaseLabel || 'فترة العمل الحالية') : 'سجل تاريخي معتمد'}
                 </span>
               </div>
               <p className="text-xs mt-1.5 text-slate-300 leading-normal truncate w-full">
@@ -704,7 +812,7 @@ export default function LiveAttendanceBoard() {
 
                       {/* Worked Duration */}
                       <td className="py-3 px-3 text-center">
-                        <LiveDurationBadge employee={emp} />
+                        <LiveDurationBadge employee={emp} isLive={isLive} />
                       </td>
 
                       {/* Live Status Badge */}
@@ -832,7 +940,7 @@ export default function LiveAttendanceBoard() {
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
                       <span className="text-slate-500 dark:text-slate-400">ساعات التواجد:</span>
-                      <LiveDurationBadge employee={emp} />
+                      <LiveDurationBadge employee={emp} isLive={isLive} />
                     </div>
                   </div>
                 </div>

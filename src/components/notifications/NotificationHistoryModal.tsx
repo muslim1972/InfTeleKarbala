@@ -1,13 +1,91 @@
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, Clock, AlertCircle, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { printContinuityLetterDirect } from '../../features/hr/utils/printContinuityDirect';
+import { toast } from 'react-hot-toast';
 
 export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) => {
     const { user } = useAuth();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reprintingId, setReprintingId] = useState<string | null>(null);
+
+    const handleReprintContinuity = async (notif: any) => {
+        const requestId = notif.metadata?.request_id;
+        if (!requestId) {
+            toast.error('معرف الطلب غير متوفر في بيانات هذا الإشعار');
+            return;
+        }
+        setReprintingId(notif.id);
+        try {
+            // جلب البيانات عبر الدالة الذرية المخصصة
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_service_continuity_request_for_print', {
+                p_request_id: requestId
+            });
+
+            let reqData: any = null;
+            if (!rpcErr && rpcRes && (rpcRes as any).success && (rpcRes as any).request) {
+                reqData = (rpcRes as any).request;
+            } else {
+                // الاستعلام الاحتياطي المباشر
+                const { data, error } = await supabase
+                    .from('service_continuity_requests')
+                    .select(`
+                        *,
+                        employee:profiles!service_continuity_requests_user_id_fkey(
+                            full_name,
+                            job_number,
+                            dept_text,
+                            section_text,
+                            gender
+                        ),
+                        supervisor:profiles!service_continuity_requests_supervisor_id_fkey(
+                            full_name
+                        )
+                    `)
+                    .eq('id', requestId)
+                    .single();
+
+                if (error || !data) {
+                    const { data: rawReq, error: rawErr } = await supabase
+                        .from('service_continuity_requests')
+                        .select('*')
+                        .eq('id', requestId)
+                        .single();
+                    if (rawErr || !rawReq) throw rawErr || new Error('تعذر العثور على سجل الطلب');
+
+                    const { data: empProf } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, job_number, dept_text, section_text, gender')
+                        .eq('id', rawReq.user_id)
+                        .maybeSingle();
+
+                    reqData = {
+                        ...rawReq,
+                        employee: empProf || null
+                    };
+                } else {
+                    reqData = data;
+                }
+            }
+
+            if (!reqData) {
+                throw new Error('تعذر تحميل بيانات كتاب الاستمرارية للطباعة');
+            }
+
+            const printed = await printContinuityLetterDirect(reqData);
+            if (printed) {
+                toast.success('تم فتح أمر طباعة / حفظ الكتاب بالصيغة المحدثة بنجاح');
+            }
+        } catch (err: any) {
+            console.error('Error reprinting continuity letter:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء إعادة طباعة الكتاب');
+        } finally {
+            setReprintingId(null);
+        }
+    };
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -87,18 +165,34 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
                                             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{notif.title}</h4>
                                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{notif.content}</p>
                                         </div>
-                                        <div className="flex justify-end mt-1">
-                                            {notif.is_read ? (
-                                                <span className="text-[10px] flex items-center gap-1 text-slate-400">
-                                                    <CheckCircle size={12} />
-                                                    تمت القراءة / المعالجة
-                                                </span>
-                                            ) : (
-                                                <span className="text-[10px] flex items-center gap-1 text-amber-500">
-                                                    <AlertCircle size={12} />
-                                                    غير مقروء / بانتظار الإجراء
-                                                </span>
-                                            )}
+                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                                            <div className="flex items-center gap-2">
+                                                {(notif.type === 'service_continuity_print' || (notif.metadata?.request_id && (notif.title?.includes('استمرارية') || notif.content?.includes('استمرارية')))) && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={reprintingId === notif.id}
+                                                        onClick={() => handleReprintContinuity(notif)}
+                                                        className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-60 cursor-pointer"
+                                                        title="إعادة طباعة الكتاب الرسمي بالصيغة المحدثة"
+                                                    >
+                                                        <Printer size={13} className={reprintingId === notif.id ? 'animate-spin' : ''} />
+                                                        <span>{reprintingId === notif.id ? 'جارٍ السحب...' : 'إعادة طباعة'}</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="flex justify-end">
+                                                {notif.is_read ? (
+                                                    <span className="text-[10px] flex items-center gap-1 text-slate-400">
+                                                        <CheckCircle size={12} />
+                                                        تمت القراءة / المعالجة
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] flex items-center gap-1 text-amber-500">
+                                                        <AlertCircle size={12} />
+                                                        غير مقروء / بانتظار الإجراء
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );

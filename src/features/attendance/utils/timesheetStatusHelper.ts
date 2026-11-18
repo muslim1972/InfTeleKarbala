@@ -35,6 +35,22 @@ export function getTimesheetDayStatus(params: {
     };
   }
 
+  // 1.5. تفرغ أسبوعي رسمي معتمد
+  if (shiftInfo?.hasExemption || rec.leaveLabel === 'تفرغ رسمي' || shiftInfo?.label === 'تفرغ') {
+    if (rec.check_in && !rec._isEmpty) {
+      return {
+        text: 'دوام في يوم تفرغ',
+        badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-300 font-bold',
+        style: 'color: #4338ca; font-weight: bold;'
+      };
+    }
+    return {
+      text: 'تفرغ رسمي',
+      badgeClass: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 font-bold',
+      style: 'color: #4f46e5; font-weight: bold;'
+    };
+  }
+
   // 2. إجازة رسمية معتمدة (يوم كامل)
   if (dayLeave || rec.leaveLabel || rec.notes?.includes('إجازة اعتيادية إجبارية')) {
     const isMandatory = Boolean(dayLeave?.is_mandatory || dayLeave?.reason?.includes('إجازة اعتيادية إجبارية') || rec.notes?.includes('إجازة اعتيادية إجبارية'));
@@ -239,6 +255,15 @@ export function getTimesheetSmartNotes(params: {
       notes.push('دوام في يوم استراحة (يُحتسب كإضافي)');
     } else {
       notes.push(`دوام في عطلة (${dayType}) - يُحتسب كإضافي`);
+    }
+  }
+
+  // 1.5. تفرغ رسمي أسبوعي معتمد
+  if (shiftInfo?.hasExemption || rec.leaveLabel === 'تفرغ رسمي' || shiftInfo?.label === 'تفرغ') {
+    if (rec.check_in && !rec._isEmpty) {
+      notes.push('دوام إضافي/تطوعي في يوم تفرغ رسمي معتمد');
+    } else {
+      notes.push('معفى أصولياً بموجب أمر التفرغ الأسبوعي المعتمد');
     }
   }
 

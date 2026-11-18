@@ -52,7 +52,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
     // Determine default tab based on role or navigation state
     let baseTab = 'admin_manage';
-    if (currentUser?.admin_role === 'biometric' || currentUser?.username === 'attend') baseTab = 'admin_attendance';
+    if (currentUser?.admin_role === 'biometric' || currentUser?.admin_role === 'attendance_supervisor' || currentUser?.username === 'attend') baseTab = 'admin_attendance';
     else if (currentUser?.admin_role === 'media') baseTab = 'admin_news';
     else if (canAddEmployee) baseTab = 'admin_add';
     else if (currentUser?.has_attendance_access && !isRoleEditable && currentUser?.admin_role !== 'hr' && currentUser?.admin_role !== 'finance') baseTab = 'admin_attendance';

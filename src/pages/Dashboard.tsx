@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
-import { TabSystem } from "../components/features/TabSystem";
+import { TabSystem, type UserDashboardTab } from "../components/features/TabSystem";
 import { UserPolls } from "../components/features/UserPolls";
 import { RequestsTabContent } from "../features/requests/components/RequestsTabContent";
 import { AudioHub } from "../components/features/AudioHub";
@@ -10,18 +10,37 @@ import { AdministrativeTabContent } from "../components/features/AdministrativeT
 import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeTabContent";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { isDeveloperLevel } from "../utils/permissions";
+import { Loader2 } from "lucide-react";
+import { cn } from "../lib/utils";
 
+const AttendanceAdminSettings = lazy(() => import("../features/attendance").then(m => ({ default: m.AttendanceAdminSettings })));
+const TabAdminStats = lazy(() => import("../components/admin/dashboard/TabAdminStats").then(m => ({ default: m.TabAdminStats })));
 
 export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     const { user } = useAuth();
+    const { theme } = useTheme();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge'>(() => {
+
+    const isBiometricOnly = Boolean(
+        (user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.username === 'attend') &&
+        user?.admin_role !== 'general' &&
+        !isDeveloperLevel(user?.admin_role)
+    );
+
+    const allowedTabs = ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge', 'attendance_admin', 'attendance_stats'];
+
+    const [activeTab, setActiveTab] = useState<UserDashboardTab>(() => {
         const urlTab = new URLSearchParams(window.location.search).get('tab');
         const stateTab = (location.state as any)?.tab;
         const target = urlTab || stateTab;
-        if (target && ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge'].includes(target)) {
+        if (target && allowedTabs.includes(target)) {
             return target as any;
+        }
+        if (isBiometricOnly) {
+            return 'attendance_admin';
         }
         return 'administrative';
     });
@@ -39,7 +58,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         const urlTab = searchParams.get('tab');
         const stateTab = (location.state as any)?.tab;
         const targetTab = urlTab || stateTab;
-        if (targetTab && ['financial', 'administrative', 'polls', 'requests', 'audio', 'knowledge'].includes(targetTab)) {
+        if (targetTab && allowedTabs.includes(targetTab)) {
             queueMicrotask(() => {
                 setActiveTab(prev => (prev !== targetTab ? (targetTab as any) : prev));
             });
@@ -53,7 +72,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
     // Handle tab switching via custom events
     useEffect(() => {
         const handleSwitchTab = (e: any) => {
-            if (e.detail?.tab) {
+            if (e.detail?.tab && allowedTabs.includes(e.detail.tab)) {
                 setActiveTab(e.detail.tab);
                 window.scrollTo({ top: 0, behavior: 'instant' });
             }
@@ -83,9 +102,11 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         </div>
     );
 
+    const isBroadTab = activeTab === 'attendance_admin' || activeTab === 'attendance_stats';
+
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true} onBack={onBack}>
-            <div className="max-w-4xl mx-auto px-4 relative pb-32 sm:pb-40 mt-2 bg-transparent">
+            <div className={cn("mx-auto relative pb-32 sm:pb-40 mt-2 bg-transparent", isBroadTab ? "w-full max-w-7xl px-1 sm:px-2" : "max-w-4xl px-4")}>
                 {activeTab === 'polls' ? (
                     <UserPolls />
                 ) : activeTab === 'requests' ? (
@@ -94,6 +115,14 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                     <KnowledgeTabContent />
                 ) : activeTab === 'audio' ? (
                     <AudioHub />
+                ) : activeTab === 'attendance_admin' ? (
+                    <Suspense fallback={<div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" /></div>}>
+                        <AttendanceAdminSettings />
+                    </Suspense>
+                ) : activeTab === 'attendance_stats' ? (
+                    <Suspense fallback={<div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" /></div>}>
+                        <TabAdminStats theme={theme} />
+                    </Suspense>
                 ) : activeTab === 'financial' ? (
                     <FinancialTabContent 
                         user={user}

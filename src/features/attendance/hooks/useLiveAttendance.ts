@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { fetchDailyAttendanceStats, baghdadDateStr, baghdadDayRange, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
 
-export function useLiveAttendance(selectedGov?: string) {
+export function useLiveAttendance(selectedGov?: string, customDateStr?: string) {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,8 +12,12 @@ export function useLiveAttendance(selectedGov?: string) {
   // تاريخ بغداد المعتمد (لا UTC) — يتحدث تلقائياً عند منتصف ليل بغداد
   const [currentDateStr, setCurrentDateStr] = useState(() => baghdadDateStr());
 
+  const effectiveDateStr = customDateStr || currentDateStr;
+  const isLive = !customDateStr || customDateStr === baghdadDateStr();
+
   // Check for day changes (midnight transition — Baghdad time)
   useEffect(() => {
+    if (!isLive) return;
     const intervalId = setInterval(() => {
       const newDateStr = baghdadDateStr();
       if (newDateStr !== currentDateStr) {
@@ -21,18 +25,18 @@ export function useLiveAttendance(selectedGov?: string) {
       }
     }, 60000); // Check every minute
     return () => clearInterval(intervalId);
-  }, [currentDateStr]);
+  }, [currentDateStr, isLive]);
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const dateStr = baghdadDateStr();
+      const dateStr = effectiveDateStr;
       const { startIso, endIso } = baghdadDayRange(dateStr);
 
       const gov = selectedGov || 'karbala';
 
-      // 1. Fetch live attendance records
+      // 1. Fetch attendance records for the selected date
       const recordsRes = await supabase
         .from('attendance_records')
         .select('*, employee:profiles!attendance_records_employee_id_fkey(id, full_name, job_number, department_id, governorate), department:departments(name)')
@@ -72,10 +76,12 @@ export function useLiveAttendance(selectedGov?: string) {
     } finally {
       setLoading(false);
     }
-  }, [selectedGov, currentDateStr]);
+  }, [selectedGov, effectiveDateStr]);
 
   useEffect(() => {
     fetchInitialData();
+    if (!isLive) return;
+
     const channel = supabase
       .channel('live-attendance-' + (selectedGov || 'all'))
       .on(
@@ -87,7 +93,7 @@ export function useLiveAttendance(selectedGov?: string) {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchInitialData, selectedGov]);
+  }, [fetchInitialData, selectedGov, isLive]);
 
   return { 
     records, 
@@ -97,6 +103,8 @@ export function useLiveAttendance(selectedGov?: string) {
     refetch: fetchInitialData, 
     totalEmployees, 
     trueAbsentCount,
-    dutyInfo
+    dutyInfo,
+    isLive,
+    effectiveDateStr
   };
 }

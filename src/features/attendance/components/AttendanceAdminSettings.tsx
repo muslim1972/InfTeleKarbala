@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { workLocationService } from '../services/workLocationService';
 import type { WorkLocation } from '../types';
 import {
-  MapPin, Users, Plus, Search, Printer, Calendar,
-  BarChart3, MapPinned, UserPlus, UserMinus,
+  MapPin, Users, Plus, Search, Calendar,
+  MapPinned, UserPlus, UserMinus,
   Check, X, Navigation, ShieldCheck, AlertTriangle, Edit2, Save,
-  Activity, FileSpreadsheet, ChevronRight, ChevronLeft, Smartphone,
-  RefreshCw, Clock, AlertCircle, Tablet
+  Activity, FileSpreadsheet, Smartphone,
+  RefreshCw, Clock, AlertCircle, Tablet, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -23,21 +23,20 @@ import WorkLocationCard from './WorkLocationCard';
 import { EmployeeSearch } from '../../../components/shared/EmployeeSearch';
 import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
-import { fetchDailyAttendanceStats, type DailyAttendanceStats } from '../../../lib/attendanceHelpers';
 import { KioskAdminPanel } from '../../kiosk/KioskAdminPanel';
 
-type Tab = 'locations' | 'assignments' | 'reports' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays' | 'kiosks';
+type Tab = 'locations' | 'assignments' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays' | 'kiosks';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
   const { activeGovernorate } = useGovernorate();
-  const [reportDutyInfo, setReportDutyInfo] = useState<DailyAttendanceStats | null>(null);
   const isHighAdmin = isDeveloperLevel(user?.admin_role) || user?.admin_role === 'general';
   const isAttendanceAdmin = isHighAdmin || user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.has_attendance_access === true || user?.username === 'attend';
   const canManageDevices = user?.admin_role === 'general' || user?.admin_role === 'biometric';
   const canManageKiosks = isHighAdmin || user?.admin_role === 'biometric' || user?.has_kiosk_access === true;
   
-  const [activeTab, setActiveTab] = useState<Tab>(isAttendanceAdmin ? 'liveBoard' : 'locations');
+  const [activeTab, setActiveTab] = useState<Tab>('liveBoard');
+  const [isSubTabsMenuOpen, setIsSubTabsMenuOpen] = useState(false);
   const [locations, setLocations] = useState<WorkLocation[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -123,29 +122,8 @@ export default function AttendanceAdminSettings() {
     }
   };
 
-  const tabsRef = useRef<HTMLDivElement>(null);
-
-  const scrollTabs = (direction: 'left' | 'right') => {
-    if (tabsRef.current) {
-      const scrollAmount = 200;
-      tabsRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-  };
 
 
-  // Reports State
-  const [reportType, setReportType] = useState<'daily' | 'range'>('daily');
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
-  const [reportFromDate, setReportFromDate] = useState(new Date().toISOString().split('T')[0]);
-  const [reportToDate, setReportToDate] = useState(new Date().toISOString().split('T')[0]);
-  const [records, setRecords] = useState<any[]>([]);
-  const [reportStats, setReportStats] = useState({
-    total: 0,
-    present: 0,
-    absent: 0,
-    late: 0,
-    earlyLeave: 0
-  });
 
   // Device Logs State
   const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
@@ -552,111 +530,6 @@ export default function AttendanceAdminSettings() {
     };
   }, [activeTab]);
 
-  // Load Reports
-  const loadReports = async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('attendance_records')
-        .select(`
-          id,
-          check_in,
-          check_out,
-          status,
-          check_in_verified_by_biometric,
-          check_out_verified_by_biometric,
-          check_in_location,
-          check_out_location,
-          check_in_snapshot_url,
-          check_out_snapshot_url,
-          is_auto_check_in,
-          is_auto_check_out,
-          admin_notes,
-          employee:profiles!inner!attendance_records_employee_id_fkey (
-            full_name,
-            job_number,
-            governorate
-          )
-        `);
-
-      if (activeGovernorate && activeGovernorate !== 'all') {
-        query = query.eq('employee.governorate', activeGovernorate);
-      }
-
-      if (reportType === 'daily') {
-        query = query
-          .gte('created_at', `${reportDate}T00:00:00`)
-          .lte('created_at', `${reportDate}T23:59:59`);
-      } else {
-        query = query
-          .gte('created_at', `${reportFromDate}T00:00:00`)
-          .lte('created_at', `${reportToDate}T23:59:59`);
-      }
-
-      const [{ data, error }, { count }] = await Promise.all([
-        query,
-        (activeGovernorate && activeGovernorate !== 'all' ? supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'user').eq('governorate', activeGovernorate) : supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'user'))
-          
-          
-      ]);
-
-      if (error) throw error;
-
-      const recordsData = (data || []).filter((r: any) => !activeGovernorate || activeGovernorate === 'all' || !r.employee?.governorate || r.employee.governorate === activeGovernorate);
-      const formatted = recordsData.map((r: any) => {
-        let verifyMethod = 'يدوي';
-        if (r.check_in_snapshot_url) verifyMethod = 'بصمة وجه';
-        else if (r.check_in_location) verifyMethod = 'موقع جغرافي';
-        else if (r.is_auto_check_in || r.is_auto_check_out) verifyMethod = 'تسجيل آلي';
-
-        return {
-          id: r.id,
-          employeeName: r.employee?.full_name || 'غير معروف',
-          jobNumber: r.employee?.job_number || '---',
-          checkIn: r.check_in,
-          checkOut: r.check_out,
-          status: r.status,
-          verifyMethod,
-          checkInLocation: r.check_in_location,
-          isAutoCheckIn: r.is_auto_check_in,
-          isAutoCheckOut: r.is_auto_check_out,
-          adminNotes: r.admin_notes
-        };
-      });
-
-      setRecords(formatted);
-
-      // Calc stats
-      const total = formatted.length;
-      const present = formatted.filter(r => r.status === 'present').length;
-      const _explicitAbsent = formatted.filter(r => r.status === 'absent').length;
-      void _explicitAbsent;
-      let absent = Math.max(0, (count || 0) - present);
-      if (reportType === 'daily') {
-        try {
-          const stats = await fetchDailyAttendanceStats(reportDate, activeGovernorate);
-          absent = stats.absentCount;
-          setReportDutyInfo(stats);
-        } catch (e) { console.error('Error fetching true absent count:', e); }
-      }
-      const late = formatted.filter(r => r.status === 'late').length;
-      const earlyLeave = formatted.filter(r => r.status === 'early_leave').length;
-
-      setReportStats({ total, present, absent, late, earlyLeave });
-
-    } catch (err: any) {
-      toast.error('فشل تحميل التقارير: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'reports') {
-      loadReports();
-    }
-  }, [activeTab, reportType, reportDate, reportFromDate, reportToDate]);
-
   // Handle get current coordinates
   const handleGetCurrentLocation = () => {
     setIsGettingLocation(true);
@@ -858,26 +731,6 @@ export default function AttendanceAdminSettings() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'present': return 'حاضر';
-      case 'absent': return 'غائب';
-      case 'late': return 'متأخر';
-      case 'early_leave': return 'انصراف مبكر';
-      default: return status;
-    }
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'present': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400';
-      case 'absent': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400';
-      case 'late': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
-      case 'early_leave': return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
-    }
-  };
-
   const handleProcessAutoAttendance = async () => {
     if (!processingRecord) return;
     setIsProcessing(true);
@@ -900,7 +753,6 @@ export default function AttendanceAdminSettings() {
       if (error) throw error;
       toast.success('تمت المعالجة بنجاح');
       setProcessingRecord(null);
-      loadReports();
     } catch (err: any) {
       toast.error('حدث خطأ أثناء المعالجة: ' + err.message);
     } finally {
@@ -925,151 +777,165 @@ export default function AttendanceAdminSettings() {
           }
         `}</style>
 
-        {/* Compact Header: tabs bar + clock merged in one line (title & description removed per UI council) */}
-        <div className="flex items-center gap-3 mb-4 no-print">
-          {/* Tabs (scrollable, flex-1) */}
-          <div className="relative flex items-center group flex-1 min-w-0">
-            <button 
-              onClick={() => scrollTabs('right')}
-              className="absolute right-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-1.5 rounded-full shadow-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center translate-x-1.5 transition-all cursor-pointer"
-              title="تمرير لليمين"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            
-            <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto py-1 px-7 hide-scrollbar scroll-smooth w-full items-center">
-          {isAttendanceAdmin && (
-            <button
-              onClick={() => setActiveTab('liveBoard')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === 'liveBoard'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              اللوحة الحية
-            </button>
-          )}
-          
-          {isAttendanceAdmin && (
-            <button
-              onClick={() => setActiveTab('timesheets')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === 'timesheets'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              التقارير المتقدمة (Timesheets)
-            </button>
-          )}
+        {/* =========================================================================
+            ATTENDANCE SUB-TABS: Floating 3-lines Menu & Header Bar (Requested by User)
+            ========================================================================= */}
+        {(() => {
+          const attendanceSubTabs = [
+            { id: 'liveBoard' as Tab, label: 'اللوحة الحية (الموقف المباشر والأرشيفي)', icon: Activity, show: isAttendanceAdmin },
+            { id: 'timesheets' as Tab, label: 'التقارير المتقدمة (Timesheets)', icon: FileSpreadsheet, show: isAttendanceAdmin },
+            { id: 'locations' as Tab, label: 'إدارة مواقع العمل', icon: MapPinned, show: true },
+            { id: 'assignments' as Tab, label: 'ربط الموظفين بالمواقع', icon: UserPlus, show: true },
+            { id: 'deviceLogs' as Tab, label: 'سجل توثيق الأجهزة', icon: ShieldCheck, show: true },
+            { id: 'deviceRequests' as Tab, label: 'طلبات تغيير الأجهزة', icon: AlertTriangle, show: true, badge: deviceRequests.length },
+            { id: 'workSchedules' as Tab, label: 'جداول العمل', icon: Calendar, show: true },
+            { id: 'holidays' as Tab, label: 'إعدادات العطل', icon: Calendar, show: true },
+            { id: 'kiosks' as Tab, label: 'البصمة البايومترية العامة', icon: Tablet, show: canManageKiosks },
+          ].filter(t => t.show);
 
-          <button
-            onClick={() => setActiveTab('locations')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'locations'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <MapPinned className="w-4 h-4" />
-            إدارة مواقع العمل
-          </button>
-          <button
-            onClick={() => setActiveTab('assignments')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'assignments'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            ربط الموظفين بالمواقع
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            تقارير الحضور
-          </button>
-          <button
-            onClick={() => setActiveTab('deviceLogs')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'deviceLogs' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            سجل توثيق الأجهزة
-          </button>
-          <button
-            onClick={() => setActiveTab('deviceRequests')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'deviceRequests' ? 'bg-amber-500 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            طلبات تغيير الأجهزة
-            {deviceRequests.length > 0 && (
-              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full mr-1">
-                {deviceRequests.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('workSchedules')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'workSchedules' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            جداول العمل
-          </button>
+          const currentTabInfo = attendanceSubTabs.find(t => t.id === activeTab) || attendanceSubTabs[0];
+          const CurrentTabIcon = currentTabInfo?.icon || Activity;
 
-          <button
-            onClick={() => setActiveTab('holidays')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === 'holidays'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            إعدادات العطل
-          </button>
+          return (
+            <>
+              {/* Compact Header Bar with 3-Lines Button */}
+              <div className="flex items-center justify-between gap-2.5 mb-3 p-2 sm:p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs no-print">
+                {/* 3-lines Menu Button */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSubTabsMenuOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl shadow-sm shadow-blue-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                    title="فتح قائمة أقسام إدارة البصمة"
+                  >
+                    <Menu className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold">أقسام إدارة البصمة</span>
+                  </button>
 
-          {canManageKiosks && (
-            <button
-              onClick={() => setActiveTab('kiosks')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === 'kiosks'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Tablet className="w-4 h-4" />
-              البصمة البايومترية العامة
-            </button>
-          )}
-          </div>
+                  {/* Active tab badge / indicator */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 rounded-xl">
+                    <CurrentTabIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-300">
+                      {currentTabInfo?.label}
+                    </span>
+                  </div>
+                </div>
 
-          <button 
-            onClick={() => scrollTabs('left')}
-            className="absolute left-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-1.5 rounded-full shadow-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-110 flex items-center justify-center -translate-x-1.5 transition-all cursor-pointer"
-            title="تمرير لليسار"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        </div>
+                {/* Device Requests Alert Quick Badge */}
+                {deviceRequests.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('deviceRequests')}
+                    className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 px-3 py-1.5 rounded-xl border border-amber-300/80 dark:border-amber-700 transition-colors animate-pulse cursor-pointer"
+                    title="يوجد طلبات تغيير أجهزة جديدة بحاجة للمراجعة"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>{deviceRequests.length} طلبات</span>
+                  </button>
+                )}
+              </div>
 
-</div>
+              {/* Floating Dropdown Drawer Modal for Sub-Tabs */}
+              <AnimatePresence>
+                {isSubTabsMenuOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 no-print">
+                    {/* Backdrop */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setIsSubTabsMenuOpen(false)}
+                      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+                    />
+
+                    {/* Modal Dialog Content */}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      transition={{ duration: 0.2 }}
+                      className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-10 max-h-[85vh] flex flex-col"
+                    >
+                      {/* Modal Header */}
+                      <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-50 to-blue-50/40 dark:from-slate-800/80 dark:to-slate-800/40">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-blue-600 text-white rounded-xl shadow-xs">
+                            <Menu className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-base text-slate-800 dark:text-white">أقسام إدارة البصمة</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">اختر القسم المطلوب للانتقال إليه</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSubTabsMenuOpen(false)}
+                          className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                          title="إغلاق"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Sub-Tabs List */}
+                      <div className="p-3 sm:p-4 overflow-y-auto space-y-1.5 custom-scrollbar">
+                        {attendanceSubTabs.map((tab, idx) => {
+                          const Icon = tab.icon;
+                          const isActive = activeTab === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveTab(tab.id);
+                                setIsSubTabsMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between p-3 rounded-2xl text-right transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 font-bold'
+                                  : 'bg-slate-50/80 dark:bg-slate-800/60 hover:bg-blue-50/70 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700/60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-xl transition-colors ${
+                                  isActive
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs'
+                                }`}>
+                                  <Icon className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col text-right">
+                                  <span className="text-sm">{tab.label}</span>
+                                  <span className={`text-[10px] ${isActive ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                                    القسم رقم {idx + 1}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {tab.badge && tab.badge > 0 ? (
+                                  <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow-xs">
+                                    {tab.badge}
+                                  </span>
+                                ) : null}
+                                {isActive && (
+                                  <span className="text-xs bg-white/25 px-2 py-0.5 rounded-full text-white font-medium">النشط</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </>
+          );
+        })()}
 
         {/* Loading Spinner */}
-        {loading && activeTab !== 'reports' && (
+        {loading && (
           <div className="flex justify-center items-center py-12 no-print">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -1517,281 +1383,7 @@ export default function AttendanceAdminSettings() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 3: REPORTS & PRINTING 
-            ========================================================================= */}
-        {activeTab === 'reports' && (
-          <div className="space-y-6">
-            
-            {/* Filters panel - HIDDEN on print */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 no-print space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Calendar className="w-6 h-6 text-blue-500" />
-                  تخصيص فلترة التقرير
-                </h2>
-                
-                <div className="flex gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                  <button
-                    onClick={() => setReportType('daily')}
-                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                      reportType === 'daily'
-                        ? 'bg-white dark:bg-slate-800 text-blue-500 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    يومي
-                  </button>
-                  <button
-                    onClick={() => setReportType('range')}
-                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                      reportType === 'range'
-                        ? 'bg-white dark:bg-slate-800 text-blue-500 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    فترة مخصصة
-                  </button>
-                </div>
-              </div>
 
-              {/* Date pickers */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-end">
-                {reportType === 'daily' ? (
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">تاريخ التقرير</label>
-                    <input
-                      type="date"
-                      value={reportDate}
-                      onChange={(e) => setReportDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">من تاريخ</label>
-                      <input
-                        type="date"
-                        value={reportFromDate}
-                        onChange={(e) => setReportFromDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">إلى تاريخ</label>
-                      <input
-                        type="date"
-                        value={reportToDate}
-                        onChange={(e) => setReportToDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={loadReports}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 flex-1"
-                  >
-                    تحديث التقرير
-                  </button>
-
-                  <button
-                    onClick={() => window.print()}
-                    disabled={records.length === 0}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Printer className="w-5 h-5" />
-                    طباعة
-                  </button>
-                </div>
-              </div>
-            </div>
-
-                        {/* Smart Day Status Banner in Reports */}
-            {reportDutyInfo && (
-              <div
-                className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm no-print ${
-                  reportDutyInfo.isHolidayOrWeekend
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
-                    : 'bg-blue-500/10 border-blue-500/30 text-blue-900 dark:text-blue-200'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2.5 rounded-xl ${reportDutyInfo.isHolidayOrWeekend ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base">{reportDutyInfo.dayTypeLabel}</span>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
-                        {reportDutyInfo.isHolidayOrWeekend ? 'مقتصر على كوادر المناوبة' : 'دوام كامل لجميع الأقسام'}
-                      </span>
-                    </div>
-                    <p className="text-xs mt-1 opacity-90 leading-relaxed">
-                      {reportDutyInfo.isHolidayOrWeekend ? (
-                        <>
-                          الموظفون الصباحيون في عطلة رسمية. المكلفون بالدوام في هذا اليوم ({reportDutyInfo.totalScheduled}):{' '}
-                          {reportDutyInfo.scheduledEmployees.length > 0 ? (
-                            <span className="font-bold">
-                              {reportDutyInfo.scheduledEmployees.map((e, idx) => (
-                                <span key={e.id}>
-                                  {e.fullName} <span className="text-[11px] opacity-75 font-normal">({e.shiftLabel})</span>
-                                  {idx < reportDutyInfo.scheduledEmployees.length - 1 ? '، ' : ''}
-                                </span>
-                              ))}
-                            </span>
-                          ) : (
-                            'لا توجد نوبات مناوبة مخصصة لهذا اليوم'
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          المشمولون بالدوام في هذا اليوم: <span className="font-bold">{reportDutyInfo.totalScheduled} موظفاً</span> (باستثناء المناوبين في يوم استراحتهم).
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                  <span className="text-xs font-medium">المكلفون بالدوام:</span>
-                  <span className="text-sm font-black px-3 py-1 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-200/60 dark:border-slate-700">
-                    {reportDutyInfo.totalScheduled}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Statistics Cards - ALWAYS VISIBLE */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 print-area">
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-100 dark:border-slate-700/50 p-4 text-center">
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">إجمالي السجلات</p>
-                <p className="text-2xl font-bold mt-1 text-slate-800 dark:text-white">{reportStats.total}</p>
-              </div>
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl shadow-md border border-emerald-100 dark:border-emerald-900/30 p-4 text-center">
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">حاضر</p>
-                <p className="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-400">{reportStats.present}</p>
-              </div>
-              <div className="bg-rose-50 dark:bg-rose-950/20 rounded-xl shadow-md border border-rose-100 dark:border-rose-900/30 p-4 text-center">
-                <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">غائب</p>
-                <p className="text-2xl font-bold mt-1 text-rose-700 dark:text-rose-400">{reportStats.absent}</p>
-              </div>
-              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl shadow-md border border-amber-100 dark:border-amber-900/30 p-4 text-center">
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-bold">متأخر</p>
-                <p className="text-2xl font-bold mt-1 text-amber-700 dark:text-amber-400">{reportStats.late}</p>
-              </div>
-              <div className="bg-sky-50 dark:bg-sky-950/20 rounded-xl shadow-md border border-sky-100 dark:border-sky-900/30 p-4 text-center">
-                <p className="text-xs text-sky-600 dark:text-sky-400 font-bold">انصراف مبكر</p>
-                <p className="text-2xl font-bold mt-1 text-sky-700 dark:text-sky-400">{reportStats.earlyLeave}</p>
-              </div>
-            </div>
-
-            {/* Print Header Info - ONLY VISIBLE ON PRINT */}
-            <div className="hidden print:block text-center mb-6 print-area">
-              <h1 className="text-2xl font-bold">وزارة الاتصالات - الشركة العامة للاتصالات والمعلوماتية</h1>
-              <h2 className="text-xl font-bold mt-1">مديرية اتصالات ومعلوماتية كربلاء المقدسة</h2>
-              <h3 className="text-lg font-bold text-slate-700 mt-2">
-                تقرير حضور وانصراف الموظفين للفترة: {reportType === 'daily' ? reportDate : `${reportFromDate} إلى ${reportToDate}`}
-              </h3>
-              <div className="w-full border-b border-black mt-4"></div>
-            </div>
-
-            {/* Main Table - ALWAYS VISIBLE */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700/50 p-6 print-area">
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              ) : records.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p className="font-bold">لا يوجد أي سجلات حضور للتواريخ المحددة.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">اسم الموظف</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">الرقم الوظيفي</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">وقت الحضور</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">وقت الانصراف</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">الحالة</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400">طريقة التحقق</th>
-                        <th className="py-4 px-4 font-bold text-slate-500 dark:text-slate-400 font-mono hidden md:table-cell">موقع البصمة</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {records.map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/20 transition-colors">
-                          <td className="py-4 px-4 font-bold text-slate-800 dark:text-slate-200">{r.employeeName}</td>
-                          <td className="py-4 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">{r.jobNumber}</td>
-                          <td className={`py-4 px-4 font-mono font-bold ${r.isAutoCheckIn ? 'text-rose-500' : ''}`}>
-                            {r.checkIn ? new Date(r.checkIn).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                            {r.isAutoCheckIn && <span className="block text-[10px] text-rose-500 mt-1">آلي</span>}
-                          </td>
-                          <td className={`py-4 px-4 font-mono font-bold ${r.isAutoCheckOut ? 'text-rose-500' : ''}`}>
-                            {r.checkOut ? new Date(r.checkOut).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                            {r.isAutoCheckOut && <span className="block text-[10px] text-rose-500 mt-1">آلي</span>}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusBadgeClass(r.status)}`}>
-                              {getStatusLabel(r.status)}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                              r.verifyMethod === 'بصمة وجه' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                              r.verifyMethod === 'موقع جغرافي' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' :
-                              r.verifyMethod === 'تسجيل آلي' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300' :
-                              'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                            }`}>
-                              {r.verifyMethod}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 font-mono text-xs text-slate-400 hidden md:table-cell">
-                            {r.checkInLocation || 'غير مسجل'}
-                          </td>
-                          <td className="py-4 px-4">
-                            {(r.isAutoCheckIn || r.isAutoCheckOut) && (
-                              <button 
-                                onClick={() => setProcessingRecord(r)}
-                                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1"
-                              >
-                                <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                معالجة
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Print Footer signatures - ONLY VISIBLE ON PRINT */}
-            <div className="hidden print:flex justify-between mt-12 px-12 print-area">
-              <div className="text-center font-bold">
-                <p>معد التقرير</p>
-                <p className="mt-12">_________________</p>
-              </div>
-              <div className="text-center font-bold">
-                <p>المشرف العام</p>
-                <p className="mt-12">_________________</p>
-              </div>
-              <div className="text-center font-bold">
-                <p>مدير القسم</p>
-                <p className="mt-12">_________________</p>
-              </div>
-            </div>
-            
-          </div>
-        )}
 
         {/* DEVICE LOGS TAB */}
         {activeTab === 'deviceLogs' && (() => {

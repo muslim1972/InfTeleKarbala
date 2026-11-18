@@ -526,7 +526,14 @@
       "id": "BE-ATT-01",
       "name": "Work schedules",
       "status": "inventoried",
+      "db": [
+        "remove_employee_special_schedule",
+        "remove_employee_weekly_exemption",
+        "save_employee_special_schedule",
+        "save_employee_weekly_exemption"
+      ],
       "tables": [
+        "employee_weekly_exemptions",
         "work_schedules",
         "work_schedule_days"
       ],

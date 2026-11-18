@@ -25,6 +25,12 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
     const isAdmin = user?.role === 'admin';
     const isDark = theme === 'dark';
 
+    const isBiometricOnly = Boolean(
+        (user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.username === 'attend') &&
+        user?.admin_role !== 'general' &&
+        !isDeveloperLevel(user?.admin_role)
+    );
+
     // Build cards list
     const cards: {
         id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr';
@@ -51,7 +57,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             icon: <ShieldCheck className="w-5 h-5 text-blue-500" />,
             hoverGlow: 'hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]',
             iconBg: isDark ? 'bg-blue-500/20 border-blue-500/30 group-hover:bg-blue-500/30' : 'bg-blue-500/10 border-blue-500/20',
-            show: isAdmin,
+            show: isAdmin && !isBiometricOnly,
         },
         {
             id: 'capacities',

@@ -36,6 +36,9 @@ export interface DutyContext {
   isHolidayOrWeekend: boolean;
   dayTypeLabel: string;
   loadedAt: number;
+  isWeeklyExempt?: boolean;
+  exemptionOrderNumber?: string;
+  isSpecialSchedule?: boolean;
 }
 
 export interface DutyEvaluationResult {
@@ -61,19 +64,25 @@ function parseTimeToMinutes(timeStr?: string | null): number | null {
  * جلب سياق الدوام الكامل للموظف وتخزينه في الذاكرة لتنفيذ الفحص الفوري (0ms Latency)
  */
 export async function loadDutyContext(employeeId: string, dateStr: string): Promise<DutyContext> {
-  const [profileRes, leaveCtx, dayType] = await Promise.all([
+  const [profileRes, leaveCtx, dayType, exemptionRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('work_schedule_id')
       .eq('id', employeeId)
       .maybeSingle(),
     getLeaveContext(employeeId, dateStr),
-    fetchDayType(dateStr)
+    fetchDayType(dateStr),
+    supabase
+      .from('employee_weekly_exemptions')
+      .select('id, day_of_week, order_number, order_date, valid_until')
+      .eq('employee_id', employeeId)
+      .gte('valid_until', dateStr)
   ]);
 
   let scheduleDays: DutyScheduleDay[] = [];
   let scheduleName: string | undefined;
   let workSchedule: any = null;
+  let isSpecialSchedule = false;
 
   if (profileRes.data?.work_schedule_id) {
     const { data: ws } = await supabase
@@ -85,11 +94,21 @@ export async function loadDutyContext(employeeId: string, dateStr: string): Prom
     if (ws) {
       workSchedule = ws;
       scheduleName = ws.name;
+      isSpecialSchedule = ws.type === 'special' || (Boolean(ws.name) && ws.name.includes('دوام خاص'));
       if (Array.isArray(ws.days)) {
         scheduleDays = ws.days;
       }
     }
   }
+
+  // Calculate day of week for dateStr
+  const targetDate = new Date(dateStr);
+  const targetDow = targetDate.getDay();
+
+  // Check if today matches any active exemption
+  const activeExemption = (exemptionRes.data || []).find((ex: any) => 
+    ex.day_of_week === targetDow && dateStr <= ex.valid_until && dateStr >= ex.order_date
+  );
 
   const shiftType = determineShiftType(profileRes.data, workSchedule);
 
@@ -101,7 +120,10 @@ export async function loadDutyContext(employeeId: string, dateStr: string): Prom
     dayLeave: leaveCtx.dayLeave,
     isHolidayOrWeekend: dayType.isHolidayOrWeekend,
     dayTypeLabel: dayType.dayTypeLabel,
-    loadedAt: Date.now()
+    loadedAt: Date.now(),
+    isWeeklyExempt: Boolean(activeExemption),
+    exemptionOrderNumber: activeExemption?.order_number,
+    isSpecialSchedule
   };
 }
 
@@ -130,6 +152,19 @@ export function evaluateOfficialDutyStatus(
   const dow = baghdadNow.getDay(); // 0=الأحد, 1=الإثنين, ..., 5=الجمعة, 6=السبت
   const yesterdayDow = (dow + 6) % 7;
 
+  // 0. فحص التفرغ الأسبوعي المعتمد بموجب أمر رسمي (أولوية مطلقة)
+  if (ctx.isWeeklyExempt) {
+    return {
+      isWithinOfficialDuty: false,
+      reason: ctx.exemptionOrderNumber 
+        ? `الموظف في يوم تفرغ رسمي معتمد بموجب الأمر الإداري (${ctx.exemptionOrderNumber})`
+        : 'الموظف في يوم تفرغ رسمي معتمد',
+      badgeText: 'تفرغ رسمي',
+      shiftType: ctx.shiftType,
+      suggestedAction: 'prompt_override'
+    };
+  }
+
   // 1. فحص الإجازة المعتمدة ليوم كامل (اعتيادية، مرضية، واجب، إيفاد)
   if (ctx.dayLeave) {
     return {
@@ -139,6 +174,55 @@ export function evaluateOfficialDutyStatus(
       shiftType: ctx.shiftType,
       suggestedAction: 'prompt_override'
     };
+  }
+
+  // 1.5 فحص الدوام الخاص (Special Work Hours) إن وجد
+  if (ctx.isSpecialSchedule && ctx.scheduleDays.length > 0) {
+    const todaySchedule = ctx.scheduleDays.find(d => d.day_of_week === dow);
+    if (todaySchedule?.is_rest_day) {
+      return {
+        isWithinOfficialDuty: false,
+        reason: 'اليوم محدد كاستراحة أسبوعية في جدول الدوام الخاص للموظف',
+        badgeText: 'استراحة خاصة',
+        shiftType: 'morning',
+        suggestedAction: 'prompt_override'
+      };
+    }
+
+    if (todaySchedule?.start_time && todaySchedule?.end_time) {
+      const startMins = parseTimeToMinutes(todaySchedule.start_time) || (8 * 60);
+      const endMins = parseTimeToMinutes(todaySchedule.end_time) || (15 * 60);
+      const allowedStart = Math.max(0, startMins - 30);
+      const allowedEnd = endMins + 30;
+
+      if (currentMinutes < allowedStart) {
+        return {
+          isWithinOfficialDuty: false,
+          reason: `الوقت الحالي قبل بدء الدوام الخاص للموظف (يبدأ عند ${todaySchedule.start_time?.substring(0, 5)})`,
+          badgeText: 'قبل بدء الدوام الخاص',
+          shiftType: 'morning',
+          suggestedAction: 'prompt_override'
+        };
+      }
+
+      if (currentMinutes > allowedEnd) {
+        return {
+          isWithinOfficialDuty: false,
+          reason: `الوقت الحالي بعد انتهاء الدوام الخاص للموظف (ينتهي عند ${todaySchedule.end_time?.substring(0, 5)})`,
+          badgeText: 'بعد انتهاء الدوام الخاص',
+          shiftType: 'morning',
+          suggestedAction: 'prompt_override'
+        };
+      }
+
+      return {
+        isWithinOfficialDuty: true,
+        reason: `ضمن أوقات الدوام الخاص الرسمي (${todaySchedule.start_time?.substring(0, 5)} إلى ${todaySchedule.end_time?.substring(0, 5)})`,
+        badgeText: 'دوام خاص رسمي',
+        shiftType: 'morning',
+        suggestedAction: 'allow'
+      };
+    }
   }
 
   // 2. معالجة الدوام الصباحي الاعتيادي (Morning Shift)

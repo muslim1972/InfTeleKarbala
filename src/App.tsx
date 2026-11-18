@@ -183,6 +183,19 @@ const AppContent = () => {
     }
   }, [adminViewMode]);
 
+  const isBiometricOnly = Boolean(
+    (user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.username === 'attend') &&
+    user?.admin_role !== 'general' &&
+    !isDeveloperLevel(user?.admin_role)
+  );
+
+  useEffect(() => {
+    if (isBiometricOnly && adminViewMode === 'admin') {
+      setAdminViewMode('user');
+      localStorage.setItem('adminViewMode', 'user');
+    }
+  }, [isBiometricOnly, adminViewMode]);
+
 
   // ── حالة الشاشة الافتتاحية (Splash Screen) ──────────
   const [showSplash, setShowSplash] = useState(() => {

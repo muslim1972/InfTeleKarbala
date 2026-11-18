@@ -77,11 +77,33 @@ export const getHonorific = (gender: number | string | undefined | null, fullNam
     return 'السيد';
 };
 
+/**
+ * يستخرج الاسم الثلاثي للموظف مع مراعاة الأسماء المركبة العربية (مثل: عبد علي، عبد الحسين، عبد الله، أمة الله)
+ * بحيث يعتبر "عبد [ما بعدها]" مقطعاً اسمياً واحداً حتى مع وجود فراغ بينهما.
+ */
 export const getTripartiteName = (fullName: string | undefined | null): string => {
     if (!fullName) return '';
-    const parts = fullName.trim().split(/\s+/).filter(Boolean);
-    if (parts.length <= 3) return parts.join(' ');
-    return parts.slice(0, 3).join(' ');
+    const words = fullName.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+
+    const nameTokens: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+        const current = words[i];
+        // إذا كانت الكلمة هي "عبد" أو "أمة" وهناك كلمة تليها، تُدمجان كمقطع اسمي واحد مع الحفاظ على الفراغ الأصلي
+        if (/^(عبد|أمة|امه)$/i.test(current) && i + 1 < words.length) {
+            nameTokens.push(`${current} ${words[i + 1]}`);
+            i++; // تخطي الكلمة التالية لأنها مضافة لمقطع عبد
+        } else {
+            nameTokens.push(current);
+        }
+
+        // التوقف عند اكتمال ثلاثة مقاطع اسمية (الاسم + اسم الأب + اسم الجد)
+        if (nameTokens.length === 3) {
+            break;
+        }
+    }
+
+    return nameTokens.join(' ');
 };
 
 export const getCcActionPhrase = (entityName: string): string => {

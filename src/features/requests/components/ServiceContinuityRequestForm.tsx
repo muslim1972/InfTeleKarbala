@@ -159,9 +159,23 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
     return notes.trim().replace(/^(لأغراض|لاغراض|لغرض|بغرض|غرض)\s+/i, '').trim();
   }, [notes]);
 
-  // اسم المستخدم المباشر
+  // اسم المستخدم المباشر (ثلاثي وفق الضوابط الرسمية ومراعاة الأسماء المركبة)
   const employeeName = useMemo(() => {
-    return user?.full_name?.trim() || (user as any)?.name?.trim() || user?.username || '';
+    const rawName = user?.full_name?.trim() || (user as any)?.name?.trim() || user?.username || '';
+    if (!rawName) return '';
+    const words = rawName.split(/\s+/).filter(Boolean);
+    const nameTokens: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      const current = words[i];
+      if (/^(عبد|أمة|امه)$/i.test(current) && i + 1 < words.length) {
+        nameTokens.push(`${current} ${words[i + 1]}`);
+        i++;
+      } else {
+        nameTokens.push(current);
+      }
+      if (nameTokens.length === 3) break;
+    }
+    return nameTokens.join(' ');
   }, [user]);
 
   // ── 4. Load Previous Requests ───────────────────────────────────────────────
@@ -198,12 +212,27 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
       toast.error('يرجى تحديد الجهة المعنون إليها الكتاب');
       return;
     }
+    if (!notes.trim()) {
+      toast.error('يجب وضع غرض للكتاب');
+      return;
+    }
     setShowConfirmModal(true);
   };
 
   const executeSubmit = async () => {
     if (!user?.id) {
       toast.error('يجب تسجيل الدخول لتقديم الطلب');
+      return;
+    }
+
+    if (!destinationEntity.trim()) {
+      toast.error('يرجى تحديد الجهة المعنون إليها الكتاب');
+      return;
+    }
+
+    if (!notes.trim()) {
+      toast.error('يجب وضع غرض للكتاب');
+      setShowConfirmModal(false);
       return;
     }
 
@@ -216,7 +245,7 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
         p_destination_entity: chosenEntity,
         p_include_nominal_salary: includeSalaryDetails,
         p_include_total_salary: includeSalaryDetails,
-        p_notes: notes.trim() || null,
+        p_notes: notes.trim(),
       });
 
       if (rpcError) throw rpcError;
@@ -413,11 +442,13 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
             </div>
           </label>
 
-          {/* ── Optional Purpose / Notes Field ── */}
+          {/* ── Required Purpose Field ── */}
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                ملاحظات إضافية أو غرض خاص (اختياري)
+              <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap flex items-center gap-1.5">
+                <span>الغرض من الكتاب</span>
+                <span className="text-rose-500 font-extrabold">*</span>
+                <span className="text-[11px] font-semibold text-rose-500 dark:text-rose-400">(إجباري)</span>
               </label>
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
                 يُدمج تلقائياً في نص الكتاب
@@ -428,7 +459,9 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="مثال: كفالة السيد محمد علي، شراء وحدة سكنية، التقديم على دراسات عليا..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700/60 text-gray-900 dark:text-gray-100 text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all resize-none placeholder:text-slate-400 font-medium"
+              className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-gray-700/60 text-gray-900 dark:text-gray-100 text-xs sm:text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all resize-none placeholder:text-slate-400 font-medium ${
+                !notes.trim() ? 'border-amber-300 dark:border-amber-600/60' : 'border-gray-300 dark:border-gray-600'
+              }`}
             />
           </div>
 
@@ -540,7 +573,7 @@ export const ServiceContinuityRequestForm: React.FC<Props> = ({ onSuccess }) => 
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isSubmitting || !destinationEntity.trim()}
+              disabled={isSubmitting}
               className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-700 hover:to-sky-700 text-white font-bold text-sm shadow-md shadow-cyan-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <Send size={18} />
