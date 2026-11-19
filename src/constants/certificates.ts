@@ -8,9 +8,9 @@ export interface CertificateDef {
 export const CERTIFICATES: CertificateDef[] = [
     { label: 'دكتوراه', percentage: 150 }, // 100% + 50%
     { label: 'ماجستير', percentage: 125 }, // 75% + 50%
-    { label: 'دبلوم عالي', percentage: 55 },
-    { label: 'بكلوريوس', percentage: 45 }, // لاحظ: بكلوريوس بدون ألف أحياناً
-    { label: 'دبلوم', percentage: 35 },
+    { label: 'دبلوم عالي', percentage: 55, aliases: ['دبلو م عالي', 'دبلومعالي'] },
+    { label: 'بكلوريوس', percentage: 45, aliases: ['بكالوريوس', 'بكاوريوس', 'بكلويوس'] },
+    { label: 'دبلوم', percentage: 35, aliases: ['معهد'] },
     { label: 'الاعدادية', percentage: 25 },
     { label: 'المتوسطة', percentage: 15 },
     { label: 'الابتدائية', percentage: 15 },

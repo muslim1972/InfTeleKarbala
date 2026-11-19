@@ -1,5 +1,5 @@
 {
- "created": "2026-11-19T14:07:37.378Z",
+ "created": "2026-11-19T15:25:08.182Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -539,7 +539,7 @@
   },
   "src/constants/certificates.ts": {
    "brick": "FE-HR-01",
-   "sha": "719d966e00b9"
+   "sha": "e7214089dfed"
   },
   "src/constants/governorates.ts": {
    "brick": "FE-CORE-03",
@@ -1183,7 +1183,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "acb8503e1b75"
+   "sha": "4f2d602ed3b8"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1375,7 +1375,7 @@
   },
   "src/utils/profileUtils.ts": {
    "brick": "FE-HR-01",
-   "sha": "c3f2cddc7706"
+   "sha": "1cafaca92ac7"
   },
   "src/utils/salaryRules.ts": {
    "brick": "FE-FIN-01",

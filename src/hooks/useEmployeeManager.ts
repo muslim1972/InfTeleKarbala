@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
-import { cleanText } from "../utils/profileUtils";
+import { cleanText, cleanCertificate } from "../utils/profileUtils";
 import { isDeveloperLevel } from "../utils/permissions";
 import { useSnapshots } from "../context/SnapshotContext";
 
@@ -175,22 +175,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 }
             } else {
                 const combined = { ...emptyFinancial, ...finData };
-                const stripAl = (t: string) => t.replace(/^ال/, '');
-                const certOptions = ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي'];
-
                 if (combined.certificate_text) {
-                    let raw = combined.certificate_text.trim();
-                    raw = raw.replace(/^[^ء-يa-zA-Z0-9]+/, '').replace(/[^ء-يa-zA-Z0-9]+$/, '').trim();
-                    if (raw.includes('بكلوريوس')) raw = 'بكالوريوس';
-                    if (raw.includes('بنسبة')) raw = raw.split('بنسبة')[0].trim();
-
-                    const match = certOptions.find(opt =>
-                        stripAl(opt) === stripAl(raw) ||
-                        opt === raw ||
-                        stripAl(opt).replace(/ى/g, 'ي') === stripAl(raw).replace(/ى/g, 'ي') ||
-                        raw.includes(opt) || opt.includes(raw)
-                    );
-                    combined.certificate_text = match || raw;
+                    combined.certificate_text = cleanCertificate(combined.certificate_text);
                 }
 
                 if (combined.nominal_salary > 0 && combined.risk_allowance > 0) {

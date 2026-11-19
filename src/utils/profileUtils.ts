@@ -133,24 +133,45 @@ export function normalizeForComparison(text: any): string {
 }
 
 /**
- * تنظيف مسمى الشهادة من الزيادات مثل النسب المئوية
+ * تنظيف مسمى الشهادة من الزيادات مثل النسب المئوية وتوحيد المسميات الرسمية
  */
 export function cleanCertificate(text: any): string {
     if (!text || typeof text !== 'string') return String(text || '');
     
     let cleaned = text.trim();
+    // إزالة الفراغات المزدوجة وتطبيع المسافات
+    const normalized = cleaned.replace(/\s+/g, ' ');
+    const noSpaces = cleaned.replace(/\s+/g, '');
     
-    // توحيد المسميات الشائعة مباشرة قبل محاولة القص
-    if (cleaned.includes('بكلوريوس') || cleaned.includes('بكالوريوس')) return 'بكلوريوس';
-    if (cleaned.includes('ماجستير')) return 'ماجستير';
-    if (cleaned.includes('دكتوراه')) return 'دكتوراه';
-    if (cleaned.includes('دبلوم عالي')) return 'دبلوم عالي';
-    if (cleaned.includes('دبلوم')) return 'دبلوم';
-    if (cleaned.includes('الاعدادية') || cleaned.includes('اعدادية')) return 'الاعدادية';
-    if (cleaned.includes('المتوسطة') || cleaned.includes('متوسطة')) return 'المتوسطة';
-    if (cleaned.includes('الابتدائية') || cleaned.includes('ابتدائية')) return 'الابتدائية';
-    if (cleaned.includes('دون الابتدائية') || cleaned.includes('يقرأ ويكتب') || cleaned.includes('يقرا ويكتب')) return 'دون الابتدائية';
-    if (cleaned.includes('أمي') || cleaned.includes('امي')) return 'أمي';
+    // 1. الدبلوم العالي بكل صيغه أولاً (قبل الدبلوم العادي قطعاً)
+    if (
+        normalized.includes('دبلوم عالي') || 
+        normalized.includes('دبلو م عالي') || 
+        noSpaces.includes('دبلومعالي')
+    ) {
+        return 'دبلوم عالي';
+    }
+
+    // 2. الدبلوم العادي / معهد (35%)
+    if (normalized.includes('دبلوم') || normalized.includes('معهد')) {
+        return 'دبلوم';
+    }
+
+    // 3. البكالوريوس
+    if (normalized.includes('بكلوريوس') || normalized.includes('بكالوريوس') || normalized.includes('بكاوريوس') || normalized.includes('بكلويوس')) {
+        return 'بكلوريوس';
+    }
+
+    // 4. الدراسات العليا الأخرى
+    if (normalized.includes('ماجستير')) return 'ماجستير';
+    if (normalized.includes('دكتوراه')) return 'دكتوراه';
+
+    // 5. الشهادات الثانوية والأساسية
+    if (normalized.includes('الاعدادية') || normalized.includes('اعدادية')) return 'الاعدادية';
+    if (normalized.includes('المتوسطة') || normalized.includes('متوسطة')) return 'المتوسطة';
+    if (normalized.includes('دون الابتدائية') || normalized.includes('يقرأ ويكتب') || normalized.includes('يقرا ويكتب')) return 'دون الابتدائية';
+    if (normalized.includes('الابتدائية') || normalized.includes('ابتدائية') || normalized.includes('ابتدائيه')) return 'الابتدائية';
+    if (normalized.includes('أمي') || normalized.includes('امي')) return 'أمي';
     
     // إزالة "بنسبة ...%" أو أي شيء يبدأ بـ "بنسبة" / "بنسبه"
     if (cleaned.includes('بنسبة')) {
