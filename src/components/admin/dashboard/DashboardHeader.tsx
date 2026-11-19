@@ -6,6 +6,12 @@ import { cn } from "../../../lib/utils";
 import { EmployeeSearch } from "../../shared/EmployeeSearch";
 import { isDeveloperLevel } from "../../../utils/permissions";
 
+const getThreePartName = (name: string): string => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    return parts.length > 3 ? parts.slice(0, 3).join(' ') : name;
+};
+
 interface DashboardHeaderProps {
     activeTab: string;
     setActiveTab: (tab: any) => void;
@@ -169,10 +175,14 @@ export const DashboardHeader = ({
 
                     {/* User Name - Hidden when search is expanded */}
                     {!searchExpanded && selectedEmployee && (
-                        <h3 className={`font-bold text-sm animate-in fade-in duration-200 ${theme === 'light' ? 'text-gray-900' : 'text-white'
-                            }`}>
-                            {selectedEmployee.full_name}
-                        </h3>
+                        <div
+                            title={selectedEmployee.full_name}
+                            className={`max-w-[120px] xs:max-w-[160px] sm:max-w-[220px] md:max-w-[320px] overflow-x-auto whitespace-nowrap scrollbar-none font-bold text-xs sm:text-sm animate-in fade-in duration-200 cursor-grab active:cursor-grabbing select-all px-1.5 py-0.5 rounded ${
+                                theme === 'light' ? 'text-gray-900' : 'text-white'
+                            }`}
+                        >
+                            {getThreePartName(selectedEmployee.full_name)}
+                        </div>
                     )}
 
                     {/* Search Button & Input */}

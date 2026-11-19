@@ -43,6 +43,10 @@ export interface MatchResult {
     oldValues?: Record<string, any>;
     /** الفروقات المكتشفة */
     diffs: Record<string, { old: any; new: any }>;
+    /** هل الموظف محال للتقاعد */
+    isRetired?: boolean;
+    /** تاريخ الإحالة للتقاعد */
+    retirementDate?: string | null;
 }
 
 // ─── Hook ───────────────────────────────────────
@@ -348,7 +352,7 @@ export function useUniversalPatcher() {
             } else {
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('id, username, full_name, job_number')
+                    .select('id, username, full_name, job_number, is_retired, retirement_date')
                     .eq('governorate', gov);
                 if (error) throw error;
                 profilesRaw = data || [];
@@ -366,12 +370,18 @@ export function useUniversalPatcher() {
             }
 
             // 2. بناء خرائط المطابقة
-            const nameMap = new Map<string, { profileId: string; full_name: string; job_number: string }>();
-            const jobMap = new Map<string, { profileId: string; full_name: string; job_number: string }>();
+            const nameMap = new Map<string, { profileId: string; full_name: string; job_number: string; is_retired?: boolean; retirement_date?: string | null }>();
+            const jobMap = new Map<string, { profileId: string; full_name: string; job_number: string; is_retired?: boolean; retirement_date?: string | null }>();
 
             for (const p of profiles) {
                 const cleanJob = String(p.job_number || '').replace(/\.0$/, '').trim();
-                const entry = { profileId: p.id, full_name: p.full_name || '', job_number: cleanJob };
+                const entry = {
+                    profileId: p.id,
+                    full_name: p.full_name || '',
+                    job_number: cleanJob,
+                    is_retired: !!p.is_retired,
+                    retirement_date: p.retirement_date
+                };
                 if (p.full_name) {
                     nameMap.set(normalizeArabicText(p.full_name), entry);
                 }
@@ -435,7 +445,7 @@ export function useUniversalPatcher() {
                 if (!matchValue) continue;
 
                 // المطابقة بناءً على اختيار المستخدم الصريح:
-                let matched: { profileId: string; full_name: string; job_number: string } | undefined;
+                let matched: { profileId: string; full_name: string; job_number: string; is_retired?: boolean; retirement_date?: string | null } | undefined;
                 if (!opening) {
                     if (matchBy === 'job_number') {
                         // البحث في خريطة الأرقام الوظيفية فقط
@@ -513,6 +523,8 @@ export function useUniversalPatcher() {
                         newValues,
                         oldValues: existing,
                         diffs,
+                        isRetired: matched.is_retired,
+                        retirementDate: matched.retirement_date,
                     });
                 } else if (tableDef.type === 'single') {
                     // financial_records
@@ -530,6 +542,8 @@ export function useUniversalPatcher() {
                             newValues,
                             oldValues: existing,
                             diffs,
+                            isRetired: matched.is_retired,
+                            retirementDate: matched.retirement_date,
                         });
                     } else {
                         results.push({
@@ -541,6 +555,8 @@ export function useUniversalPatcher() {
                             displayName: matched.full_name || displayName || undefined,
                             newValues,
                             diffs: {},
+                            isRetired: matched.is_retired,
+                            retirementDate: matched.retirement_date,
                         });
                     }
                 } else if (tableDef.type === 'yearly') {
@@ -559,6 +575,8 @@ export function useUniversalPatcher() {
                             newValues,
                             oldValues: existing,
                             diffs,
+                            isRetired: matched.is_retired,
+                            retirementDate: matched.retirement_date,
                         });
                     } else {
                         results.push({
@@ -570,6 +588,8 @@ export function useUniversalPatcher() {
                             displayName: matched.full_name || displayName || undefined,
                             newValues,
                             diffs: {},
+                            isRetired: matched.is_retired,
+                            retirementDate: matched.retirement_date,
                         });
                     }
                 } else {
@@ -583,6 +603,8 @@ export function useUniversalPatcher() {
                         displayName: matched.full_name || displayName || undefined,
                         newValues,
                         diffs: {},
+                        isRetired: matched.is_retired,
+                        retirementDate: matched.retirement_date,
                     });
                 }
             }

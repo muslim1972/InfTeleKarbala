@@ -140,9 +140,19 @@ export function categorizePunches(
       // تبقى مسجلة وموثقة في raw_punches، دون قطع الدوام أو فتح مغادرة مؤقتة
     }
   } else if (filteredPunches.length > 2) {
-    // البصمة الأخيرة انصراف نهائي
     const lastPunch = filteredPunches[filteredPunches.length - 1];
-    setOutData(updates, lastPunch, 'check_out');
+    const lastDate = new Date(lastPunch.time);
+    const lastBaghdadHour = (lastDate.getUTCHours() + 3) % 24;
+    const isExplicitCheckOut = lastPunch.target_slot === 'check_out';
+    const isShiftEndWindow = shiftType === 'morning' 
+      ? lastBaghdadHour >= 14 
+      : (shiftType === 'shift' && hasConnectedShifts 
+          ? (lastBaghdadHour >= 7 && lastBaghdadHour <= 10) 
+          : lastBaghdadHour >= 19);
+
+    if (isExplicitCheckOut || isShiftEndWindow) {
+      setOutData(updates, lastPunch, 'check_out');
+    }
 
     // فحص البصمات الوسطى: فقط البصمات الموسومة صراحة كإجازة زمنية أو استراحة تُعيّن كـ time_leave
     const middlePunches = filteredPunches.slice(1, -1);

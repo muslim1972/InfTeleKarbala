@@ -5,8 +5,8 @@
   <meta charset="UTF-8" />
   <script>
     // التحويل الفوري المباشر إلى الصفحة المعزولة للطرفية لضمان استلام ملف الـ Manifest والأيقونات الستاتيكية
-    if (window.location.pathname === '/kiosk' || window.location.pathname === '/kiosk/') {
-      window.location.replace('/kiosk/index.html' + window.location.search + window.location.hash);
+    if (window.location.pathname === '/kiosk' || window.location.pathname === '/kiosk/' || window.location.pathname === '/kiosk/index.html') {
+      window.location.replace('/kiosk' + window.location.search + window.location.hash);
     }
   </script>
 

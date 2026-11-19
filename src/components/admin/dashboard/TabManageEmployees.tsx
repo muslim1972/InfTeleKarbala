@@ -17,6 +17,7 @@ import { AccordionSection } from "../../ui/AccordionSection";
 import { HistoryViewer } from "../HistoryViewer";
 import { DepartmentSelector } from "../DepartmentSelector";
 import { Input } from "../../ui/Input";
+import { DateInput } from "../../ui/DateInput";
 import { Button } from "../../ui/Button";
 import {
     Select,
@@ -104,6 +105,26 @@ export const TabManageEmployees = ({
         <div className="space-y-6">
             {selectedEmployee ? (
                 <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto pb-28 sm:pb-36">
+
+                    {/* Retiree Honor Banner */}
+                    {selectedEmployee.is_retired && (
+                        <div className="mb-2 p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent border-2 border-amber-500/40 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200 animate-in fade-in duration-300">
+                            <div className="flex items-center gap-2.5 text-xs font-bold">
+                                <span className="text-xl">🎖️</span>
+                                <div>
+                                    <div className="font-black text-sm">الموظف محال للتقاعد {selectedEmployee.retirement_date ? `(بتاريخ ${selectedEmployee.retirement_date})` : ''}</div>
+                                    <div className="text-[11px] text-amber-700 dark:text-amber-300 font-normal mt-0.5">
+                                        الحساب معفى من البصمة ومحفوظ في الأرشيف
+                                    </div>
+                                </div>
+                            </div>
+                            {selectedEmployee.retirement_note && (
+                                <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] font-bold text-amber-800 dark:text-amber-200 truncate max-w-[280px]">
+                                    الأمر: {selectedEmployee.retirement_note}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <AccordionSection
                         id="main_info"
@@ -193,14 +214,15 @@ export const TabManageEmployees = ({
                                 </div>
                                 <div className="flex items-center gap-2 relative">
                                     <div className="w-6 shrink-0" />
-                                    <Input
-                                        type="date"
-                                        value={selectedEmployee.birth_date || ""}
-                                        onChange={(e) => setSelectedEmployee({ ...selectedEmployee, birth_date: e.target.value })}
-                                        dir="ltr"
-                                        className="text-left flex-1"
-                                        disabled={isFieldReadOnly('birth_date')}
-                                    />
+                                    <div className="flex-1">
+                                        <DateInput
+                                            value={selectedEmployee.birth_date || ""}
+                                            onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, birth_date: val })}
+                                            placeholder="dd/mm/yyyy"
+                                            disabled={isFieldReadOnly('birth_date')}
+                                            className="text-center font-mono"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -285,6 +307,108 @@ export const TabManageEmployees = ({
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Employment & Retirement Status */}
+                            <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2">
+                                <div className="flex justify-start pl-2">
+                                    <label className="text-xs font-bold block text-muted-foreground text-right w-full">الوضع الوظيفي</label>
+                                </div>
+
+                                <div className="flex items-center gap-2 relative">
+                                    <div className="hidden md:block w-6 shrink-0" />
+
+                                    <div className="flex gap-4 flex-1">
+                                        <Button
+                                            type="button"
+                                            variant={!selectedEmployee.is_retired ? 'default' : 'outline'}
+                                            onClick={() => setSelectedEmployee({ ...selectedEmployee, is_retired: false })}
+                                            className={cn(
+                                                "flex-1 gap-2 transition-all",
+                                                !selectedEmployee.is_retired ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                            )}
+                                            disabled={!isRoleEditable}
+                                        >
+                                            <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", !selectedEmployee.is_retired ? "border-white" : "border-muted-foreground")}>
+                                                {!selectedEmployee.is_retired && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                            </div>
+                                            مستمر بالخدمة
+                                        </Button>
+
+                                        <Button
+                                            type="button"
+                                            variant={selectedEmployee.is_retired ? 'default' : 'outline'}
+                                            onClick={() => {
+                                                const todayStr = new Date().toISOString().split('T')[0];
+                                                setSelectedEmployee({
+                                                    ...selectedEmployee,
+                                                    is_retired: true,
+                                                    retirement_date: selectedEmployee.retirement_date || todayStr
+                                                });
+                                            }}
+                                            className={cn(
+                                                "flex-1 gap-2 transition-all",
+                                                selectedEmployee.is_retired 
+                                                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm" 
+                                                    : "border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                                            )}
+                                            disabled={!isRoleEditable}
+                                        >
+                                            <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", selectedEmployee.is_retired ? "border-white" : "border-amber-500")}>
+                                                {selectedEmployee.is_retired && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                            </div>
+                                            🎖️ محال للتقاعد
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Details when retired */}
+                            {selectedEmployee.is_retired && (
+                                <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                                        <span>🎖️</span>
+                                        <span>بيانات الإحالة إلى التقاعد</span>
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                                            (يُعفى الموظف من البصمة اعتباراً من هذا التاريخ وتُحفظ كافة سجلاته التاريخية)
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2">
+                                        <div className="flex justify-start pl-2">
+                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">تاريخ التقاعد</label>
+                                        </div>
+                                        <div className="flex items-center gap-2 relative">
+                                            <div className="hidden md:block w-6 shrink-0" />
+                                            <div className="flex-1">
+                                                <DateInput
+                                                    value={selectedEmployee.retirement_date || ""}
+                                                    onChange={(val: string) => setSelectedEmployee({ ...selectedEmployee, retirement_date: val })}
+                                                    placeholder="dd/mm/yyyy"
+                                                    disabled={!isRoleEditable}
+                                                    className="text-center font-mono"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-[132px_1fr] items-center gap-2">
+                                        <div className="flex justify-start pl-2">
+                                            <label className="text-xs font-bold block text-muted-foreground text-right w-full">الأمر الإداري / الملاحظات</label>
+                                        </div>
+                                        <div className="flex items-center gap-2 relative">
+                                            <div className="hidden md:block w-6 shrink-0" />
+                                            <Input
+                                                type="text"
+                                                value={selectedEmployee.retirement_note || ""}
+                                                onChange={(e) => setSelectedEmployee({ ...selectedEmployee, retirement_note: e.target.value })}
+                                                placeholder="رقم وتاريخ الأمر الإداري للإحالة للتقاعد..."
+                                                disabled={!isRoleEditable}
+                                                className="flex-1 text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Removed IBAN */}
 

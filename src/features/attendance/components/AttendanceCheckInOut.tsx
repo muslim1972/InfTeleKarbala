@@ -142,15 +142,24 @@ export default function AttendanceCheckInOut({
     if (!todayAttendance?.raw_punches || !Array.isArray(todayAttendance.raw_punches) || todayAttendance.raw_punches.length === 0) {
       return 0;
     }
-    const last = todayAttendance.raw_punches[todayAttendance.raw_punches.length - 1];
+    // تصفية البصمات: استبعاد البصمات الافتراضية واستبعاد أية بصمات مستقبلية
+    const realPastPunches = todayAttendance.raw_punches.filter((p: any) => {
+      if (p.is_virtual || p.notes?.includes('افتراضي')) return false;
+      const punchMs = new Date(p.time).getTime();
+      return !isNaN(punchMs) && punchMs <= nowTick;
+    });
+    if (realPastPunches.length === 0) return 0;
+    const last = realPastPunches[realPastPunches.length - 1];
     return last?.time ? new Date(last.time).getTime() : 0;
-  }, [todayAttendance?.raw_punches]);
+  }, [todayAttendance?.raw_punches, nowTick]);
 
   const cooldownRemaining = useMemo(() => {
     if (!lastPunchTime) return 0;
     const elapsed = Math.floor((nowTick - lastPunchTime) / 1000);
-    const cooldownDuration = 180; // 3 دقائق صارمة لجميع الموظفين (180 ثانية)
-    return Math.max(0, cooldownDuration - elapsed);
+    // حماية قاطعة: إذا كان الفارق الزمني سالباً أو تجاوز المهلة (3 دقائق = 180 ثانية)، فالمهلة صفر
+    const cooldownDuration = 180;
+    if (elapsed < 0 || elapsed >= cooldownDuration) return 0;
+    return cooldownDuration - elapsed;
   }, [lastPunchTime, nowTick]);
 
   const isCooldownActive = cooldownRemaining > 0;
@@ -1092,7 +1101,51 @@ export default function AttendanceCheckInOut({
     });
   };
 
+  // 🎖️ بطاقة تكريم المتقاعد: إذا كان الموظف محالاً للتقاعد وتاريخ اليوم >= تاريخ التقاعد
+  if (user?.is_retired) {
+    const todayStr = getLocalDateStr();
+    const isPastOrToday = !user.retirement_date || todayStr >= user.retirement_date;
+    if (isPastOrToday) {
+      return (
+        <div className="w-full max-w-2xl mx-auto p-6 md:p-8 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-amber-950/20 rounded-3xl border-2 border-amber-300/80 dark:border-amber-600/40 shadow-xl text-center space-y-5 animate-in fade-in zoom-in-95 duration-500 my-6">
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-1 shadow-lg shadow-amber-500/20 flex items-center justify-center">
+            <div className="w-full h-full rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-3xl">
+              🎖️
+            </div>
+          </div>
 
+          <div className="space-y-2">
+            <h2 className="text-xl md:text-2xl font-black text-amber-900 dark:text-amber-300 font-tajawal">
+              تحية شكر وتقدير وامتنان
+            </h2>
+            <p className="text-sm md:text-base font-bold text-zinc-800 dark:text-zinc-200">
+              الأخ / الأخت: <span className="text-emerald-700 dark:text-emerald-400 font-black">{user.full_name}</span> المحترم
+            </p>
+          </div>
+
+          <div className="p-4 bg-amber-100/60 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-800/50 text-xs md:text-sm text-amber-950 dark:text-amber-200 leading-relaxed font-medium">
+            تثمّن إدارة وملاكات مديرية اتصالات ومعلوماتية كربلاء عطاءكم الثر وجهودكم المخلصة وتفانيكم طوال سنوات خدمتكم الوظيفية.
+            <div className="mt-2 font-bold text-amber-800 dark:text-amber-300">
+              أنتم اليوم في شرف التقاعد ومعفون رسمياً من نظام البصمة الإلكترونية. نتمنى لكم دوام الصحة والعافية والتوفيق.
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-3 pt-2 text-xs text-zinc-600 dark:text-zinc-400">
+            {user.retirement_date && (
+              <span className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-bold">
+                📅 تاريخ الإحالة: <span className="font-mono text-zinc-900 dark:text-zinc-100">{user.retirement_date}</span>
+              </span>
+            )}
+            {user.retirement_note && (
+              <span className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-bold">
+                📜 الأمر الإداري: <span className="text-zinc-900 dark:text-zinc-100">{user.retirement_note}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="space-y-4">

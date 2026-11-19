@@ -84,7 +84,7 @@ export const workLocationService = {
           job_number,
           role,
           work_schedule_id,
-          work_schedule:work_schedules (
+          work_schedule:work_schedules!profiles_work_schedule_id_fkey (
             id,
             name,
             type,

@@ -287,6 +287,47 @@ async function notifySupervisorsOfRejectedLeavePunch(
   }
 }
 
+/**
+ * إشعار المشرفين للتدقيق عبر كاميرات المراقبة عند فقدان بصمة منتصف الليل لموظف الخفر
+ */
+async function notifySupervisorsOfMidnightAudit(
+  employeeId: string,
+  employeeName: string,
+  recordDate: string,
+  alertMessage: string
+) {
+  try {
+    const supervisorIds = await collectSupervisorIds(employeeId);
+    if (supervisorIds.length === 0) return;
+
+    const title = '⚠️ تدقيق حضور منتصف الليل (شفت خفر)';
+    const content = `${alertMessage} — الموظف: (${employeeName}) بتاريخ ${recordDate}.`;
+    const notifRows = supervisorIds.map(supId => ({
+      recipient_id: supId,
+      type: 'system',
+      title,
+      content,
+      is_read: false,
+      metadata: {
+        type: 'midnight_audit_alert',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        record_date: recordDate
+      }
+    }));
+
+    const { error: notifErr } = await supabase.from('system_notifications').insert(notifRows);
+    if (notifErr) console.warn('notifySupervisorsOfMidnightAudit DB error:', notifErr);
+
+    const pushPromises = supervisorIds.map(supId =>
+      sendPushNotification(supId, content, { title })
+    );
+    await Promise.allSettled(pushPromises);
+  } catch (err) {
+    console.error('Error in notifySupervisorsOfMidnightAudit:', err);
+  }
+}
+
 /** إشعار المشرفين عند نقص بصمات الخروج/العودة المطلوبة لإجازة زمنية معتمدة */
 async function notifySupervisorsOfMissingTimeLeavePunches(employeeId: string, message: string) {
   try {
@@ -723,8 +764,6 @@ export const attendanceRecordService = {
     targetSlot?: 'check_in' | 'time_leave_out' | 'time_leave_return' | 'check_out' | 'update_check_out',
     options?: { skipDeviceCheck?: boolean }
   ) {
-    const { categorizePunches } = await import('../utils/punchCategorizer');
-
     // مزامنة التوقيت الرسمي مع الخادم وفحص سلامة ساعة الجهاز ضد أي تلاعب يدوي
     await syncServerTime();
     const tamper = checkClockTampering();
@@ -747,13 +786,19 @@ export const attendanceRecordService = {
     // 2. Fetch profile & schedule to determine shift type
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name')
+      .select('department_id, primary_device_id, work_schedule_id, full_name, is_retired, retirement_date')
       .eq('id', employeeId)
       .single();
 
+    if (profile?.is_retired && (!profile.retirement_date || today >= profile.retirement_date)) {
+      throw new Error(`الموظف محال للتقاعد ومعفى من نظام البصمة ${profile.retirement_date ? `اعتباراً من ${profile.retirement_date}` : ''}`);
+    }
+
     let workSchedule = null;
     let isRestDay = false;
-    let hasConnectedShifts = false;
+    let currentScheduleDay: any = null;
+    let prevScheduleDay: any = null;
+
     if (profile?.work_schedule_id) {
       const { data: ws } = await supabase
         .from('work_schedules')
@@ -764,6 +809,7 @@ export const attendanceRecordService = {
 
       const dateObj = new Date(`${today}T00:00:00`);
       const dayOfWeek = dateObj.getDay();
+      const prevDayOfWeek = (dayOfWeek + 6) % 7;
 
       const { data: sd } = await supabase
         .from('work_schedule_days')
@@ -771,15 +817,18 @@ export const attendanceRecordService = {
         .eq('schedule_id', profile.work_schedule_id)
         .eq('day_of_week', dayOfWeek)
         .maybeSingle();
+      currentScheduleDay = sd;
+
+      const { data: psd } = await supabase
+        .from('work_schedule_days')
+        .select('is_rest_day, is_morning, is_evening, is_night')
+        .eq('schedule_id', profile.work_schedule_id)
+        .eq('day_of_week', prevDayOfWeek)
+        .maybeSingle();
+      prevScheduleDay = psd;
         
       if (sd && sd.is_rest_day) {
         isRestDay = true;
-      }
-      if (sd && (workSchedule?.type === 'roster' || (workSchedule?.name || '').includes('مناوب') || (workSchedule?.name || '').includes('خفر'))) {
-        const activeShiftsCount = [sd.is_morning, sd.is_evening, sd.is_night].filter(Boolean).length;
-        if (activeShiftsCount > 1) {
-          hasConnectedShifts = true;
-        }
       }
     }
 
@@ -860,12 +909,19 @@ export const attendanceRecordService = {
 
     // فحص مهلة الأمان (180 ثانية / 3 دقائق صارمة لجميع الموظفين) بين البصمات لمنع التكرار العرضي
     if (record && Array.isArray(record.raw_punches) && record.raw_punches.length > 0 && !notes?.includes('تجاوز المهلة')) {
-      const lastPunchTime = new Date(record.raw_punches[record.raw_punches.length - 1].time).getTime();
-      const elapsedSeconds = Math.floor((nowServer.getTime() - lastPunchTime) / 1000);
-      const cooldownSeconds = 180; // 3 دقائق صارمة لجميع الحالات
-      if (elapsedSeconds < cooldownSeconds && !bypassLeaveWarning) {
-        const remaining = cooldownSeconds - elapsedSeconds;
-        throw new Error(`يرجى الانتظار ${remaining} ثانية قبل تسجيل بصمة جديدة (مهلة الأمان بين البصمات لمنع التكرار العرضي)`);
+      const realPastPunches = record.raw_punches.filter((p: any) => {
+        if (p.is_virtual || p.notes?.includes('افتراضي')) return false;
+        const punchMs = new Date(p.time).getTime();
+        return !isNaN(punchMs) && punchMs <= nowServer.getTime();
+      });
+      if (realPastPunches.length > 0) {
+        const lastPunchTime = new Date(realPastPunches[realPastPunches.length - 1].time).getTime();
+        const elapsedSeconds = Math.floor((nowServer.getTime() - lastPunchTime) / 1000);
+        const cooldownSeconds = 180; // 3 دقائق صارمة لجميع الحالات
+        if (elapsedSeconds >= 0 && elapsedSeconds < cooldownSeconds && !bypassLeaveWarning) {
+          const remaining = cooldownSeconds - elapsedSeconds;
+          throw new Error(`يرجى الانتظار ${remaining} ثانية قبل تسجيل بصمة جديدة (مهلة الأمان بين البصمات لمنع التكرار العرضي)`);
+        }
       }
     }
 
@@ -972,9 +1028,54 @@ export const attendanceRecordService = {
         (updates as any).admin_notes = morningResult.pdfNote;
       }
     } else {
-      updates = categorizePunches(rawPunches, yesterdayRecord, today, shiftType, false, hasConnectedShifts);
-      if (!updates.raw_punches || updates.raw_punches.length === 0) {
-        updates.raw_punches = rawPunches;
+      // ── محرك المناوبين المستقل (Roster Engine) ──
+      const { evaluateRosterAttendance } = await import('../engines/rosterAttendanceEngine');
+      const { data: approvedLeavesData } = await supabase
+        .from('leave_requests')
+        .select('id, leave_type, start_date, end_date, leave_start_time, leave_end_time, time_duration_minutes, time_off_subtype, status, reason')
+        .eq('user_id', employeeId)
+        .eq('status', 'approved')
+        .lte('start_date', today)
+        .or(`end_date.gte.${today},end_date.is.null`);
+
+      const rosterSchedule = {
+        is_morning: Boolean(currentScheduleDay?.is_morning),
+        is_evening: Boolean(currentScheduleDay?.is_evening),
+        is_night: Boolean(currentScheduleDay?.is_night),
+        is_rest_day: Boolean(isRestDay)
+      };
+      const prevRosterSchedule = {
+        is_night: Boolean(prevScheduleDay?.is_night)
+      };
+      const approvedLeavesList = (approvedLeavesData || []).filter((l: any) => l.leave_type !== 'time_off');
+      const approvedTimeOffsList = (approvedLeavesData || []).filter((l: any) => l.leave_type === 'time_off');
+
+      const rosterResult = evaluateRosterAttendance(
+        rawPunches,
+        today,
+        rosterSchedule,
+        prevRosterSchedule,
+        approvedLeavesList as any,
+        approvedTimeOffsList as any,
+        false
+      );
+
+      updates = {
+        raw_punches: rosterResult.rawPunches,
+        ...(rosterResult.slots as any),
+        status: rosterResult.status,
+        notes: rosterResult.notes || undefined
+      };
+      if (rosterResult.pdfNote) {
+        (updates as any).admin_notes = rosterResult.pdfNote;
+      }
+      if (rosterResult.supervisorAlert) {
+        notifySupervisorsOfMidnightAudit(
+          employeeId,
+          profile?.full_name || 'موظف مناوب',
+          today,
+          rosterResult.supervisorAlert
+        ).catch(console.warn);
       }
     }
 
@@ -2268,9 +2369,14 @@ export const attendanceRecordService = {
     // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name')
+      .select('department_id, primary_device_id, work_schedule_id, full_name, is_retired, retirement_date')
       .eq('id', employeeId)
       .single();
+
+    const todayStr = getServerLocalDateStr();
+    if (profile?.is_retired && (!profile.retirement_date || todayStr >= profile.retirement_date)) {
+      throw new Error(`الموظف محال للتقاعد ومعفى من نظام البصمة ${profile.retirement_date ? `اعتباراً من ${profile.retirement_date}` : ''}`);
+    }
 
     let isDevicePending = false;
     const isAuthorized = await verifyAndAuthorizeDevice(employeeId, deviceId, profile);

@@ -1,6 +1,6 @@
 // public/sw-kiosk.js
 // Service Worker لطرفية البصمة البايومترية العامة (PWA WebAPK)
-const KIOSK_CACHE = 'kiosk-cache-v1';
+const KIOSK_CACHE = 'kiosk-cache-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

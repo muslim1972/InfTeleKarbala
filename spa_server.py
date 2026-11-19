@@ -151,17 +151,29 @@ class MultiSPARequestHandler(http.server.SimpleHTTPRequestHandler):
         if os.path.isfile(local_path):
             return self._serve_file_with_range(local_path, method)
 
-        # 2. دعم المجلدات متعددة الصفحات (Multi-Page Architecture MPA) مثل /kiosk/
-        if os.path.isdir(local_path):
-            dir_index = os.path.join(local_path, "index.html")
-            if os.path.isfile(dir_index):
-                return self._serve_file_with_range(dir_index, method)
-
-        # 3. توجيه مسارات الطرفية العامة /kiosk و /kiosk/* إلى مدخل الطرفية المعزول حصراً
+        # 2. توجيه مسارات الطرفية العامة /kiosk و /kiosk/* إلى مدخل الطرفية المعزول حصراً مع 200 OK مباشر
         if clean_path == "/kiosk" or clean_path.startswith("/kiosk/"):
             kiosk_index = os.path.join(root, "kiosk", "index.html")
             if os.path.isfile(kiosk_index):
                 return self._serve_file_with_range(kiosk_index, method)
+
+        # 3. دعم المجلدات متعددة الصفحات (Multi-Page Architecture MPA)
+        if os.path.isdir(local_path):
+            if not clean_path.endswith("/"):
+                self.send_response(301, "Moved Permanently")
+                target = clean_path + "/"
+                qs = urllib.parse.urlparse(self.path).query
+                if qs:
+                    target += "?" + qs
+                self.send_header("Location", target)
+                self.send_header("Content-Length", "0")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                return
+
+            dir_index = os.path.join(local_path, "index.html")
+            if os.path.isfile(dir_index):
+                return self._serve_file_with_range(dir_index, method)
         
         if "." in os.path.basename(clean_path):
             self.send_error(404, "File not found")

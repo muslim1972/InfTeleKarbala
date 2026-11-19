@@ -515,6 +515,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (user?.is_retired) {
+      setError('الحساب في وضع الأرشيف (محال للتقاعد) — لا يمكن تقديم طلبات إجازة جديدة.');
+      return;
+    }
     if (!formData.startDate || !formData.reason) {
       setError('يرجى تعبئة جميع الحقول المطلوبة بشكل صحيح.');
       return;
@@ -973,6 +977,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {user?.is_retired && (
+              <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 text-center space-y-2">
+                <div className="font-bold text-sm flex items-center justify-center gap-2">
+                  <span className="text-xl">🎖️</span>
+                  <span>الحساب في وضع الأرشيف (محال للتقاعد)</span>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  أنتم معفون رسمياً من الدوام ولا يمكن تقديم طلبات إجازة جديدة. يمكنكم استعراض سجلاتكم السابقة فقط.
+                </p>
+              </div>
+            )}
             
             <LeaveTypeInfoAlert leaveType={formData.leaveType} />
 
@@ -1214,10 +1229,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !!user?.is_retired}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'جاري الإرسال...' : substitute ? 'إرسال طلب التكليف للبديل' : 'إرسال الطلب للمسؤول'}
+              {user?.is_retired ? 'الحساب في وضع الأرشيف (محال للتقاعد)' : isSubmitting ? 'جاري الإرسال...' : substitute ? 'إرسال طلب التكليف للبديل' : 'إرسال الطلب للمسؤول'}
             </button>
           </form>
         )}

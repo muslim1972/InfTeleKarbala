@@ -161,6 +161,13 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [selectedRosterShift, setSelectedRosterShift] = useState<'morning' | 'evening' | 'night' | null>(null);
   const [substitute, setSubstitute] = useState<SubstituteEmployee | null>(null);
 
+  // فرض تحويل المناوب تلقائياً إلى بداية الشفت ومنع وسط الدوام
+  useEffect(() => {
+    if (isRosterSchedule && subtype === 'mid_shift') {
+      setSubtype('shift_start');
+    }
+  }, [isRosterSchedule, subtype]);
+
   // ── UI state ──────────────────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -502,7 +509,12 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
       setError('يرجى تحديد تاريخ الإجازة أولاً');
       return false;
     }
-    // 2) منع التواريخ الماضية نهائياً (اليوم الحالي والأيام القادمة مسموحة)
+    // 2) منع وسط الدوام للمناوبين
+    if (isRosterSchedule && subtype === 'mid_shift') {
+      setError('لا يُسمح بالإجازة الزمنية في وسط الدوام للمناوبين. يرجى اختيار بداية الشفت أو نهاية الشفت.');
+      return false;
+    }
+    // 3) منع التواريخ الماضية نهائياً (اليوم الحالي والأيام القادمة مسموحة)
     if (requestDate < todayStr) {
       setError('لا يمكن تقديم إجازة زمنية لتاريخ ماضٍ.');
       return false;
@@ -616,6 +628,10 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   // ── Submit flow ───────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (user?.is_retired) {
+      toast.error('الحساب في وضع الأرشيف (محال للتقاعد) — لا يمكن تقديم طلبات إجازة زمنية جديدة');
+      return;
+    }
     if (!validate()) return;
     setShowConfirm(true);
   };
@@ -811,6 +827,17 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-5" dir="rtl">
+        {user?.is_retired && (
+          <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 text-center space-y-2">
+            <div className="font-bold text-sm flex items-center justify-center gap-2">
+              <span className="text-xl">🎖️</span>
+              <span>الحساب في وضع الأرشيف (محال للتقاعد)</span>
+            </div>
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              أنتم معفون رسمياً من الدوام ولا يمكن تقديم طلبات زمنية جديدة. يمكنكم استعراض سجلاتكم السابقة فقط.
+            </p>
+          </div>
+        )}
 
         {/* ── بطاقة الإجازات الزمنية المسجلة مسبقاً لهذا التاريخ ── */}
         {existingRequests.length > 0 && (
@@ -859,8 +886,15 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
             حدد نوع الزمنية
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {(Object.entries(SUBTYPE_CONFIGS) as [TimeOffSubtype, SubtypeConfig][]).map(([key, config]) => (
+          {isRosterSchedule && (
+            <div className="mb-2 p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+              ℹ️ <strong>تنبيه للمناوبين:</strong> تُمنح الإجازة الزمنية للمناوب فقط في بداية الشفت أو نهايته لتأمين تسليم واستلام المهام، ولا يُسمح بالإجازة الزمنية في وسط الشفت لمنع شغور موقع العمل.
+            </div>
+          )}
+          <div className={`grid ${isRosterSchedule ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}>
+            {(Object.entries(SUBTYPE_CONFIGS) as [TimeOffSubtype, SubtypeConfig][])
+              .filter(([key]) => !isRosterSchedule || key !== 'mid_shift')
+              .map(([key, config]) => (
               <button
                 key={key}
                 type="button"
@@ -1176,10 +1210,12 @@ const TimeOffRequestForm: React.FC<Props> = ({ onSuccess }) => {
         {/* ── زر الإرسال ──────────────────────────────────────────────────── */}
         <button
           type="submit"
-          disabled={isSubmitting || loadingManager}
+          disabled={isSubmitting || loadingManager || !!user?.is_retired}
           className="w-full bg-gradient-to-l from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-base"
         >
-          {isSubmitting ? (
+          {user?.is_retired ? (
+            'الحساب في وضع الأرشيف (محال للتقاعد)'
+          ) : isSubmitting ? (
             <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> جاري الإرسال...</span>
           ) : substitute ? 'إرسال طلب التكليف للبديل' : 'إرسال الطلب للمسؤول'}
         </button>

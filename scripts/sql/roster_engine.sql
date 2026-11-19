@@ -1,7 +1,14 @@
--- محرك محاسبة المناوب (Roster) — يعمل داخل قاعدة البيانات، idempotent
--- التوقيت: بغداد UTC+3. بلا سماحية: صباحي 08-15، مسائي 15-20، خفر 20-08.
--- كل وحدة شفت = يوم إجازة؛ الخفر نصفان (20-24 و00-08) = يومان.
--- قيد واحد لكل تاريخ (days_count = عدد وحدات ذلك التاريخ).
+-- ==============================================================================
+-- محرك محاسبة وتقييم المناوب (Roster Rules Engine) — تشخيصي بحت، آمن، idempotent
+-- مديرية اتصالات كربلاء — إطار عمل B.R.I.C.K (ATT-04)
+-- ==============================================================================
+-- المبادئ الصارمة:
+-- 1. صفر إجازات تلقائية: لا يُنشئ ولا يُعدل قيود إجازة في leave_requests أبداً.
+-- 2. التحقق من بصمتي منتصف الليل لشفت الخفر:
+--    - إن وُجدتا: حضور مثبت وتأكيد التواجد.
+--    - إن فُقدتا: إدراج بصمة افتراضية حمراء في السجل مع تنبيه أصولي للمشرف لمراجعة كاميرات المراقبة.
+-- 3. حماية أوزان الشفتات: صباحي=1، مسائي=1، خفر=2، مسائي+خفر=3.
+-- ==============================================================================
 
 CREATE OR REPLACE FUNCTION public.roster_real_punches(p_emp uuid, p_from timestamptz, p_to timestamptz)
 RETURNS TABLE(t timestamptz) LANGUAGE sql STABLE AS $$
@@ -32,9 +39,16 @@ DECLARE
   base timestamptz := (p_date::timestamp AT TIME ZONE 'Asia/Baghdad');
   units int := 0; parts text[] := '{}';
   kh1 boolean; prev_kh1 boolean;
-  v_leave record; v_overlap int; v_reason text; v_note text; v_name text;
-  v_dept uuid; v_gov text; v_mgr uuid; r record; v_created boolean := false; v_id uuid;
+  v_overlap int; v_name text;
+  v_dept uuid; v_gov text; v_mgr uuid; r record;
   v_m_tl int := 0; v_e_tl int := 0; v_n_tl int := 0;
+  
+  -- متغيرات فحص منتصف الليل لشفت الخفر
+  v_midnight_punches int := 0;
+  v_midnight_verified boolean := false;
+  v_rec_id uuid;
+  v_existing_raw jsonb;
+  v_alert_msg text;
 BEGIN
   SELECT p.work_schedule_id, p.full_name, p.department_id, p.governorate
     INTO v_sched, v_name, v_dept, v_gov FROM profiles p WHERE p.id = p_emp;
@@ -46,7 +60,7 @@ BEGIN
   SELECT * INTO d_today FROM work_schedule_days WHERE schedule_id = v_sched AND day_of_week = extract(dow FROM p_date)::int;
   SELECT * INTO d_prev  FROM work_schedule_days WHERE schedule_id = v_sched AND day_of_week = extract(dow FROM p_date - 1)::int;
 
-  -- فحص الإجازات الزمنية المعتمدة (نوع A) للشفتات لليوم المحدد
+  -- فحص الإجازات الزمنية المعتمدة (نوع shift_start فقط) للشفتات لليوم المحدد
   SELECT coalesce(max(time_duration_minutes), 0) INTO v_m_tl FROM leave_requests
    WHERE user_id = p_emp AND status = 'approved' AND start_date = p_date
      AND leave_type = 'time_off' AND time_off_subtype = 'shift_start'
@@ -100,9 +114,47 @@ BEGIN
       kh1 := roster_unit_attended(p_emp, base + interval '20 hours');
       IF NOT kh1 THEN units := units + 1; parts := array_append(parts, 'خفر (20:00-24:00)'::text); END IF;
     END IF;
+
+    -- فحص شرط بصمة منتصف الليل لشفت الخفر (بين 23:15 و 00:45)
+    SELECT count(*) INTO v_midnight_punches
+    FROM roster_real_punches(p_emp, base + interval '23 hours 15 minutes', base + interval '24 hours 45 minutes');
+
+    IF v_midnight_punches > 0 THEN
+      v_midnight_verified := true;
+    ELSIF now() >= base + interval '24 hours' THEN
+      -- فُقدت بصمة منتصف الليل: إدراج بصمة افتراضية حمراء وتنبيه المشرف لمراجعة الكاميرات
+      SELECT id, raw_punches INTO v_rec_id, v_existing_raw
+      FROM attendance_records
+      WHERE employee_id = p_emp AND (created_at AT TIME ZONE 'Asia/Baghdad')::date = p_date
+      ORDER BY created_at DESC LIMIT 1;
+
+      IF v_rec_id IS NOT NULL THEN
+        -- التأكد من عدم تكرار البصمة الافتراضية
+        IF NOT (v_existing_raw::text LIKE '%لم يثبت حضور منتصف الليل%') THEN
+          UPDATE attendance_records
+          SET raw_punches = coalesce(raw_punches, '[]'::jsonb) || jsonb_build_object(
+                'time', (base + interval '23 hours 59 minutes 59 seconds')::timestamptz,
+                'notes', '(بصمة منتصف ليل افتراضية حمراء - لم يثبت حضور منتصف الليل)',
+                'is_virtual', true
+              ),
+              admin_notes = coalesce(admin_notes || ' | ', '') || 'تنبيه تدقيق: لم يثبت الموظف حضوره عند منتصف الليل لشفت الخفر. يرجى مراجعة الكاميرات للتحقق من التواجد بالمقر.'
+          WHERE id = v_rec_id;
+
+          -- إشعار المشرفين للتدقيق عبر الكاميرات
+          v_alert_msg := format('⚠️ تنبيه تدقيق: لم يثبت الموظف (%s) حضوره عند منتصف الليل لشفت الخفر لتاريخ %s. يرجى مراجعة الكاميرات.', v_name, p_date);
+          FOR r IN
+            SELECT id FROM profiles WHERE admin_role IN ('biometric','attendance_supervisor','general') AND governorate IS NOT DISTINCT FROM v_gov
+          LOOP
+            INSERT INTO system_notifications(recipient_id, title, content, type, metadata)
+            VALUES (r.id, '⚠️ تدقيق حضور منتصف الليل', v_alert_msg, 'system',
+                    jsonb_build_object('employee_id', p_emp, 'date', p_date, 'type', 'midnight_audit_alert'));
+          END LOOP;
+        END IF;
+      END IF;
+    END IF;
   END IF;
 
-  -- خفر-النصف الثاني 00:00 (يتبع خفر الأمس) — مرونة 30د
+  -- خفر-النصف الثاني 00:00 (يتبع خفر الأمس)
   IF coalesce(d_prev.is_night,false) AND now() >= base + interval '1 hour' THEN
     prev_kh1 := roster_unit_attended(p_emp, base - interval '4 hours');
     IF NOT prev_kh1 AND NOT roster_unit_attended(p_emp, base, interval '30 minutes') THEN
@@ -112,51 +164,17 @@ BEGIN
   -- إجازة معتمدة غير إجبارية تغطي اليوم → لا حكم
   SELECT count(*) INTO v_overlap FROM leave_requests
    WHERE user_id = p_emp AND status = 'approved' AND coalesce(is_mandatory,false) = false
-     AND leave_type = 'regular' AND p_date BETWEEN start_date AND end_date;
+     AND leave_type IN ('regular', 'sick', 'duty') AND p_date BETWEEN start_date AND coalesce(end_date, start_date);
   IF v_overlap > 0 THEN RETURN jsonb_build_object('skipped','covered_by_leave'); END IF;
 
-  SELECT * INTO v_leave FROM leave_requests
-   WHERE user_id = p_emp AND is_mandatory = true AND leave_type = 'regular'
-     AND start_date = p_date AND end_date = p_date AND status = 'approved' LIMIT 1;
-
-  IF units = 0 THEN
-    RETURN jsonb_build_object('date', p_date, 'units', 0, 'existing', v_leave.id);
-  END IF;
-
-  v_reason := format('عدم الحضور/التأخر لأكثر من ساعة في: %s — إجازة اعتيادية إجبارية (%s يوم)', array_to_string(parts, ' + '), units);
-  v_note := format('إجازة إجبارية %s يوم بسبب التأخير لأكثر من ساعتين، وللإدارة تحويلها إلى غياب', units);
-
-  IF v_leave.id IS NULL THEN
-    INSERT INTO leave_requests(user_id, start_date, end_date, days_count, reason, status, leave_status, leave_type, is_mandatory, with_request, notes)
-    VALUES (p_emp, p_date, p_date, units, v_reason, 'approved', 'approved', 'regular', true, false, v_note) RETURNING id INTO v_id;
-    v_created := true;
-  ELSIF v_leave.days_count IS DISTINCT FROM units THEN
-    UPDATE leave_requests 
-    SET days_count = units, 
-        reason = v_reason, 
-        notes = v_note,
-        status = 'approved',
-        leave_status = 'approved'
-    WHERE id = v_leave.id;
-    v_id := v_leave.id; v_created := true;
-  ELSE
-    v_id := v_leave.id;
-  END IF;
-
-  IF v_created THEN
-    SELECT manager_id INTO v_mgr FROM departments WHERE id = v_dept;
-    FOR r IN
-      SELECT p_emp AS rid UNION
-      SELECT id FROM profiles WHERE admin_role IN ('biometric','attendance_supervisor','general') AND governorate IS NOT DISTINCT FROM v_gov
-      UNION SELECT v_mgr WHERE v_mgr IS NOT NULL
-    LOOP
-      INSERT INTO system_notifications(recipient_id, type, title, content, metadata)
-      VALUES (r.rid, 'attendance_alert', 'إجازة إجبارية (مناوب)',
-        format('%s — %s: %s', v_name, p_date, v_note) || ' — ' || array_to_string(parts, ' + '),
-        jsonb_build_object('leave_id', v_id, 'roster_engine', true, 'date', p_date, 'units', units));
-    END LOOP;
-  END IF;
-  RETURN jsonb_build_object('date', p_date, 'units', units, 'parts', parts, 'leave_id', v_id);
+  -- الناتج تشخيصي بحت دون إدراج أي قيود إجازة في leave_requests
+  RETURN jsonb_build_object(
+    'date', p_date,
+    'units', units,
+    'parts', parts,
+    'midnight_verified', v_midnight_verified,
+    'status', CASE WHEN units = 0 THEN 'present' ELSE 'uncovered_shifts' END
+  );
 END $$;
 
 CREATE OR REPLACE FUNCTION public.roster_evaluate_all()
@@ -171,7 +189,7 @@ BEGIN
   RETURN n;
 END $$;
 
--- أمان: الدوال الداخلية لا تُستدعى من العميل؛ المنتسب يستدعي غلافاً لنفسه فقط
+-- أمان: الصلاحيات
 REVOKE ALL ON FUNCTION public.roster_evaluate_day(uuid,date), public.roster_evaluate_all(), public.roster_unit_attended(uuid,timestamptz,interval), public.roster_real_punches(uuid,timestamptz,timestamptz) FROM PUBLIC, anon, authenticated;
 CREATE OR REPLACE FUNCTION public.roster_evaluate_me() RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE td date := (now() AT TIME ZONE 'Asia/Baghdad')::date;
@@ -181,4 +199,3 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.roster_evaluate_me() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.roster_evaluate_me() TO authenticated;
-

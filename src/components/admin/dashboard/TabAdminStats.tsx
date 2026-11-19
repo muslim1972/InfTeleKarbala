@@ -8,7 +8,8 @@ import {
     Loader2,
     AlertCircle,
     CalendarDays,
-    Printer
+    Printer,
+    Award
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { cn } from '../../../lib/utils';
@@ -20,6 +21,7 @@ interface StatsData {
     birth_year_dist: Record<string, number>;
     appointment_year_dist: Record<string, number>;
     login_activity: { date: string; count: number }[];
+    retired_count?: number;
 }
 
 export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
@@ -228,12 +230,19 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
     return (
         <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-500">
             {/* Snapshot Header */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <StatSummaryCard 
-                    title="إجمالي الموظفين" 
+                    title="الموظفون بالخدمة" 
                     value={totalEmployees} 
                     icon={Users} 
                     color="blue"
+                    theme={theme}
+                />
+                <StatSummaryCard 
+                    title="سجل المتقاعدين" 
+                    value={stats?.retired_count || 0} 
+                    icon={Award} 
+                    color="amber"
                     theme={theme}
                 />
                 <StatSummaryCard 

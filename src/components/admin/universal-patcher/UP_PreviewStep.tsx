@@ -196,6 +196,13 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                                 </span>
                             )}
                         </div>
+                        {/* تنبيه الموظف المحال للتقاعد */}
+                        {m.isRetired && (
+                            <div className="mt-2 px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 rounded-md text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 animate-in fade-in">
+                                <span>🎖️</span>
+                                <span>تنبيه: موظف محال للتقاعد {m.retirementDate ? `(بتاريخ ${m.retirementDate})` : ''} ورد له قيد في هذا الملف (تحديث مستحقات/فروقات)</span>
+                            </div>
+                        )}
                         {/* التغييرات */}
                         {Object.keys(m.diffs).length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2 mr-1">

@@ -329,6 +329,7 @@ function App() {
                       <Route path="/login" element={<AppContent />} />
                       {/* البصمة البايومترية العامة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
                       <Route path="/kiosk" element={<KioskPage />} />
+                      <Route path="/kiosk/*" element={<KioskPage />} />
                       <Route path="/kiosk/index.html" element={<KioskPage />} />
                       {/* التحقق الرقمي من صحة صدور الوثائق — مسار عام عبر QR Code بلا تسجيل دخول */}
                       <Route path="/verify/continuity/:id" element={<PublicContinuityVerifyPage />} />
