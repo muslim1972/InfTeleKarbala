@@ -232,20 +232,25 @@ export const TabManageEmployees = ({
                                     onChange={(val: string | null, dept?: any, parentDept?: any) => {
                                         const updates: any = { department_id: val };
                                         if (dept) {
+                                            const govName = selectedEmployee.governorate === 'babil' ? 'بابل' : selectedEmployee.governorate === 'najaf' ? 'النجف' : 'كربلاء';
                                             if (dept.level === 1 || dept.level === 2) {
-                                                updates.dept_text = dept.name;
-                                                updates.section_text = '';
+                                                updates.dept_text = govName;
+                                                updates.section_text = dept.name;
                                                 updates.unit_text = '';
                                             } else if (dept.level === 4) {
                                                 updates.section_text = dept.name;
-                                                if (parentDept) updates.dept_text = parentDept.name;
+                                                if (parentDept) {
+                                                    updates.dept_text = (parentDept.level && parentDept.level <= 2) ? govName : parentDept.name;
+                                                } else {
+                                                    updates.dept_text = govName;
+                                                }
                                             } else if (dept.level === 3) {
                                                 const isSecOrComplex = dept.name.startsWith('شعبة') ||
                                                     dept.name.startsWith('شعبه') ||
                                                     dept.name.startsWith('الشعبة') ||
                                                     dept.name.startsWith('مجمع');
                                                 if (isSecOrComplex) {
-                                                    updates.dept_text = 'مديرية الاتصالات';
+                                                    updates.dept_text = govName;
                                                     updates.section_text = dept.name;
                                                     updates.unit_text = '';
                                                 } else {
@@ -991,12 +996,21 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
 
                 <div className="flex-1 relative">
                     {field.options ? (() => {
-                        const allOptions = (value && !field.options.includes(String(value)))
-                            ? [String(value), ...field.options]
-                            : field.options;
+                        const normalizedOptions: { value: string; label: string }[] = field.options.map((opt: any) =>
+                            typeof opt === 'object' && opt !== null && 'value' in opt
+                                ? { value: String(opt.value), label: String(opt.label) }
+                                : { value: String(opt), label: String(opt) }
+                        );
+                        const strVal = (field.key === 'transport_allowance' && (value === 0 || value === '0' || value === null || value === undefined || value === ''))
+                            ? '0'
+                            : (value !== null && value !== undefined && value !== '') ? String(value) : '';
+                        const exists = normalizedOptions.some(o => o.value === strVal);
+                        const allOptions = (strVal && !exists)
+                            ? [{ value: strVal, label: strVal === '0' ? 'بلا' : strVal }, ...normalizedOptions]
+                            : normalizedOptions;
                         return (
                             <Select
-                                value={value?.toString() || ""}
+                                value={strVal}
                                 onValueChange={(val) => onChange(field.key, val)}
                                 disabled={field.disabled || isReadOnly}
                             >
@@ -1004,8 +1018,8 @@ function FinancialInput({ field, value, onChange, recordId, tableName, dbField, 
                                     <SelectValue placeholder="اختر..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {allOptions.map((opt: string) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    {allOptions.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

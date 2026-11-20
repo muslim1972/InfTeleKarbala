@@ -220,7 +220,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     );
 
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative bg-transparent !pb-14 md:!pb-16" onBack={onBack}>
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative bg-transparent !pb-28 sm:!pb-36" onBack={onBack}>
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
                 <DepartmentsManager theme={theme} />

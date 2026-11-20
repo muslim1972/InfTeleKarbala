@@ -67,16 +67,18 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
         if (gov.isActive || activeCards[gov.id]) {
             // For login selection, anyone can select their gov. The context will overwrite if they login as a locked user.
             setActiveGovernorate(gov.id);
-            // also set session storage directly here since setActiveGovernorate might be blocked if they are logged in but shouldn't be on this screen
             sessionStorage.setItem('selectedGovernorate', gov.id);
+            localStorage.setItem('last_active_governorate', gov.id);
             onSelect();
         } else {
-            toast.error("ستضاف قريبا ان شاء الله", {
+            toast("سيتم فتح هذه المحافظة قريباً", {
                 icon: '⏳',
                 style: {
-                    borderRadius: '10px',
-                    background: isDark ? '#333' : '#fff',
-                    color: isDark ? '#fff' : '#333',
+                    borderRadius: '12px',
+                    background: isDark ? '#1e293b' : '#ffffff',
+                    color: isDark ? '#ffffff' : '#0f172a',
+                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                    fontWeight: 'bold',
                 },
             });
         }

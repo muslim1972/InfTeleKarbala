@@ -937,7 +937,13 @@ export default function AttendanceCheckInOut({
       toast(tamperInfo.message, { icon: '⚠️', duration: 5000 });
     }
 
-    const shiftType = determineShiftType(user as any, null);
+    // تحديد نوع الدوام بدقة استناداً إلى سياق الدوام المحمل (Roster/Shifts vs Morning)
+    const effectiveWorkScheduleId = (user as any)?.work_schedule_id;
+    const shiftType = dutyCtx?.shiftType || determineShiftType(
+      { work_schedule_id: effectiveWorkScheduleId, work_schedule: (user as any)?.work_schedule },
+      null
+    );
+
     if (!hasExistingPunch) {
       if (shiftType === 'morning') {
         const nowServer = getServerNow();

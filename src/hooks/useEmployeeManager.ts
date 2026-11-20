@@ -780,7 +780,19 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             { key: 'certificate_allowance', label: 'م. الشهادة', isMoney: true },
             { key: 'engineering_allowance', label: 'م. هندسية', isMoney: true, disabled: true },
             { key: 'legal_allowance', label: 'م. القانونية', isMoney: true, disabled: true },
-            { key: 'transport_allowance', label: 'م. النقل', isMoney: true, options: ['20000', '30000'] },
+            { 
+                key: 'transport_allowance', 
+                label: 'م. النقل', 
+                isMoney: true, 
+                options: [
+                    { value: '0', label: 'بلا' },
+                    { value: '20000', label: '20000' },
+                    { value: '30000', label: '30000' },
+                    { value: '40000', label: '40000' },
+                    { value: '50000', label: '50000' },
+                    { value: '60000', label: '60000' }
+                ] 
+            },
             { key: 'marital_allowance', label: 'م. الزوجية', isMoney: true },
             { key: 'children_allowance', label: 'م. الاطفال', isMoney: true },
             { key: 'position_allowance', label: 'م. المنصب', isMoney: true },
@@ -840,6 +852,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             } else {
                 newData.certificate_allowance = 0;
             }
+        }
+
+        if (key === 'transport_allowance') {
+            newData.transport_allowance = Number(value) || 0;
         }
 
         if (key === 'risk_percentage' || key === 'nominal_salary') {

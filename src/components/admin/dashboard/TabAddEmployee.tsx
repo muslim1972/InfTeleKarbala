@@ -124,20 +124,25 @@ export const TabAddEmployee = ({
                             onChange={(val: string | null, dept?: any, parentDept?: any) => {
                                 const updates: any = { department_id: val };
                                 if (dept) {
+                                    const govName = formData.governorate === 'babil' ? 'بابل' : formData.governorate === 'najaf' ? 'النجف' : 'كربلاء';
                                     if (dept.level === 1 || dept.level === 2) {
-                                        updates.dept_text = dept.name;
-                                        updates.section_text = '';
+                                        updates.dept_text = govName;
+                                        updates.section_text = dept.name;
                                         updates.unit_text = '';
                                     } else if (dept.level === 4) {
                                         updates.section_text = dept.name;
-                                        if (parentDept) updates.dept_text = parentDept.name;
+                                        if (parentDept) {
+                                            updates.dept_text = (parentDept.level && parentDept.level <= 2) ? govName : parentDept.name;
+                                        } else {
+                                            updates.dept_text = govName;
+                                        }
                                     } else if (dept.level === 3) {
                                         const isSecOrComplex = dept.name.startsWith('شعبة') ||
                                             dept.name.startsWith('شعبه') ||
                                             dept.name.startsWith('الشعبة') ||
                                             dept.name.startsWith('مجمع');
                                         if (isSecOrComplex) {
-                                            updates.dept_text = 'مديرية الاتصالات';
+                                            updates.dept_text = govName;
                                             updates.section_text = dept.name;
                                             updates.unit_text = '';
                                         } else {

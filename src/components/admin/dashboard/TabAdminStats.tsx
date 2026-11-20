@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
     Users, 
-    Calendar, 
     Activity, 
     TrendingUp, 
     Loader2,
@@ -228,9 +227,9 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
     const unspecifiedPct = totalEmployees > 0 ? (unspecifiedCount / totalEmployees) * 100 : 0;
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-500">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-6 space-y-4 sm:space-y-6 animate-in fade-in duration-500">
             {/* Snapshot Header */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
                 <StatSummaryCard 
                     title="الموظفون بالخدمة" 
                     value={totalEmployees} 
@@ -261,23 +260,25 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
                     color="purple"
                     theme={theme}
                 />
-                <StatSummaryCard 
-                    title="التعيينات الجديدة" 
-                    value={stats?.appointment_year_dist?.[new Date().getFullYear().toString()] || 0} 
-                    icon={TrendingUp} 
-                    color="amber"
-                    theme={theme}
-                />
+                <div className="col-span-2 lg:col-span-1">
+                    <StatSummaryCard 
+                        title="التعيينات الجديدة" 
+                        value={stats?.appointment_year_dist?.[new Date().getFullYear().toString()] || 0} 
+                        icon={TrendingUp} 
+                        color="amber"
+                        theme={theme}
+                    />
+                </div>
             </div>
 
             {/* Main Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Gender Distribution Card */}
-                <GlassCard className="p-6">
-                    <div className="flex justify-between items-center mb-6">
+                <GlassCard className="p-4 sm:p-6">
+                    <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                             <Users className="w-5 h-5 text-blue-500 opacity-70" />
-                            <h3 className={cn("font-bold text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>
+                            <h3 className={cn("font-bold text-base sm:text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>
                                 توزيع النوع الاجتماعي
                             </h3>
                         </div>
@@ -303,7 +304,7 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
                         </button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-2">
+                    <div className="flex flex-col items-center justify-center py-2">
                         {/* Interactive Dynamic Donut Chart */}
                         <div className="relative flex flex-col items-center">
                             <DonutChart 
@@ -315,83 +316,31 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
                                 total={totalEmployees}
                                 theme={theme}
                             />
-                            {/* Badges showing percentages around / under chart */}
-                            <div className="flex items-center justify-center gap-2 mt-3 text-[11px] font-bold">
-                                <span className="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">
-                                    ذكور {malePct.toFixed(0)}%
+                            {/* Badges showing percentages and counts in a single compact row */}
+                            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-4 text-xs font-bold">
+                                <span className="text-blue-500 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">
+                                    ذكور {malePct.toFixed(0)}% = {maleCount}
                                 </span>
-                                <span className="text-pink-500 bg-pink-500/10 px-2 py-0.5 rounded-full">
-                                    إناث {femalePct.toFixed(0)}%
+                                <span className="text-pink-500 bg-pink-500/10 border border-pink-500/20 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">
+                                    إناث {femalePct.toFixed(0)}% = {femaleCount}
                                 </span>
-                                <span className="text-gray-500 bg-gray-500/10 px-2 py-0.5 rounded-full">
-                                    {unspecifiedPct.toFixed(0)}%
+                                <span className="text-gray-500 bg-gray-500/10 border border-gray-500/20 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">
+                                    غير محدد {unspecifiedPct.toFixed(0)}% = {unspecifiedCount}
                                 </span>
                             </div>
                         </div>
-
-                        {/* Detailed Modern Legend Items with large numbers and percentages */}
-                        <div className="w-full sm:w-60 space-y-3">
-                            <LegendItem 
-                                label="ذكور" 
-                                value={maleCount} 
-                                percentage={malePct} 
-                                color="bg-blue-500" 
-                                textColor="text-blue-500"
-                                theme={theme} 
-                            />
-                            <LegendItem 
-                                label="إناث" 
-                                value={femaleCount} 
-                                percentage={femalePct} 
-                                color="bg-pink-500" 
-                                textColor="text-pink-500"
-                                theme={theme} 
-                            />
-                            <LegendItem 
-                                label="غير محدد" 
-                                value={unspecifiedCount} 
-                                percentage={unspecifiedPct} 
-                                color="bg-gray-400" 
-                                textColor="text-gray-400"
-                                theme={theme} 
-                            />
-                        </div>
-                    </div>
-                </GlassCard>
-
-                {/* Login Activity */}
-                <GlassCard className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className={cn("font-bold text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>نشاط تسجيل الدخول (آخر 30 يوم)</h3>
-                        <div className="flex gap-2">
-                            <Activity className="w-5 h-5 text-green-500 opacity-50" />
-                        </div>
-                    </div>
-                    <div className="h-48 flex items-end gap-1 px-2">
-                        {stats?.login_activity?.map((d, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
-                                <motion.div 
-                                    initial={{ height: 0 }}
-                                    animate={{ height: `${(d.count / Math.max(...(stats?.login_activity?.map(x => x.count) || [1]), 1)) * 100}%` }}
-                                    className="w-full bg-green-500/40 group-hover:bg-green-500/60 rounded-t-sm transition-all"
-                                />
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                    {d.date}: {d.count}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex justify-between mt-2 text-[10px] text-gray-500 px-1">
-                        <span>{stats?.login_activity?.[0]?.date}</span>
-                        <span>{stats?.login_activity?.slice(-1)[0]?.date}</span>
                     </div>
                 </GlassCard>
 
                 {/* Appointment Years */}
-                <GlassCard className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className={cn("font-bold text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>توزيع التعيينات حسب السنوات</h3>
-                        <TrendingUp className="w-5 h-5 text-amber-500 opacity-50" />
+                <GlassCard className="p-4 sm:p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-amber-500 opacity-70" />
+                            <h3 className={cn("font-bold text-base sm:text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>
+                                توزيع التعيينات حسب السنوات
+                            </h3>
+                        </div>
                     </div>
                     <div className="space-y-4">
                         {Object.entries(stats?.appointment_year_dist || {})
@@ -414,32 +363,9 @@ export const TabAdminStats = ({ theme }: { theme: 'light' | 'dark' }) => {
                             ))}
                     </div>
                 </GlassCard>
-
-                {/* Birth Years */}
-                <GlassCard className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className={cn("font-bold text-lg", theme === 'light' ? "text-gray-900" : "text-white")}>توزيع المواليد</h3>
-                        <Calendar className="w-5 h-5 text-purple-500 opacity-50" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(stats?.birth_year_dist || {})
-                            .sort((a, b) => b[1] - a[1])
-                            .slice(0, 6)
-                            .map(([year, count]) => (
-                                <div key={year} className={cn(
-                                    "p-3 rounded-xl border flex flex-col items-center justify-center gap-1",
-                                    theme === 'light' ? "bg-purple-50 border-purple-100" : "bg-purple-500/5 border-purple-500/10"
-                                )}>
-                                    <span className={cn("text-xs font-bold", theme === 'light' ? "text-purple-700" : "text-purple-400")}>{year}</span>
-                                    <span className={cn("text-xl font-black", theme === 'light' ? "text-purple-900" : "text-white")}>{count}</span>
-                                    <span className="text-[10px] opacity-50">موظف</span>
-                                </div>
-                            ))}
-                    </div>
-                </GlassCard>
             </div>
 
-            {/* Active Visitors Modal */}
+                        {/* Active Visitors Modal */}
             <ActiveVisitorsModal
                 isOpen={showVisitorsModal}
                 onClose={() => setShowVisitorsModal(false)}
@@ -480,25 +406,25 @@ const StatSummaryCard = ({
         <GlassCard 
             onClick={clickable ? onClick : undefined}
             className={cn(
-                "p-4 flex items-center gap-4 transition-all duration-200 select-none",
+                "p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4 transition-all duration-200 select-none",
                 clickable && "cursor-pointer hover:scale-[1.02] active:scale-[0.98] hover:border-green-500/40 hover:shadow-lg"
             )}
         >
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border", colors[color])}>
-                <Icon className="w-6 h-6" />
+            <div className={cn("w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 border", colors[color])}>
+                <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
             <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                    <p className={cn("text-[10px] font-bold uppercase tracking-wider opacity-50", theme === 'light' ? "text-gray-900" : "text-white")}>
+                <div className="flex items-center justify-between gap-1">
+                    <p className={cn("text-[9.5px] sm:text-[10px] font-bold uppercase tracking-wider opacity-60 truncate", theme === 'light' ? "text-gray-900" : "text-white")}>
                         {title}
                     </p>
                     {clickable && (
-                        <span className="text-[9px] font-bold text-green-600 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-green-600 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded-full shrink-0">
                             تصفية
                         </span>
                     )}
                 </div>
-                <p className={cn("text-2xl font-black truncate", theme === 'light' ? "text-gray-900" : "text-white")}>
+                <p className={cn("text-lg sm:text-2xl font-black truncate", theme === 'light' ? "text-gray-900" : "text-white")}>
                     {value}
                 </p>
             </div>
@@ -541,37 +467,3 @@ const DonutChart = ({ data, total, theme }: any) => {
         </div>
     );
 };
-
-interface LegendItemProps {
-    label: string;
-    value: number;
-    percentage: number;
-    color: string;
-    textColor: string;
-    theme: 'light' | 'dark';
-}
-
-const LegendItem = ({ label, value, percentage, color, textColor, theme }: LegendItemProps) => (
-    <div className={cn(
-        "p-2.5 rounded-xl border flex items-center justify-between transition-all",
-        theme === 'light' ? "bg-gray-50/70 border-gray-200/80" : "bg-white/[0.03] border-white/5"
-    )}>
-        <div className="flex items-center gap-2.5">
-            <div className={cn("w-3 h-3 rounded-full shadow-sm", color)} />
-            <span className={cn("text-xs font-bold", theme === 'light' ? "text-gray-800" : "text-white/90")}>
-                {label}
-            </span>
-        </div>
-        <div className="flex items-baseline gap-2">
-            <span className={cn("text-base font-black", textColor)}>
-                {value}
-            </span>
-            <span className={cn(
-                "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                theme === 'light' ? "bg-gray-200/60 text-gray-600" : "bg-white/10 text-white/60"
-            )}>
-                {percentage.toFixed(0)}%
-            </span>
-        </div>
-    </div>
-);

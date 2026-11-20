@@ -44,6 +44,7 @@ export interface AppUser {
   is_retired?: boolean;
   retirement_date?: string;
   retirement_note?: string;
+  work_schedule_id?: string | null;
 }
 
 interface AuthContextType {
@@ -209,7 +210,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               reinstatement_type: profile.reinstatement_type,
               is_retired: profile.is_retired,
               retirement_date: profile.retirement_date,
-              retirement_note: profile.retirement_note
+              retirement_note: profile.retirement_note,
+              work_schedule_id: profile.work_schedule_id
             };
             setUser(appUser);
             /* استرجاع مالك خرائط GIS المحلية بعد أي إعادة تحميل للصفحة */
@@ -389,7 +391,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         reinstatement_type: fullProfile.reinstatement_type,
         is_retired: fullProfile.is_retired,
         retirement_date: fullProfile.retirement_date,
-        retirement_note: fullProfile.retirement_note
+        retirement_note: fullProfile.retirement_note,
+        work_schedule_id: fullProfile.work_schedule_id
       };
 
       setUser(appUser);

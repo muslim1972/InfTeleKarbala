@@ -257,3 +257,82 @@ export function extractCertificateData(val: any): { certName: string, certPerc: 
     return null;
 }
 
+
+
+/**
+ * استخراج الاسم الثلاثي الذكي مع مراعاة وحماية الأسماء المركبة من البتر
+ * (مثل: عبد الله، عبد الرحمن، عبد الحسن، أبو الحسن، نور الهدى، علاء الدين، فاطمة الزهراء)
+ */
+export function getSmartTripleName(fullName: string): string {
+    if (!fullName || typeof fullName !== 'string') return '';
+    const clean = fullName.trim().replace(/\s+/g, ' ');
+    const rawWords = clean.split(' ');
+    const mergedTokens: string[] = [];
+
+    const compoundPrefixes = new Set([
+        'عبد', 'ابو', 'أبو', 'ابن', 'بن', 'ام', 'أم', 'آل', 'ذو', 'ذا', 'ذي'
+    ]);
+    const compoundSuffixes = new Set([
+        'الدين', 'الهدى', 'الزهراء', 'البنين', 'الاسلام', 'الإسلام', 'الله'
+    ]);
+
+    for (let i = 0; i < rawWords.length; i++) {
+        const word = rawWords[i];
+        const nextWord = rawWords[i + 1];
+
+        if (compoundPrefixes.has(word) && nextWord) {
+            mergedTokens.push(word + ' ' + nextWord);
+            i++; // تخطي الكلمة التالية لأنها دمجت
+        } else if (nextWord && compoundSuffixes.has(nextWord)) {
+            mergedTokens.push(word + ' ' + nextWord);
+            i++; // تخطي الكلمة التالية لأنها دمجت
+        } else {
+            mergedTokens.push(word);
+        }
+    }
+
+    // إرجاع أول 3 مقاطع اسمية مدمجة
+    return mergedTokens.slice(0, 3).join(' ');
+}
+
+/**
+ * توحيد وصياغة التسلسل الإداري (مكان العمل) بسلسلة مقروءة ومرتبة دون تكرار
+ * النمط: القسم / الشعبة / الوحدة
+ * أو: كربلاء / شعبة القدرة (للشعب الرئيسية والمجمعات التابعة للإدارة)
+ */
+export function formatWorkplaceHierarchy(
+    deptText?: string | null,
+    sectionText?: string | null,
+    unitText?: string | null,
+    defaultGov: string = 'كربلاء'
+): string {
+    const cleanDept = cleanText(deptText);
+    const cleanSec = cleanText(sectionText);
+    const cleanUnit = cleanText(unitText);
+
+    // إذا تطابق القسم والشعبة
+    if (cleanDept && cleanSec && cleanDept === cleanSec) {
+        return cleanDept.startsWith('شعبة') || cleanDept.startsWith('الشعبة') || cleanDept.startsWith('مجمع')
+            ? `${defaultGov} / ${cleanDept}`
+            : cleanDept;
+    }
+
+    const parts: string[] = [];
+
+    if (cleanDept && cleanDept !== 'مديرية الاتصالات' && !cleanDept.includes('مديرية اتصالات')) {
+        parts.push(cleanDept);
+    } else {
+        parts.push(defaultGov);
+    }
+
+    if (cleanSec && cleanSec !== cleanDept) {
+        parts.push(cleanSec);
+    }
+
+    if (cleanUnit && cleanUnit !== cleanSec && cleanUnit !== cleanDept) {
+        parts.push(cleanUnit);
+    }
+
+    if (parts.length === 0) return `مديرية اتصالات ${defaultGov}`;
+    return parts.join(' / ');
+}

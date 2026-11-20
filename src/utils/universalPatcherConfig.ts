@@ -527,9 +527,10 @@ export function resolveDepartmentHierarchy(
 
     // الحالة 1: الوحدة (المستوى 5)
     if (level === 5) {
+        const isParentDirect = !grandParentDept || (grandParentDept.level && grandParentDept.level <= 2);
         return {
             department_id: foundDept.id,
-            dept_text: grandParentDept?.name || 'مديرية الاتصالات',
+            dept_text: isParentDirect ? 'كربلاء' : (grandParentDept?.name || 'كربلاء'),
             section_text: parentDept?.name || foundDept.name,
             unit_text: foundDept.name,
         };
@@ -537,9 +538,10 @@ export function resolveDepartmentHierarchy(
 
     // الحالة 2: الشعبة التابعة لقسم (المستوى 4)
     if (level === 4) {
+        const isParentDirect = !parentDept || (parentDept.level && parentDept.level <= 2);
         return {
             department_id: foundDept.id,
-            dept_text: parentDept?.name || 'مديرية الاتصالات',
+            dept_text: isParentDirect ? 'كربلاء' : (parentDept?.name || 'كربلاء'),
             section_text: foundDept.name,
             unit_text: null,
         };
@@ -555,7 +557,7 @@ export function resolveDepartmentHierarchy(
         if (isSecOrComplex) {
             return {
                 department_id: foundDept.id,
-                dept_text: 'مديرية الاتصالات',
+                dept_text: 'كربلاء',
                 section_text: foundDept.name,
                 unit_text: null,
             };
@@ -572,8 +574,8 @@ export function resolveDepartmentHierarchy(
     // الحالة 4: الإدارة العليا (المستويات 1 و 2)
     return {
         department_id: foundDept.id,
-        dept_text: foundDept.name,
-        section_text: '',
+        dept_text: 'كربلاء',
+        section_text: foundDept.name,
         unit_text: null,
     };
 }

@@ -104,9 +104,13 @@ export function createBaghdadIso(dateStr: string, hour: number, minute: number, 
  */
 export function resolveRosterShiftType(
   schedule: RosterDaySchedule,
-  _prevDaySchedule?: { is_night: boolean }
+  prevDaySchedule?: { is_night: boolean },
+  hasPunches: boolean = false
 ): RosterShiftType {
   if (schedule.is_rest_day || (!schedule.is_morning && !schedule.is_evening && !schedule.is_night)) {
+    if (prevDaySchedule?.is_night && hasPunches) {
+      return 'connected_night_morning';
+    }
     return 'rest';
   }
   if (schedule.is_evening && schedule.is_night) {
@@ -136,7 +140,8 @@ export function evaluateRosterAttendance(
   approvedTimeOffs: ApprovedLeaveLite[] = [],
   isEndOfDay: boolean = false
 ): RosterEvaluationResult {
-  const shiftType = resolveRosterShiftType(schedule, prevDaySchedule);
+  const hasAnyRealPunches = (rawPunchesInput || []).some(p => !p.is_virtual && !p.notes?.includes('افتراضي'));
+  const shiftType = resolveRosterShiftType(schedule, prevDaySchedule, hasAnyRealPunches);
 
   // 1. إذا كان يوم استراحة
   if (shiftType === 'rest') {
@@ -228,6 +233,7 @@ export function evaluateRosterAttendance(
       checkOutWindowEndMins = 9 * 60 + 30;
       break;
     case 'connected_evening_night':
+    case 'connected_night_morning':
       // نهاية النوبة الممتدة صباح اليوم التالي (07:30 - 09:30)
       checkOutWindowStartMins = 7 * 60 + 30;
       checkOutWindowEndMins = 9 * 60 + 30;
@@ -270,6 +276,18 @@ export function evaluateRosterAttendance(
   let hasOverflow = false;
 
   if (filteredPunches.length > 0) {
+    if (shiftType === 'connected_night_morning') {
+      // في يوم استكمال الخفارة الممتدة صباحاً: البصمة الصباحية هي بصمة انصراف نهاية الخفارة
+      const lastPunch = filteredPunches[filteredPunches.length - 1];
+      slots.check_out = lastPunch.time;
+      slots.check_out_location = lastPunch.location;
+      slots.check_out_device_id = lastPunch.device_id;
+      slots.check_out_snapshot_url = lastPunch.snapshot_url;
+      slots.check_out_verified_by_biometric = lastPunch.verified_by_biometric;
+      if (filteredPunches.length > 1) {
+        slots.time_leave_out = filteredPunches[0].time;
+      }
+    } else {
     // الخانة 1: الدخول الرئيسي (أول بصمة مقبولة)
     const firstPunch = filteredPunches[0];
     slots.check_in = firstPunch.time;
@@ -308,6 +326,7 @@ export function evaluateRosterAttendance(
         // نبضة تواجد بينية (Presence Heartbeat)
         heartbeats.push(punch);
       }
+    }
     }
   }
 
@@ -362,7 +381,10 @@ export function evaluateRosterAttendance(
   let status: RosterEvaluationResult['status'] = 'present';
   let notes = '';
 
-  if (!slots.check_in) {
+  if (shiftType === 'connected_night_morning') {
+    status = 'present';
+    notes = 'انصراف خفارة ممتدة (امتداد شفت ليلة الأمس)';
+  } else if (!slots.check_in) {
     status = 'absent';
     notes = 'غياب — لم تُسجل بصمة حضور للشفت';
   } else {

@@ -1,4 +1,5 @@
-import { Search, Loader2, Trash2, Lock, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { Search, Loader2, Trash2, Lock, RotateCcw, X } from "lucide-react";
 import { useSnapshots } from "../../../context/SnapshotContext";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
 import { YearSlider } from "../../features/YearSlider";
@@ -55,15 +56,15 @@ export const DashboardHeader = ({
     handleSaveEmployee,
     handleUpdateEmployee,
     loading,
-    searchExpanded,
-    setSearchExpanded,
-    searchJobNumber,
-    setSearchJobNumber,
+    searchExpanded: _searchExpanded,
+    setSearchExpanded: _setSearchExpanded,
+    searchJobNumber: _searchJobNumber,
+    setSearchJobNumber: _setSearchJobNumber,
     handleSearch: _handleSearch,
     suggestions: _suggestions,
-    setShowSuggestions,
+    setShowSuggestions: _setShowSuggestions,
     showSuggestions: _showSuggestions,
-    searchRef,
+    searchRef: _searchRef,
     handleSelectSuggestion,
     handleDeleteEmployee
 }: DashboardHeaderProps) => {
@@ -96,8 +97,11 @@ export const DashboardHeader = ({
         return allTabs;
     })();
 
+    const [showFloatingSearch, setShowFloatingSearch] = useState(false);
+    const hasActionContent = activeTab === 'admin_records' || activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee);
+
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             {/* Tabs */}
             <div className={`flex p-1 rounded-xl border shadow-inner w-full ${theme === 'light'
                 ? 'bg-white border-gray-100'
@@ -113,11 +117,101 @@ export const DashboardHeader = ({
                 />
             </div>
 
-            {/* Search & Year Slider (Unified Toolbar) - يُخفى في إدارة البصمة لمنع هدر المساحة */}
-            {activeTab !== 'admin_attendance' && (
+            {/* زر المكبرة العائم الموحد على اليسار لجميع واجهات المشرفين */}
+            <div className="fixed top-24 left-3 sm:left-6 z-40">
+                <button
+                    onClick={() => setShowFloatingSearch(true)}
+                    className={cn(
+                        "p-2.5 rounded-2xl transition-all duration-300 shadow-lg backdrop-blur-xl border active:scale-95 flex items-center justify-center group",
+                        theme === 'light'
+                            ? "bg-white/95 border-gray-200/90 text-gray-700 hover:text-brand-green hover:border-brand-green/30 shadow-gray-200/50"
+                            : "bg-slate-900/95 border-white/10 text-white/80 hover:text-brand-green hover:border-brand-green/40 shadow-black/50"
+                    )}
+                    title="البحث عن موظف"
+                >
+                    <Search className="w-5 h-5 transition-transform group-hover:scale-110" />
+                    {selectedEmployee && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-brand-green rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
+                    )}
+                </button>
+            </div>
+
+            {/* نافذة البحث العائمة الذكية */}
+            {showFloatingSearch && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-start justify-center pt-24 sm:pt-28 px-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowFloatingSearch(false)}
+                >
+                    <div 
+                        className={cn(
+                            "w-full max-w-lg rounded-3xl p-4 sm:p-5 shadow-2xl border space-y-4 animate-in zoom-in-95 duration-200 overflow-visible",
+                            theme === 'light'
+                                ? "bg-white border-gray-200 shadow-xl"
+                                : "bg-slate-900 border-white/10 shadow-2xl"
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-xl bg-brand-green/10 text-brand-green">
+                                    <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className={cn("font-bold text-sm sm:text-base", theme === 'light' ? "text-gray-900" : "text-white")}>
+                                        البحث السريع عن موظف
+                                    </h3>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        اكتب اسم الموظف أو رقمه الوظيفي للانتقال إلى ملفه مباشرة
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowFloatingSearch(false)}
+                                className={cn(
+                                    "p-1.5 rounded-xl transition-colors",
+                                    theme === 'light' ? "hover:bg-gray-100 text-gray-500" : "hover:bg-white/10 text-white/60"
+                                )}
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="relative overflow-visible">
+                            <EmployeeSearch
+                                onSelect={(sug) => {
+                                    handleSelectSuggestion(sug);
+                                    if (activeTab !== 'admin_manage') {
+                                        setActiveTab('admin_manage');
+                                    }
+                                    setShowFloatingSearch(false);
+                                }}
+                                placeholder="اكتب اسم الموظف أو رقمه الوظيفي..."
+                                autoFocus={true}
+                                showIcon={true}
+                                inputClassName={cn(
+                                    "w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/40 transition-all",
+                                    theme === 'light'
+                                        ? "bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
+                                        : "bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                                )}
+                            />
+                        </div>
+
+                        {selectedEmployee && (
+                            <div className="pt-2 border-t border-gray-100 dark:border-white/5 flex items-center justify-between text-xs text-muted-foreground">
+                                <span>الموظف المحدد حالياً:</span>
+                                <span className="font-bold text-brand-green">{selectedEmployee.full_name}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* شريط الإجراءات والسنوات — يظهر فقط عند وجود إجراء فعلي (حفظ أو سنوات أو موظف محدد) */}
+            {hasActionContent && (
             <div className="flex items-center justify-between gap-3 relative overflow-visible h-10 min-h-[40px]">
 
-                {/* Right Side (Start in RTL): Year Slider (Reserved Slot) */}
+                {/* Right Side (Start in RTL): Year Slider أو زر الحفظ */}
                 <div className="flex-shrink-0 min-w-[140px]">
                     {activeTab === 'admin_records' ? (
                         <div className={cn(
@@ -170,14 +264,12 @@ export const DashboardHeader = ({
                     )}
                 </div>
 
-                {/* Left Side (End in RTL): Name + Search */}
+                {/* Left Side (End in RTL): اسم الموظف المحدد وزر الحذف إن وجد */}
                 <div className="flex items-center gap-3">
-
-                    {/* User Name - Hidden when search is expanded */}
-                    {!searchExpanded && selectedEmployee && (
+                    {selectedEmployee && (
                         <div
                             title={selectedEmployee.full_name}
-                            className={`max-w-[120px] xs:max-w-[160px] sm:max-w-[220px] md:max-w-[320px] overflow-x-auto whitespace-nowrap scrollbar-none font-bold text-xs sm:text-sm animate-in fade-in duration-200 cursor-grab active:cursor-grabbing select-all px-1.5 py-0.5 rounded ${
+                            className={`max-w-[140px] xs:max-w-[180px] sm:max-w-[240px] md:max-w-[320px] overflow-x-auto whitespace-nowrap scrollbar-none font-bold text-xs sm:text-sm animate-in fade-in duration-200 cursor-grab active:cursor-grabbing select-all px-1.5 py-0.5 rounded ${
                                 theme === 'light' ? 'text-gray-900' : 'text-white'
                             }`}
                         >
@@ -185,59 +277,16 @@ export const DashboardHeader = ({
                         </div>
                     )}
 
-                    {/* Search Button & Input */}
-                    <div className="flex items-center gap-2 relative overflow-visible" ref={searchRef}>
-                        {searchExpanded && (
-                            <div className="relative animate-in slide-in-from-right-5 fade-in duration-300 overflow-visible w-48 md:w-64">
-                                <EmployeeSearch
-                                    onSelect={(sug) => {
-                                        handleSelectSuggestion(sug);
-                                        setSearchJobNumber(sug.full_name);
-                                        setShowSuggestions(false);
-                                    }}
-                                    placeholder="الرقم الوظيفي أو الاسم..."
-                                    value={searchJobNumber}
-                                    onChange={setSearchJobNumber}
-                                    inputClassName={`w-full border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 transition-all ${theme === 'light'
-                                        ? 'bg-gray-50 border-gray-200 text-black placeholder:text-gray-400'
-                                        : 'bg-white/10 border-white/10 text-white placeholder:text-white/40'
-                                    }`}
-                                    autoFocus={true}
-                                    showIcon={false}
-                                />
-                            </div>
-                        )}
-
+                    {/* Delete User Button - Visible only to admin (مسلم عقيل) and when an employee is selected */}
+                    {selectedEmployee && (currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) && (
                         <button
-                            onClick={() => {
-                                const isExpanding = !searchExpanded;
-                                setSearchExpanded(isExpanding);
-                                if (isExpanding) {
-                                    setSearchJobNumber("");
-                                }
-                            }}
-                            className={cn(
-                                "p-2 rounded-xl transition-all active:scale-95",
-                                theme === 'light'
-                                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                    : "bg-white/5 text-white/60 hover:bg-white/10",
-                                searchExpanded && "bg-brand-green/20 text-brand-green"
-                            )}
+                            onClick={handleDeleteEmployee}
+                            className="bg-red-500/10 text-red-500 p-2 rounded-xl hover:bg-red-500/20 transition-all active:scale-95 border border-red-500/20"
+                            title="حذف الموظف نهائياً"
                         >
-                            <Search className="w-5 h-5" />
+                            <Trash2 className="w-5 h-5" />
                         </button>
-
-                        {/* Delete User Button - Visible only to admin (مسلم عقيل) and when an employee is selected */}
-                        {selectedEmployee && (currentUser?.full_name?.includes('مسلم عقيل') || currentUser?.full_name?.includes('مسلم قيل')) && (
-                            <button
-                                onClick={handleDeleteEmployee}
-                                className="bg-red-500/10 text-red-500 p-2 rounded-xl hover:bg-red-500/20 transition-all active:scale-95 border border-red-500/20"
-                                title="حذف الموظف نهائياً"
-                            >
-                                <Trash2 className="w-5 h-5" />
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             </div>
             )}

@@ -13,7 +13,7 @@ import { ChatProvider } from "./context/ChatContext";
 import { KnowledgeProvider } from "./context/KnowledgeContext";
 import { CallProvider } from "./context/CallContext"; // ✨ أضفنا مزود المكالمات
 import { SnapshotProvider } from "./context/SnapshotContext"; // 📅 نظام النسخ الشهرية
-import { GovernorateProvider } from "./context/GovernorateContext"; // 🌍 نظام المحافظات
+import { GovernorateProvider, useGovernorate } from "./context/GovernorateContext"; // 🌍 نظام المحافظات
 import { geolocationManager } from "./utils/GeolocationManager";
 import { supabase } from "./lib/supabase";
 import { isDeveloperLevel, canAccessHR } from "./utils/permissions";
@@ -26,6 +26,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ 
 const HRDashboard = lazy(() => import("./pages/HRDashboard").then(m => ({ default: m.HRDashboard })));
 const VisitorDashboard = lazy(() => import("./pages/VisitorDashboard").then(m => ({ default: m.VisitorDashboard })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
+const GovernorateSelection = lazy(() => import("./pages/GovernorateSelection").then(m => ({ default: m.GovernorateSelection })));
 const SplashScreen = lazy(() => import("./pages/SplashScreen").then(m => ({ default: m.SplashScreen })));
 const RequestsPage = lazy(() => import("./features/requests/RequestsPage"));
 const LeaveRequestPage = lazy(() => import("./features/requests/pages/LeaveRequestPage"));
@@ -52,6 +53,7 @@ const LoadingScreen = () => (
 
 const AppContent = () => {
   const { user, loading, logout } = useAuth();
+  const { activeGovernorate, setActiveGovernorate } = useGovernorate();
   const location = useLocation();
 
 
@@ -217,9 +219,12 @@ const AppContent = () => {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // مرحلة إطلاق Beta: التطبيق ينهض من الـ Splash Screen مباشرة إلى واجهة تسجيل الدخول لكربلاء المقدسة
+  // إذا لم يكن هناك مستخدم مسجل: عرض واجهة اختيار المحافظة أو شاشة الدخول للمحافظة المحددة
   if (!user) {
-    return <Login />;
+    if (!activeGovernorate) {
+      return <GovernorateSelection onSelect={() => {}} />;
+    }
+    return <Login onBack={() => setActiveGovernorate('')} />;
   }
 
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──

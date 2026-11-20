@@ -849,7 +849,13 @@ export const attendanceRecordService = {
         }
     }
 
-    if (isRestDay && shiftType === 'shift' && !record && !bypassLeaveWarning) {
+    const nowServerCurrent = getServerNow();
+    const baghdadNow = getBaghdadDate(nowServerCurrent);
+    const currentMinutes = baghdadNow.getHours() * 60 + baghdadNow.getMinutes();
+    // استثناء ساعات الصباح حتى 09:30 ص إذا كان يوم أمس شفت خفر ليلي (امتداد دوام الأمس وليس استراحة)
+    const isYesterdayNightFollowup = Boolean(prevScheduleDay?.is_night) && currentMinutes <= (9 * 60 + 30);
+
+    if (isRestDay && shiftType === 'shift' && !isYesterdayNightFollowup && !record && !bypassLeaveWarning) {
       throw new LeaveDayPunchWarning({
         id: 'rest_day',
         leaveType: 'rest',

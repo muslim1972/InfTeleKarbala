@@ -1,0 +1,1 @@
+SELECT jsonb_pretty(get_active_visitors_by_range('2026-11-18'::DATE, '2026-11-19'::DATE, 'karbala'));
