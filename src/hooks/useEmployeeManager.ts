@@ -102,12 +102,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             }
 
             if (!fullUserData.department_id) {
-                const { data: managedDept } = await supabase
+                const { data: managedDepts } = await supabase
                     .rpc('get_departments_bypass_rls')
                     .select('id')
                     .eq('manager_id', fullUserData.id)
-                    .maybeSingle();
+                    .limit(1);
 
+                const managedDept = Array.isArray(managedDepts) ? managedDepts[0] : (managedDepts as any);
                 if (managedDept?.id) {
                     fullUserData.department_id = managedDept.id;
                     supabase.from('profiles').update({ department_id: managedDept.id }).eq('id', fullUserData.id).then();

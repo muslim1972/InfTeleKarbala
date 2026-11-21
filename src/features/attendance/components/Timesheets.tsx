@@ -519,7 +519,7 @@ export default function Timesheets() {
                    if (dayLeave) {
                      rec.dayLeave = dayLeave;
                      rec.leaveLabel = LEAVE_TYPE_LABELS[dayLeave.leave_type] || 'إجازة';
-                     if (dayLeave.is_mandatory || dayLeave.reason?.includes('إجازة اعتيادية إجبارية')) {
+                     if (!rec.check_in && (dayLeave.is_mandatory || dayLeave.reason?.includes('إجازة اعتيادية إجبارية'))) {
                        rec.status = 'leave';
                      }
                      group.leaveCount++;
@@ -730,9 +730,14 @@ export default function Timesheets() {
           const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
           
           const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
+          const isShiftExtension = Boolean(rec.notes && (
+            rec.notes.includes('انصراف خفارة ممتدة') || 
+            rec.notes.includes('امتداد شفت ليلة الأمس') ||
+            rec.notes.includes('خفارة ممتدة')
+          ));
           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
           const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-          const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+          const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
           
           // Verification logic
           let verifyMethod = 'يدوي';
@@ -799,7 +804,7 @@ export default function Timesheets() {
           html += `
             <tr style="height: ${ROW_H};">
               ${renderCell(dateStr)}
-              ${renderCell(dayType)}
+              ${renderCell((isShiftExtension && dayType === 'استراحة') ? 'استراحة (خفارة ممتدة)' : dayType)}
               ${renderCell(verifyMethod)}
               ${renderCell(scheduleName)}
 
@@ -1168,9 +1173,14 @@ export default function Timesheets() {
         const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
         
         const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
+        const isShiftExtension = Boolean(rec.notes && (
+          rec.notes.includes('انصراف خفارة ممتدة') || 
+          rec.notes.includes('امتداد شفت ليلة الأمس') ||
+          rec.notes.includes('خفارة ممتدة')
+        ));
         const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
         const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-        const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+        const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
         
         let verifyMethod = 'يدوي';
         if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
@@ -1225,7 +1235,7 @@ export default function Timesheets() {
         html += `
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="${tdStyle} white-space: nowrap;">${dateStr}</td>
-            <td style="${tdStyle}">${dayType}</td>
+            <td style="${tdStyle}">${(isShiftExtension && dayType === 'استراحة') ? 'استراحة (خفارة ممتدة)' : dayType}</td>
             <td style="${tdStyle}">${verifyMethod}</td>
             <td style="${tdStyle}">${scheduleName}</td>
             <td style="${tdNumStyle} ${inTimeColor}">${inTime}</td>
@@ -1586,9 +1596,14 @@ export default function Timesheets() {
                           const leaveReturn2Str = rec.time_leave_return_2 ? format(parseISO(rec.time_leave_return_2), 'HH:mm') : '--:--';
                           
                           const isRestOrHoliday = dayType === 'استراحة' || dayType.startsWith('عطلة');
+                          const isShiftExtension = Boolean(rec.notes && (
+                            rec.notes.includes('انصراف خفارة ممتدة') || 
+                            rec.notes.includes('امتداد شفت ليلة الأمس') ||
+                            rec.notes.includes('خفارة ممتدة')
+                          ));
                           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
                           const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
-                          const overtimeMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
+                          const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
                           
                           let verifyMethod = 'يدوي';
                           if (rec.check_in_snapshot_url) verifyMethod = 'وجه';
@@ -1669,7 +1684,13 @@ export default function Timesheets() {
                             <tr key={rec.id || i} className={rec.is_device_pending ? "bg-red-50/70 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30" : "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-white dark:hover:bg-slate-800 transition-colors"}>
                               <td className="px-3 py-3 font-medium text-slate-700 dark:text-slate-300">{dateStr}</td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">
-                                <span className={dayType === 'استراحة' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType === 'عطلة' ? 'text-amber-600 font-bold' : ''}>{dayType}</span>
+                                {isShiftExtension && dayType === 'استراحة' ? (
+                                  <span className="bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 px-2 py-0.5 rounded-md font-bold text-xs border border-teal-200">
+                                    استراحة (خفارة ممتدة)
+                                  </span>
+                                ) : (
+                                  <span className={dayType === 'استراحة' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : dayType === 'عطلة' ? 'text-amber-600 font-bold' : ''}>{dayType}</span>
+                                )}
                               </td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">{verifyMethod}</td>
                               <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">

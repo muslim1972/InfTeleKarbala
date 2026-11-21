@@ -668,7 +668,6 @@ export const attendanceRecordService = {
     const savedRecord = { ...todayRecord, time_leave_return: now.toISOString() } as AttendanceRecord;
     try {
       const todayStr = getServerLocalDateStr();
-      await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
 
       // إشعار الموظف البديل بعودة الأصيل ومطالبته ببصمة الانصراف
       const { data: timeOffReq } = await supabase
@@ -880,31 +879,149 @@ export const attendanceRecordService = {
     const yesterdayRealCount = yesterdayRecord ? countRealPunches(yesterdayRecord.raw_punches) : 0;
     const yesterdayWasOdd = yesterdayRealCount % 2 === 1 || (yesterdayRecord?.check_in && !yesterdayRecord?.check_out);
 
+    // فحص توقيت بغداد الحالي بالساعات والدقائق
+    const baghdadDateNow = getBaghdadDate(getServerNow());
+    const baghdadHourNow = baghdadDateNow.getHours();
+    const baghdadMinsNow = baghdadDateNow.getMinutes();
+    const totalBaghdadMinutes = baghdadHourNow * 60 + baghdadMinsNow;
+
+    // هل الموظف في شفت ليلي/خفر مستمر بدأ بالأمس؟
+    const isYesterdayNightShift = Boolean(prevScheduleDay?.is_night);
+    const hasUnclosedYesterdayNight = isYesterdayNightShift && yesterdayRecord && !yesterdayRecord.check_out;
+
+    // ─── أ) بصمة منتصف الليل لشفت الخفر (قبل الساعة 6:30 صباحاً = 390 دقيقة) ───
+    // الموظف يبصم ليلاً ليثبت وجوده في موقع العمل أثناء الخفارة المستمرة:
+    // تُسجل البصمة كنبضة تفقد (Heartbeat) وتُضم إلى سجل الأمس، ولا يُغلق الشفت، ولا يُفتح سجل جديد لليوم التقويمي!
+    if (hasUnclosedYesterdayNight && totalBaghdadMinutes < 390) {
+      const isAuthorized = options?.skipDeviceCheck
+        ? true
+        : await verifyAndAuthorizeDevice(employeeId, deviceId, profile);
+      if (!isAuthorized && yesterdayRecord.raw_punches && yesterdayRecord.raw_punches.length > 0) {
+        throw new Error('لا يمكن تسجيل بصمة إضافية من جهاز غير معتمد أثناء شفت الخفر.');
+      }
+
+      // فحص مهلة الأمان (3 دقائق / 180 ثانية)
+      const yPunches = Array.isArray(yesterdayRecord.raw_punches) ? yesterdayRecord.raw_punches : [];
+      const realYPunches = yPunches.filter((p: any) => !p.is_virtual && !p.notes?.includes('افتراضي'));
+      if (realYPunches.length > 0 && !notes?.includes('تجاوز المهلة')) {
+        const lastPunchTime = new Date(realYPunches[realYPunches.length - 1].time).getTime();
+        const elapsedSec = Math.floor((getServerNow().getTime() - lastPunchTime) / 1000);
+        if (elapsedSec >= 0 && elapsedSec < 180 && !bypassLeaveWarning) {
+          throw new Error(`يرجى الانتظار ${180 - elapsedSec} ثانية قبل تسجيل بصمة جديدة (مهلة الأمان بين البصمات)`);
+        }
+      }
+
+      const midnightPunch = {
+        time: getServerNow().toISOString(),
+        location,
+        device_id: deviceId,
+        snapshot_url: snapshotUrl,
+        notes: notes || 'إثبات حضور ليلي (شفت الخفر)',
+        verified_by_biometric: verifiedByBiometric,
+        target_slot: 'midnight_presence'
+      };
+
+      const cleanedPunches = yPunches.filter((p: any) => !p.is_virtual && !p.notes?.includes('افتراضي'));
+      cleanedPunches.push(midnightPunch);
+
+      let cleanedNotes = yesterdayRecord.notes || '';
+      cleanedNotes = cleanedNotes
+        .replace(/\|?\s*\(?بصمة منتصف ليل افتراضية[^\)]*\)?/g, '')
+        .replace(/\|?\s*\(?لم يثبت حضور منتصف الليل[^\)]*\)?/g, '')
+        .trim();
+      if (cleanedNotes.startsWith('|')) cleanedNotes = cleanedNotes.substring(1).trim();
+      if (cleanedNotes.endsWith('|')) cleanedNotes = cleanedNotes.substring(0, cleanedNotes.length - 1).trim();
+
+      const savedYesterday = await this.saveSecure(employeeId, yesterdayRecord.id, {
+        raw_punches: cleanedPunches,
+        notes: cleanedNotes || undefined
+      });
+
+      return savedYesterday;
+    }
+
+    // ─── ب) بصمة تسليم وانصراف شفت الخفر صباحاً (بين 06:30 و 10:00 صباحاً) ───
+    if (hasUnclosedYesterdayNight && totalBaghdadMinutes >= 390 && totalBaghdadMinutes <= 600 && (!record || !record.raw_punches || record.raw_punches.length === 0)) {
+      const isAuthorized = options?.skipDeviceCheck
+        ? true
+        : await verifyAndAuthorizeDevice(employeeId, deviceId, profile);
+      if (!isAuthorized && yesterdayRecord.raw_punches && yesterdayRecord.raw_punches.length > 0) {
+        throw new Error('لا يمكن تسجيل بصمة انصراف من جهاز غير معتمد.');
+      }
+
+      const yPunches = Array.isArray(yesterdayRecord.raw_punches) ? yesterdayRecord.raw_punches : [];
+      const realYPunches = yPunches.filter((p: any) => !p.is_virtual && !p.notes?.includes('افتراضي'));
+      if (realYPunches.length > 0 && !notes?.includes('تجاوز المهلة')) {
+        const lastPunchTime = new Date(realYPunches[realYPunches.length - 1].time).getTime();
+        const elapsedSec = Math.floor((getServerNow().getTime() - lastPunchTime) / 1000);
+        if (elapsedSec >= 0 && elapsedSec < 180 && !bypassLeaveWarning) {
+          throw new Error(`يرجى الانتظار ${180 - elapsedSec} ثانية قبل تسجيل بصمة جديدة`);
+        }
+      }
+
+      const outPunch = {
+        time: getServerNow().toISOString(),
+        location,
+        device_id: deviceId,
+        snapshot_url: snapshotUrl,
+        notes: notes || 'انصراف خفارة الأمس (تسليم الشفت)',
+        verified_by_biometric: verifiedByBiometric,
+        target_slot: 'check_out'
+      };
+
+      const cleanedPunches = yPunches.filter((p: any) => !p.is_virtual && !p.notes?.includes('افتراضي'));
+      cleanedPunches.push(outPunch);
+
+      const { evaluateRosterAttendance } = await import('../engines/rosterAttendanceEngine');
+      const rosterSchedule = {
+        is_morning: Boolean(prevScheduleDay?.is_morning),
+        is_evening: Boolean(prevScheduleDay?.is_evening),
+        is_night: Boolean(prevScheduleDay?.is_night),
+        is_rest_day: Boolean(prevScheduleDay?.is_rest_day)
+      };
+
+      const rosterResult = evaluateRosterAttendance(
+        cleanedPunches,
+        yesterdayDateStr,
+        rosterSchedule,
+        { is_night: false },
+        [],
+        [],
+        false
+      );
+
+      const savedYesterday = await this.saveSecure(employeeId, yesterdayRecord.id, {
+        raw_punches: rosterResult.rawPunches,
+        ...(rosterResult.slots as any),
+        check_out: getServerNow().toISOString(),
+        check_out_location: location,
+        check_out_device_id: deviceId,
+        check_out_verified_by_biometric: verifiedByBiometric,
+        check_out_snapshot_url: snapshotUrl,
+        status: rosterResult.status,
+        notes: rosterResult.notes || yesterdayRecord.notes || undefined
+      });
+
+      return savedYesterday;
+    }
+
     // فحص ما إذا كانت البصمة الحالية هي استكمال لخفر/مناوبة الأمس
     const isFollowUpOvernight = shiftType === 'shift' && Boolean(yesterdayWasOdd) && (!record || !record.raw_punches || record.raw_punches.length === 0);
 
-    // 4. قيد الحضور المبكر (قبل 6:30 ص) استناداً لوقت السيرفر
+    // 4. قيد الحضور المبكر (قبل 6:30 ص) استناداً لوقت السيرفر (للشفت الصباحي فقط)
     const earlyCheck = validateEarlyCheckIn(shiftType, getServerNow(), isFollowUpOvernight);
     if (!earlyCheck.allowed && !record) {
       throw new Error(earlyCheck.message || 'لا يسمح بتثبيت الحضور قبل 6:30ص');
     }
 
-    // 5. إغلاق سجل الأمس المفتوح وفق قاعدة الزوجي/الفردي (flowcharts-attendance-1):
-    //    - فردي (داخل الدوام ولم يثبت خروج): بصمة حمراء افتراضية بنهاية الشفت + إشعارات (داخل دالة SQL الآمنة)
-    //    - زوجي (خارج المقر ولم يثبت خروج نهائي): آخر بصمة = مغادرة مبكرة → تُحاسب العقوبات بعدها
-    //    - استكمال خفر الأمس: خروج الأمس بتوقيت بصمة اليوم (بصمة حقيقية)
+    // 5. إغلاق سجل الأمس المفتوح بعد انتهاء الشفت (تشخيصي آمن دون فرض إجازات)
     if (yesterdayRecord && !yesterdayRecord.check_out && (yesterdayRealCount > 0 || yesterdayRecord.check_in)) {
-      const baghdadHourNow = getBaghdadDate(getServerNow()).getHours();
-      const isKhafarFollowup = isFollowUpOvernight && baghdadHourNow <= 12;
+      const isKhafarFollowup = isFollowUpOvernight && baghdadHourNow >= 6 && baghdadHourNow <= 12;
       try {
-        const { data: coResult } = await supabase.rpc('closeout_prev_day_attendance', {
+        await supabase.rpc('closeout_prev_day_attendance', {
           p_employee_id: employeeId,
           p_followup: isKhafarFollowup
         });
-        const co = coResult as any;
-        if (co?.action === 'derived_out' && co.record) {
-          await this.enforceMandatoryPenalties(employeeId, yesterdayDateStr, co.record as AttendanceRecord);
-        }
       } catch (e) {
         console.warn('closeout_prev_day_attendance failed:', e);
       }
@@ -1142,14 +1259,6 @@ export const attendanceRecordService = {
       savedRecord = await this.saveSecure(employeeId, null, updates);
     }
 
-    if (shiftType !== 'morning') {
-      try {
-        // للمناوبين فقط حتى يتم عزل ملف المناوبة: تشغيل تقييم المناوبة
-        await this.enforceMandatoryPenalties(employeeId, today, savedRecord);
-      } catch (e) {
-        console.error('Error applying mandatory penalties:', e);
-      }
-    }
     // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
     return await this.applyTimeLeavePunchWarnings(savedRecord, leaveCtx.timeLeaves);
   },
@@ -1176,1196 +1285,9 @@ export const attendanceRecordService = {
     }
   },
 
-  async enforceMandatoryPenalties(employeeId: string, dateStr: string, record: AttendanceRecord) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('work_schedule_id, full_name, governorate, department_id')
-      .eq('id', employeeId)
-      .single();
-
-    let scheduleQuery = supabase
-      .from('work_schedules')
-      .select('*, days:work_schedule_days(*)');
-    if (profile?.work_schedule_id) scheduleQuery = scheduleQuery.eq('id', profile.work_schedule_id);
-    else scheduleQuery = scheduleQuery.eq('is_default', true);
-
-    const { data: schedule } = await scheduleQuery.limit(1).single();
-    if (!schedule) return;
-
-    const isRoster = schedule.type === 'roster';
-    if (isRoster) {
-      // استدعاء تقييم المناوبة الشامل في قاعدة البيانات بالتوازي دون إيقاف تقييم بصمة الحضور الحالية
-      await supabase.rpc('roster_evaluate_me');
-    }
-    const checkInDate = record.check_in ? new Date(record.check_in) : (record.created_at ? new Date(record.created_at) : getServerNow());
-    const today = checkInDate;
-    const bIn = getBaghdadDate(checkInDate);
-    const dayOfWeek = bIn.getDay();
-
-    const daySchedule: any = schedule.days?.find((d: any) => d.day_of_week === dayOfWeek);
-    if (daySchedule && daySchedule.is_rest_day) return; // يوم استراحة أو عطلة أسبوعية
-
-    // إذا لم يوجد جدول يومي مخصص للدوام الثابت، الجمعة والسبت عطلة افتراضية
-    if (!isRoster && !daySchedule && (dayOfWeek === 5 || dayOfWeek === 6)) return;
-
-    // Fetch all approved leaves and time_offs covering dateStr
-    const { data: allLeavesData } = await supabase
-      .from('leave_requests')
-      .select('id, time_off_subtype, time_duration_minutes, with_request, is_mandatory, leave_type, reason, leave_start_time, leave_end_time, start_date, end_date, days_count')
-      .eq('user_id', employeeId)
-      .eq('status', 'approved')
-      .lte('start_date', dateStr)
-      .or(`end_date.gte.${dateStr},end_date.is.null`);
-
-    const allTimeOffs = allLeavesData || [];
-
-    // ─── الانزياح الذكي (Auto-Shift) للإجازات الزمنية الوسطية ونهاية الدوام ───
-    if (allTimeOffs) {
-       for (const timeOff of allTimeOffs) {
-          if (timeOff.leave_type === 'time_off' && timeOff.with_request && timeOff.leave_start_time) {
-             let actualOutDate: Date | null = null;
-             
-             if (timeOff.time_off_subtype === 'mid_shift' && record.time_leave_out) {
-                 actualOutDate = new Date(record.time_leave_out);
-             } else if (timeOff.time_off_subtype === 'shift_end' && record.check_out) {
-                 actualOutDate = new Date(record.check_out);
-             }
-
-             if (actualOutDate) {
-                 const [lh, lm] = timeOff.leave_start_time.split(':').map(Number);
-                 const expectedOut = new Date(today);
-                 expectedOut.setHours(lh, lm, 0, 0);
-
-                 // إذا خرج الموظف قبل وقت الإجازة المحدد بأكثر من 5 دقائق (تجاوز السماحية)
-                 const diffMins = Math.floor((expectedOut.getTime() - actualOutDate.getTime()) / 60000);
-                 
-                 if (diffMins > 5) {
-                     // تشفيت البداية إلى الوراء (لتطابق وقت الخروج الفعلي)
-                     expectedOut.setMinutes(expectedOut.getMinutes() - diffMins);
-                     const newStartStr = `${expectedOut.getHours().toString().padStart(2, '0')}:${expectedOut.getMinutes().toString().padStart(2, '0')}:00`;
-                     
-                     // حساب النهاية الجديدة بناءً على المدة الأصلية
-                     const newEnd = new Date(expectedOut);
-                     newEnd.setMinutes(newEnd.getMinutes() + (timeOff.time_duration_minutes || 0));
-                     const newEndStr = `${newEnd.getHours().toString().padStart(2, '0')}:${newEnd.getMinutes().toString().padStart(2, '0')}:00`;
-
-                     if (newStartStr !== timeOff.leave_start_time) {
-                         const updatePayload = {
-                             leave_start_time: newStartStr,
-                             leave_end_time: newEndStr,
-                             reason: (timeOff.reason || '') + ` [تم الانزياح الذكي: خرج مبكراً بـ ${diffMins} دقيقة]`
-                         };
-                         await supabase.from('leave_requests').update(updatePayload).eq('id', timeOff.id);
-                         
-                         // إشعار الموظف بالتشفيت
-                         await supabase.from('system_notifications').insert({
-                            recipient_id: employeeId,
-                            sender_id: employeeId,
-                            type: 'system',
-                            title: 'تعديل آلي لوقت الإجازة الزمنية (انزياح ذكي)',
-                            content: `قمت بالخروج المبكر بـ ${diffMins} دقيقة عن بداية إجازتك المعتمدة. تم تشفيت وقت الإجازة لتبدأ من ${newStartStr} وتنتهي في ${newEndStr} آلياً. يرجى الالتزام بوقت العودة.`,
-                            metadata: { request_id: timeOff.id },
-                            created_at: getServerNow().toISOString()
-                         });
-                         
-                         timeOff.leave_start_time = newStartStr;
-                         timeOff.leave_end_time = newEndStr;
-                     }
-                 }
-             }
-          }
-       }
-    }
-
-    // Find requested (not mandatory) shift_start, mid_shift, and shift_end
-    const requestedShiftStart = allTimeOffs?.find(r => r.time_off_subtype === 'shift_start' && r.with_request && r.leave_type === 'time_off');
-    const requestedMidShift = allTimeOffs?.find(r => r.time_off_subtype === 'mid_shift' && r.with_request && r.leave_type === 'time_off');
-    const requestedShiftEnd = allTimeOffs?.find(r => r.time_off_subtype === 'shift_end' && r.with_request && r.leave_type === 'time_off');
-
-    const lateLeave = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && (l.time_off_subtype === 'shift_start' || (l.leave_type === 'regular' && l.reason?.includes('تأخير'))));
-    const midLeave = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && (l.time_off_subtype === 'mid_shift' || (l.leave_type === 'regular' && l.reason?.includes('وسط الدوام'))));
-    const earlyLeave = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && (l.time_off_subtype === 'shift_end' || (l.leave_type === 'regular' && l.reason?.includes('خروج مبكر'))));
-    const fullDayPenalty = allTimeOffs?.find(l => (!l.with_request || l.is_mandatory) && l.leave_type === 'regular' && (l.reason?.includes('إجازة اعتيادية إجبارية') || l.reason?.includes('تجاوز مجموع') || l.reason?.includes('تأخير') || l.reason?.includes('خروج مبكر') || l.reason?.includes('وسط الدوام')));
-
-    // Helper notification for penalties
-    const sendPenaltyAlert = async (
-      penaltyMins: number | 'day' | 'day_double',
-      reasonText: string,
-      isLate: boolean,
-      minutesVal: number
-    ) => {
-      try {
-        const empName = profile?.full_name || 'موظف';
-        const penaltyLabel = penaltyMins === 'day_double'
-          ? 'إجازة اعتيادية إجبارية (يومان لشفت الخفر)'
-          : penaltyMins === 'day'
-            ? 'إجازة اعتيادية إجبارية (يوم كامل)'
-            : `إجازة زمنية إجبارية (${penaltyMins >= 60 && penaltyMins % 60 === 0 ? `${penaltyMins / 60} ساعة` : `${penaltyMins} دقيقة`})`;
-
-        const isFullDayPenalty = penaltyMins === 'day' || penaltyMins === 'day_double';
-        const daysCountVal = penaltyMins === 'day_double' ? 2 : 1;
-
-        const title = isFullDayPenalty
-          ? '⚠️ تنبيه إداري: تأخر تجاوز الساعتين وإجازة إجبارية'
-          : (isLate ? '⚠️ تنبيه: تأخير وإجازة إجبارية' : '⚠️ تنبيه: خروج مبكر وإجازة إجبارية');
-
-        const empContent = isFullDayPenalty
-          ? `تم تسجيل حضورك متأخراً بـ (${minutesVal} دقيقة) لتاريخ ${dateStr} وهو يتجاوز حد الساعتين. تم تقييد (${penaltyLabel}) أصولياً في النظام، وإشعار مسؤولك المباشر لاعتمادها أو تحويلها لغياب رسمي.`
-          : `تم تسجيل ${isLate ? 'تأخير' : 'خروج مبكر'} بـ (${minutesVal} دقيقة) في سجلك لتاريخ ${dateStr}، وتقييد (${penaltyLabel}) أصولياً في النظام.`;
-
-        const supContent = `الموظف (${empName}) تم تسجيل ${isLate ? 'تأخير' : 'خروج مبكر'} بـ (${minutesVal} دقيقة) له لتاريخ ${dateStr}، وتم تقييد (${penaltyLabel}) تلقائياً.`;
-
-        // 1. Notify Employee (إشعار واحد موحد وشامل دون تكرار)
-        await supabase.from('system_notifications').insert({
-          recipient_id: employeeId,
-          type: 'penalty_notice',
-          title,
-          content: empContent,
-          is_read: false,
-          metadata: {
-            type: isFullDayPenalty ? 'employee_penalty_notice' : 'mandatory_penalty',
-            penalty_type: penaltyMins,
-            record_date: dateStr,
-            minutes: minutesVal,
-            days_count: daysCountVal,
-            is_late: isLate,
-            reason: reasonText
-          }
-        });
-        sendPushNotification(employeeId, empContent, { title }).catch(console.warn);
-
-        // 2. Notify Biometric Supervisors only (not finance)
-        const targetGov = profile?.governorate || 'karbala';
-        const { data: sups } = await supabase
-          .from('profiles')
-          .select('id')
-          .in('admin_role', ['biometric', 'attendance_supervisor', 'general'])
-          .eq('governorate', targetGov)
-          .neq('id', employeeId);
-        if (sups && sups.length > 0) {
-          const rows = sups.map(s => ({
-            recipient_id: s.id,
-            type: 'biometric_alert',
-            title,
-            content: supContent,
-            is_read: false,
-            metadata: {
-              type: 'mandatory_penalty_supervisor',
-              employee_id: employeeId,
-              employee_name: empName,
-              penalty_type: penaltyMins,
-              record_date: dateStr,
-              minutes: minutesVal,
-              is_late: isLate,
-              reason: reasonText
-            }
-          }));
-          await supabase.from('system_notifications').insert(rows);
-          sups.forEach(s => sendPushNotification(s.id, supContent, { title }).catch(console.warn));
-        }
-
-        // 3. Notify Direct Manager (Department Manager)
-        if (profile?.department_id) {
-          const { data: dept } = await supabase
-            .from('departments')
-            .select('manager_id')
-            .eq('id', profile.department_id)
-            .single();
-
-          if (dept?.manager_id && dept.manager_id !== employeeId) {
-            const isFullDayPenalty = penaltyMins === 'day' || penaltyMins === 'day_double';
-            const daysCountVal = penaltyMins === 'day_double' ? 2 : 1;
-            const mgrTitle = isFullDayPenalty
-              ? `🚨 قرار مطلوب: تأخير يتجاوز الساعتين (${empName})`
-              : (isLate ? '⚠️ تنبيه تأخير موظف في قسمك' : '⚠️ تنبيه انصراف مبكر لموظف في قسمك');
-
-            const mgrContent = isFullDayPenalty
-              ? `الموظف (${empName}) حضر بتأخر (${minutesVal} دقيقة) لتاريخ ${dateStr} وتجاوز حد الساعتين. تم قيده مبدئياً كإجازة اعتيادية إجبارية (${daysCountVal} يوم). يرجى اعتماد الإجازة أو تحويلها لغياب رسمي بدون راتب.`
-              : `الموظف (${empName}) في قسمك تم تسجيل ${isLate ? 'تأخير' : 'خروج مبكر'} بـ (${minutesVal} دقيقة) له لتاريخ ${dateStr}، وتم تقييد (${penaltyLabel}) تلقائياً.`;
-
-            await supabase.from('system_notifications').insert({
-              recipient_id: dept.manager_id,
-              type: 'system',
-              title: mgrTitle,
-              content: mgrContent,
-              is_read: false,
-              metadata: {
-                type: isFullDayPenalty ? 'mandatory_penalty_decision' : 'mandatory_penalty_manager',
-                employee_id: employeeId,
-                employee_name: empName,
-                penalty_type: penaltyMins,
-                record_date: dateStr,
-                minutes: minutesVal,
-                is_late: isLate,
-                days_count: daysCountVal,
-                reason: reasonText,
-                requires_decision: isFullDayPenalty
-              }
-            });
-            sendPushNotification(dept.manager_id, mgrContent, { title: mgrTitle }).catch(console.warn);
-          }
-        }
-      } catch (err) {
-        console.error('Error sending penalty alert:', err);
-      }
-    };
-
-    let morningPenalty: number | 'day' | 'day_double' = 0;
-    let morningReason = '';
-    let morningStartStr = '08:00:00';
-    let morningEndStr = '08:30:00';
-    let morningDelayMinutes = 0;
-
-    // --- حساب التأخير الصباحي ---
-    if (record.check_in) {
-      const checkInDate = new Date(record.check_in);
-      const bIn = getBaghdadDate(checkInDate);
-      const checkInMinutes = bIn.getHours() * 60 + bIn.getMinutes();
-
-      if (isRoster && daySchedule) {
-        const formatHM = (mins: number) => {
-          const h = Math.floor(mins / 60) % 24;
-          const m = mins % 60;
-          return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        };
-        const formatHMS = (mins: number) => `${formatHM(mins)}:00`;
-
-        // 1. تحديد شفتات اليوم مع بداياتها وأوزانها الرسمية
-        const dayShifts: Array<{ type: 'morning' | 'evening' | 'night'; startMins: number; startStr: string; weight: number }> = [];
-        if (daySchedule.is_morning) dayShifts.push({ type: 'morning', startMins: 8 * 60, startStr: '08:00:00', weight: 1 });
-        if (daySchedule.is_evening) dayShifts.push({ type: 'evening', startMins: 15 * 60, startStr: '15:00:00', weight: 1 });
-        if (daySchedule.is_night) dayShifts.push({ type: 'night', startMins: 20 * 60, startStr: '20:00:00', weight: 2 });
-
-        // فحص إعفاء الشفت عبر إجازة اعتيادية/مرضية معتمدة
-        const approvedDayLeave = allTimeOffs.find(l => 
-          ['regular', 'long_regular', 'sick'].includes(l.leave_type) && 
-          l.with_request !== false && 
-          !l.is_mandatory
-        );
-
-        let activeShifts = dayShifts;
-        if (approvedDayLeave) {
-          const canceledCount = approvedDayLeave.days_count || 1;
-          activeShifts = dayShifts.slice(canceledCount);
-        }
-
-        // 2. تحديد الشفت المستهدف بناءً على وقت الحضور checkInMinutes
-        let currentShift: { type: 'morning' | 'evening' | 'night'; startMins: number; startStr: string; weight: number } | null = null;
-        if (activeShifts.some(s => s.type === 'night') && (checkInMinutes >= 19 * 60 + 30 || checkInMinutes < 7 * 60)) {
-          currentShift = activeShifts.find(s => s.type === 'night') || null;
-        } else if (activeShifts.some(s => s.type === 'evening') && checkInMinutes >= 13 * 60 + 30 && checkInMinutes < 19 * 60 + 30) {
-          currentShift = activeShifts.find(s => s.type === 'evening') || null;
-        } else if (activeShifts.some(s => s.type === 'morning') && checkInMinutes >= 6 * 60 + 30 && checkInMinutes < 13 * 60 + 30) {
-          currentShift = activeShifts.find(s => s.type === 'morning') || null;
-        } else {
-          currentShift = activeShifts[0] || null;
-        }
-
-        if (currentShift) {
-          // فحص غياب الشفت المسائي المنتهي عند الحضور في شفت الخفر
-          if (currentShift.type === 'night' && dayShifts.some(s => s.type === 'evening') && profile?.department_id) {
-            try {
-              const hasEveningExemption = allTimeOffs.some(l => 
-                ['regular', 'long_regular', 'sick'].includes(l.leave_type)
-              );
-              if (!hasEveningExemption) {
-                const { data: dept } = await supabase.from('departments').select('manager_id').eq('id', profile.department_id).single();
-                if (dept?.manager_id && dept.manager_id !== employeeId) {
-                  const { data: existingEveningNotif } = await supabase
-                    .from('system_notifications')
-                    .select('id')
-                    .eq('recipient_id', dept.manager_id)
-                    .eq('metadata->>type', 'shift_absence_resolution')
-                    .eq('metadata->>employee_id', employeeId)
-                    .eq('metadata->>record_date', dateStr)
-                    .eq('metadata->>shift_type', 'evening')
-                    .maybeSingle();
-
-                  if (!existingEveningNotif) {
-                    await supabase.from('system_notifications').insert({
-                      recipient_id: dept.manager_id,
-                      type: 'system',
-                      title: `🚨 قرار مطلوب: غياب الشفت المسائي (${profile.full_name || 'موظف'})`,
-                      content: `الموظف (${profile.full_name || 'موظف'}) لم يسجل حضوراً في الشفت المسائي (15:00 - 20:00) ليوم ${dateStr}. يرجى اتخاذ القرار الإداري لاعتماد الغياب رسمياً بدون راتب أو تحويله إلى إجازة اعتيادية (1 يوم).`,
-                      is_read: false,
-                      metadata: {
-                        type: 'shift_absence_resolution',
-                        employee_id: employeeId,
-                        employee_name: profile.full_name,
-                        record_date: dateStr,
-                        shift_type: 'evening',
-                        days_count: 1,
-                        requires_decision: true
-                      }
-                    });
-
-                    // إشعار فوري للموظف بالعلم
-                    await supabase.from('system_notifications').insert({
-                      recipient_id: employeeId,
-                      sender_id: employeeId,
-                      type: 'system',
-                      title: 'تنبيه إداري: عدم حضور الشفت المسائي',
-                      content: `للعلم: لم يتم تسجيل حضور لك في الشفت المسائي ليوم (${dateStr}). تم إشعار مسؤولك المباشر لاتخاذ القرار الإداري باعتماده إجازة اعتيادية أو غياباً رسمياً.`,
-                      metadata: {
-                        type: 'employee_shift_absence_notice',
-                        record_date: dateStr,
-                        shift_type: 'evening',
-                        days_count: 1
-                      }
-                    });
-                  }
-                }
-              }
-            } catch (eveningAbsErr) {
-              console.error('Error handling evening absence notification:', eveningAbsErr);
-            }
-          }
-
-          // 3. البحث عن إجازة بداية الشفت (نوع A) المعتمدة لهذا الشفت بعينه
-          const rosterShiftLeave = allTimeOffs.find(l => {
-            if (l.leave_type !== 'time_off' || !l.with_request || l.time_off_subtype !== 'shift_start') return false;
-            const st = l.leave_start_time || '';
-            if (currentShift!.type === 'morning') return st >= '07:00:00' && st < '14:00:00';
-            if (currentShift!.type === 'evening') return st >= '14:00:00' && st < '19:30:00';
-            if (currentShift!.type === 'night') return st >= '19:30:00' || st < '07:00:00';
-            return false;
-          });
-
-          if (!rosterShiftLeave) {
-            // لا توجد إجازة زمنية معتمدة لهذا الشفت: المحاسبة على التأخير المباشر
-            const rawMins = (currentShift.type === 'night' && checkInMinutes < 7 * 60)
-              ? (checkInMinutes + 1440) - currentShift.startMins
-              : checkInMinutes - currentShift.startMins;
-
-            if (rawMins > 5) {
-              if (rawMins <= 120) {
-                morningDelayMinutes = rawMins;
-                morningPenalty = rawMins;
-                morningReason = `تأخير مناوب في شفت ${currentShift.type === 'evening' ? 'المسائي' : currentShift.type === 'night' ? 'الخفر' : 'الصباحي'} (${rawMins} دقيقة)`;
-                morningStartStr = currentShift.startStr;
-                const endH = Math.floor((currentShift.startMins + rawMins) / 60) % 24;
-                const endM = (currentShift.startMins + rawMins) % 60;
-                morningEndStr = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}:00`;
-              } else {
-                // تجاوز الساعتين: تحويل الشفت لاعتيادية إجبارية بوزنه القانوني (1 للمسائي/الصباحي، 2 للخفر)
-                morningPenalty = currentShift.weight === 2 ? 'day_double' : 'day';
-                morningReason = `تأخير مناوب تجاوز الساعتين في شفت ${currentShift.type === 'evening' ? 'المسائي' : currentShift.type === 'night' ? 'الخفر' : 'الصباحي'} (${rawMins} دقيقة) - إجازة اعتيادية إجبارية (${currentShift.weight} يوم)`;
-              }
-            } else {
-              morningPenalty = 0;
-              morningDelayMinutes = 0;
-            }
-          } else {
-            // يوجد طلب إجازة زمنية بداية شفت (نوع A) معتمد للشفت
-            const approvedDuration = rosterShiftLeave.time_duration_minutes || 0;
-            const approvedEndMins = currentShift.startMins + approvedDuration;
-
-            // الحالة 1: الحضور في بداية الشفت (ضمن 5 دقائق من بدايته) -> إلغاء وتصفير لحفظ الرصيد
-            if (checkInMinutes <= currentShift.startMins + 5) {
-              if (approvedDuration > 0) {
-                const note = ` [أُلغيت لعدم الاستخدام والحضور في بداية الشفت ${formatHM(checkInMinutes)}]`;
-                await supabase.from('leave_requests').update({
-                  time_duration_minutes: 0,
-                  leave_end_time: rosterShiftLeave.leave_start_time || currentShift.startStr,
-                  reason: (rosterShiftLeave.reason || '') + note
-                }).eq('id', rosterShiftLeave.id);
-
-                rosterShiftLeave.time_duration_minutes = 0;
-                rosterShiftLeave.leave_end_time = rosterShiftLeave.leave_start_time || currentShift.startStr;
-
-                await supabase.from('system_notifications').insert({
-                  recipient_id: employeeId,
-                  sender_id: employeeId,
-                  type: 'system',
-                  title: 'إلغاء احتساب الإجازة الزمنية (حضور بداية الشفت)',
-                  content: `نظراً لتسجيل حضورك في بداية الشفت (${formatHM(checkInMinutes)})، تم إلغاء احتساب دقائق الإجازة الزمنية (${approvedDuration} دقيقة) حفاظاً على رصيدك.`,
-                  metadata: { request_id: rosterShiftLeave.id },
-                  created_at: getServerNow().toISOString()
-                });
-              }
-              morningPenalty = 0;
-              morningDelayMinutes = 0;
-            }
-            // الحالة 2: الحضور المبكر قبل انتهاء الإجازة بأكثر من 5 دقائق -> تقليص ذكي لنفس الطلب
-            else if (checkInMinutes < approvedEndMins - 5) {
-              const actualUsedMins = Math.max(0, checkInMinutes - currentShift.startMins);
-              if (actualUsedMins < approvedDuration) {
-                const newEndStr = formatHMS(checkInMinutes);
-                const note = ` [تم تقليص المدة من ${approvedDuration} إلى ${actualUsedMins} دقيقة للحضور المبكر ${formatHM(checkInMinutes)}]`;
-                await supabase.from('leave_requests').update({
-                  time_duration_minutes: actualUsedMins,
-                  leave_end_time: newEndStr,
-                  reason: (rosterShiftLeave.reason || '') + note
-                }).eq('id', rosterShiftLeave.id);
-
-                rosterShiftLeave.time_duration_minutes = actualUsedMins;
-                rosterShiftLeave.leave_end_time = newEndStr;
-
-                await supabase.from('system_notifications').insert({
-                  recipient_id: employeeId,
-                  sender_id: employeeId,
-                  type: 'system',
-                  title: 'تقليص مدة الإجازة الزمنية (حضور مبكر)',
-                  content: `تم تقليص مدة إجازتك الزمنية لشفت ${currentShift.type === 'evening' ? 'المسائي' : currentShift.type === 'night' ? 'الخفر' : 'الصباحي'} إلى (${actualUsedMins} دقيقة) بدلاً من (${approvedDuration} دقيقة) لحضورك المبكر وحفظاً لرصيدك.`,
-                  metadata: { request_id: rosterShiftLeave.id },
-                  created_at: getServerNow().toISOString()
-                });
-              }
-              morningPenalty = 0;
-              morningDelayMinutes = 0;
-            }
-            // الحالة 3: الحضور في الموعد المحدد (ضمن نافذة ±5 دقائق من نهاية الإجازة)
-            else if (checkInMinutes <= approvedEndMins + 5) {
-              morningPenalty = 0;
-              morningDelayMinutes = 0;
-            }
-            // الحالة 4 و 5: التأخر بعد انتهاء الإجازة وسماحية الـ 5 دقائق
-            else {
-              const totalAbsenceMins = (currentShift.type === 'night' && checkInMinutes < 7 * 60)
-                ? (checkInMinutes + 1440) - currentShift.startMins
-                : checkInMinutes - currentShift.startMins;
-
-              // إذا تجاوز الغياب الكلي عن بداية الشفت ساعتين (120 دقيقة)
-              if (totalAbsenceMins > 120) {
-                morningPenalty = currentShift.weight === 2 ? 'day_double' : 'day';
-                morningReason = `تأخير شفت ${currentShift.type === 'evening' ? 'المسائي' : currentShift.type === 'night' ? 'الخفر' : 'الصباحي'} تجاوز الساعتين (${formatHM(checkInMinutes)} - غياب ${totalAbsenceMins} دقيقة) - إجازة اعتيادية إجبارية (${currentShift.weight} يوم)`;
-
-                // تصفير الإجازة الزمنية فوراً منعاً للازدواجية في الخصم
-                if (approvedDuration > 0) {
-                  const note = ` [أُلغيت واستبدلت بإجازة اعتيادية إجبارية (${currentShift.weight} يوم) لتجاوز الساعتين وحضور ${formatHM(checkInMinutes)}]`;
-                  await supabase.from('leave_requests').update({
-                    time_duration_minutes: 0,
-                    leave_end_time: rosterShiftLeave.leave_start_time || currentShift.startStr,
-                    reason: (rosterShiftLeave.reason || '') + note
-                  }).eq('id', rosterShiftLeave.id);
-
-                  rosterShiftLeave.time_duration_minutes = 0;
-                }
-              } else {
-                // التأخر الإضافي ضمن الساعتين (<= 120 دقيقة):
-                // تطبيق قاعدة التعديل والتمديد لنفس الطلب الأصلي دون فتح أي طلب إضافي!
-                const newEndStr = formatHMS(checkInMinutes);
-                const note = ` [تم تمديد المدة تلقائياً من ${approvedDuration} إلى ${totalAbsenceMins} دقيقة لتغطية تأخر الحضور حتى ${formatHM(checkInMinutes)}]`;
-                await supabase.from('leave_requests').update({
-                  time_duration_minutes: totalAbsenceMins,
-                  leave_end_time: newEndStr,
-                  reason: (rosterShiftLeave.reason || '') + note
-                }).eq('id', rosterShiftLeave.id);
-
-                rosterShiftLeave.time_duration_minutes = totalAbsenceMins;
-                rosterShiftLeave.leave_end_time = newEndStr;
-
-                await supabase.from('system_notifications').insert({
-                  recipient_id: employeeId,
-                  sender_id: employeeId,
-                  type: 'system',
-                  title: 'تمديد الإجازة الزمنية (تأخر في العودة)',
-                  content: `تم تمديد مدة إجازتك الزمنية لشفت ${currentShift.type === 'evening' ? 'المسائي' : currentShift.type === 'night' ? 'الخفر' : 'الصباحي'} تلقائياً إلى (${totalAbsenceMins} دقيقة) بدلاً من (${approvedDuration} دقيقة) لتغطية حضورك الساعة (${formatHM(checkInMinutes)}) دون تسجيل عقوبة إضافية.`,
-                  metadata: { request_id: rosterShiftLeave.id },
-                  created_at: getServerNow().toISOString()
-                });
-
-                morningPenalty = 0;
-                morningDelayMinutes = 0;
-              }
-            }
-          }
-        }
-      } else {
-        // الدوام الصباحي الثابت (08:00 إلى 15:00)
-        const officialStartMins = 8 * 60; // 480 (08:00)
-        const officialGraceEndMins = officialStartMins + 30; // 510 (08:30)
-
-        const formatHM = (mins: number) => {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        };
-        const formatHMS = (mins: number) => `${formatHM(mins)}:00`;
-
-        if (!requestedShiftStart) {
-          // الموظف بدون إجازة زمنية مسبقة: المنطق النظامي للدوام الصباحي
-          morningDelayMinutes = Math.max(0, checkInMinutes - officialStartMins);
-
-          if (checkInMinutes <= officialGraceEndMins) {
-            // سماحية الحضور (08:00 إلى 08:30): حضور نظامي بلا عقوبة
-            morningPenalty = 0;
-          } else if (checkInMinutes <= officialStartMins + 60) {
-            // الشريحة الأولى (08:31 إلى 09:00): زمنية نصف ساعة (30 دقيقة)
-            morningPenalty = 30;
-            morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (30 دقيقة)`;
-            morningStartStr = formatHMS(officialStartMins);
-            morningEndStr = formatHMS(officialStartMins + 30);
-          } else if (checkInMinutes <= officialStartMins + 90) {
-            // الشريحة الثانية (09:01 إلى 09:30): زمنية ساعة كاملة (60 دقيقة)
-            morningPenalty = 60;
-            morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (ساعة كاملة)`;
-            morningStartStr = formatHMS(officialStartMins);
-            morningEndStr = formatHMS(officialStartMins + 60);
-          } else if (checkInMinutes <= officialStartMins + 120) {
-            // الشريحة الثالثة (09:31 إلى 10:00): زمنية ساعتان (120 دقيقة)
-            morningPenalty = 120;
-            morningReason = `تأخير صباحي (${formatHM(checkInMinutes)}) - إجازة زمنية إجبارية (ساعتان كاملتان)`;
-            morningStartStr = formatHMS(officialStartMins);
-            morningEndStr = formatHMS(officialStartMins + 120);
-          } else {
-            // الشريحة الرابعة (10:01 فما بعد): إجازة اعتيادية إجبارية يوم كامل
-            morningPenalty = 'day';
-            morningReason = `تأخير صباحي (${formatHM(checkInMinutes)} - تجاوز 10:00) - إجازة اعتيادية إجبارية (يوم كامل)`;
-          }
-        } else {
-          // الموظف لديه إجازة زمنية بداية دوام معتمدة بطلب (نوع A)
-          const approvedDuration = requestedShiftStart.time_duration_minutes || 0;
-          // احتساب وقت نهاية الإجازة يبدأ من نهاية وقت السماحية الصباحية (08:30 = 510 دقيقة)
-          const approvedEndMins = officialGraceEndMins + approvedDuration;
-
-          // الحالة 1: الحضور في بداية الدوام الطبيعية والسماحية (08:00 إلى 08:30)
-          if (checkInMinutes <= officialGraceEndMins) {
-            if (approvedDuration > 0) {
-              const note = ` [أُلغيت لعدم الاستخدام والحضور في بداية الدوام الطبيعية ${formatHM(checkInMinutes)}]`;
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: 0,
-                leave_end_time: requestedShiftStart.leave_start_time || '08:30:00',
-                reason: (requestedShiftStart.reason || '') + note
-              }).eq('id', requestedShiftStart.id);
-
-              requestedShiftStart.time_duration_minutes = 0;
-              requestedShiftStart.leave_end_time = requestedShiftStart.leave_start_time || '08:30:00';
-
-              // إشعار الموظف بحفظ رصيده
-              await supabase.from('system_notifications').insert({
-                recipient_id: employeeId,
-                sender_id: employeeId,
-                type: 'system',
-                title: 'إلغاء احتساب الإجازة الزمنية (حضور نظامي)',
-                content: `نظراً لتسجيل حضورك في بداية الدوام الطبيعية (${formatHM(checkInMinutes)})، تم إلغاء احتساب دقائق الإجازة الزمنية (${approvedDuration} دقيقة) حفاظاً على رصيدك.`,
-                metadata: { request_id: requestedShiftStart.id },
-                created_at: getServerNow().toISOString()
-              });
-            }
-            morningPenalty = 0;
-            morningDelayMinutes = 0;
-          }
-          // الحالة 2: الحضور المبكر قبل انتهاء وقت الإجازة المصرح بها (بأكثر من 5 دقائق)
-          else if (checkInMinutes < approvedEndMins - 5) {
-            const actualUsedMins = Math.max(0, checkInMinutes - officialGraceEndMins);
-            if (actualUsedMins < approvedDuration) {
-              const newEndStr = formatHMS(checkInMinutes);
-              const note = ` [تم تقليص المدة من ${approvedDuration} إلى ${actualUsedMins} دقيقة للحضور المبكر ${formatHM(checkInMinutes)}]`;
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: actualUsedMins,
-                leave_end_time: newEndStr,
-                reason: (requestedShiftStart.reason || '') + note
-              }).eq('id', requestedShiftStart.id);
-
-              requestedShiftStart.time_duration_minutes = actualUsedMins;
-              requestedShiftStart.leave_end_time = newEndStr;
-
-              // إشعار الموظف بالتقليص
-              await supabase.from('system_notifications').insert({
-                recipient_id: employeeId,
-                sender_id: employeeId,
-                type: 'system',
-                title: 'تقليص مدة الإجازة الزمنية (حضور مبكر)',
-                content: `تم تقليص مدة إجازتك الزمنية إلى (${actualUsedMins} دقيقة) بدلاً من (${approvedDuration} دقيقة) لحضورك المبكر الساعة (${formatHM(checkInMinutes)}) وحفظاً لرصيدك.`,
-                metadata: { request_id: requestedShiftStart.id },
-                created_at: getServerNow().toISOString()
-              });
-            }
-            morningPenalty = 0;
-            morningDelayMinutes = 0;
-          }
-          // الحالة 3: الحضور في الموعد المحدد بدقة (مع سماحية بصمة 5 دقائق قبل و 5 دقائق بعد)
-          else if (checkInMinutes <= approvedEndMins + 5) {
-            morningPenalty = 0;
-            morningDelayMinutes = 0;
-          }
-          // الحالة 4 و 5: التأخر بعد انتهاء الإجازة المصرح بها وسماحية الـ 5 دقائق
-          else {
-            const totalAbsenceMins = checkInMinutes - officialGraceEndMins;
-            const extraDelayMins = checkInMinutes - approvedEndMins;
-            morningDelayMinutes = extraDelayMins;
-
-            // إذا تجاوز الغياب الكلي بعد السماحية ساعتين (120 دقيقة، أي بعد 10:30 صباحاً)
-            if (totalAbsenceMins > 120 || checkInMinutes > 10 * 60 + 30) {
-              morningPenalty = 'day';
-              morningReason = `تأخير صباحي تجاوز الساعتين (${formatHM(checkInMinutes)} - إجمالي غياب بعد السماحية ${totalAbsenceMins} دقيقة) - إجازة اعتيادية إجبارية (يوم كامل)`;
-              
-              // تصفير الإجازة الزمنية فوراً منعاً للازدواجية
-              if (approvedDuration > 0) {
-                const note = ` [أُلغيت واستبدلت بإجازة اعتيادية إجبارية لتجاوز الساعتين وحضور ${formatHM(checkInMinutes)}]`;
-                await supabase.from('leave_requests').update({
-                  time_duration_minutes: 0,
-                  leave_end_time: requestedShiftStart.leave_start_time || '08:30:00',
-                  reason: (requestedShiftStart.reason || '') + note
-                }).eq('id', requestedShiftStart.id);
-
-                requestedShiftStart.time_duration_minutes = 0;
-              }
-            } else {
-              // التأخر الإضافي ضمن الساعتين: تمديد نفس الطلب الأصلي لتغطية التأخر وحفظ السجل نظيفاً دون فتح أي طلب جديد
-              const actualUsedMins = Math.max(0, checkInMinutes - officialGraceEndMins);
-              const newEndStr = formatHMS(checkInMinutes);
-              const note = ` [تم تمديد المدة تلقائياً من ${approvedDuration} إلى ${actualUsedMins} دقيقة لتغطية تأخر الحضور حتى ${formatHM(checkInMinutes)}]`;
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: actualUsedMins,
-                leave_end_time: newEndStr,
-                reason: (requestedShiftStart.reason || '') + note
-              }).eq('id', requestedShiftStart.id);
-
-              requestedShiftStart.time_duration_minutes = actualUsedMins;
-              requestedShiftStart.leave_end_time = newEndStr;
-
-              // إشعار الموظف بتمديد الإجازة الزمنية
-              await supabase.from('system_notifications').insert({
-                recipient_id: employeeId,
-                sender_id: employeeId,
-                type: 'system',
-                title: 'تمديد الإجازة الزمنية (تأخر في العودة)',
-                content: `تم تمديد مدة إجازتك الزمنية تلقائياً إلى (${actualUsedMins} دقيقة) بدلاً من (${approvedDuration} دقيقة) لتغطية حضورك الساعة (${formatHM(checkInMinutes)}) دون تسجيل عقوبة إضافية.`,
-                metadata: { request_id: requestedShiftStart.id },
-                created_at: getServerNow().toISOString()
-              });
-
-              morningPenalty = 0;
-              morningDelayMinutes = 0;
-            }
-          }
-        }
-      }
-    }
-
-    let midShiftPenalty: number | 'day' = 0;
-    let midShiftReason = '';
-    let midShiftStartStr = '11:00:00';
-    let midShiftEndStr = '12:00:00';
-    let midShiftDelayMinutes = 0;
-
-    // --- حساب الإجازة الزمنية وسط الدوام (نوع B) ---
-    if (requestedMidShift) {
-      const approvedDuration = requestedMidShift.time_duration_minutes || 0;
-      const [lh, lm] = (requestedMidShift.leave_start_time || '11:00:00').split(':').map(Number);
-      const [leh, lem] = (requestedMidShift.leave_end_time || '12:00:00').split(':').map(Number);
-      const approvedStartMins = lh * 60 + lm;
-      const approvedEndMins = leh * 60 + lem;
-
-      const formatHM = (mins: number) => {
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      };
-      const formatHMS = (mins: number) => `${formatHM(mins)}:00`;
-
-      // الحالة 1: عدم الخروج إطلاقاً والبقاء في الدوام حتى الانصراف
-      if (!record.time_leave_out && !record.time_leave_return && record.check_out) {
-        if (approvedDuration > 0) {
-          const note = ` [أُلغيت لعدم الاستخدام وعدم تسجيل خروج زمني والبقاء في الدوام]`;
-          await supabase.from('leave_requests').update({
-            time_duration_minutes: 0,
-            leave_end_time: requestedMidShift.leave_start_time,
-            reason: (requestedMidShift.reason || '') + note
-          }).eq('id', requestedMidShift.id);
-
-          requestedMidShift.time_duration_minutes = 0;
-
-          await supabase.from('system_notifications').insert({
-            recipient_id: employeeId,
-            sender_id: employeeId,
-            type: 'system',
-            title: 'إلغاء احتساب الإجازة الزمنية الوسطية',
-            content: `نظراً لاستمرارك في الدوام وعدم تسجيل خروج زمني، تم إلغاء احتساب دقائق الإجازة الزمنية (${approvedDuration} دقيقة) حفاظاً على رصيدك.`,
-            metadata: { request_id: requestedMidShift.id },
-            created_at: getServerNow().toISOString()
-          });
-        }
-        midShiftPenalty = 0;
-      }
-      // الحالة 2: خرج وبصم خروج وعودة
-      else if (record.time_leave_out && record.time_leave_return) {
-        const outD = getBaghdadDate(new Date(record.time_leave_out));
-        const retD = getBaghdadDate(new Date(record.time_leave_return));
-        const outMinutes = outD.getHours() * 60 + outD.getMinutes();
-        const returnMinutes = retD.getHours() * 60 + retD.getMinutes();
-        const actualSpentMinutes = Math.max(0, Math.floor((retD.getTime() - outD.getTime()) / 60000));
-
-        let effectiveStartMins = approvedStartMins;
-        let effectiveEndMins = approvedEndMins;
-
-        // انزياح ذكي لوقت البداية إذا خرج مبكراً بأكثر من 5 دقائق
-        if (approvedStartMins - outMinutes > 5) {
-          effectiveStartMins = outMinutes;
-          effectiveEndMins = effectiveStartMins + approvedDuration;
-          await supabase.from('leave_requests').update({
-            leave_start_time: formatHMS(effectiveStartMins),
-            leave_end_time: formatHMS(effectiveEndMins),
-            reason: (requestedMidShift.reason || '') + ` [انزياح ذكي: خرج ${formatHM(outMinutes)}]`
-          }).eq('id', requestedMidShift.id);
-          requestedMidShift.leave_start_time = formatHMS(effectiveStartMins);
-          requestedMidShift.leave_end_time = formatHMS(effectiveEndMins);
-        }
-
-        // عودة مبكرة قبل انتهاء وقت الإجازة (بأكثر من 5 دقائق)
-        if (returnMinutes < effectiveEndMins - 5) {
-          if (actualSpentMinutes < approvedDuration) {
-            const newEndStr = formatHMS(returnMinutes);
-            const note = ` [تم تقليص المدة من ${approvedDuration} إلى ${actualSpentMinutes} دقيقة للعودة المبكرة ${formatHM(returnMinutes)}]`;
-            await supabase.from('leave_requests').update({
-              time_duration_minutes: actualSpentMinutes,
-              leave_end_time: newEndStr,
-              reason: (requestedMidShift.reason || '') + note
-            }).eq('id', requestedMidShift.id);
-
-            requestedMidShift.time_duration_minutes = actualSpentMinutes;
-            requestedMidShift.leave_end_time = newEndStr;
-
-            await supabase.from('system_notifications').insert({
-              recipient_id: employeeId,
-              sender_id: employeeId,
-              type: 'system',
-              title: 'تقليص مدة الإجازة الزمنية الوسطية',
-              content: `تم تقليص مدة إجازتك الزمنية إلى (${actualSpentMinutes} دقيقة) لعودتك المبكرة الساعة (${formatHM(returnMinutes)}) وحفظاً لرصيدك.`,
-              metadata: { request_id: requestedMidShift.id },
-              created_at: getServerNow().toISOString()
-            });
-          }
-          midShiftPenalty = 0;
-        }
-        // عودة في الموعد (± 5 دقائق)
-        else if (returnMinutes <= effectiveEndMins + 5) {
-          midShiftPenalty = 0;
-        }
-        // تأخر في العودة
-        else {
-          const extraDelayMins = returnMinutes - effectiveEndMins;
-          midShiftDelayMinutes = extraDelayMins;
-
-          if (actualSpentMinutes > 120) {
-            midShiftPenalty = 'day';
-            midShiftReason = `تجاوز الإجازة الزمنية حاجز الساعتين (مدة الغياب: ${actualSpentMinutes} دقيقة) - إجازة اعتيادية إجبارية (يوم كامل)`;
-
-            if (approvedDuration > 0) {
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: 0,
-                leave_end_time: requestedMidShift.leave_start_time,
-                reason: (requestedMidShift.reason || '') + ` [أُلغيت واستبدلت بإجازة اعتيادية إجبارية لتجاوز الساعتين]`
-              }).eq('id', requestedMidShift.id);
-              requestedMidShift.time_duration_minutes = 0;
-            }
-          } else {
-            const remainingCap = Math.max(0, 120 - approvedDuration);
-            let penaltyVal = 30;
-            if (extraDelayMins > 30) penaltyVal = Math.min(extraDelayMins <= 60 ? 60 : 120, remainingCap);
-            midShiftPenalty = penaltyVal;
-            midShiftReason = `تأخر في العودة من الإجازة الزمنية (${formatHM(returnMinutes)} بتأخر ${extraDelayMins} دقيقة) - إجازة زمنية إجبارية (${penaltyVal} دقيقة)`;
-            midShiftStartStr = formatHMS(effectiveEndMins);
-            midShiftEndStr = formatHMS(effectiveEndMins + penaltyVal);
-          }
-        }
-      }
-      // الحالة 3: خروج زمني دون عودة طوال اليوم
-      else if (record.time_leave_out && !record.time_leave_return && (record.check_out || record.notes?.includes('خروج نهائي افتراضي'))) {
-        midShiftPenalty = 'day';
-        midShiftReason = `خروج زمني دون إثبات بصمة عودة - تحويل إلى إجازة اعتيادية إجبارية (يوم كامل)`;
-        if (approvedDuration > 0) {
-          await supabase.from('leave_requests').update({
-            time_duration_minutes: 0,
-            leave_end_time: requestedMidShift.leave_start_time,
-            reason: (requestedMidShift.reason || '') + ` [أُلغيت واستبدلت بإجازة اعتيادية إجبارية لعدم إثبات بصمة العودة]`
-          }).eq('id', requestedMidShift.id);
-          requestedMidShift.time_duration_minutes = 0;
-        }
-      }
-    }
-
-    let eveningPenalty: number | 'day' = 0;
-    let eveningReason = '';
-    let eveningStartStr = '14:30:00';
-    let eveningEndStr = '15:00:00';
-    let eveningEarlyMinutes = 0;
-
-    // إذا كان الموظف لديه طلب shift_end معتمد وسجل time_leave_out بدلاً من check_out:
-    if (!record.check_out && record.time_leave_out && requestedShiftEnd) {
-      record.check_out = record.time_leave_out;
-    }
-
-    // --- حساب الانصراف المبكر والساعات الإضافية ---
-    if (record.check_out && !record.check_out_is_virtual && !record.notes?.includes('خروج نهائي افتراضي')) {
-      const checkOutDate = new Date(record.check_out);
-      const bOut = getBaghdadDate(checkOutDate);
-      const checkOutMinutes = bOut.getHours() * 60 + bOut.getMinutes();
-
-      const formatHM = (mins: number) => {
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      };
-      const formatHMS = (mins: number) => `${formatHM(mins)}:00`;
-
-      if (isRoster && daySchedule) {
-        let expectedEndMins = 15 * 60;
-        if (daySchedule.is_night) {
-          expectedEndMins = 8 * 60;
-        } else if (daySchedule.is_evening) {
-          expectedEndMins = 20 * 60;
-        }
-        const diffEarly = (daySchedule.is_night && checkOutMinutes > 8 * 60)
-          ? 0
-          : (expectedEndMins - checkOutMinutes);
-        if (diffEarly > 5) {
-          eveningEarlyMinutes = diffEarly;
-          eveningPenalty = diffEarly;
-          eveningReason = `خروج مبكر لمناوب (${diffEarly} دقيقة)`;
-          eveningStartStr = formatHMS(Math.max(0, expectedEndMins - diffEarly));
-          eveningEndStr = formatHMS(expectedEndMins);
-        }
-      } else {
-        // الدوام الصباحي الثابت (08:00 إلى 15:00)
-        const officialShiftEndMins = 15 * 60; // 900 (15:00)
-        const allowedDepartureStartMins = 14 * 60 + 30; // 870 (14:30)
-
-        if (!requestedShiftEnd) {
-          // الموظف بدون إجازة زمنية نهاية دوام
-          if (checkOutMinutes >= allowedDepartureStartMins) {
-            // انصراف نظامي (14:30 إلى 15:00 أو بعدها)
-            eveningPenalty = 0;
-
-            // فحص الساعات الإضافية (بعد 15:00):
-            if (checkOutMinutes > officialShiftEndMins) {
-              const overtimeMins = checkOutMinutes - officialShiftEndMins;
-              const otHours = (overtimeMins / 60).toFixed(1).replace('.0', '');
-              const otNote = `(هناك ساعات إضافية = ${otHours} ساعة)`;
-              if (!record.notes?.includes('ساعات إضافية')) {
-                const updatedNotes = record.notes ? `${record.notes} | ${otNote}` : otNote;
-                await supabase.from('attendance_records').update({ notes: updatedNotes }).eq('id', record.id);
-                record.notes = updatedNotes;
-
-                // إشعار مسؤول البصمة
-                const empName = profile?.full_name || 'موظف';
-                const supMsg = `الموظف (${empName}) سجل بصمة انصراف بعد نهاية الدوام (${otNote}) لتاريخ ${dateStr}. البصمة باللون الأحمر بانتظار المراجعة والقرار.`;
-                const targetGov = profile?.governorate || 'karbala';
-                const { data: sups } = await supabase
-                  .from('profiles')
-                  .select('id')
-                  .in('admin_role', ['biometric', 'attendance_supervisor', 'general'])
-                  .eq('governorate', targetGov)
-                  .neq('id', employeeId);
-                if (sups && sups.length > 0) {
-                  const rows = sups.map(s => ({
-                    recipient_id: s.id,
-                    type: 'biometric_alert',
-                    title: '⏱️ تسجيل ساعات إضافية بعد نهاية الدوام',
-                    content: supMsg,
-                    is_read: false,
-                    metadata: { type: 'overtime_alert', employee_id: employeeId, record_date: dateStr, overtime_minutes: overtimeMins }
-                  }));
-                  await supabase.from('system_notifications').insert(rows);
-                }
-              }
-            }
-          } else {
-            // خروج مبكر قبل 14:30
-            eveningEarlyMinutes = allowedDepartureStartMins - checkOutMinutes;
-
-            if (checkOutMinutes >= allowedDepartureStartMins - 30) {
-              // الشريحة الأولى (14:00 إلى 14:29): زمنية نصف ساعة (30 دقيقة)
-              eveningPenalty = 30;
-              eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (30 دقيقة)`;
-              eveningStartStr = formatHMS(allowedDepartureStartMins - 30);
-              eveningEndStr = formatHMS(allowedDepartureStartMins);
-            } else if (checkOutMinutes >= allowedDepartureStartMins - 60) {
-              // الشريحة الثانية (13:30 إلى 13:59): زمنية ساعة كاملة (60 دقيقة)
-              eveningPenalty = 60;
-              eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (ساعة كاملة)`;
-              eveningStartStr = formatHMS(allowedDepartureStartMins - 60);
-              eveningEndStr = formatHMS(allowedDepartureStartMins);
-            } else if (checkOutMinutes >= allowedDepartureStartMins - 90) {
-              // الشريحة الثالثة (13:00 إلى 13:29): زمنية ساعتان (120 دقيقة)
-              eveningPenalty = 120;
-              eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)}) - إجازة زمنية إجبارية (ساعتان كاملتان)`;
-              eveningStartStr = formatHMS(allowedDepartureStartMins - 120);
-              eveningEndStr = formatHMS(allowedDepartureStartMins);
-            } else {
-              // الشريحة الرابعة (قبل 13:00 - أي 12:59 وما قبل): إجازة اعتيادية إجبارية يوم كامل
-              eveningPenalty = 'day';
-              eveningReason = `خروج مبكر (${formatHM(checkOutMinutes)} - قبل 13:00) - إجازة اعتيادية إجبارية (يوم كامل)`;
-            }
-          }
-        } else {
-          // الموظف لديه إجازة زمنية نهاية دوام معتمدة بطلب (نوع C)
-          const approvedDuration = requestedShiftEnd.time_duration_minutes || 0;
-          // موعد الخروج المصرح به يبدأ بالسالب من وقت بداية سماحية الانصراف (14:30 = 870 دقيقة)
-          const approvedExitMins = allowedDepartureStartMins - approvedDuration;
-
-          // الحالة 1: البقاء في الدوام حتى وقت الانصراف الطبيعي (14:30 فما بعد)
-          if (checkOutMinutes >= allowedDepartureStartMins - 5) {
-            if (approvedDuration > 0) {
-              const note = ` [أُلغيت لعدم الاستخدام والبقاء في الدوام حتى وقت الانصراف الطبيعي ${formatHM(checkOutMinutes)}]`;
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: 0,
-                leave_start_time: '14:30:00',
-                reason: (requestedShiftEnd.reason || '') + note
-              }).eq('id', requestedShiftEnd.id);
-
-              requestedShiftEnd.time_duration_minutes = 0;
-              requestedShiftEnd.leave_start_time = '14:30:00';
-
-              // إشعار الموظف بحفظ رصيده
-              await supabase.from('system_notifications').insert({
-                recipient_id: employeeId,
-                sender_id: employeeId,
-                type: 'system',
-                title: 'إلغاء احتساب إجازة نهاية الدوام (دوام كامل)',
-                content: `نظراً لاستمرارك في الدوام حتى وقت الانصراف الطبيعي (${formatHM(checkOutMinutes)})، تم إلغاء احتساب دقائق الإجازة الزمنية (${approvedDuration} دقيقة) حفاظاً على رصيدك.`,
-                metadata: { request_id: requestedShiftEnd.id },
-                created_at: getServerNow().toISOString()
-              });
-            }
-            eveningPenalty = 0;
-            eveningEarlyMinutes = 0;
-
-            // فحص الساعات الإضافية إذا بقي بعد 15:00
-            if (checkOutMinutes > officialShiftEndMins) {
-              const overtimeMins = checkOutMinutes - officialShiftEndMins;
-              const otHours = (overtimeMins / 60).toFixed(1).replace('.0', '');
-              const otNote = `(هناك ساعات إضافية = ${otHours} ساعة)`;
-              if (!record.notes?.includes('ساعات إضافية')) {
-                const updatedNotes = record.notes ? `${record.notes} | ${otNote}` : otNote;
-                await supabase.from('attendance_records').update({ notes: updatedNotes }).eq('id', record.id);
-                record.notes = updatedNotes;
-              }
-            }
-          }
-          // الحالة 2: الخروج المتأخر عن بداية الإجازة (التقليص الذكي وحفظ الرصيد)
-          // مثلاً: مصرح له 12:30 وخرج 13:45 (بقي يعمل بعد بداية إجازته بأكثر من 5 دقائق)
-          else if (checkOutMinutes > approvedExitMins + 5) {
-            const actualUsedMins = allowedDepartureStartMins - checkOutMinutes;
-            if (actualUsedMins < approvedDuration) {
-              const newStartStr = formatHMS(checkOutMinutes);
-              const note = ` [تم تقليص المدة من ${approvedDuration} إلى ${actualUsedMins} دقيقة للاستمرار بالعمل حتى ${formatHM(checkOutMinutes)}]`;
-              await supabase.from('leave_requests').update({
-                time_duration_minutes: actualUsedMins,
-                leave_start_time: newStartStr,
-                reason: (requestedShiftEnd.reason || '') + note
-              }).eq('id', requestedShiftEnd.id);
-
-              requestedShiftEnd.time_duration_minutes = actualUsedMins;
-              requestedShiftEnd.leave_start_time = newStartStr;
-
-              await supabase.from('system_notifications').insert({
-                recipient_id: employeeId,
-                sender_id: employeeId,
-                type: 'system',
-                title: 'تقليص مدة إجازة نهاية الدوام',
-                content: `تم تقليص مدة إجازتك الزمنية إلى (${actualUsedMins} دقيقة) بدلاً من (${approvedDuration} دقيقة) لاستمرارك بالعمل حتى الساعة (${formatHM(checkOutMinutes)}) وحفظاً لرصيدك.`,
-                metadata: { request_id: requestedShiftEnd.id },
-                created_at: getServerNow().toISOString()
-              });
-            }
-            eveningPenalty = 0;
-            eveningEarlyMinutes = 0;
-          }
-          // الحالة 3: الخروج في نافذة الموعد المصرح به بدقة (مع سماحية بصمة 5 دقائق قبل و 5 دقائق بعد)
-          else if (checkOutMinutes >= approvedExitMins - 5) {
-            eveningPenalty = 0;
-            eveningEarlyMinutes = 0;
-          }
-          // الحالة 4: الخروج المبكر قبل موعد الإجازة المصرح بها (قبل approvedExitMins - 5)
-          else {
-            const totalEarlyFromAllowed = allowedDepartureStartMins - checkOutMinutes;
-            const extraEarlyMins = approvedExitMins - checkOutMinutes;
-            eveningEarlyMinutes = extraEarlyMins;
-
-            // إذا تجاوز الغياب الكلي ساعتين عن وقت الانصراف 14:30 (أي خرج قبل 12:30)
-            if (totalEarlyFromAllowed > 120 || checkOutMinutes < 12 * 60 + 30) {
-              eveningPenalty = 'day';
-              eveningReason = `خروج مبكر تجاوز الساعتين (${formatHM(checkOutMinutes)} - إجمالي غياب عن الانصراف ${totalEarlyFromAllowed} دقيقة) - إجازة اعتيادية إجبارية (يوم كامل)`;
-
-              // تصفير الإجازة الزمنية فوراً منعاً للازدواجية
-              if (approvedDuration > 0) {
-                const note = ` [أُلغيت واستبدلت بإجازة اعتيادية إجبارية لتجاوز الساعتين وخروج ${formatHM(checkOutMinutes)}]`;
-                await supabase.from('leave_requests').update({
-                  time_duration_minutes: 0,
-                  reason: (requestedShiftEnd.reason || '') + note
-                }).eq('id', requestedShiftEnd.id);
-
-                requestedShiftEnd.time_duration_minutes = 0;
-              }
-            } else {
-              // الخروج المبكر الإضافي ضمن الساعتين
-              const remainingCap = Math.max(0, 120 - approvedDuration);
-              let penaltyVal = 30;
-              if (extraEarlyMins > 30) {
-                penaltyVal = Math.min(extraEarlyMins <= 60 ? 60 : 120, remainingCap);
-              }
-              eveningPenalty = penaltyVal;
-              eveningReason = `خروج مبكر قبل موعد الإجازة الزمنية (${formatHM(checkOutMinutes)} بتبكير ${extraEarlyMins} دقيقة) - إجازة زمنية إجبارية (${penaltyVal} دقيقة)`;
-              eveningStartStr = formatHMS(approvedExitMins - penaltyVal);
-              eveningEndStr = formatHMS(approvedExitMins);
-            }
-          }
-        }
-      }
-    }
-
-    // --- دمج العقوبات وقاعدة المجموع التراكمي لليوم ---
-    const isMorningLate = (typeof morningPenalty === 'number' && morningPenalty > 0) || morningPenalty === 'day' || morningPenalty === 'day_double';
-    if (record.id) {
-      if (isMorningLate && record.status !== 'late') {
-        await supabase.from('attendance_records').update({ status: 'late' }).eq('id', record.id);
-        record.status = 'late';
-      } else if (!isMorningLate && record.status === 'late') {
-        await supabase.from('attendance_records').update({ status: 'present' }).eq('id', record.id);
-        record.status = 'present';
-      }
-    }
-
-    const totalPenalties = (typeof morningPenalty === 'number' ? morningPenalty : 0) +
-      (typeof eveningPenalty === 'number' ? eveningPenalty : 0) +
-      (typeof midShiftPenalty === 'number' ? midShiftPenalty : 0);
-
-    const isFullDay = (morningPenalty === 'day') || (morningPenalty === 'day_double') || (eveningPenalty === 'day') || (midShiftPenalty === 'day') || (totalPenalties > 120);
-
-    if (isFullDay) {
-      // تحويل اليوم بالكامل إلى إجازة اعتيادية إجبارية
-      if (lateLeave && lateLeave.leave_type === 'time_off') {
-        await supabase.from('leave_requests').delete().eq('id', lateLeave.id);
-      }
-      if (earlyLeave && earlyLeave.leave_type === 'time_off') {
-        await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
-      }
-      if (midLeave && midLeave.leave_type === 'time_off') {
-        await supabase.from('leave_requests').delete().eq('id', midLeave.id);
-      }
-      // حماية هندسية من الخصم المزدوج: تصفير وإلغاء أي إجازة زمنية مطلوبة لنفس اليوم لتحول اليوم إلى اعتيادية إجبارية
-      if (requestedShiftStart && requestedShiftStart.id) {
-        await supabase.from('leave_requests').update({
-          status: 'canceled',
-          time_duration_minutes: 0,
-          leave_end_time: requestedShiftStart.leave_start_time || '08:00:00',
-          reason: (requestedShiftStart.reason || '') + ' [أُلغيت واستبدلت بإجازة اعتيادية إجبارية منعاً للازدواجية في الخصم]'
-        }).eq('id', requestedShiftStart.id);
-        requestedShiftStart.time_duration_minutes = 0;
-        (requestedShiftStart as any).status = 'canceled';
-      }
-      if (requestedMidShift && requestedMidShift.id) {
-        await supabase.from('leave_requests').update({
-          status: 'canceled',
-          time_duration_minutes: 0,
-          leave_end_time: requestedMidShift.leave_start_time,
-          reason: (requestedMidShift.reason || '') + ' [أُلغيت واستبدلت بإجازة اعتيادية إجبارية منعاً للازدواجية في الخصم]'
-        }).eq('id', requestedMidShift.id);
-        requestedMidShift.time_duration_minutes = 0;
-        (requestedMidShift as any).status = 'canceled';
-      }
-      if (requestedShiftEnd && requestedShiftEnd.id) {
-        await supabase.from('leave_requests').update({
-          status: 'canceled',
-          time_duration_minutes: 0,
-          reason: (requestedShiftEnd.reason || '') + ' [أُلغيت واستبدلت بإجازة اعتيادية إجبارية منعاً للازدواجية في الخصم]'
-        }).eq('id', requestedShiftEnd.id);
-        requestedShiftEnd.time_duration_minutes = 0;
-        (requestedShiftEnd as any).status = 'canceled';
-      }
-
-      let fullDayReason = '';
-      if (morningPenalty === 'day' || morningPenalty === 'day_double') fullDayReason = morningReason;
-      else if (eveningPenalty === 'day') fullDayReason = eveningReason;
-      else if (midShiftPenalty === 'day') fullDayReason = midShiftReason;
-      else {
-        fullDayReason = `تجاوز مجموع زمنيات اليوم ساعتين (${totalPenalties} دقيقة) - تحويل إلى إجازة اعتيادية إجبارية`;
-      }
-
-      const existingFullDay = fullDayPenalty || (lateLeave?.leave_type === 'regular' ? lateLeave : null) || (earlyLeave?.leave_type === 'regular' ? earlyLeave : null) || (midLeave?.leave_type === 'regular' ? midLeave : null);
-      const penaltyDaysCount = (morningPenalty === 'day_double') ? 2 : 1;
-
-      if (!existingFullDay) {
-        // تم إلغاء سلطة التطبيق في إنشاء إجازات اعتيادية إجبارية تلقائية
-        await sendPenaltyAlert(morningPenalty === 'day_double' ? 'day_double' : 'day', fullDayReason, morningPenalty === 'day' || morningPenalty === 'day_double' || midShiftPenalty === 'day', morningDelayMinutes || eveningEarlyMinutes || midShiftDelayMinutes);
-      } else if (existingFullDay.reason !== fullDayReason || (existingFullDay as any).days_count !== penaltyDaysCount) {
-        await supabase.from('leave_requests').update({ reason: fullDayReason, days_count: penaltyDaysCount }).eq('id', existingFullDay.id);
-      }
-
-      // تحديث سجل البصمة الفعلي ليظهر كإجازة إجبارية بدلاً من قيد الدوام / تأخير حضور
-      if (record?.id) {
-        await supabase.from('attendance_records').update({
-          status: 'leave',
-          notes: fullDayReason
-        }).eq('id', record.id);
-        (record as any).status = 'leave';
-        record.notes = fullDayReason;
-      }
-    } else {
-      // لم يتجاوز الساعتين: تطبيق الزمنيات الجزئية (صباحي / مسائي)
-      if (fullDayPenalty) {
-        await supabase.from('leave_requests').delete().eq('id', fullDayPenalty.id);
-      }
-
-      // 1. التعامل مع التأخير الصباحي (إذا وجد)
-      if (typeof morningPenalty === 'number' && morningPenalty > 0) {
-        if (!lateLeave) {
-          // تم إلغاء إنشاء إجازات زمنية تلقائية
-          await sendPenaltyAlert(morningPenalty, morningReason, true, morningDelayMinutes);
-        } else if (lateLeave.leave_type === 'time_off' && lateLeave.time_duration_minutes !== morningPenalty) {
-          await supabase.from('leave_requests').update({
-            time_duration_minutes: morningPenalty,
-            leave_start_time: morningStartStr,
-            leave_end_time: morningEndStr,
-            reason: morningReason,
-            time_off_subtype: 'shift_start',
-            with_request: false
-          }).eq('id', lateLeave.id);
-          await sendPenaltyAlert(morningPenalty, morningReason, true, morningDelayMinutes);
-        }
-      } else {
-        if (lateLeave && lateLeave.leave_type === 'time_off') {
-          await supabase.from('leave_requests').delete().eq('id', lateLeave.id);
-        }
-      }
-
-      // 2. التعامل مع الخروج المبكر (إذا وجد)
-      if (typeof eveningPenalty === 'number' && eveningPenalty > 0) {
-        if (!earlyLeave) {
-          // تم إلغاء إنشاء إجازات زمنية تلقائية
-          await sendPenaltyAlert(eveningPenalty, eveningReason, false, eveningEarlyMinutes);
-        } else if (earlyLeave.leave_type === 'time_off' && earlyLeave.time_duration_minutes !== eveningPenalty) {
-          await supabase.from('leave_requests').update({
-            time_duration_minutes: eveningPenalty,
-            leave_start_time: eveningStartStr,
-            leave_end_time: eveningEndStr,
-            reason: eveningReason,
-            time_off_subtype: 'shift_end',
-            with_request: false
-          }).eq('id', earlyLeave.id);
-          await sendPenaltyAlert(eveningPenalty, eveningReason, false, eveningEarlyMinutes);
-        }
-      } else {
-        if (earlyLeave && earlyLeave.leave_type === 'time_off') {
-          await supabase.from('leave_requests').delete().eq('id', earlyLeave.id);
-        }
-      }
-
-      // 3. التعامل مع إجازة وسط الدوام (إذا وجدت)
-      if (typeof midShiftPenalty === 'number' && midShiftPenalty > 0) {
-        if (!midLeave) {
-          // تم إلغاء إنشاء إجازات زمنية تلقائية
-          await sendPenaltyAlert(midShiftPenalty, midShiftReason, true, midShiftDelayMinutes);
-        } else if (midLeave.leave_type === 'time_off' && midLeave.time_duration_minutes !== midShiftPenalty) {
-          await supabase.from('leave_requests').update({
-            time_duration_minutes: midShiftPenalty,
-            leave_start_time: midShiftStartStr,
-            leave_end_time: midShiftEndStr,
-            reason: midShiftReason,
-            time_off_subtype: 'mid_shift',
-            with_request: false
-          }).eq('id', midLeave.id);
-          await sendPenaltyAlert(midShiftPenalty, midShiftReason, true, midShiftDelayMinutes);
-        }
-      } else {
-        if (midLeave && midLeave.leave_type === 'time_off') {
-          await supabase.from('leave_requests').delete().eq('id', midLeave.id);
-        }
-      }
-    }
+  async enforceMandatoryPenalties(_employeeId: string, _dateStr: string, _record: AttendanceRecord): Promise<void> {
+    // ملغاة نهائياً: تطبيق البصمة استشاري تنبيهي فقط للمشرف ولا يفرض إجازات أو عقوبات تلقائية
+    return;
   },
 
   async checkIn(employeeId: string, location?: string, deviceId?: string, verifiedByBiometric: boolean = false, snapshotUrl?: string, notes?: string) {
@@ -2464,13 +1386,6 @@ export const attendanceRecordService = {
     if (error) throw error;
     
     const savedRecord = data as AttendanceRecord;
-    try {
-      const todayStr = getServerLocalDateStr();
-      await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
-    } catch (e) {
-      console.error('Error applying mandatory penalties in checkIn:', e);
-    }
-    
     return savedRecord;
   },
 
@@ -2518,13 +1433,6 @@ export const attendanceRecordService = {
     if (error) throw error;
     
     const savedRecord = data as AttendanceRecord;
-    try {
-      const todayStr = now.split('T')[0];
-      await this.enforceMandatoryPenalties(employeeId, todayStr, savedRecord);
-    } catch (e) {
-      console.error('Error applying mandatory penalties in checkOut:', e);
-    }
-    
     return savedRecord;
 
   },

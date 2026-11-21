@@ -286,18 +286,6 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
 
             if (error) throw error;
 
-            // NEW: Automatically link the manager to the parent department
-            if (currentDept.manager_id && currentDept.parent_id) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({ department_id: currentDept.parent_id })
-                    .eq('id', currentDept.manager_id);
-                if (profileError) {
-                    console.error("Failed to link manager to parent department:", profileError);
-                    toast.error("تم حفظ القسم، لكن فشل ربط المرجع الإداري للمدير.");
-                }
-            }
-
             toast.success(currentDept.id ? "تم التعديل بنجاح" : "تمت الإضافة بنجاح");
             setIsEditing(false);
             setCurrentDept({ name: "", level: 3, parent_id: null, manager_id: null });
@@ -341,33 +329,12 @@ export const DepartmentsManager: React.FC<DepartmentsManagerProps> = ({ theme })
                 throw new Error("لم يتم التحديث في قاعدة البيانات (قد يكون بسبب صلاحيات الوصول RLS).");
             }
 
-            // NEW: Automatically link the manager to THIS department (not the parent)
-            if (newManagerId) {
-                const deptObj = departments.find(d => d.id === deptId);
-                const updates: any = { department_id: deptId };
-                if (deptObj && (deptObj.level === 1 || deptObj.level === 2)) {
-                    updates.dept_text = deptObj.name;
-                    updates.section_text = null;
-                    updates.unit_text = null;
-                }
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update(updates) // <-- FIX: Assign to the department they manage with proper dept_text
-                    .eq('id', newManagerId);
-
-                if (profileError) {
-                    console.error("Failed to link manager to department:", profileError);
-                    toast.error("تم تحديث المسؤول، لكن فشل ربط مرجعه الإداري.");
-                }
-            }
-
             toast.success("تم تحديث المسؤول بنجاح");
 
             // Update local state
             setDepartments(departments.map(d => d.id === deptId ? { ...d, manager_id: newManagerId } : d));
             setEditingManagerNodeId(null);
 
-            // Refetch users so the UI updates immediately and the user doesn't appear in two places
             await fetchUsers();
             
         } catch (error: any) {

@@ -1,5 +1,5 @@
 {
- "created": "2026-11-20T15:21:30.634Z",
+ "created": "2026-11-21T00:11:43.572Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -103,7 +103,7 @@
   },
   "src/components/admin/DepartmentsManager.tsx": {
    "brick": "FE-HR-01",
-   "sha": "fc2c062a6d72"
+   "sha": "dd46fd2fe541"
   },
   "src/components/admin/FieldPermissionsModal.tsx": {
    "brick": "FE-HR-01",
@@ -655,7 +655,7 @@
   },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "dfae1ed7ee32"
+   "sha": "bfdd06568245"
   },
   "src/features/attendance/components/WeeklyExemptionsSection.tsx": {
    "brick": "FE-ATT-01",
@@ -715,7 +715,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "e5dd5c8c60d6"
+   "sha": "e4854c222d75"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -787,7 +787,7 @@
   },
   "src/features/attendance/utils/timesheetStatusHelper.ts": {
    "brick": "FE-ATT-01",
-   "sha": "ea037a9a167c"
+   "sha": "e04175eeacb9"
   },
   "src/features/fiber-simulator/FiberSimulatorLauncher.tsx": {
    "brick": "FE-FIB-01",
@@ -1183,7 +1183,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "cea1a5c42676"
+   "sha": "b6595a82c612"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1748,6 +1748,18 @@
   "supabase/migrations/20261119200500_normalize_karbala_hierarchy.sql": {
    "brick": "BE-MIG-01",
    "sha": "a7b617bb92d6"
+  },
+  "supabase/migrations/20261120234500_multi_manager_kiosk_presence.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "a9756408a97d"
+  },
+  "supabase/migrations/20261121020000_fix_attendance_snapshots_storage_rls.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "de0d152764d5"
+  },
+  "supabase/migrations/20261121031500_harden_closeout_overnight_shifts.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "22ed06f6074b"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

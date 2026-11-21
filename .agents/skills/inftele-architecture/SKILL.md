@@ -2,8 +2,8 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.8.50"
-  last_updated: "2026-11-18"
+  version: "0.8.52"
+  last_updated: "2026-11-21"
 ---
 
 # InfTeleKarbala — ذاكرة المشروع المعمارية (اقرأها أولاً في كل جلسة)
@@ -100,6 +100,8 @@ metadata:
 | 2026-11-16 | بناء وتفعيل المحرك المعزول لبصمات الدوام الصباحي (morningAttendanceEngine): عزل منطق الصباحي 100% في ملف مستقل، تطبيق قواعد البصمات الست، استبدال البصمة 7 وما بعدها بالبصمة السادسة وتنبيه الـ PDF، حظر ما قبل 6:00 ص، إلغاء كافة صلاحيات التطبيق في توليد أو إدراج إجازات إجبارية في leave_requests، وحصر دوره في التشخيص والحساب وتبليغ الاستيضاح، وترقية دالة السيرفر evaluate_morning_shift_daily_attendance ونشره بنجاح | FE-ATT-01, BE-ATT-04 | تم تنفيذ SQL على VPS، اجتياز 12 اختباراً حتمياً 100%، بناء dist، فحص B.R.I.C.K بصمة 427 ملفاً، نشر ناجح SAME=391 |
 | 2026-11-17 | إعادة هيكلة وتطوير واجهات لوحة الموظف (الموارد البشرية والمالية): (1) حذف شريط السنوات تماماً من التايتل وكافة التبعيات غير المستخدمة. (2) دمج كتب الشكر واللجان والعقوبات في بطاقة موحدة اسمها «الحركات» مع فلترة التاريخ (من/إلى)، شريط أزرار ثلاثي، وحاوية تستوعب 5 أسطر بسكرول وتفاعل كيبورد. (3) دمج الراتب الاسمي والكلي في سطر واحد بتبويبة المالية. (4) تطبيق سياسات RLS وأعمدة book_number للجداول على DB ونشره بنجاح (SAME=390, DIFF=0, MISSING=0) | FE-HR-01, BE-HR-01, FE-FIN-01 | تم تنفيذ هجرة DB، بناء الحزمة، فحص B.R.I.C.K بصمة 429 ملفاً وتغطية 100%، نشر ناجح والخادم حي HTTP 200 |
 | 2026-11-17 | إلزام حقل غرض تأييد الاستمرارية برمجياً وقاعدياً ونشره (SAME=388) | FE-HR-01, BE-HR-01 | إلزام إدخال الغرض مع شارة (إجباري) ومنع الإرسال مع toast «يجب وضع غرض للكتاب»، وتحصين دالة DB لمنع أي تجاوز |
+| 2026-11-20 | دعم تعدد المسؤولية في الهيكلية الإدارية: فك الارتباط الحصري عند تعيين المسؤول والبديل لمنع مساس profiles.department_id، وإلغاء مسح المسؤوليات الأخرى في تريجرات DB والشجرة، وتوسيع الكيوسك ديناميكياً للتعرف البيومتري على المسؤول في كافة المواقع التي يديرها ونشره بنجاح (SAME=390, DIFF=0, MISSING=0) | FE-ADM-01, BE-ADM-01, FE-ATT-01 | تم تنفيذ Migration على VPS، اجتياز الاختبارات الحتمية، فحص B.R.I.C.K بصمة 442 ملفاً، بناء ونشر ناجح والخادم حي HTTP 200 |
+| 2026-11-21 | تصحيح سياسة أمان Storage RLS لصور البصمات (attendance-snapshots) وتمكين الرفع المباشر لـ anon/authenticated، وضبط منطق خفارة المناوب الممتدة في تقارير Timesheets لمنع وسمها بدوام في استراحة إضافي وإظهار شارة «خفارة ممتدة» ونشره بنجاح (SAME=390, DIFF=0, MISSING=0) | BE-ATT-07, FE-ATT-01 | تم تنفيذ هجرة DB لسياسات Storage RLS، فحص tsc صفر أخطاء، فحص B.R.I.C.K بصمة 443 ملفاً، بناء ونشر ناجح والخادم حي HTTP 200 |
 
 ## 5. سجل القرارات (إلحاق فقط)
 | # | القرار | المصدر |
@@ -2329,8 +2331,105 @@ npm run build ناجح.
 - **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 336/336 ملفاً) مع لقطة `--snapshot` لـ 441 ملفاً.
 - **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
 - **Production Build:** بناء ناجح عبر Vite في 24.12 ثانية.
-- **Production Deploy:** جاري التنفيذ عبر `deploy-dist.ps1`.
+- **Production Deploy:** تم التنفيذ بنجاح عبر `deploy-dist.ps1` (SAME=390, DIFF=0, MISSING=0).
 - **Operational Verification:** استجابة حية ناجحة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+---
+
+## 2026-11-20 — D84: دعم تعدد المسؤولية في الهيكلية الإدارية، حماية الارتباط الثلاثي، والتعرف البيومتري على المسؤول في الكيوسك
+
+### 1. السياق وقرارات مجلس المداولة الخماسية الموسع
+- أقر مجلس المداولة بنظام الجولتين بحضور الخبراء الثلاثة الحقيقيين (د. مايكل ستونبريكر، مارتن فاولر، ود. دون نورمان) وموافقة المهندس مسلم عقيل:
+  1. **تعدد المسؤولية:** السماح بتكليف الموظف كمسؤول (`manager_id`) أو بديل للمسؤول (`deputy_manager_id`) لتشكيل إداري آخر (مجمع/قسم/شعبة) دون أن يلغي النظام مسؤوليته عن تشكيله الأول.
+  2. **الاستثناء الحصري لفك الارتباط الثلاثي:** بقاء المزامنة الثلاثية الصارمة (شجرة التشكيلات <-> الملف الشخصي `profiles.department_id` <-> موقع العمل الجغرافي للبصمة `work_location_employees`) فعالة 100% للموظفين العاديين عند النقل أو التعديل، مع استثناء وحيد مطلق: تعيين الموظف كمسؤول أو كبديل في الشجرة لا يمس ولا يغير تشكيله الأساسي في `profiles`، ولا يغير موقعه الجغرافي الأساسي للبصمة في هاتفه الشخصي.
+  3. **التعرف البيومتري في الكيوسك لكافة المواقع المدارة:** توسيع مصفوفة `assigned_location_ids` في دالة RPC السيادية `kiosk_get_employees` ديناميكياً لتشمل المواقع الجغرافية لجميع التشكيلات التي يديرها الموظف كمسؤول أو كبديل عبر استعلام هرمي عودي (Recursive CTE)، مما يتيح له التبصيم في الكيوسك عند تواجده في تلك المواقع دون رفض الجهاز له.
+
+### 2. التنفيذ البرمجي وقاعدة البيانات في الأنوية المعمارية [`FE-ADM-01`](file:///d:/InfTeleKarbala/bricks/FE-ADM-01/BRICK.md) و [`BE-ADM-01`](file:///d:/InfTeleKarbala/bricks/BE-ADM-01/BRICK.md) و [`FE-ATT-01`](file:///d:/InfTeleKarbala/bricks/FE-ATT-01/BRICK.md)
+1. **هجرة قاعدة البيانات ([`20261120234500_multi_manager_kiosk_presence.sql`](file:///d:/InfTeleKarbala/supabase/migrations/20261120234500_multi_manager_kiosk_presence.sql)):**
+   - تحديث تريجر `sync_dept_manager_assignment()`: إلغاء مسح المسؤوليات الأخرى وإلغاء تعديل `profiles.department_id`.
+   - تحديث تريجر `sync_profile_to_work_location_and_manager()`: الحفاظ الكامل على الجزء (A) لمزامنة موقع العمل عند نقل الموظف العادي، وإلغاء الجزء (B) الذي كان يمسح مسؤوليات الموظف عن الأقسام الأخرى.
+   - ترقية دالة `kiosk_get_employees(p_code text)`: توليد `assigned_location_ids` عبر دمج الموقع الأساسي من `work_location_employees` مع كافة مواقع `work_locations` التابعة للأقسام التي يديرها الموظف هرمياً كمسؤول أو بديل.
+2. **في واجهة شجرة التشكيلات ([`DepartmentsManager.tsx`](file:///d:/InfTeleKarbala/src/components/admin/DepartmentsManager.tsx)):**
+   - إلغاء كود تعديل `profiles` من دالة `saveInlineManager` ودالة `handleSave` ليبقى ملف الموظف الأساسي محصناً وثابتاً.
+3. **في خطاف إدارة الموظفين ([`useEmployeeManager.ts`](file:///d:/InfTeleKarbala/src/hooks/useEmployeeManager.ts)):**
+   - استبدال `maybeSingle()` بـ `limit(1)` مع فحص المصفوفة لمنع الانهيار البرمجي عند فتح بطاقة موظف يدير أكثر من تشكيل إداري.
+
+### 3. التحقق والنشر
+- **قاعدة البيانات:** اختبار حتمي آلي على VPS (`test_multi_mgr.sql`) أثبت بنجاح: بقاء الموظف مديراً لتشكيلين معاً في آن واحد مع ثبات `profiles.department_id` دون أي مساس، وتراجع الاختبار بنجاح (Rollback).
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 336/336 ملفاً) مع لقطة `--snapshot` لـ 442 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 24.87 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=390, DIFF=0, MISSING=0).
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+---
+
+## 2026-11-21 — D85: تصحيح سياسة أمان تخزين لقطات البصمة (Storage RLS) وضبط منطق خفارة المناوب الممتدة
+
+### 1. السياق وقرارات مجلس المداولة الخماسية الموسع
+- انعقد مجلس المداولة بنظام الجولتين بحضور الخبراء الثلاثة الحقيقيين (د. مايكل ستونبريكر، مارتن فاولر، ود. دون نورمان) وموافقة المهندس مسلم عقيل لمعالجة حالتين حرجتين:
+  1. **اختفاء صور الوجه في التقرير وظهور كلمة «موقع»:** تبيّن أن سياسة الرفع لجدول `storage.objects` في حاوية `attendance-snapshots` كانت تحوي أدواراً داخلية فارغة، فكانت قاعدة البيانات ترفض الرفع بخطأ `new row violates row-level security policy`، مما يدفع الهاتف لحفظ البصمة محلياً وتمريرها للسيرفر بنص البصمة فقط دون رابط الصورة، فتعرض شاشة التقرير كلمة «موقع» بدلاً من «وجه».
+  2. **ظهور شارة «دوام في استراحة (يُحتسب كإضافي)» لخفارة ليلة الجمعة الممتدة للسبت:** تبيّن أن المناوب عندما يكمل خفارة الجمعة فجر السبت، كان النظام يقرأ جدول السبت كـ `is_rest_day = true` ويجد بصمات فيسجلها كـ «دوام في استراحة» ويحتسب ساعاتها كإضافي، رغم أن المحرك وثق أنها `انصراف خفارة ممتدة (امتداد شفت ليلة الأمس)`.
+
+### 2. التنفيذ البرمجي وقاعدة البيانات في الأنوية المعمارية [`BE-ATT-07`](file:///d:/InfTeleKarbala/bricks/BE-ATT-07/BRICK.md) و [`FE-ATT-01`](file:///d:/InfTeleKarbala/bricks/FE-ATT-01/BRICK.md)
+1. **هجرة قاعدة البيانات ([`20261121020000_fix_attendance_snapshots_storage_rls.sql`](file:///d:/InfTeleKarbala/supabase/migrations/20261121020000_fix_attendance_snapshots_storage_rls.sql)):**
+   - إعادة بناء سياسات `storage.objects` لحاوية `attendance-snapshots`:
+     - سياسة `Public Read Attendance Snapshots` لـ `public` لقراءة وعرض الصور.
+     - سياسة `Public Upload Attendance Snapshots` لـ `public` (`anon` و `authenticated`) لرفع لقطات الوجه بنجاح 100%.
+     - سياسة `Public Update Attendance Snapshots` لـ `public` لضمان إتمام عمليات upsert.
+     - سياسة `Supervisor Delete Attendance Snapshots` لحصر الحذف بالمشرفين المخولين فقط.
+2. **في منطق شاشة التقارير ([`timesheetStatusHelper.ts`](file:///d:/InfTeleKarbala/src/features/attendance/utils/timesheetStatusHelper.ts) و [`Timesheets.tsx`](file:///d:/InfTeleKarbala/src/features/attendance/components/Timesheets.tsx)):**
+   - كشف راية `isShiftExtension` (`انصراف خفارة ممتدة` / `امتداد شفت ليلة الأمس`).
+   - تحويل شارة الحالة في يوم الاستراحة إلى **«خفارة ممتدة»** (`bg-teal-100 text-teal-800`).
+   - استبدال ملاحظة "دوام في يوم استراحة (يُحتسب كإضافي)" بـ **«انصراف خفارة ممتدة (استكمال شفت ليلة الأمس)»** دون إضافة أي احتساب إضافي خاطئ.
+   - تصفير `overtimeMins` الناتج عن الاستراحة في ساعات الخفارة الممتدة لمنع تضخيم الإضافي بالخطأ.
+   - إظهار شارة نوع اليوم كـ **«استراحة (خفارة ممتدة)»** في الجدول والـ PDF لضمان الشفافية الإدارية التامة.
+
+### 3. التحقق والنشر
+- **قاعدة البيانات:** اختبار RLS لرفع الصور من دور `anon` نجح 100% دون أي رفض أمني.
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 336/336 ملفاً) مع لقطة لـ 443 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 25.44 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=390, DIFF=0, MISSING=0).
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+---
+
+## 2026-11-21 — D86: استئصال انشطار بصمات الخفر وإعدام العقوبات الإجبارية القسرية (Shift Anchor Date)
+
+### 1. السياق وقرارات مجلس المداولة الخماسية الموسع
+- انعقد مجلس المداولة الطارئ برئاسة الباحث م. مسلم عقيل وعضوية الخبراء الحقيقيين الثلاثة (د. مايكل ستونبريكر، مارتن فاولر، ود. دون نورمان) والمستخدم العادي علي حسين لفتة ومحامي الخصم إثر شكوى كارثية:
+  - عند قيام موظف خفر (علي حسين لفتة ومحمد عبد الرضا) بالبصم بعد منتصف الليل (الساعة 00:09) لإثبات وجوده بالمقر، قامت الدالة المونوليثية القديمة `closeout_prev_day_attendance` بختم خروج الجمعة عند 00:09 واحتساب خروج مبكر كاذب بـ 7 ساعات و50 دقيقة (ترك موقع العمل).
+  - ثم قامت المنظومة بفتح سجل منشطر جديد في السبت لنفس البصمة 00:09 واستدعت الدالة القديمة `enforceMandatoryPenalties` التي فرضت `🚨 إجازة اعتيادية إجبارية (2 يوم) — تأخير تجاوز الساعتين`.
+  - كذلك أظهرت لمحمد عبد الرضا شارة "دوام في يوم استراحة (يُحتسب كإضافي)" على خفارة ليلة الجمعة.
+
+### 2. الحلول الهندسية المنفذة في الأنوية المعمارية [`BE-ATT-07`](file:///d:/InfTeleKarbala/bricks/BE-ATT-07/BRICK.md) و [`FE-ATT-01`](file:///d:/InfTeleKarbala/bricks/FE-ATT-01/BRICK.md)
+1. **قاعدة البيانات وسيرفر PostgreSQL ([`20261121031500_harden_closeout_overnight_shifts.sql`](file:///d:/InfTeleKarbala/supabase/migrations/20261121031500_harden_closeout_overnight_shifts.sql)):**
+   - تحصين دالة `closeout_prev_day_attendance`: منعها قطعياً من إغلاق شفتات الخفر أو وضع بصمات افتراضية قبل نافذة تسليم الخفر الصباحية (06:30 ص بتوقيت بغداد).
+   - إذا تم استدعاء إغلاق للشفت الليلي قبل 06:30 صباحاً تُرجع الدالة `night_shift_ongoing` دون أي مساس بـ `check_out` أو `notes`.
+2. **محرك البصمة الحي في الكلاينت ([`attendanceService.ts`](file:///d:/InfTeleKarbala/src/features/attendance/services/attendanceService.ts)):**
+   - تطبيق خوارزمية **The Shift Anchor Date**: البصمات الليلية الواقعة قبل 06:30 صباحاً لشفت خفر مستمر من الأمس تُسجل كنبضات تفقد حضور ليلي (Presence Heartbeats) وتُضم إلى سجل الأمس، ولا يُغلق الشفت، ولا يُفتح سجل جديد لليوم التقويمي على الإطلاق.
+   - البصمة الصباحية بين 06:30 و 10:00 صباحاً تُسجل كبصمة انصراف وتسليم لشفت الخفر وتُغلق سجل الأمس بنجاح 100%.
+   - **الإعدام التام لدالة `enforceMandatoryPenalties`:** حذف 63,339 حرفاً من الكود المونوليثي القديم، وإلغاء كافة استدعاءاتها من مسار الكتابة (`recordAttendance`, `registerReturnFromLeave`, `checkIn`, `checkOut`)، مع التأكيد الحتمي على أن النظام استشاري تنبيهي فقط ولا يفرض أي إجازة إجبارية أو خصم آلي ذاتياً.
+3. **تنقية محددات الحالة وواجهة التقارير ([`timesheetStatusHelper.ts`](file:///d:/InfTeleKarbala/src/features/attendance/utils/timesheetStatusHelper.ts) و [`Timesheets.tsx`](file:///d:/InfTeleKarbala/src/features/attendance/components/Timesheets.tsx)):**
+   - حذف شارة `🚨 إجازة اعتيادية إجبارية` واستبدالها بشارة تدقيق إرشادية للمشرف `تأخر يتطلب المراجعة`.
+   - تعديل حساب الخروج المبكر لشفت الخفر ليعمل فقط بعد انقضاء الشفت بالكامل (> 30 دقيقة) وبصياغة إدارية هادئة `⚠️ انصراف قبل نهاية شفت الخفر`.
+   - منع تجاوز الحالة إلى `leave` عند وجود بصمات حضور حقيقية.
+4. **تطهير وإصلاح السجلات في قاعدة البيانات (Data Repair):**
+   - ضم بصمات 00:09 و 00:12 لسجل الجمعة لعلي حسين لفتة وإلغاء الخروج المبكر الكاذب.
+   - ضم بصمات 00:01 و 00:56 لسجل الجمعة لمحمد عبد الرضا.
+   - حذف السجلين المشوهين المنشطرين في السبت لكلا الموظفين.
+
+### 3. التحقق والنشر
+- **قاعدة البيانات:** استعلامات مباشرة من PostgreSQL أثبتت ضم البصمات لشفت الجمعة وحذف السجلات المنشطرة ونظافة السجلات 100%.
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 336/336 ملفاً) مع لقطة لـ 444 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 27.16 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1`.
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+
+
 
 
 

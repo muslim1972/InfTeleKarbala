@@ -54,14 +54,13 @@ export function getTimesheetDayStatus(params: {
   // 2. إجازة رسمية معتمدة (يوم كامل)
   if (dayLeave || rec.leaveLabel || rec.notes?.includes('إجازة اعتيادية إجبارية')) {
     const isMandatory = Boolean(dayLeave?.is_mandatory || dayLeave?.reason?.includes('إجازة اعتيادية إجبارية') || rec.notes?.includes('إجازة اعتيادية إجبارية'));
-    const daysCount = dayLeave?.days_count || (shiftInfo?.isNight ? 2 : 1);
     const label = rec.leaveLabel || (dayLeave?.leave_type === 'sick' ? 'مرضية' : 'اعتيادية');
 
     if (isMandatory) {
       return {
-        text: `إجازة إجبارية (${daysCount} يوم)`,
-        badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-300 font-bold',
-        style: 'color: #be123c; font-weight: bold;'
+        text: 'تأخر يتطلب المراجعة',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 font-bold',
+        style: 'color: #b45309; font-weight: bold;'
       };
     }
 
@@ -92,6 +91,21 @@ export function getTimesheetDayStatus(params: {
   // 3. يوم استراحة أو عطلة
   if (isRestOrHoliday) {
     if (rec.check_in && !rec._isEmpty) {
+      // فحص هل البصمة تمثل استكمال خفارة ليلة الأمس للمناوبين
+      const isShiftExtension = Boolean(rec.notes && (
+        rec.notes.includes('انصراف خفارة ممتدة') || 
+        rec.notes.includes('امتداد شفت ليلة الأمس') ||
+        rec.notes.includes('خفارة ممتدة')
+      ));
+
+      if (isShiftExtension) {
+        return {
+          text: 'خفارة ممتدة',
+          badgeClass: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-300 font-bold',
+          style: 'color: #0f766e; font-weight: bold;'
+        };
+      }
+
       const isRest = dayType === 'استراحة';
       return {
         text: isRest ? 'دوام في استراحة' : 'دوام في عطلة',
@@ -251,10 +265,20 @@ export function getTimesheetSmartNotes(params: {
 
   // 1. الدوام في يوم استراحة أو عطلة
   if (isRestOrHoliday && rec.check_in && !rec._isEmpty) {
-    if (dayType === 'استراحة') {
-      notes.push('دوام في يوم استراحة (يُحتسب كإضافي)');
+    const isShiftExtension = Boolean(rec.notes && (
+      rec.notes.includes('انصراف خفارة ممتدة') || 
+      rec.notes.includes('امتداد شفت ليلة الأمس') ||
+      rec.notes.includes('خفارة ممتدة')
+    ));
+
+    if (isShiftExtension) {
+      notes.push('انصراف خفارة ممتدة (استكمال شفت ليلة الأمس)');
     } else {
-      notes.push(`دوام في عطلة (${dayType}) - يُحتسب كإضافي`);
+      if (dayType === 'استراحة') {
+        notes.push('دوام في يوم استراحة (يُحتسب كإضافي)');
+      } else {
+        notes.push(`دوام في عطلة (${dayType}) - يُحتسب كإضافي`);
+      }
     }
   }
 
@@ -274,7 +298,7 @@ export function getTimesheetSmartNotes(params: {
   if (dayLeave || rec.leaveLabel || isMandatoryLeave) {
     const label = rec.leaveLabel || (dayLeave?.leave_type === 'sick' ? 'مرضية' : 'اعتيادية');
     if (isMandatoryLeave) {
-      notes.push(`🚨 إجازة اعتيادية إجبارية (${daysCount} يوم) — تأخير تجاوز الساعتين`);
+      notes.push(`⚠️ تأخر تجاوز الساعتين (${daysCount === 2 ? 'شفت الخفر' : 'شفت اعتيادي'}) — بانتظار مراجعة وقرار المشرف`);
     } else if (rec.check_in && !rec._isEmpty) {
       if (shiftInfo?.isRoster && (shiftInfo.isEvening || shiftInfo.isNight)) {
         notes.push(`إجازة معتمدة (${label}) أسقطت الشفت الأول + حضور الشفت التالي`);
@@ -364,7 +388,7 @@ export function getTimesheetSmartNotes(params: {
             const grace = expectedTimeStr === '08:00' ? 30 : 0;
             if (diff > grace) {
               if (isMandatoryLeave || diff > 120) {
-                notes.push(`🚨 تأخير تجاوز الساعتين (${diff} دقيقة) — تحويل لإجازة اعتيادية إجبارية (${daysCount} يوم)`);
+                notes.push(`⚠️ تأخير تجاوز الساعتين (${diff} دقيقة) — بانتظار مراجعة وقرار المشرف`);
               } else {
                 notes.push(`تأخير في الحضور (${diff} دقيقة)`);
               }
@@ -385,10 +409,10 @@ export function getTimesheetSmartNotes(params: {
           expectedOutDate.setDate(expectedOutDate.getDate() + 1);
           expectedOutDate.setHours(8, 0, 0, 0);
           const earlyMins = differenceInMinutes(expectedOutDate, outDate);
-          if (earlyMins > 10) {
+          if (earlyMins > 30) {
             const h = Math.floor(earlyMins / 60);
             const m = earlyMins % 60;
-            notes.push(`🚨 خروج مبكر جداً من نوبة الخفر (${h}س و ${m}د - ترك موقع العمل)`);
+            notes.push(`⚠️ انصراف قبل نهاية شفت الخفر (${h > 0 ? `${h}س و ` : ''}${m}د)`);
           }
         } else if (shiftInfo.expectedOut) {
           const expectedOutStr = `${format(outDate, 'yyyy-MM-dd')}T${shiftInfo.expectedOut}`;
