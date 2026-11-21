@@ -106,13 +106,14 @@ export function getBaghdadTimeParts(isoString: string): { hours: number; minutes
 /**
  * فحص منع البصمة الصباحية قبل الساعة 6:00 ص
  */
-export function checkMorningEarlyPunchAllowed(punchIsoString: string): { allowed: boolean; message?: string } {
+export function checkMorningEarlyPunchAllowed(punchIsoString: string): { allowed: boolean; isWarning?: boolean; message?: string } {
   const { totalMinutes } = getBaghdadTimeParts(punchIsoString);
   const sixAmMinutes = 6 * 60; // 06:00
   if (totalMinutes < sixAmMinutes) {
     return {
       allowed: false,
-      message: 'الدوام الصباحي يبدأ على أقل تقدير عند الساعة 6:00 صباحاً'
+      isWarning: true,
+      message: 'أنت خارج أوقات الدوام الرسمي، ويجب أن تكون البصمة الصباحية ابتداءً من السادسة صباحاً، فهل تريد تثبيت البصمة على أية حال؟'
     };
   }
   return { allowed: true };
@@ -125,9 +126,15 @@ export function evaluateMorningAttendance(
   rawPunchesInput: RawPunch[],
   dateStr: string, // YYYY-MM-DD
   approvedLeaves: MorningLeaveRequest[] = [],
-  _calendarInfo?: MorningCalendarInfo,
+  calendarInfo?: MorningCalendarInfo,
   isEndOfDay: boolean = false
 ): MorningEvaluationResult {
+  const isOffDay = Boolean(
+    calendarInfo?.isRestDay ||
+    calendarInfo?.isOfficialHoliday ||
+    calendarInfo?.isCompensatory ||
+    approvedLeaves.some(l => l.status === 'approved' && l.leave_type !== 'time_off' && l.leave_type !== 'time_leave' && (l.time_duration_minutes || 0) === 0)
+  );
   const sortedPunches = [...(rawPunchesInput || [])]
     .filter(p => !p.is_virtual && !p.notes?.includes('افتراضي'))
     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
@@ -209,8 +216,8 @@ export function evaluateMorningAttendance(
   const firstParts = getBaghdadTimeParts(firstPunch.time);
   const onTimeLimitMinutes = 8 * 60 + 30; // 08:30 (510 دقيقة)
 
-  // فحص التأخير الصباحي (ابتداءً من 08:31)
-  if (firstParts.totalMinutes > onTimeLimitMinutes) {
+  // فحص التأخير الصباحي (ابتداءً من 08:31) - يُعطل تماماً في أيام العطل والاستراحة والإجازات
+  if (!isOffDay && firstParts.totalMinutes > onTimeLimitMinutes) {
     const delayMins = firstParts.totalMinutes - onTimeLimitMinutes;
     const h = Math.floor(delayMins / 60);
     const m = delayMins % 60;
@@ -250,7 +257,7 @@ export function evaluateMorningAttendance(
   // 4. معالجة وتسكين البصمات وفق الحالات المنصوص عليها
   if (totalPunchesCount === 1) {
     // بصمة واحدة فقط طوال اليوم
-    if (isEndOfDay) {
+    if (isEndOfDay && !isOffDay) {
       // حقن بصمة افتراضية حمراء عند الساعة 15:00 لغلق الدوام وحساب الساعات
       const virtualIso = baghdadTimeToIso(dateStr, MORNING_DUTY_END);
       virtualCheckOut = {
@@ -271,7 +278,7 @@ export function evaluateMorningAttendance(
 
     const p2Parts = getBaghdadTimeParts(p2.time);
     const earlyLimitMinutes = 14 * 60 + 30; // 14:30
-    if (p2Parts.totalMinutes < earlyLimitMinutes) {
+    if (!isOffDay && p2Parts.totalMinutes < earlyLimitMinutes) {
       const earlyMins = earlyLimitMinutes - p2Parts.totalMinutes;
       const h = Math.floor(earlyMins / 60);
       const m = earlyMins % 60;
@@ -302,7 +309,7 @@ export function evaluateMorningAttendance(
 
     const lastParts = getBaghdadTimeParts(lastPunch.time);
     const earlyLimitMinutes = 14 * 60 + 30; // 14:30
-    if (lastParts.totalMinutes < earlyLimitMinutes) {
+    if (!isOffDay && lastParts.totalMinutes < earlyLimitMinutes) {
       const earlyMins = earlyLimitMinutes - lastParts.totalMinutes;
       const h = Math.floor(earlyMins / 60);
       const m = earlyMins % 60;
@@ -402,28 +409,30 @@ export function evaluateMorningAttendance(
         }
       }
 
-      // صياغة ودمج إشعارات المغادرة غير المبررة
-      if (unjustifiedExits.length === 1) {
-        violations.push({
-          type: 'unjustified_exit',
-          punchTime: unjustifiedExits[0].outTime,
-          text: `لديك مغادرة غير مبررة عند الساعة ${unjustifiedExits[0].outTime} ليوم ${dateStr}`
-        });
-        consolidatedNotifications.push(
-          `لديك مغادرة غير مبررة عند الساعة ${unjustifiedExits[0].outTime} ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
-        );
-        notesList.push(`مغادرة غير مبررة (${unjustifiedExits[0].outTime})`);
-      } else if (unjustifiedExits.length >= 2) {
-        violations.push({
-          type: 'unjustified_exit',
-          punchTime: unjustifiedExits[0].outTime,
-          text: `لديك مغادرتان غير مبررتان ليوم ${dateStr}`
-        });
-        // دمج الخروجين في إشعار واحد كما أمرت الإدارة
-        consolidatedNotifications.push(
-          `لديك مغادرتان غير مبررتان ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
-        );
-        notesList.push('مغادرتان غير مبررتان');
+      // صياغة ودمج إشعارات المغادرة غير المبررة (فقط في أيام الدوام الرسمي الاعتيادي)
+      if (!isOffDay) {
+        if (unjustifiedExits.length === 1) {
+          violations.push({
+            type: 'unjustified_exit',
+            punchTime: unjustifiedExits[0].outTime,
+            text: `لديك مغادرة غير مبررة عند الساعة ${unjustifiedExits[0].outTime} ليوم ${dateStr}`
+          });
+          consolidatedNotifications.push(
+            `لديك مغادرة غير مبررة عند الساعة ${unjustifiedExits[0].outTime} ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+          );
+          notesList.push(`مغادرة غير مبررة (${unjustifiedExits[0].outTime})`);
+        } else if (unjustifiedExits.length >= 2) {
+          violations.push({
+            type: 'unjustified_exit',
+            punchTime: unjustifiedExits[0].outTime,
+            text: `لديك مغادرتان غير مبررتان ليوم ${dateStr}`
+          });
+          // دمج الخروجين في إشعار واحد كما أمرت الإدارة
+          consolidatedNotifications.push(
+            `لديك مغادرتان غير مبررتان ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+          );
+          notesList.push('مغادرتان غير مبررتان');
+        }
       }
     }
   }
@@ -443,6 +452,9 @@ export function evaluateMorningAttendance(
     return punch;
   });
 
+  // في أيام العطل والاستراحة والإجازات: الدوام يعتبر حضوراً إضافياً ولا يحمل أي حالة تأخير أو مخالفة
+  const finalStatus = isOffDay ? 'present' : status;
+
   return {
     slots,
     rawPunches: processedRawPunches,
@@ -452,7 +464,7 @@ export function evaluateMorningAttendance(
     hasMoreThanSixPunches,
     totalPunchesCount,
     pdfNote,
-    status,
+    status: finalStatus,
     notes: notesList.join(' | ')
   };
 }

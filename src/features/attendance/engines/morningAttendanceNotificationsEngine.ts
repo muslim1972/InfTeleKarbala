@@ -816,3 +816,136 @@ export function buildMissingMidnightBridgeNotifications(
 
   return notifications;
 }
+
+/**
+ * إشعار إثبات بصمة حضور في يوم عطلة أو استراحة أو إجازة للمسؤول المباشر والبديل
+ */
+export function buildOffDayPunchNotifications(params: {
+  employeeId: string;
+  employeeName: string;
+  punchIso: string;
+  recordDate: string;
+  offDayLabel: string;
+  supervisors: HierarchySupervisors;
+}): AttendanceNotificationCandidate[] {
+  const { employeeId, employeeName, punchIso, recordDate, offDayLabel, supervisors } = params;
+  const { hours, minutes } = getBaghdadMinutes(punchIso);
+  const punchTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  const candidates: AttendanceNotificationCandidate[] = [];
+  const title = '📋 تسجيل بصمة حضور في غير أوقات الدوام الرسمي';
+  const content = `ثبت الموظف (${employeeName}) بصمة حضور في الساعة ${punchTimeStr} من اليوم ${recordDate}، علماً أن هذا اليوم هو ${offDayLabel}، للتفضل بالاطلاع مع التقدير`;
+  const dedupKey = `attendance_off_day_${employeeId}_${recordDate}`;
+
+  // 1. المسؤول المباشر
+  if (supervisors.managerId && supervisors.managerId !== employeeId) {
+    candidates.push({
+      recipientType: 'supervisor',
+      recipientId: supervisors.managerId,
+      type: 'attendance_off_day_punch',
+      title,
+      content,
+      dedupKey: `${dedupKey}_mgr_${supervisors.managerId}`,
+      metadata: {
+        type: 'morning_attendance_alert',
+        violation_type: 'off_day_punch',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        record_date: recordDate,
+        punch_time: punchTimeStr
+      }
+    });
+  }
+
+  // 2. البديل (إن وجد وكان مختلفاً عن المسؤول والموظف)
+  if (
+    supervisors.deputyManagerId &&
+    supervisors.deputyManagerId !== employeeId &&
+    supervisors.deputyManagerId !== supervisors.managerId
+  ) {
+    candidates.push({
+      recipientType: 'deputy',
+      recipientId: supervisors.deputyManagerId,
+      type: 'attendance_off_day_punch',
+      title,
+      content,
+      dedupKey: `${dedupKey}_dep_${supervisors.deputyManagerId}`,
+      metadata: {
+        type: 'morning_attendance_alert',
+        violation_type: 'off_day_punch',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        record_date: recordDate,
+        punch_time: punchTimeStr
+      }
+    });
+  }
+
+  return candidates;
+}
+
+/**
+ * إشعار إثبات بصمة حضور قبل السادسة صباحاً (قبل الدوام الرسمي) للمسؤول المباشر والبديل
+ */
+export function buildEarlyMorningPunchNotifications(params: {
+  employeeId: string;
+  employeeName: string;
+  punchIso: string;
+  recordDate: string;
+  supervisors: HierarchySupervisors;
+}): AttendanceNotificationCandidate[] {
+  const { employeeId, employeeName, punchIso, recordDate, supervisors } = params;
+  const { hours, minutes } = getBaghdadMinutes(punchIso);
+  const punchTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  const candidates: AttendanceNotificationCandidate[] = [];
+  const title = '⚠️ تسجيل بصمة حضور قبل الدوام الرسمي';
+  const content = `ثبت الموظف (${employeeName}) بصمة حضور في الساعة ${punchTimeStr} في اليوم ${recordDate} قبل الدوام الرسمي، للتفضل بالاطلاع مع التقدير`;
+  const dedupKey = `attendance_early_morning_${employeeId}_${recordDate}`;
+
+  // 1. المسؤول المباشر
+  if (supervisors.managerId && supervisors.managerId !== employeeId) {
+    candidates.push({
+      recipientType: 'supervisor',
+      recipientId: supervisors.managerId,
+      type: 'attendance_early_morning_punch',
+      title,
+      content,
+      dedupKey: `${dedupKey}_mgr_${supervisors.managerId}`,
+      metadata: {
+        type: 'morning_attendance_alert',
+        violation_type: 'early_morning_punch',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        record_date: recordDate,
+        punch_time: punchTimeStr
+      }
+    });
+  }
+
+  // 2. البديل (إن وجد وكان مختلفاً عن المسؤول والموظف)
+  if (
+    supervisors.deputyManagerId &&
+    supervisors.deputyManagerId !== employeeId &&
+    supervisors.deputyManagerId !== supervisors.managerId
+  ) {
+    candidates.push({
+      recipientType: 'deputy',
+      recipientId: supervisors.deputyManagerId,
+      type: 'attendance_early_morning_punch',
+      title,
+      content,
+      dedupKey: `${dedupKey}_dep_${supervisors.deputyManagerId}`,
+      metadata: {
+        type: 'morning_attendance_alert',
+        violation_type: 'early_morning_punch',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        record_date: recordDate,
+        punch_time: punchTimeStr
+      }
+    });
+  }
+
+  return candidates;
+}

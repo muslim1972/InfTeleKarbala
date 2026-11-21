@@ -16,7 +16,9 @@ import {
   evaluateMorningEarlyDeparture,
   evaluateMidShiftTimeOffPunches,
   buildMissingMorningEveningBridgeNotifications,
-  buildMissingMidnightBridgeNotifications
+  buildMissingMidnightBridgeNotifications,
+  buildOffDayPunchNotifications,
+  buildEarlyMorningPunchNotifications
 } from '../engines/morningAttendanceNotificationsEngine';
 import { getBaghdadMinutes, createBaghdadIso } from '../engines/rosterAttendanceEngine';
 
@@ -243,6 +245,9 @@ export interface ProcessPunchParams {
     time_leave_return?: string | null;
   };
   isRestDay: boolean;
+  isOfficialHoliday?: boolean;
+  isCompensatory?: boolean;
+  offDayLabel?: string;
   approvedLeaves: any[];
   isCheckInPunch: boolean;
   isCheckOutPunch: boolean;
@@ -261,27 +266,80 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
     isFollowedByEveningShift,
     slots,
     isRestDay,
+    isOfficialHoliday,
+    isCompensatory,
+    offDayLabel,
     approvedLeaves,
     isCheckInPunch,
     isCheckOutPunch
   } = params;
 
-  // 1. إذا لم يكن الموظف مكلفاً بدوام صباحي اليوم (ليس صباحياً ولا مناوباً لديه صباحي)
+  // 1. استخراج المسؤول المباشر والبديل من شجرة الهيكلية
+  const supervisors = await resolveHierarchySupervisors(employeeId);
+  const allCandidates: AttendanceNotificationCandidate[] = [];
+
+  // 2. فحص البصمة في يوم غير يوم عمل (عطلة رسمية، يوم استراحة، إجازة معتمدة، تعويضي)
+  const fullDayLeave = (approvedLeaves || []).find(
+    l => l.status === 'approved' && l.leave_type !== 'time_off' && (l.time_duration_minutes || 0) === 0
+  );
+  const isOffDay = Boolean(isRestDay || isOfficialHoliday || isCompensatory || fullDayLeave);
+
+  if (isOffDay && !isFollowUpAfterNightShift) {
+    if (isCheckInPunch && slots.check_in) {
+      // تحديد المسمى الدقيق ليوم العطلة أو الاستراحة أو الإجازة
+      let resolvedLabel = offDayLabel;
+      if (!resolvedLabel) {
+        if (isOfficialHoliday) {
+          resolvedLabel = 'عطلة رسمية';
+        } else if (isCompensatory) {
+          resolvedLabel = 'يوم تعويضي';
+        } else if (fullDayLeave) {
+          const ltype = fullDayLeave.leave_type;
+          if (ltype === 'regular') resolvedLabel = 'يوم إجازته الاعتيادية';
+          else if (ltype === 'sick') resolvedLabel = 'يوم إجازته المرضية';
+          else if (ltype === 'duty') resolvedLabel = 'يوم واجبه الرسمي';
+          else if (ltype === 'dispatch') resolvedLabel = 'يوم إيفاده الرسمي';
+          else resolvedLabel = 'يوم إجازته الرسمية';
+        } else if (isRestDay) {
+          resolvedLabel = 'يوم استراحته الرسمية';
+        } else {
+          resolvedLabel = 'خارج أوقات الدوام الرسمي';
+        }
+      }
+
+      const offDayCandidates = buildOffDayPunchNotifications({
+        employeeId,
+        employeeName,
+        punchIso: slots.check_in,
+        recordDate,
+        offDayLabel: resolvedLabel,
+        supervisors
+      });
+      allCandidates.push(...offDayCandidates);
+      await dispatchAttendanceNotifications(allCandidates);
+    }
+    return; // لا تحسب تأخير أو مغادرة مبكرة أو مغادرة غير مبررة في يوم عطلة/استراحة/إجازة
+  }
+
+  // إذا لم يكن الموظف مكلفاً بدوام صباحي اليوم (ليس صباحياً ولا مناوباً لديه صباحي)
   if (!isMorningDuty) return;
 
-  // 2. فحص الإعفاءات التامة: عطل، إجازات يوم كامل، واجب رسمي، تفرغ، تعويضيات
-  if (isRestDay && !isFollowUpAfterNightShift) {
-    return; // يوم عطلة/استراحة طبيعي
+  // 3. فحص البصمة قبل الساعة 06:00 صباحاً (قبل الدوام الرسمي) لموظف الصباحي
+  if (isCheckInPunch && slots.check_in) {
+    const { totalMinutes } = getBaghdadMinutes(slots.check_in);
+    if (totalMinutes < 6 * 60) {
+      const earlyMorningCandidates = buildEarlyMorningPunchNotifications({
+        employeeId,
+        employeeName,
+        punchIso: slots.check_in,
+        recordDate,
+        supervisors
+      });
+      allCandidates.push(...earlyMorningCandidates);
+    }
   }
 
-  const hasFullDayLeave = (approvedLeaves || []).some(
-    l => l.status === 'approved' && l.leave_type !== 'time_off'
-  );
-  if (hasFullDayLeave) {
-    return; // في إجازة معتمدة (اعتيادية، مرضية، واجب، إيفاد، تفرغ)
-  }
-
-  // 3. استخراج الإجازات الزمنية المعتمدة لليوم
+  // 4. استخراج الإجازات الزمنية المعتمدة لليوم
   const timeOffs: ApprovedTimeOffInfo[] = (approvedLeaves || []).filter(
     l => l.status === 'approved' && (l.leave_type === 'time_off' || (l.time_duration_minutes || 0) > 0)
   );
@@ -289,10 +347,6 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
   const startTimeOff = timeOffs.find(t => t.time_off_subtype === 'shift_start' || !t.time_off_subtype);
   const endTimeOff = timeOffs.find(t => t.time_off_subtype === 'shift_end');
   const midTimeOff = timeOffs.find(t => t.time_off_subtype === 'mid_shift');
-
-  // 4. استخراج المسؤول المباشر والبديل من شجرة الهيكلية
-  const supervisors = await resolveHierarchySupervisors(employeeId);
-  const allCandidates: AttendanceNotificationCandidate[] = [];
 
   // 5. فحص التأخير الصباحي عند تسجيل بصمة الدخول
   if (isCheckInPunch && slots.check_in) {

@@ -2491,6 +2491,40 @@ npm run build ناجح.
 - **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=391, DIFF=0, MISSING=0).
 - **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
 
+---
+
+## 2026-11-21 — D89: إلغاء التأخير والمخالفات في أيام العطل والاستراحة، وحوكمة إشعارات الحضور خارج الدوام وقبل 6:00 صباحاً
+
+### 1. السياق والمعضلة
+1. **ظهور ملاحظة تأخير صباحي في يوم عطلة/استراحة:** في سجل الموظف التجريبي في يوم السبت (عطلة رسمية/استراحة)، ظهرت ملاحظة «تأخير صباحي (12 ساعة و 9 دقيقة)» عند تثبيت بصمة مسائية (20:39)، مع أن اليوم عطلة ويُحتسب كدوام إضافي. اتضح أن معامل `_calendarInfo` في `evaluateMorningAttendance` كان مهملاً ولم يفحص `isOffDay`، مما سبب حساب الفارق بين وقت الحضور ووقت الدوام الصباحي (08:30).
+2. **حوكمة حضور أيام العطل والاستراحة والإجازات الرسمية:** عندما يقوم الموظف بتثبيت بصمة حضور في يوم غير يوم عمله (استراحة رسمية، عطلة رسمية، إجازة معتمدة، أو يوم تعويضي) ويوافق على التحذير، يجب إرسال إشعار فوري إلى المسؤول المباشر والبديل بصيغة رسمية موحدة مع زر «اطلعت».
+3. **تحويل حظر الحضور الصباحي المبكر (قبل 6:00 ص) إلى تحذير تفاعلي:** استبدال الخطأ القاطع السابق بمودال تحذيري تفاعلي يسأل الموظف إن كان يريد التثبيت على أية حال، وعند موافقته يتم التثبيت وإرسال إشعار فوري للمسؤول المباشر والبديل مع زر «اطلعت».
+
+### 2. الحل الهندسي المعماري في النواة [`FE-ATT-01`](file:///d:/InfTeleKarbala/bricks/FE-ATT-01/BRICK.md) / [`OPS-03`](file:///d:/InfTeleKarbala/bricks/OPS-03/BRICK.md)
+1. **المحرك الحتمي [`src/features/attendance/engines/morningAttendanceEngine.ts`](file:///d:/InfTeleKarbala/src/features/attendance/engines/morningAttendanceEngine.ts):**
+   - تفعيل `calendarInfo` واستخراج `isOffDay = Boolean(calendarInfo?.isRestDay || calendarInfo?.isOfficialHoliday || calendarInfo?.isCompensatory || approvedLeaves...)`.
+   - تعطيل فحص التأخير الصباحي (`late_entry`) وفحص المغادرة المبكرة (`early_leave`) والمغادرات غير المبررة وحقن الخروج الافتراضي تماماً عند `isOffDay`.
+   - فرض حالة السجل كـ `present` (حضور إضافي) دون أي وسم تأخير.
+   - تحويل `checkMorningEarlyPunchAllowed` ليعيد رسالة تحذيرية تفاعلية.
+2. **محرك الصياغة والإرسال الهرمي [`src/features/attendance/engines/morningAttendanceNotificationsEngine.ts`](file:///d:/InfTeleKarbala/src/features/attendance/engines/morningAttendanceNotificationsEngine.ts) و [`src/features/attendance/services/morningNotificationDispatcher.ts`](file:///d:/InfTeleKarbala/src/features/attendance/services/morningNotificationDispatcher.ts):**
+   - إضافة دالة `buildOffDayPunchNotifications`: صياغة إشعار `📋 تسجيل بصمة حضور في غير أوقات الدوام الرسمي` مع النص المحدد: `ثبت الموظف (${employeeName}) بصمة حضور في الساعة ${punchTimeStr} من اليوم ${recordDate}، علماً أن هذا اليوم هو ${offDayLabel}، للتفضل بالاطلاع مع التقدير` للمسؤول والبديل.
+   - إضافة دالة `buildEarlyMorningPunchNotifications`: صياغة إشعار `⚠️ تسجيل بصمة حضور قبل الدوام الرسمي` مع النص: `ثبت الموظف (${employeeName}) بصمة حضور في الساعة ${punchTimeStr} في اليوم ${recordDate} قبل الدوام الرسمي، للتفضل بالاطلاع مع التقدير` للمسؤول والبديل.
+   - منع التكرار الصارم بمفاتيح `dedupKey`.
+3. **خدمة البصمة والمساعد [`src/features/attendance/services/attendanceService.ts`](file:///d:/InfTeleKarbala/src/features/attendance/services/attendanceService.ts) و [`src/features/attendance/utils/timesheetStatusHelper.ts`](file:///d:/InfTeleKarbala/src/features/attendance/utils/timesheetStatusHelper.ts):**
+   - استبدال الرمي القاطع لخطأ قبل 6:00 ص برمي استثناء `LeaveDayPunchWarning` من نوع `before_six_am`.
+   - تنظيف أي عبارة تأخير صباحي قديمة من الملاحظات في واجهة التقارير وجداول الدوام عند العطل والاستراحة والإجازات.
+   - تنظيف السجلات الثلاثة في قاعدة بيانات VPS بواسطة SQL مباشر.
+4. **واجهة التبصيم والمودال [`src/features/attendance/components/AttendanceCheckInOut.tsx`](file:///d:/InfTeleKarbala/src/features/attendance/components/AttendanceCheckInOut.tsx):**
+   - استيعاب تحذير قبل 6:00 ص وعرض نص التحذير المطلوب بدقة وسؤال الموظف، مع زر «تثبيت البصمة على أية حال».
+
+### 3. التحقق والنشر
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 338/338 ملفاً) ولقطة محدثة لـ 446 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء تماماً (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 24.19 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=391, DIFF=0, MISSING=0).
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+
 
 
 

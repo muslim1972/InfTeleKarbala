@@ -1,5 +1,5 @@
 {
- "created": "2026-11-21T17:07:44.668Z",
+ "created": "2026-11-21T18:11:04.442Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -595,7 +595,7 @@
   },
   "src/features/attendance/components/AttendanceCheckInOut.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "cfe1de0b5693"
+   "sha": "d2ad4befaa76"
   },
   "src/features/attendance/components/AttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
@@ -675,11 +675,11 @@
   },
   "src/features/attendance/engines/morningAttendanceEngine.ts": {
    "brick": "FE-ATT-01",
-   "sha": "867a74987bf2"
+   "sha": "bda45fef769e"
   },
   "src/features/attendance/engines/morningAttendanceNotificationsEngine.ts": {
    "brick": "FE-ATT-01",
-   "sha": "554b8aeb661f"
+   "sha": "2147a6734305"
   },
   "src/features/attendance/engines/rosterAttendanceEngine.ts": {
    "brick": "FE-ATT-01",
@@ -719,7 +719,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "9a3121a08242"
+   "sha": "1c4e2ce6088d"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -731,7 +731,7 @@
   },
   "src/features/attendance/services/morningNotificationDispatcher.ts": {
    "brick": "FE-ATT-01",
-   "sha": "805ddc2cadb3"
+   "sha": "70afad94aa2d"
   },
   "src/features/attendance/services/rosterReminderService.ts": {
    "brick": "FE-ATT-01",
@@ -795,7 +795,7 @@
   },
   "src/features/attendance/utils/timesheetStatusHelper.ts": {
    "brick": "FE-ATT-01",
-   "sha": "e04175eeacb9"
+   "sha": "b15be4a397ef"
   },
   "src/features/fiber-simulator/FiberSimulatorLauncher.tsx": {
    "brick": "FE-FIB-01",

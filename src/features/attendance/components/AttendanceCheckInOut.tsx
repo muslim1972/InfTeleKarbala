@@ -88,8 +88,8 @@ export default function AttendanceCheckInOut({
     dayLeave: null,
     timeLeaves: []
   });
-  // بصمة معلّقة بانتظار تأكيد الموظف (اليوم يوم إجازته)
-  const [pendingLeavePunch, setPendingLeavePunch] = useState<{ snapshotResult: { url?: string; notes?: string } } | null>(null);
+  // بصمة معلّقة بانتظار تأكيد الموظف (يوم عطلة/استراحة/إجازة أو قبل الدوام الرسمي)
+  const [pendingLeavePunch, setPendingLeavePunch] = useState<{ snapshotResult: { url?: string; notes?: string }; warningMessage?: string; leaveType?: string } | null>(null);
   const navigate = useNavigate();
   const [confirmingPunch, setConfirmingPunch] = useState(false);
   const [pendingTimeOffWarning, setPendingTimeOffWarning] = useState(false);
@@ -609,9 +609,13 @@ export default function AttendanceCheckInOut({
         await registerPunch(locationText, deviceId, false, snapshotResult.url, finalNotes, shouldBypassWarning, targetSlotRef.current);
         bypassDutyWarningRef.current = false;
       } catch (err: any) {
-        // تحذير يوم الإجازة: يوقف التثبيت ويعرض مودال التأكيد بدل الخطأ
+        // تحذير يوم الإجازة أو العطلة أو قبل الدوام الرسمي: يوقف التثبيت ويعرض مودال التأكيد
         if (err?.isLeaveDayWarning) {
-          setPendingLeavePunch({ snapshotResult });
+          setPendingLeavePunch({
+            snapshotResult,
+            warningMessage: err.warningMessage,
+            leaveType: err.leaveType
+          });
           return;
         }
         throw err;
@@ -649,8 +653,10 @@ export default function AttendanceCheckInOut({
         true, // bypassLeaveWarning — الموظف أكّد الاستمرار رغم التنبيه
         targetSlotRef.current
       );
-      if (pendingLeavePunch.snapshotResult.url) {
-        toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً في يوم إجازتك');
+      if (pendingLeavePunch.leaveType === 'before_six_am') {
+        toast.success('تم تثبيت البصمة قبل الدوام الرسمي وإشعار المسؤول المباشر والبديل');
+      } else if (pendingLeavePunch.snapshotResult.url) {
+        toast.success('تم تثبيت البصمة — سيُحتسب الدوام إضافياً وإشعار المسؤول المباشر والبديل');
       } else {
         toast('تم تسجيل البصمة، لكن تعذر حفظ الصورة — يرجى إبلاغ المسؤول', { icon: '⚠️', duration: 6000 });
       }
@@ -1032,9 +1038,13 @@ export default function AttendanceCheckInOut({
           }
           await registerPunch(locationText, deviceId, false, undefined, finalNotes, false, targetSlotRef.current);
         } catch (regErr: any) {
-          // تحذير يوم الإجازة: مودال تأكيد بدل تسجيل مباشر
+          // تحذير يوم الإجازة أو العطلة أو قبل الدوام الرسمي: مودال تأكيد بدل تسجيل مباشر
           if (regErr?.isLeaveDayWarning) {
-            setPendingLeavePunch({ snapshotResult: { notes } });
+            setPendingLeavePunch({
+              snapshotResult: { notes },
+              warningMessage: regErr.warningMessage,
+              leaveType: regErr.leaveType
+            });
             return;
           }
           throw regErr;
@@ -1986,12 +1996,14 @@ export default function AttendanceCheckInOut({
               <div className="mx-auto w-16 h-16 bg-orange-50 dark:bg-orange-950/30 rounded-full flex items-center justify-center mb-6 text-orange-500">
                 <Clock className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3">
-                {leaveCtx.dayLeave?.warningMessage || 'اليوم من أيام إجازتك المعتمدة'}
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3 leading-snug">
+                {pendingLeavePunch.warningMessage || leaveCtx.dayLeave?.warningMessage || 'أنت خارج أوقات الدوام الرسمي، فهل تريد تثبيت البصمة على أية حال؟'}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-                إذا ثبّت البصمة الآن سيُسجَّل دوامك كـ«دوام إضافي في يوم إجازة
-                {leaveCtx.dayLeave ? ` (${leaveCtx.dayLeave.label})` : ''}» وتظهر أوقاتك باللون البرتقالي في التقارير.
+                {pendingLeavePunch.leaveType === 'before_six_am'
+                  ? 'سيتم تثبيت بصمة الحضور وإرسال إشعار فوري للمسؤول المباشر والبديل للاطلاع والاعتماد.'
+                  : `إذا ثبّت البصمة الآن سيُسجَّل دوامك كـ«دوام إضافي» ويتم إشعار المسؤول المباشر والبديل بالاطلاع.`
+                }
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -2007,7 +2019,7 @@ export default function AttendanceCheckInOut({
                   className="py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {confirmingPunch ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                  تثبيت البصمة رغم ذلك
+                  تثبيت البصمة على أية حال
                 </button>
               </div>
             </motion.div>

@@ -460,7 +460,7 @@ export function getTimesheetSmartNotes(params: {
 
   // 11. دمج أي ملاحظات يدوية إضافية كانت موجودة أصلاً ولم تكن جزءاً من النصوص التلقائية
   if (rec.notes) {
-    const rawClean = rec.notes
+    let rawClean = rec.notes
       .replace(/\(?تثبيت بطلب الموظف:[^)]*\)?/g, '')
       .replace(/\(?تجاهل إجازة زمنية\)?/g, '')
       .replace(/🚨\s*خروج نهائي افتراضي/g, '')
@@ -471,6 +471,16 @@ export function getTimesheetSmartNotes(params: {
       .replace(/\(إجازة زمنية:[^)]*\)/g, '')
       .replace(/\|/g, '')
       .trim();
+
+    // في أيام العطل والاستراحة والإجازات المعتمدة: حذف أي تأخير صباحي أو مغادرة مبكرة فوراً لمنع التناقض
+    if (isRestOrHoliday || Boolean(dayLeave) || Boolean(rec.leaveLabel)) {
+      rawClean = rawClean
+        .replace(/تأخير صباحي\s*\([^)]*\)/g, '')
+        .replace(/مغادرة مبكرة\s*\([^)]*\)/g, '')
+        .replace(/تأخير في الحضور\s*\([^)]*\)/g, '')
+        .replace(/تأخير عن استلام الشفت\s*\([^)]*\)/g, '')
+        .trim();
+    }
 
     // منع تكرار عبارات الإجازة الإجبارية أو التأخير المتشابهة
     const hasAlreadyMandatoryNote = notes.some(n => n.includes('إجازة اعتيادية إجبارية') || n.includes('إجازة إجبارية'));

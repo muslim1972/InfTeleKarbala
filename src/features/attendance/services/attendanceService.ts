@@ -87,64 +87,6 @@ async function collectSupervisorIds(employeeId: string): Promise<string[]> {
 }
 
 /**
- * تنبيه المشرفين عند بصمة في يوم إجازة صارم (اعتيادية/مرضية/طويلة):
- * metadata تحمل employee_id + record_date ليُنفّذ زر «موافق» من مركز
- * الإشعارات مباشرة (وسم السجل + عدم احتساب الساعات + إشعار الموظف).
- * ويُدرج إشعار موازٍ للموظف نفسه ليكون على علم أن المشرفين بُلِّغوا.
- */
-async function notifySupervisorsOfLeavePunch(employeeId: string, employeeName: string, leaveLabel: string, recordDate: string) {
-  try {
-    const supervisorIds = await collectSupervisorIds(employeeId);
-
-    if (supervisorIds.length > 0) {
-      const title = '⚠️ تنبيه ذكي: بصمة أثناء إجازة رسمية';
-      const content = `الموظف (${employeeName}) قام بتسجيل بصمة حضور بتاريخ اليوم على الرغم من تمتعه بـ (${leaveLabel}) معتمدة. يمكنك اعتمادها كساعات غير محتسبة عبر زر «موافق».`;
-
-      // 1. Insert in system_notifications
-      const notifRows = supervisorIds.map(supId => ({
-        recipient_id: supId,
-        type: 'system',
-        title,
-        content,
-        is_read: false,
-        metadata: {
-          type: 'leave_punch_alert',
-          employee_id: employeeId,
-          employee_name: employeeName,
-          leave_label: leaveLabel,
-          record_date: recordDate
-        }
-      }));
-      const { error: supNotifErr } = await supabase.from('system_notifications').insert(notifRows);
-      if (supNotifErr) console.warn(supNotifErr);
-
-      // 2. Send Push Notifications
-      const pushPromises = supervisorIds.map(supId =>
-        sendPushNotification(supId, content, { title })
-      );
-      await Promise.allSettled(pushPromises);
-    }
-
-    // 3. إشعار الموظف نفسه (قاعدة البيانات فقط — هو داخل التطبيق الآن)
-    const { error: empNotifErr } = await supabase.from('system_notifications').insert({
-      recipient_id: employeeId,
-      type: 'system',
-      title: '📝 تم تثبيت بصمتك في يوم إجازة',
-      content: `ثبتت بصمة حضور في يوم (${leaveLabel}) معتمد لديك. سيُحتسب الدوام إضافياً في يوم الإجازة، وأُبلغ المشرفون بذلك.`,
-      is_read: false,
-      metadata: {
-        type: 'employee_leave_punch_notice',
-        employee_id: employeeId,
-        record_date: recordDate
-      }
-    });
-    if (empNotifErr) console.warn(empNotifErr);
-  } catch (err) {
-    console.error('Error in notifySupervisorsOfLeavePunch:', err);
-  }
-}
-
-/**
  * إشعار علمي للمشرفين عند دوام في يوم (واجب رسمي/إيفاد) معتمد — دون أي عائق
  * على الموظف لأن الدوام هو الغاية من الإجازة الرسمية.
  */
@@ -832,17 +774,23 @@ export const attendanceRecordService = {
     }
 
     const shiftType = determineShiftType(profile, workSchedule);
+    let dayTypeLabel = '';
+    let isOfficialHoliday = false;
+    let isCompensatory = false;
 
     if (!isRestDay && shiftType !== 'shift') {
-        const { isHolidayOrWeekend, dayTypeLabel } = await import('../../../lib/attendanceHelpers').then(m => m.fetchDayType(today));
+        const { isHolidayOrWeekend, dayTypeLabel: resolvedLabel } = await import('../../../lib/attendanceHelpers').then(m => m.fetchDayType(today));
         if (isHolidayOrWeekend) {
             isRestDay = true;
+            dayTypeLabel = resolvedLabel;
+            isOfficialHoliday = resolvedLabel.startsWith('عطلة رسمية');
+            isCompensatory = resolvedLabel.includes('تعويضي');
             if (!record && !bypassLeaveWarning) {
                 throw new LeaveDayPunchWarning({
                     id: 'weekend_holiday',
                     leaveType: 'rest',
                     label: dayTypeLabel,
-                    warningMessage: `هذا اليوم مخصص كـ ${dayTypeLabel}`
+                    warningMessage: `هذا اليوم مخصص كـ ${dayTypeLabel} (خارج أوقات الدوام الرسمي)، فهل تريد تثبيت البصمة على أية حال؟`
                 });
             }
         }
@@ -859,7 +807,7 @@ export const attendanceRecordService = {
         id: 'rest_day',
         leaveType: 'rest',
         label: 'استراحة',
-        warningMessage: 'اليوم هو يوم استراحة في جدول مناوبتك المعتمد'
+        warningMessage: 'اليوم هو يوم استراحة في جدول مناوبتك المعتمد، فهل تريد تثبيت البصمة على أية حال؟'
       });
     }
 
@@ -1084,12 +1032,17 @@ export const attendanceRecordService = {
       target_slot: targetSlot
     };
 
-    // فحص حظر الحضور الصباحي قبل 6:00 ص لموظفي الصباحي
-    if (shiftType === 'morning' && !record) {
+    // فحص الحضور الصباحي قبل 6:00 ص لموظفي الصباحي (تحذير تفاعلي بدلاً من الحظر القاطع)
+    if (shiftType === 'morning' && !record && !bypassLeaveWarning && !isRestDay) {
       const { checkMorningEarlyPunchAllowed } = await import('../engines/morningAttendanceEngine');
       const earlyCheck = checkMorningEarlyPunchAllowed(nowIso);
       if (!earlyCheck.allowed) {
-        throw new Error(earlyCheck.message || 'الدوام الصباحي يبدأ على أقل تقدير عند الساعة 6:00 صباحاً');
+        throw new LeaveDayPunchWarning({
+          id: 'morning_before_six_am',
+          leaveType: 'before_six_am',
+          label: 'قبل الدوام الرسمي',
+          warningMessage: earlyCheck.message || 'أنت خارج أوقات الدوام الرسمي، ويجب أن تكون البصمة الصباحية ابتداءً من السادسة صباحاً، فهل تريد تثبيت البصمة على أية حال؟'
+        });
       }
     }
 
@@ -1138,7 +1091,7 @@ export const attendanceRecordService = {
         rawPunches,
         today,
         (approvedLeavesData || []) as any,
-        { isRestDay, isOfficialHoliday: false, isCompensatory: false },
+        { isRestDay, isOfficialHoliday, isCompensatory, label: dayTypeLabel },
         false
       );
 
@@ -1202,8 +1155,7 @@ export const attendanceRecordService = {
       updates.check_out_virtual_reason = undefined;
     }
 
-    // ─── المحرك الذكي (2): بصمة في يوم إجازة/طلب → ملاحظات + إشعارات حسب الحالة ───
-    // واجب/إيفاد → إشعار علمي بلا إنذار وساعات أصليّة | اعتيادية/مرضية → تنبيه + زر «موافق»
+    // ─── المحرك الذكي (2): بصمة في يوم إجازة/طلب → ملاحظات الحساب التلقائي ───
     if (leaveCtx.dayLeave) {
       const isOfficialDuty = OFFICIAL_DUTY_TYPES.includes(leaveCtx.dayLeave.leaveType);
       if (!isOfficialDuty) {
@@ -1213,9 +1165,8 @@ export const attendanceRecordService = {
       const empName = profile?.full_name || 'موظف';
       if (isOfficialDuty) {
         notifySupervisorsOfOfficialDutyPunch(employeeId, empName, leaveCtx.dayLeave.label, today).catch(console.warn);
-      } else {
-        notifySupervisorsOfLeavePunch(employeeId, empName, leaveCtx.dayLeave.label, today).catch(console.warn);
       }
+      // إشعارات الحضور في يوم الإجازة تُدار موحّدة عبر processAttendancePunchNotifications أدناه مع زر «اطلعت»
     }
     // طلب معلّق يغطي اليوم → بصمة عادية + إشعار مشرف يحمل request_id لزر «مراجعة الطلب»
     if (leaveCtx.pendingRequests.length > 0) {
@@ -1276,6 +1227,9 @@ export const attendanceRecordService = {
             time_leave_return: savedRecord.time_leave_return || null,
           },
           isRestDay: Boolean(isRestDay),
+          isOfficialHoliday,
+          isCompensatory,
+          offDayLabel: dayTypeLabel || (isRestDay ? 'يوم استراحته الرسمية' : undefined),
           approvedLeaves: approvedLeavesData || [],
           isCheckInPunch,
           isCheckOutPunch,
