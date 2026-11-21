@@ -2428,6 +2428,37 @@ npm run build ناجح.
 - **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1`.
 - **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
 
+---
+
+## 2026-11-21 — D87: توحيد موقع سهم القوائم المنسدلة (Dropdown Select Arrows) على أقصى اليسار في كامل صفحات التطبيق
+
+### 1. السياق والمشكلة
+- أشار المهندس م. مسلم عقيل عبر لقطة شاشة لشاشة التقارير المتقدمة (`Timesheets`) إلى أن أسهم القوائم المنسدلة الافتراضية تظهر على جهة اليمين في حقول الاختيار (`السنة`، `الشهر`، `القسم`).
+- نظراً لأن واجهة التطبيق كاملة باللغة العربية (`dir="rtl"`)، فإن النصوص تبدأ من اليمين، مما أدى إلى تصادم مباشر وتداخل بين نصوص الخيارات (مثل "كل الأقسام" وتاريخ السنة والشهر) وبين سهم القائمة المنسدلة، مما يعيق القراءة والكتابة ويشوه المظهر الجمالي للواجهات.
+
+### 2. الحل الهندسي والمعماري في النواة [`FE-UI-01`](file:///d:/InfTeleKarbala/bricks/FE-UI-01/BRICK.md)
+1. **حوكمة CSS الشاملة في [`src/index.css`](file:///d:/InfTeleKarbala/src/index.css):**
+   - استهداف شامل لكافة عناصر `select:not([multiple]):not([size])` والطبقة المعيارية `.rtl-select`.
+   - إلغاء السهم الافتراضي لنظام التشغيل والمتصفح: `appearance: none !important; -webkit-appearance: none !important; -moz-appearance: none !important;`.
+   - حقن سهم متناغم بصرياً عبر SVG نقي عالي الدقة موضوع على أقصى اليسار بحسابات هندسية دقيقة:
+     - موقع السهم: `background-position: left 0.75rem center !important;`.
+     - حجم السهم: `background-size: 1rem 1rem !important;`.
+     - هامش أمان أيسر يمنع أي تداخل نصي نهائياً: `padding-left: 2.25rem !important;`.
+     - هامش يمين طبيعي ومريح لبداية النص العربي: `padding-right: 0.75rem !important;`.
+     - ضبط الاتجاه الحتمي: `direction: rtl !important;`.
+   - دعم الوضع الليلي (Dark Mode): تحويل لون السهم تلقائياً إلى رمادي فاتح مريح بصرياً (`#94a3b8`).
+   - خفض الشفافية تلقائياً عند التعطيل (`:disabled`).
+2. **تحصين مكون Radix UI في [`src/components/ui/Select.tsx`](file:///d:/InfTeleKarbala/src/components/ui/Select.tsx):**
+   - تثبيت `dir="rtl"` الصريح على `SelectPrimitive.Trigger` لضمان تدفق Flex من اليمين (نص الخيار) إلى اليسار (سهم `ChevronDown`).
+
+### 3. التحقق والنشر
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 336/336 ملفاً) مع لقطة لـ 444 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 27.92 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=390, DIFF=0, MISSING=0).
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
+
 
 
 

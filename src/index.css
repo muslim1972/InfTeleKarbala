@@ -234,6 +234,41 @@ textarea,
   touch-action: auto !important;
 }
 
+/* ==============================================================================
+   🎯 Universal RTL Select Styling (B.R.I.C.K Global Governance)
+   سهم القوائم المنسدلة على أقصى اليسار في جميع حقول الاختيار في كامل التطبيق
+   لمنع تعارض السهم مع بداية النصوص العربية من اليمين
+   ============================================================================== */
+
+select:not([multiple]):not([size]),
+.rtl-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: left 0.75rem center !important;
+  background-size: 1rem 1rem !important;
+  padding-left: 2.25rem !important;
+  padding-right: 0.75rem !important;
+  direction: rtl !important;
+  cursor: pointer;
+}
+
+/* في الوضع الداكن: سهم رمادي فاتح مريح بصرياً */
+.dark select:not([multiple]):not([size]),
+html.dark select:not([multiple]):not([size]),
+.dark .rtl-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+}
+
+/* في حالة التعطيل */
+select:not([multiple]):not([size]):disabled,
+.rtl-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
