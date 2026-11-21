@@ -69,6 +69,10 @@ export default function AdminAttendanceDashboard() {
   useEffect(() => {
     if (activeTab === 'today') {
       loadTodayAttendance();
+      // تدقيق بعدي ذكي للبصمات المفقودة لليوم السابق (B.R.I.C.K FE-ATT-01 / OPS-03)
+      import('../services/morningNotificationDispatcher')
+        .then(m => m.auditDailyPresenceBridgePunches())
+        .catch(console.warn);
     } else if (activeTab === 'exceptions') {
       loadPendingExceptions();
     } else if (activeTab === 'devices') {

@@ -225,7 +225,7 @@ export function evaluateMorningAttendance(
     });
 
     consolidatedNotifications.push(
-      `لديك تأخير بمقدار ${timeText} في بداية الدوام ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+      `لديك تأخير عن الدوام الصباحي ليوم ${dateStr} بمقدار ${timeText}، لذا توجب تقديم استيضاح للمسؤول المباشر خلال 24 ساعة`
     );
     notesList.push(`تأخير صباحي (${timeText})`);
   }
@@ -286,7 +286,7 @@ export function evaluateMorningAttendance(
       });
 
       consolidatedNotifications.push(
-        `لديك مغادرة مبكرة بمقدار ${timeText} في نهاية الدوام ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+        `لديك مغادرة مبكرة من الدوام الصباحي ليوم ${dateStr} بمقدار ${timeText}، لذا توجب تقديم استيضاح للمسؤول المباشر خلال 24 ساعة`
       );
       notesList.push(`مغادرة مبكرة (${timeText})`);
     }
@@ -317,7 +317,7 @@ export function evaluateMorningAttendance(
       });
 
       consolidatedNotifications.push(
-        `لديك مغادرة مبكرة بمقدار ${timeText} في نهاية الدوام ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+        `لديك مغادرة مبكرة من الدوام الصباحي ليوم ${dateStr} بمقدار ${timeText}، لذا توجب تقديم استيضاح للمسؤول المباشر خلال 24 ساعة`
       );
       notesList.push(`مغادرة مبكرة (${timeText})`);
     }
@@ -366,7 +366,7 @@ export function evaluateMorningAttendance(
           });
 
           consolidatedNotifications.push(
-            `لديك عودة متأخرة بعد الزمنية بمقدار ${timeText} ليوم ${dateStr}، وسيصلك استيضاح ورقي من قبل الإدارة، يرجى التوجه لإداري القسم للإجابة عليه بأسرع وقت.`
+            `لديك تأخير عن الدوام الصباحي بعد الزمنية ليوم ${dateStr} بمقدار ${timeText}، لذا توجب تقديم استيضاح للمسؤول المباشر خلال 24 ساعة`
           );
           notesList.push(`عودة متأخرة من الزمنية (${timeText})`);
         }

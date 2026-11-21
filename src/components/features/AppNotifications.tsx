@@ -1419,8 +1419,8 @@ export const AppNotifications = () => {
                                                         </div>
                                                     );
                                                 }
-                                                // إشعارات الفحص اليومي للشفت الصباحي: زر «اطلعت» لحفظ الإشعار وأرشفته
-                                                if (metaType === 'morning_attendance_alert' || notification.type?.startsWith('attendance_morning_')) {
+                                                // إشعارات الفحص اليومي وحركات البصمة: زر «اطلعت» لحفظ الإشعار وأرشفته
+                                                if (metaType === 'morning_attendance_alert' || notification.type?.startsWith('attendance_morning_') || notification.type?.startsWith('attendance_')) {
                                                     return (
                                                         <button
                                                             onClick={() => handleMarkSystemNotificationRead(notification.id)}

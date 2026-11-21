@@ -2458,6 +2458,39 @@ npm run build ناجح.
 - **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=390, DIFF=0, MISSING=0).
 - **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
 
+---
+
+## 2026-11-21 — D88: حوكمة وهندسة حركة إشعارات البصمة الموحدة لموظفي الصباح والمناوبات والإجازات الزمنية مع التدقيق البعدي للبصمات المفقودة
+
+### 1. السياق والمعضلة
+- بناءً على توجيهات المهندس م. مسلم عقيل وانعقاد قاعة العمليات ومجلس المداولة الموسع (`deliberation-council`)، تم وضع نظام متكامل لحوكمة حركة إشعارات البصمة ليحل محل المنطق القديم المتفرق، ومعالجة العيوب القاتلة التي شخصها محامي الخصم والخبراء بشأن:
+  1. توقيت الإشعارات التنبيهية (التأخير الصباحي من 08:31 فما فوق، والمغادرة المبكرة قبل 14:30).
+  2. استيعاب المناوبين: سماحية الصباحي بعد الخفر من 08:00 إلى 09:00، وسماحية التحول للمسائي من 14:30 إلى 15:30، وسماحية منتصف الليل للخفر من 23:30 إلى 00:30.
+  3. حوكمة الإجازات الزمنية (بداية، وسط، نهاية الدوام) ومحاسبة التجاوز والتبكير بدقة بالدقائق.
+  4. الإعفاءات التامة: لا إشعارات في أيام العطل والإجازات المعتمدة والواجبات والتفرغ والاستراحات والتعويضيات.
+  5. معضلة البصمة المفقودة (ما لم يتم تثبيته): تدقيق بعدي ذكي بأثر رجعي لليوم السابق يحقن بصمة افتراضية حمراء ويطلق إشعار نقص التواجد للموظف والمسؤول المباشر والبديل مع زر «اطلعت» الحتمي.
+
+### 2. الحل الهندسي المعماري في النواة [`FE-ATT-01`](file:///d:/InfTeleKarbala/bricks/FE-ATT-01/BRICK.md) / [`OPS-03`](file:///d:/InfTeleKarbala/bricks/OPS-03/BRICK.md)
+1. **المحرك الحتمي النقي [`src/features/attendance/engines/morningAttendanceNotificationsEngine.ts`](file:///d:/InfTeleKarbala/src/features/attendance/engines/morningAttendanceNotificationsEngine.ts):**
+   - دوال نقية 100% (`evaluateMorningLateArrival`, `evaluateMorningEarlyDeparture`, `evaluateMidShiftTimeOffPunches`).
+   - صياغة نصوص الإشعارات الرسمية الموحدة وتوليد مفاتيح المنع من التكرار (`dedupKey`).
+2. **خدمة الإرسال والربط الهرمي [`src/features/attendance/services/morningNotificationDispatcher.ts`](file:///d:/InfTeleKarbala/src/features/attendance/services/morningNotificationDispatcher.ts):**
+   - استخراج المسؤول المباشر من `departments.manager_id` مع التصعيد الهرمي التلقائي إذا كان الموظف هو المسؤول لمنع حلقة الرقابة الذاتية.
+   - استخراج البديل من `departments.deputy_manager_id` واستثناؤه تلقائياً إذا كان فارغاً أو كان هو نفس الموظف.
+   - منع التكرار الصارم عبر `system_notifications.metadata->>'dedup_key'`.
+   - التدقيق البعدي الاسترجاعي `auditDailyPresenceBridgePunches`: يبحث في اليوم السابق ويحقن بصمة افتراضية حمراء ويطلق الإشعارات الرسمية.
+3. **التكامل مع خدمة البصمة [`src/features/attendance/services/attendanceService.ts`](file:///d:/InfTeleKarbala/src/features/attendance/services/attendanceService.ts):**
+   - استدعاء غير متزامن فوري لمعالجة إشعارات البصمة دون تعطيل الحفظ أو واجهة المستخدم.
+4. **تحصين الواجهة وسجل الإشعارات في [`src/components/features/AppNotifications.tsx`](file:///d:/InfTeleKarbala/src/components/features/AppNotifications.tsx) و [`src/components/notifications/NotificationHistoryModal.tsx`](file:///d:/InfTeleKarbala/src/components/notifications/NotificationHistoryModal.tsx):**
+   - إظهار زر «اطلعت» الكهرماني لنقل الإشعار فوراً إلى الأرشيف وتحديث العداد.
+
+### 3. التحقق والنشر
+- **B.R.I.C.K Sentinel:** اجتياز فحص `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 338/338 ملفاً) مع لقطة لـ 446 ملفاً.
+- **Type Checking:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Production Build:** بناء ناجح عبر Vite في 57.89 ثانية.
+- **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` (SAME=391, DIFF=0, MISSING=0).
+- **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
+
 
 
 

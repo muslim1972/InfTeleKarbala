@@ -1,5 +1,5 @@
 {
- "created": "2026-11-21T12:06:19.175Z",
+ "created": "2026-11-21T17:07:44.668Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -339,7 +339,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "c7f2edaa92dc"
+   "sha": "d386b480f1a5"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -451,7 +451,7 @@
   },
   "src/components/notifications/NotificationHistoryModal.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "fdd86ab37a41"
+   "sha": "1c37bb6c5e2b"
   },
   "src/components/notifications/NotificationsBell.tsx": {
    "brick": "FE-CORE-05",
@@ -587,7 +587,7 @@
   },
   "src/features/attendance/components/AdminAttendanceDashboard.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "2efd91f439a4"
+   "sha": "8dd862140a4f"
   },
   "src/features/attendance/components/AttendanceAdminSettings.tsx": {
    "brick": "FE-ATT-01",
@@ -675,7 +675,11 @@
   },
   "src/features/attendance/engines/morningAttendanceEngine.ts": {
    "brick": "FE-ATT-01",
-   "sha": "ed8f8bdda19a"
+   "sha": "867a74987bf2"
+  },
+  "src/features/attendance/engines/morningAttendanceNotificationsEngine.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "554b8aeb661f"
   },
   "src/features/attendance/engines/rosterAttendanceEngine.ts": {
    "brick": "FE-ATT-01",
@@ -715,7 +719,7 @@
   },
   "src/features/attendance/services/attendanceService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "e4854c222d75"
+   "sha": "9a3121a08242"
   },
   "src/features/attendance/services/geofenceService.ts": {
    "brick": "FE-ATT-01",
@@ -724,6 +728,10 @@
   "src/features/attendance/services/leaveIntegrationService.ts": {
    "brick": "FE-ATT-01",
    "sha": "c285c4cb1c4f"
+  },
+  "src/features/attendance/services/morningNotificationDispatcher.ts": {
+   "brick": "FE-ATT-01",
+   "sha": "805ddc2cadb3"
   },
   "src/features/attendance/services/rosterReminderService.ts": {
    "brick": "FE-ATT-01",

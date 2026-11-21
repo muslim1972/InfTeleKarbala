@@ -112,6 +112,9 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
     }, [user]);
 
     const getTypeLabel = (type: string) => {
+        if (type?.startsWith('attendance_') || type === 'biometric_alert') {
+            return { label: 'إشعار بصمة', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' };
+        }
         switch (type) {
             case 'leave_request': return { label: 'طلب قيد المراجعة', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' };
             case 'leave_fyi': return { label: 'للعلم فقط', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400' };

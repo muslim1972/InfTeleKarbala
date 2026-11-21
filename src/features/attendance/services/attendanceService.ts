@@ -1122,16 +1122,17 @@ export const attendanceRecordService = {
     rawPunches.push(newPunch);
 
     // 9. Run categorizer with shift rules
+    const { data: approvedLeavesData } = await supabase
+      .from('leave_requests')
+      .select('id, leave_type, start_date, end_date, leave_start_time, leave_end_time, time_duration_minutes, time_off_subtype, status, reason')
+      .eq('user_id', employeeId)
+      .eq('status', 'approved')
+      .lte('start_date', today)
+      .or(`end_date.gte.${today},end_date.is.null`);
+
     let updates: Partial<AttendanceRecord>;
     if (shiftType === 'morning') {
       const { evaluateMorningAttendance } = await import('../engines/morningAttendanceEngine');
-      const { data: approvedLeavesData } = await supabase
-        .from('leave_requests')
-        .select('id, leave_type, start_date, end_date, leave_start_time, leave_end_time, time_duration_minutes, status, reason')
-        .eq('user_id', employeeId)
-        .eq('status', 'approved')
-        .lte('start_date', today)
-        .or(`end_date.gte.${today},end_date.is.null`);
 
       const morningResult = evaluateMorningAttendance(
         rawPunches,
@@ -1153,13 +1154,6 @@ export const attendanceRecordService = {
     } else {
       // ── محرك المناوبين المستقل (Roster Engine) ──
       const { evaluateRosterAttendance } = await import('../engines/rosterAttendanceEngine');
-      const { data: approvedLeavesData } = await supabase
-        .from('leave_requests')
-        .select('id, leave_type, start_date, end_date, leave_start_time, leave_end_time, time_duration_minutes, time_off_subtype, status, reason')
-        .eq('user_id', employeeId)
-        .eq('status', 'approved')
-        .lte('start_date', today)
-        .or(`end_date.gte.${today},end_date.is.null`);
 
       const rosterSchedule = {
         is_morning: Boolean(currentScheduleDay?.is_morning),
@@ -1257,6 +1251,38 @@ export const attendanceRecordService = {
       updates.work_schedule_id = profile?.work_schedule_id;
       updates.status = 'present'; // Default
       savedRecord = await this.saveSecure(employeeId, null, updates);
+    }
+
+    // ─── حوكمة إشعارات البصمة للموظف والمسؤول والبديل (B.R.I.C.K FE-ATT-01 / OPS-03) ───
+    try {
+      const isMorningDuty = shiftType === 'morning' || Boolean(currentScheduleDay?.is_morning);
+      const isFollowUpAfterNightShift = Boolean(prevScheduleDay?.is_night);
+      const isFollowedByEveningShift = Boolean(currentScheduleDay?.is_evening);
+      const isCheckInPunch = !record || (!record.check_in && Boolean(savedRecord.check_in));
+      const isCheckOutPunch = Boolean(savedRecord.check_out && savedRecord.check_out !== record?.check_out);
+
+      import('./morningNotificationDispatcher').then(({ processAttendancePunchNotifications }) => {
+        processAttendancePunchNotifications({
+          employeeId,
+          employeeName: profile?.full_name || 'موظف',
+          recordDate: today,
+          isMorningDuty,
+          isFollowUpAfterNightShift,
+          isFollowedByEveningShift,
+          slots: {
+            check_in: savedRecord.check_in || null,
+            check_out: savedRecord.check_out || null,
+            time_leave_out: savedRecord.time_leave_out || null,
+            time_leave_return: savedRecord.time_leave_return || null,
+          },
+          isRestDay: Boolean(isRestDay),
+          approvedLeaves: approvedLeavesData || [],
+          isCheckInPunch,
+          isCheckOutPunch,
+        }).catch(err => console.warn('[morningNotificationDispatcher] error:', err));
+      }).catch(console.warn);
+    } catch (dispErr) {
+      console.warn('Error initiating attendance notifications:', dispErr);
     }
 
     // ─── تكامل الإجازات (3): تحذيرات بصمات الإجازة الزمنية ───
