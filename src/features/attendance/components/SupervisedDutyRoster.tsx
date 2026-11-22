@@ -123,19 +123,22 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
           .from('profiles')
           .select('id, full_name, job_number, work_schedule_id')
           .eq('department_id', deptId)
+          .neq('id', user?.id)
           .order('full_name');
 
         if (directError) throw directError;
         empRows = directData || [];
       }
 
-      const formatted: ManagedEmployee[] = empRows.map((p: any) => ({
-        id: p.id,
-        full_name: p.full_name,
-        job_number: p.job_number,
-        work_schedule_id: p.work_schedule_id,
-        work_schedule: activeSchedules.find(s => s.id === p.work_schedule_id) || null
-      }));
+      const formatted: ManagedEmployee[] = empRows
+        .filter((p: any) => p.id !== user?.id)
+        .map((p: any) => ({
+          id: p.id,
+          full_name: p.full_name,
+          job_number: p.job_number,
+          work_schedule_id: p.work_schedule_id,
+          work_schedule: activeSchedules.find(s => s.id === p.work_schedule_id) || null
+        }));
 
       setEmployees(formatted);
     } catch (err: any) {
@@ -312,7 +315,6 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
             title="قائمة الموظفين — يمكنك التنقل بالسهم لأعلى وأسفل"
           >
             {employees.map((emp) => {
-              const isSelf = emp.id === user.id;
               const isEditing = editingEmpId === emp.id;
               const empSchedule = emp.work_schedule || workSchedules.find(s => s.id === emp.work_schedule_id);
               const isRoster = empSchedule?.type === 'roster';
@@ -350,20 +352,13 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
               return (
                 <div
                   key={emp.id}
-                  className={`py-3.5 px-3 rounded-xl transition-all flex flex-col md:flex-row justify-between md:items-center gap-2 hover:bg-slate-50/60 dark:hover:bg-slate-750/30 ${
-                    isSelf ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
-                  }`}
+                  className="py-3.5 px-3 rounded-xl transition-all flex flex-col md:flex-row justify-between md:items-center gap-2 hover:bg-slate-50/60 dark:hover:bg-slate-755/30"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-sm text-slate-800 dark:text-slate-100">
                         {emp.full_name}
                       </p>
-                      {isSelf && (
-                        <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-md font-bold">
-                          حسابك الشخصي
-                        </span>
-                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 mt-1">
                       <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">

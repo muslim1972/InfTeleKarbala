@@ -1,5 +1,5 @@
 {
- "created": "2026-11-22T11:39:52.884Z",
+ "created": "2026-11-22T12:06:57.175Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -655,7 +655,7 @@
   },
   "src/features/attendance/components/SupervisedDutyRoster.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "8e5d0486926c"
+   "sha": "3e4ecfb24e36"
   },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
