@@ -3,14 +3,16 @@ import { formatCurrency } from './formatters';
 export const printMismatchReportHTML = (
     fieldLabel: string, 
     auditType: 'allowances' | 'deductions' | 'salary_values' | null, 
-    mismatchRows: any[]
+    mismatchRows: any[],
+    governorate?: string
 ) => {
+    const govTitle = governorate ? `مديرية اتصالات ${governorate}` : 'دائرة المعلوماتية وتكنولوجيا الاتصالات';
     return `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>تقرير القيود غير المطابقة</title>
+    <title>تقرير القيود غير المطابقة (${govTitle})</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,7 +33,7 @@ export const printMismatchReportHTML = (
 </head>
 <body>
     <div class="header">
-        <div><h1>تقرير القيود غير المطابقة</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا الاتصالات</p></div>
+        <div><h1>تقرير القيود غير المطابقة</h1><p style="color:#666">${govTitle}</p></div>
         <div style="text-align:left"><p>نوع: ${auditType === 'allowances' ? 'مخصصات' : auditType === 'deductions' ? 'استقطاعات' : 'قيم الراتب'} — ${fieldLabel}</p></div>
     </div>
     <div class="summary">
@@ -68,14 +70,16 @@ export const buildSingleAuditHTML = (
     approvedPercentage: number | null,
     auditResult: number | null,
     currentValue: number | null,
-    validationState: 'idle' | 'match' | 'mismatch'
+    validationState: 'idle' | 'match' | 'mismatch',
+    governorate?: string
 ) => {
+    const govTitle = governorate ? `مديرية اتصالات ${governorate}` : 'دائرة المعلوماتية وتكنولوجيا الاتصالات';
     return `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>تقرير تدقيق مخصص</title>
+    <title>تقرير تدقيق محدد (${govTitle})</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -98,7 +102,7 @@ export const buildSingleAuditHTML = (
 </head>
 <body>
     <div class="header">
-        <div><h1>تقرير تدقيق محدد</h1><p style="color:#666">دائرة المعلوماتية وتكنولوجيا الاتصالات</p></div>
+        <div><h1>تقرير تدقيق محدد</h1><p style="color:#666">${govTitle}</p></div>
         <div style="text-align:left"><p>${fieldLabel}</p></div>
     </div>
     <div class="info-grid">

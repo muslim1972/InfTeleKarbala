@@ -31,8 +31,8 @@ export function getExpectedNominalSalary(grade?: string | number | null, stage?:
     const g = Number(grade);
     const s = Number(stage);
 
-    // التحقق من صحة الأرقام وحدودها
-    if (isNaN(g) || isNaN(s) || g < 1 || g > 10 || s < 1 || s > 11) {
+    // التحقق من صحة الأرقام وحدودها (المراحل تمتد إلى 25 فما فوق بالعلاوة السنوية)
+    if (isNaN(g) || isNaN(s) || g < 1 || g > 10 || s < 1 || s > 25) {
         return null;
     }
 

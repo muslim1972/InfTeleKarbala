@@ -15,6 +15,8 @@ import {
 import { printMismatchReportHTML, buildSingleAuditHTML } from '../../utils/auditPrintUtils';
 import { formatCurrency } from '../../utils/formatters';
 import { EmployeeSearch } from '../shared/EmployeeSearch';
+import { useGovernorate } from '../../context/GovernorateContext';
+import { governorateName } from '../../constants/governorates';
 
 // ===== أنواع البيانات =====
 export interface MismatchRow {
@@ -36,6 +38,8 @@ interface CustomAuditProps {
 
 export function CustomAudit({ onClose }: CustomAuditProps) {
     const { theme } = useTheme();
+    const { activeGovernorate } = useGovernorate();
+    const targetGov = activeGovernorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
 
     // === التبويبات الرئيسية ===
     const [activeTab, setActiveTab] = useState<'custom' | 'full'>('custom');
@@ -123,6 +127,14 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         const fieldCurrentValue = parseFloat(finData[field]) || 0;
         setCurrentValue(fieldCurrentValue);
 
+        const nom = parseFloat(finData.nominal_salary) || 0;
+        const isFiveYear = finData.is_five_year_leave || (
+            parseFloat(finData.gross_salary) > 0 &&
+            Math.abs(parseFloat(finData.gross_salary) - nom) < 10 &&
+            (parseFloat(finData.certificate_allowance) || 0) === 0 &&
+            (parseFloat(finData.risk_allowance) || 0) === 0
+        );
+
         // -- تدقيق قيم الراتب --
         if (SALARY_FIELDS.some(f => f.key === field)) {
             setApprovedPercentage(null);
@@ -133,14 +145,22 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 const stage = finData.salary_stage;
                 expectedValue = getExpectedNominalSalary(grade, stage);
             } else if (field === 'gross_salary') {
-                const nom = parseFloat(finData.nominal_salary) || 0;
-                const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
-                expectedValue = nom + allAllowances;
+                if (isFiveYear) {
+                    expectedValue = nom;
+                } else {
+                    const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
+                    expectedValue = nom + allAllowances;
+                }
             } else if (field === 'net_salary') {
-                const nom = parseFloat(finData.nominal_salary) || 0;
-                const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
-                const allDeductions = DEDUCTION_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
-                expectedValue = (nom + allAllowances) - allDeductions;
+                if (isFiveYear) {
+                    const ret = Math.round(nom * 0.25);
+                    const soc = Math.round(nom * 0.0025);
+                    expectedValue = nom - ret - soc;
+                } else {
+                    const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
+                    const allDeductions = DEDUCTION_FIELDS.reduce((sum, f) => sum + (parseFloat(finData[f.key]) || 0), 0);
+                    expectedValue = (nom + allAllowances) - allDeductions;
+                }
             }
 
             setRecalcResult(expectedValue);
@@ -159,13 +179,12 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         }
 
         // -- تدقيق المخصصات والاستقطاعات التقليدي بالنبس المئوية --
-        const nominalSalary = parseFloat(finData.nominal_salary) || 0;
-        const approved = resolveApprovedPercentage(field, finData);
+        const approved = resolveApprovedPercentage(field, { ...finData, is_five_year_leave: isFiveYear });
 
         setApprovedPercentage(approved);
 
         if (approved !== null) {
-            const approvedCalc = Math.round((nominalSalary * approved) / 100);
+            const approvedCalc = Math.round((nom * approved) / 100);
             setRecalcResult(approvedCalc);
             setAuditResult(approvedCalc);
 
@@ -195,11 +214,17 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         let totalProcessed = 0;
 
         while (hasMore) {
-            const { data: batch, error } = await supabase
+            let q = supabase
                 .from('financial_records')
-                .select('*, profiles!inner(full_name, job_number)')
+                .select('*, profiles!inner(id, full_name, job_number, username)')
                 .order('profiles(full_name)', { ascending: true })
                 .range(from, from + PAGE_SIZE - 1);
+
+            if (targetGov) {
+                q = q.eq('governorate', targetGov);
+            }
+
+            const { data: batch, error } = await q;
 
             if (error || !batch || batch.length === 0) {
                 hasMore = false;
@@ -210,18 +235,56 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                 const nomSal = parseFloat(rec.nominal_salary) || 0;
                 if (nomSal <= 0) continue;
 
-                // دمج بيانات الملف الشخصي
                 const profile = (rec as any).profiles;
+                const uname = String(profile?.username || '');
+                const fname = String(profile?.full_name || '');
+                const jn = String(profile?.job_number || '').trim();
+                const jt = String(rec.job_title || '').trim();
+
+                // استبعاد الحسابات الاختبارية والتجريبية
+                if (uname.startsWith('c12') || uname.includes('test') || fname.includes('تجريبي')) {
+                    continue;
+                }
+
+                // كشف إجازة الخمس سنوات
+                const isFiveYear = rec.is_five_year_leave || (
+                    parseFloat(rec.gross_salary) > 0 &&
+                    Math.abs(parseFloat(rec.gross_salary) - nomSal) < 10 &&
+                    (parseFloat(rec.certificate_allowance) || 0) === 0 &&
+                    (parseFloat(rec.risk_allowance) || 0) === 0
+                );
+
+                // كشف العقود والحرفيين
+                const isContract = (jn.startsWith('143264') || jt.includes('حرفي') || jt.includes('عقد')) && (parseFloat(rec.certificate_allowance) || 0) === 0;
+
+                const fieldCurrentValue = parseFloat(rec[selectedField]) || 0;
+
+                // إذا كان الموظف مجاز 5 سنوات والتدقيق في أحد بنود المخصصات وقيمتها 0، فهذا مطابق قانوناً
+                if (isFiveYear && ALLOWANCE_FIELDS.some(f => f.key === selectedField)) {
+                    if (fieldCurrentValue === 0) {
+                        continue;
+                    }
+                }
+
+                // إذا كان الموظف عقد/حرفي والتدقيق في مخصصات الشهادة وقيمتها 0، فهذا مطابق لسلم رواتبهم
+                if (isContract && selectedField === 'certificate_allowance') {
+                    if (fieldCurrentValue === 0) {
+                        continue;
+                    }
+                }
+
+                // دمج بيانات الملف الشخصي
                 const fullRecord = {
                     ...rec,
                     job_title: rec.job_title,
-                    certificate_text: rec.certificate_text
+                    certificate_text: rec.certificate_text,
+                    job_number: jn,
+                    is_five_year_leave: isFiveYear
                 };
 
                 let mismatch = false;
                 let note = '';
                 let approvedCalc: number | null = null;
-                const fieldCurrentValue = parseFloat(rec[selectedField]) || 0;
 
                 // --- تدقيق قيم الراتب ---
                 if (SALARY_FIELDS.some(f => f.key === selectedField)) {
@@ -237,21 +300,37 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                             note = `الراتب الاسمي لا يطابق السلم (المستحق: ${fmt(approvedCalc)})`;
                         }
                     } else if (selectedField === 'gross_salary') {
-                        const nom = parseFloat(rec.nominal_salary) || 0;
-                        const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
-                        approvedCalc = nom + allAllowances;
-                        if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
-                            mismatch = true;
-                            note = `خطأ في جمع الراتب الكلي (مجموع الاسمي والمخصصات = ${fmt(approvedCalc)})`;
+                        if (isFiveYear) {
+                            approvedCalc = nomSal;
+                            if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
+                                mismatch = true;
+                                note = `إجازة 5 سنوات: الراتب الكلي يجب أن يساوي الاسمي (${fmt(approvedCalc)})`;
+                            }
+                        } else {
+                            const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
+                            approvedCalc = nomSal + allAllowances;
+                            if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
+                                mismatch = true;
+                                note = `خطأ في جمع الراتب الكلي (مجموع الاسمي والمخصصات = ${fmt(approvedCalc)})`;
+                            }
                         }
                     } else if (selectedField === 'net_salary') {
-                        const nom = parseFloat(rec.nominal_salary) || 0;
-                        const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
-                        const allDeductions = DEDUCTION_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
-                        approvedCalc = (nom + allAllowances) - allDeductions;
-                        if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
-                            mismatch = true;
-                            note = `خطأ في حساب الراتب الصافي (الاستحقاق = ${fmt(approvedCalc)})`;
+                        if (isFiveYear) {
+                            const ret = Math.round(nomSal * 0.25);
+                            const soc = Math.round(nomSal * 0.0025);
+                            approvedCalc = nomSal - ret - soc;
+                            if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
+                                mismatch = true;
+                                note = `إجازة 5 سنوات: الصافي = الاسمي - تقاعد 25% (${fmt(ret)}) - حماية 0.25% (${fmt(soc)}) = ${fmt(approvedCalc)}`;
+                            }
+                        } else {
+                            const allAllowances = ALLOWANCE_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
+                            const allDeductions = DEDUCTION_FIELDS.reduce((sum, f) => sum + (parseFloat(rec[f.key]) || 0), 0);
+                            approvedCalc = (nomSal + allAllowances) - allDeductions;
+                            if (Math.abs(approvedCalc - fieldCurrentValue) > 1) {
+                                mismatch = true;
+                                note = `خطأ في حساب الراتب الصافي (الاستحقاق = ${fmt(approvedCalc)})`;
+                            }
                         }
                     }
                 } else {
@@ -318,7 +397,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                 if (approvedCalc > 0 && fieldCurrentValue === 0) {
                                     note = 'العنوان مهندس لكن لا توجد مخصصات';
                                 } else if (approvedCalc === 0 && fieldCurrentValue > 0) {
-                                    note = 'عدم تطابق المخصصات مع العنوان';
+                                    note = 'عدم تطابق المخصصات مع العنوان أو الشهادة';
                                 } else {
                                     if (fieldCurrentValue > approvedCalc) note = `يستلم زيادة عن الاستحقاق (${fmt(fieldCurrentValue - approvedCalc)})`;
                                     else note = `يستلم أقل من الاستحقاق (${fmt(approvedCalc - fieldCurrentValue)})`;
@@ -332,8 +411,9 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                     if (fieldCurrentValue > approvedCalc) note = `نسبة الشهادة الممنوحة أعلى من المستحق`;
                                     else note = `نسبة الشهادة الممنوحة أقل من المستحق`;
                                 }
+                            } else if (selectedField === 'retirement_deduction' && isFiveYear) {
+                                note = `إجازة 5 سنوات: استقطاع التقاعد 25% (${fmt(approvedCalc)})`;
                             } else {
-                                // (Other logic)
                                 if (fieldCurrentValue === 0) note = 'لا يستلم المخصصات المستحقة';
                                 else if (approvedCalc === 0) note = 'يستلم مخصصات غير مستحقة';
                                 else if (fieldCurrentValue > approvedCalc) note = `القيمة الحالية أعلى من المستحق`;
@@ -352,7 +432,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                         approvedCalc: approvedCalc ?? 0,
                         currentValue: fieldCurrentValue,
                         notes: note,
-                        isFiveYearLeave: rec.is_five_year_leave,
+                        isFiveYearLeave: isFiveYear,
                     });
                 }
             }
@@ -366,7 +446,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         setMismatchRows(allRows);
         setIsGeneratingReport(false);
         setReportGenerated(true);
-    }, [selectedField]);
+    }, [selectedField, targetGov]);
 
     // === التحقق اليدوي (لوضع اسم محدد) ===
     const handleVerify = () => {
@@ -379,7 +459,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
         const fieldLabel = fieldsList.find(f => f.key === selectedField)?.label || '';
         const pw = window.open('', '_blank');
         if (!pw) return;
-        const html = buildSingleAuditHTML(fieldLabel, selectedEmployee, financialData, approvedPercentage, auditResult, currentValue, validationState);
+        const html = buildSingleAuditHTML(fieldLabel, selectedEmployee, financialData, approvedPercentage, auditResult, currentValue, validationState, governorateName(targetGov));
         pw.document.write(html);
         pw.document.close();
         pw.focus();
@@ -394,7 +474,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
 
         const pw = window.open('', '_blank');
         if (!pw) return;
-        const html = printMismatchReportHTML(fieldLabel, auditType, mismatchRows);
+        const html = printMismatchReportHTML(fieldLabel, auditType, mismatchRows, governorateName(targetGov));
         pw.document.write(html);
         pw.document.close();
         pw.focus();
@@ -475,6 +555,7 @@ export function CustomAudit({ onClose }: CustomAuditProps) {
                                         disabled={scope === 'all'}
                                         value={scope === 'all' ? '' : searchQuery}
                                         onChange={setSearchQuery}
+                                        governorate={targetGov}
                                         className={scope === 'all' ? "opacity-50 cursor-not-allowed" : ""}
                                         inputClassName={scope === 'all' ? "bg-gray-100 dark:bg-white/5" : ""}
                                     />

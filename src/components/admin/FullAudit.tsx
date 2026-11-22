@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { CERTIFICATES } from '../../constants/certificates';
+import { useGovernorate } from '../../context/GovernorateContext';
+import { governorateName } from '../../constants/governorates';
 
 // دالة مساعدة
 const safeParseFloat = (val: any): number => {
@@ -39,6 +41,8 @@ interface FullAuditProps {
 export function FullAudit({ onClose }: FullAuditProps) {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const { activeGovernorate } = useGovernorate();
+    const targetGov = activeGovernorate || sessionStorage.getItem('selectedGovernorate') || 'karbala';
 
     // === الحالات ===
     const [step, setStep] = useState<'idle' | 'scanning' | 'results'>('idle');
@@ -66,12 +70,17 @@ export function FullAudit({ onClose }: FullAuditProps) {
             // تحديد قيم البحث (الاسم + المرادفات)
             const searchValues = [certDef.label, ...(certDef.aliases || [])];
 
-            // جلب السجلات لهذه الشهادة فقط
-            // نستخدم in() للبحث عن الاسم والمرادفات
-            const { data: batch, error } = await supabase
+            // جلب السجلات لهذه الشهادة ولمحافظة المشرف النشطة حصراً
+            let query = supabase
                 .from('financial_records')
-                .select('*, profiles!inner(id, full_name, job_number)')
+                .select('*, profiles!inner(id, full_name, job_number, username)')
                 .in('certificate_text', searchValues);
+
+            if (targetGov) {
+                query = query.eq('governorate', targetGov);
+            }
+
+            const { data: batch, error } = await query;
 
             if (error) {
                 console.error(`Error fetching ${certDef.label}:`, error);
@@ -83,6 +92,27 @@ export function FullAudit({ onClose }: FullAuditProps) {
                     const nomSal = safeParseFloat(rec.nominal_salary);
                     // إذا الراتب الاسمي 0، نتجاهل القيد لأنه لا يمكن الحساب عليه
                     if (nomSal <= 0) continue;
+
+                    // استبعاد الحسابات الاختبارية
+                    const uname = String((rec as any).profiles?.username || '');
+                    const fname = String((rec as any).profiles?.full_name || '');
+                    if (uname.startsWith('c12') || uname.includes('test') || fname.includes('تجريبي')) {
+                        continue;
+                    }
+
+                    // استبعاد موظفي إجازة الخمس سنوات (يتقاضون الراتب الاسمي فقط دون مخصصات بحكم القانون)
+                    const gross = safeParseFloat(rec.gross_salary);
+                    const isFiveYear = rec.is_five_year_leave || (gross > 0 && Math.abs(gross - nomSal) < 10 && safeParseFloat(rec.certificate_allowance) === 0 && safeParseFloat(rec.risk_allowance) === 0);
+                    if (isFiveYear) {
+                        continue;
+                    }
+
+                    // استبعاد موظفي العقود / الحرفيين الذين لا تشملهم مخصصات الشهادة في سلم رواتبهم الوزاري
+                    const jn = String((rec as any).profiles?.job_number || '').trim();
+                    const isContract = jn.startsWith('143264') && safeParseFloat(rec.certificate_allowance) === 0 && safeParseFloat(rec.risk_allowance) > 0;
+                    if (isContract) {
+                        continue;
+                    }
 
                     const rawCertAllowance = rec.certificate_allowance;
                     const currentVal = safeParseFloat(rawCertAllowance);
@@ -163,11 +193,12 @@ export function FullAudit({ onClose }: FullAuditProps) {
     <div class="header">
         <div>
             <h1>تقرير تدقيق مخصصات الشهادات (Smart Audit 2.0)</h1>
-            <p>دائرة المعلوماتية وتكنولوجيا الاتصالات</p>
+            <p>دائرة المعلوماتية وتكنولوجيا الاتصالات — مديرية اتصالات ${governorateName(targetGov)}</p>
         </div>
         <div style="text-align:left">
+            <p>المحافظة: ${governorateName(targetGov)}</p>
             <p>تاريخ الفحص: ${new Date().toLocaleDateString('en-GB')}</p>
-            <p>المخالفات: ${errors.length}</p>
+            <p>المخالفات المكتشفة: ${errors.length}</p>
         </div>
     </div>
 

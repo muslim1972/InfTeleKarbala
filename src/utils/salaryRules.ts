@@ -71,12 +71,29 @@ export function getLegalAllowancePercentage(finData: any): number {
 export function resolveApprovedPercentage(fieldKey: string, finData: any): number | null {
     if (!finData) return null;
 
-    // === إجازة 5 سنوات: تصفير المخصصات ===
-    if (finData.is_five_year_leave) {
+    // === إجازة 5 سنوات: تصفير المخصصات وتعديل نسبة التقاعد إلى 25% ===
+    const isFiveYear = finData.is_five_year_leave || (
+        parseFloat(finData.gross_salary) > 0 &&
+        Math.abs(parseFloat(finData.gross_salary) - (parseFloat(finData.nominal_salary) || 0)) < 10 &&
+        (parseFloat(finData.certificate_allowance) || 0) === 0 &&
+        (parseFloat(finData.risk_allowance) || 0) === 0
+    );
+
+    if (isFiveYear) {
         const isAllowance = ALLOWANCE_FIELDS.some(f => f.key === fieldKey);
         if (isAllowance) return 0;
+        if (fieldKey === 'retirement_deduction') return 25;
+        if (fieldKey === 'social_security_deduction') return 0.25;
     }
+
     if (fieldKey === 'certificate_allowance') {
+        // فحص العقود والحرفيين (سلم رواتب خاص لا يتضمن مخصصات شهادة)
+        const title = finData.job_title ? finData.job_title.trim() : '';
+        const jobNum = finData.job_number ? String(finData.job_number).trim() : '';
+        if (title.includes('حرفي') || title.includes('عقد') || jobNum.startsWith('143264')) {
+            return 0;
+        }
+
         const t = finData.certificate_text ? finData.certificate_text.trim() : '';
         const normalized = t.replace(/[0-9%.\s\-()]/g, '');
 
@@ -96,7 +113,9 @@ export function resolveApprovedPercentage(fieldKey: string, finData: any): numbe
         const title = finData.job_title ? finData.job_title.trim() : '';
         const engineeringTitles = ['م مهندس', 'مهندس', 'ر مهندسين', 'ر مهندسين اقدم', 'ر مهندسين اقدم اول'];
         const isEngineer = engineeringTitles.some(t => title === t || title.includes(t));
-        if (isEngineer) return 35;
+        const cert = finData.certificate_text ? finData.certificate_text.trim() : '';
+        const isBachelorOrHigher = cert.includes('بكلوريوس') || cert.includes('بكالوريوس') || cert.includes('ماجستير') || cert.includes('دكتوراه') || cert.includes('دبلوم عالي');
+        if (isEngineer && isBachelorOrHigher) return 35;
         return 0;
     }
     if (fieldKey === 'legal_allowance') {

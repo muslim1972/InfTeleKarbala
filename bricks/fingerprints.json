@@ -1,5 +1,5 @@
 {
- "created": "2026-11-22T17:32:27.652Z",
+ "created": "2026-11-22T20:06:09.911Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -91,7 +91,7 @@
   },
   "src/components/admin/CustomAudit.tsx": {
    "brick": "FE-HR-01",
-   "sha": "ab6d6b54213a"
+   "sha": "c18da6ed4bbc"
   },
   "src/components/admin/DataPatcher.tsx": {
    "brick": "FE-HR-02",
@@ -127,7 +127,7 @@
   },
   "src/components/admin/FullAudit.tsx": {
    "brick": "FE-HR-01",
-   "sha": "267190189883"
+   "sha": "d8608ed5b564"
   },
   "src/components/admin/HRDocumentProcessingPanel.tsx": {
    "brick": "FE-LEV-01",
@@ -1343,7 +1343,7 @@
   },
   "src/utils/auditPrintUtils.ts": {
    "brick": "FE-HR-01",
-   "sha": "5e77c72a48cc"
+   "sha": "de4420a05564"
   },
   "src/utils/dataPatcherUtils.ts": {
    "brick": "FE-HR-02",
@@ -1391,11 +1391,11 @@
   },
   "src/utils/salaryRules.ts": {
    "brick": "FE-FIN-01",
-   "sha": "dacd6e2c8f89"
+   "sha": "24bdcf38d925"
   },
   "src/utils/salaryScale.ts": {
    "brick": "FE-FIN-01",
-   "sha": "aa69c0f1fd83"
+   "sha": "8a2ef335ae2d"
   },
   "src/utils/snapshots.ts": {
    "brick": "FE-FIN-01",
