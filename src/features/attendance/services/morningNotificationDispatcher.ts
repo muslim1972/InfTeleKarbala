@@ -24,8 +24,13 @@ import { getBaghdadMinutes, createBaghdadIso } from '../engines/rosterAttendance
 
 /**
  * استخراج المسؤول المباشر والبديل للموظف استناداً إلى شجرة الهيكلية الإدارية
- * مع تطبيق قاعدة التصعيد الهرمي (Climbing hierarchy) إذا كان الموظف نفسه هو المسؤول
- * وقاعدة استثناء البديل إذا كان الحقل فارغاً أو كان هو نفس الموظف
+ * مع تطبيق القواعد الحتمية المنظمة:
+ * 1. مدير المديرية (المدير العام): لا يستلم إلا ما يخصه وما يخص معاون المدير فقط.
+ * 2. معاون مدير المديرية: يستلم ما يخص مسؤولي الأقسام والمجمعات، وشعبة مكتب مدير المديرية.
+ * 3. شعبة مكتب مدير المديرية (م. جنان والكادر): إشعاراتهم تُحوّل حتمياً إلى معاون المدير لعدم إشغال المدير العام.
+ * 4. مسؤولو التشكيلات والأقسام: إشعاراتهم تصعد إلى معاون مدير المديرية.
+ * 5. الموظف العادي: إشعاره يذهب حصراً لمسؤول تشكيله وبديله ولا يصعد للإدارة العليا.
+ * 6. البديل: يُستثنى من استلام إشعار عن بصمة تخص نفسه، وبصمته تتبع قسمه في المعلومات الأساسية.
  */
 export async function resolveHierarchySupervisors(employeeId: string): Promise<HierarchySupervisors> {
   try {
@@ -48,48 +53,84 @@ export async function resolveHierarchySupervisors(employeeId: string): Promise<H
       return { managerId: null, deputyManagerId: null };
     }
 
-    const currentDept = depts.find(d => d.id === empProfile.department_id);
-    if (!currentDept) {
+    // تحديد الإدارة العليا (مدير المديرية) ومكتب معاون مدير المديرية
+    const directorDept = depts.find(d => !d.parent_id || d.name?.includes('مدير المديرية'));
+    const directorId = directorDept?.manager_id || null;
+
+    const assistantDept = depts.find(d => d.name?.includes('معاون مدير المديرية') || d.name?.includes('مكتب معاون'));
+    const assistantDirectorId = assistantDept?.manager_id || directorDept?.deputy_manager_id || null;
+
+    // ── الحالة 1: الموظف الباصم هو نفسه مدير المديرية (المدير العام) ──
+    if (directorId && employeeId === directorId) {
       return { managerId: null, deputyManagerId: null };
     }
 
-    // 1. استخراج البديل من نفس تشكيل الموظف
+    // ── الحالة 2: الموظف الباصم هو نفسه معاون مدير المديرية ──
+    // إشعار معاون المدير يذهب حصراً إلى مدير المديرية
+    if (assistantDirectorId && employeeId === assistantDirectorId) {
+      return { managerId: directorId, deputyManagerId: null };
+    }
+
+    const currentDept = depts.find(d => d.id === empProfile.department_id);
+    if (!currentDept) {
+      return { managerId: assistantDirectorId, deputyManagerId: null };
+    }
+
+    const isDirectorOfficeDept = Boolean(
+      currentDept.name?.includes('مكتب المدير') || 
+      currentDept.name?.includes('مكتب مدير المديرية')
+    );
+
+    // ── الحالة 3: الموظف تابع لشعبة مكتب مدير المديرية (م. جنان والكادر) ──
+    // لا يذهب أي شيء للمدير العام لمنع إشغاله، وتُحول الإشعارات لمعاون المدير
+    if (isDirectorOfficeDept) {
+      if (currentDept.manager_id && currentDept.manager_id === employeeId) {
+        // مسؤولة الشعبة (م. جنان) بصمت -> إشعارها لمعاون المدير
+        return { managerId: assistantDirectorId, deputyManagerId: null };
+      } else {
+        // كادر الشعبة بصم -> إشعارهم لمسؤولة الشعبة ومعاون المدير
+        return {
+          managerId: currentDept.manager_id || assistantDirectorId,
+          deputyManagerId: assistantDirectorId && assistantDirectorId !== currentDept.manager_id ? assistantDirectorId : null
+        };
+      }
+    }
+
+    // ── الحالة 4: باقي التشكيلات والأقسام والمجمعات ──
     let rawDeputyId = currentDept.deputy_manager_id || null;
-    // استثناء البديل إذا كان هو نفس الموظف
     if (rawDeputyId === employeeId) {
-      rawDeputyId = null;
+      rawDeputyId = null; // استثناء البديل إن كان هو نفس صاحب البصمة
     }
 
-    // 2. استخراج المسؤول المباشر مع التصعيد إذا كان الموظف هو المسؤول
     let managerId: string | null = null;
-    let walkDept: any = currentDept;
 
-    while (walkDept) {
-      if (walkDept.manager_id && walkDept.manager_id !== employeeId) {
-        managerId = walkDept.manager_id;
-        break;
+    if (currentDept.manager_id && currentDept.manager_id !== employeeId) {
+      // موظف عادي داخل القسم -> المسؤول المباشر هو رئيس هذا القسم فقط (مثل ميثاق طالب للحسينية أو حيدر سعدون للحر)
+      managerId = currentDept.manager_id;
+    } else {
+      // رئيس القسم نفسه هو من بصم (أو القسم بدون رئيس) -> تصعيد هرمي للأعلى
+      let walkDept: any = currentDept;
+      while (walkDept) {
+        walkDept = depts.find(d => d.id === walkDept.parent_id);
+        if (walkDept && walkDept.manager_id && walkDept.manager_id !== employeeId) {
+          managerId = walkDept.manager_id;
+          break;
+        }
       }
-      // إذا كان الموظف هو المسؤول، اصعد للقسم الأب
-      walkDept = depts.find(d => d.id === walkDept.parent_id);
     }
 
-    // إذا لم نجد مديراً في الشجرة، نأخذ مديراً عاماً كبديل احتياطي
+    // الحاجز الصارم: لا يصل أي إشعار بصمة إطلاقاً إلى مدير المديرية إلا لمعاونه
+    if (managerId && directorId && managerId === directorId && employeeId !== assistantDirectorId) {
+      managerId = assistantDirectorId;
+    }
+
+    // إذا لم يتحدد مسؤول بعد الصعود، نعتمد معاون المدير كمسؤول رئيسي
     if (!managerId) {
-      const { data: adminProfiles } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('governorate', empProfile.governorate || 'karbala')
-        .in('admin_role', ['general', 'attendance_supervisor', 'biometric'])
-        .neq('id', employeeId)
-        .limit(1);
-
-      if (adminProfiles && adminProfiles.length > 0) {
-        managerId = adminProfiles[0].id;
-      }
+      managerId = assistantDirectorId;
     }
 
-    // إذا كان البديل هو نفس المدير الذي تم اختياره، يُلغى البديل
-    if (rawDeputyId && rawDeputyId === managerId) {
+    // إذا كان البديل هو نفس المدير المختار، يُلغى البديل
+    if (rawDeputyId && (rawDeputyId === managerId || rawDeputyId === employeeId)) {
       rawDeputyId = null;
     }
 

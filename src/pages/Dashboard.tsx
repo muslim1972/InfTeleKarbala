@@ -8,6 +8,7 @@ import { AudioHub } from "../components/features/AudioHub";
 import { FinancialTabContent } from "../components/features/FinancialTabContent";
 import { AdministrativeTabContent } from "../components/features/AdministrativeTabContent";
 import { KnowledgeTabContent } from "../components/features/knowledge/KnowledgeTabContent";
+import { SupervisedDutyRoster } from "../features/attendance/components/SupervisedDutyRoster";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -102,7 +103,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
         </div>
     );
 
-    const isBroadTab = activeTab === 'attendance_admin' || activeTab === 'attendance_stats';
+    const isBroadTab = activeTab === 'attendance_admin' || activeTab === 'attendance_stats' || activeTab === 'supervision';
 
     return (
         <Layout headerContent={headerContent} headerTitle="لوحة الموظف" showUserName={true} onBack={onBack}>
@@ -115,6 +116,8 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
                     <KnowledgeTabContent />
                 ) : activeTab === 'audio' ? (
                     <AudioHub />
+                ) : activeTab === 'supervision' ? (
+                    <SupervisedDutyRoster user={user} />
                 ) : activeTab === 'attendance_admin' ? (
                     <Suspense fallback={<div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" /></div>}>
                         <AttendanceAdminSettings />

@@ -1,5 +1,5 @@
 {
- "created": "2026-11-21T18:11:04.442Z",
+ "created": "2026-11-22T10:59:46.869Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -391,7 +391,7 @@
   },
   "src/components/features/TabSystem.tsx": {
    "brick": "FE-UI-01",
-   "sha": "c9bf5a285fe8"
+   "sha": "d6935202c4a9"
   },
   "src/components/features/TrainingPollsList.tsx": {
    "brick": "FE-TRN-01",
@@ -653,6 +653,10 @@
    "brick": "FE-ATT-01",
    "sha": "3245637cf79c"
   },
+  "src/features/attendance/components/SupervisedDutyRoster.tsx": {
+   "brick": "FE-ATT-01",
+   "sha": "0750056f06fe"
+  },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
    "sha": "bfdd06568245"
@@ -731,7 +735,7 @@
   },
   "src/features/attendance/services/morningNotificationDispatcher.ts": {
    "brick": "FE-ATT-01",
-   "sha": "70afad94aa2d"
+   "sha": "cb449ac4b459"
   },
   "src/features/attendance/services/rosterReminderService.ts": {
    "brick": "FE-ATT-01",
@@ -1267,7 +1271,7 @@
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "40f9025312c9"
+   "sha": "8c4aa88c5cf7"
   },
   "src/pages/GovernorateSelection.tsx": {
    "brick": "FE-CORE-03",

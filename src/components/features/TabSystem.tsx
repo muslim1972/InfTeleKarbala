@@ -1,13 +1,13 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3 } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 import { isDeveloperLevel } from "../../utils/permissions";
 
-export type UserDashboardTab = 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'attendance_admin' | 'attendance_stats';
+export type UserDashboardTab = 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'supervision' | 'attendance_admin' | 'attendance_stats';
 
 interface TabSystemProps {
     activeTab: UserDashboardTab;
@@ -71,6 +71,30 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         isDeveloper
     );
 
+    // التحقق من صلاحية الإشراف لمسؤولي التشكيلات وبدلائهم
+    const [canAccessSupervision, setCanAccessSupervision] = useState(false);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        let isMounted = true;
+        const checkSupervisorRole = async () => {
+            try {
+                const { count } = await supabase
+                    .from('departments')
+                    .select('id', { count: 'exact', head: true })
+                    .or(`manager_id.eq.${user.id},deputy_manager_id.eq.${user.id}`);
+                
+                if (isMounted && count && count > 0) {
+                    setCanAccessSupervision(true);
+                }
+            } catch (err) {
+                // Ignore silent check errors
+            }
+        };
+        checkSupervisorRole();
+        return () => { isMounted = false; };
+    }, [user?.id]);
+
     const tabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
@@ -78,6 +102,9 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },
+        ...((canAccessSupervision || isAdmin || isDeveloper) ? [
+            { id: 'supervision', label: 'إشراف', icon: ShieldCheck }
+        ] as const : []),
         ...(canAccessBiometricAdmin ? [
             { id: 'attendance_admin', label: 'إدارة البصمة', icon: Fingerprint },
             { id: 'attendance_stats', label: 'الإحصاءات', icon: BarChart3 }
