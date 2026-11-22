@@ -289,6 +289,18 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                             </div>
                         )}
 
+                        {/* تنبيهات التدقيق الدلالي والمالي الذكي */}
+                        {!isSkipped && m.semanticWarnings && m.semanticWarnings.length > 0 && (
+                            <div className="mt-1.5 flex flex-col gap-1">
+                                {m.semanticWarnings.map((w, idx) => (
+                                    <span key={idx} className="text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md flex items-center gap-1.5">
+                                        <span>💡</span>
+                                        <span>{w}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
                         {isSkipped && (
                             <p className="text-[11px] text-red-600 dark:text-red-400 mt-1.5 font-bold">
                                 ⛔ تم تجاوز هذا القيد بناءً على اختيارك — لن يتم تحديثه أو مساسه نهائياً في هذه الدفعة.

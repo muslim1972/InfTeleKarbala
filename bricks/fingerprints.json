@@ -1,5 +1,5 @@
 {
- "created": "2026-11-22T14:04:23.461Z",
+ "created": "2026-11-22T17:32:27.652Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -235,7 +235,7 @@
   },
   "src/components/admin/universal-patcher/UP_PreviewStep.tsx": {
    "brick": "FE-HR-02",
-   "sha": "ce1fa91ba998"
+   "sha": "12deb3805b65"
   },
   "src/components/admin/universal-patcher/UP_UploadStep.tsx": {
    "brick": "FE-HR-02",
@@ -355,7 +355,7 @@
   },
   "src/components/features/FinancialTabContent.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "8757e654e81e"
+   "sha": "c856821ce173"
   },
   "src/components/features/FloatingAudioPlayer.tsx": {
    "brick": "FE-MED-01",
@@ -1195,7 +1195,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "b6595a82c612"
+   "sha": "668d56b0b612"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1231,7 +1231,7 @@
   },
   "src/hooks/useUniversalPatcher.ts": {
    "brick": "FE-HR-02",
-   "sha": "ce0305444b9d"
+   "sha": "4efc6691072f"
   },
   "src/hooks/useVoiceRecorder.ts": {
    "brick": "FE-COM-01",
@@ -1371,7 +1371,7 @@
   },
   "src/utils/payrollValidation.ts": {
    "brick": "FE-FIN-01",
-   "sha": "ef305fad2e6b"
+   "sha": "42900a13a5e4"
   },
   "src/utils/pdfGenerator.ts": {
    "brick": "FE-HR-01",
@@ -1403,7 +1403,7 @@
   },
   "src/utils/universalPatcherConfig.ts": {
    "brick": "FE-HR-02",
-   "sha": "56741dc3104e"
+   "sha": "7bd3b7fee6e3"
   },
   "src/vite-env.d.ts": {
    "brick": "FE-CORE-01",

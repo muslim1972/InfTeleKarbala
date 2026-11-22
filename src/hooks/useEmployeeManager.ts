@@ -186,7 +186,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 }
 
                 if (combined.certificate_percentage !== null && combined.certificate_percentage !== undefined) {
-                    combined.certificate_percentage = String(combined.certificate_percentage);
+                    let p = Number(combined.certificate_percentage);
+                    if (!isNaN(p) && p > 0 && p <= 1.5) {
+                        p = Math.round(p * 100);
+                    }
+                    combined.certificate_percentage = String(p);
                 }
 
                 setFinancialData(combined);
@@ -847,7 +851,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
         if (key === 'certificate_text' || key === 'certificate_percentage' || key === 'nominal_salary') {
             const nominal = parseFloat(String(newData.nominal_salary || '0').replace(/[^0-9.]/g, '') || '0');
-            const certP = parseFloat(String(newData.certificate_percentage || '0') || '0');
+            let certP = parseFloat(String(newData.certificate_percentage || '0') || '0');
+            if (!isNaN(certP) && certP > 0 && certP <= 1.5) {
+                certP = Math.round(certP * 100);
+            }
             if (!isNaN(nominal) && !isNaN(certP) && nominal > 0) {
                 newData.certificate_allowance = Math.round(nominal * (certP / 100));
             } else {

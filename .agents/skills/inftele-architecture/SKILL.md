@@ -2674,6 +2674,40 @@ npm run build ناجح.
 - **Production Deploy:** نشر ناجح عبر `deploy-dist.ps1` إلى خادم الإنتاج VPS.
 - **Operational Verification:** استجابة حية ممتازة بـ HTTP 200 OK من `https://khr-itpc.egov.iq`.
 
+## [2026-11-22] - قرار D94: معالجة صيغ النسب المئوية في إكسل (0.45 مقابل 45) وتأسيس محرك التدقيق الدلالي والرقابي التكاملي للحقول المالية
+
+### 1. السياق والمشكلة
+- رفع ملف الرواتب (`2026_-_راتب_شهر_11xlsx.xlsx`) عبر «المحدث العام» أدى إلى حقن نسبة الشهادة ككسر عشري (`0.45` للبكالوريوس، `0.35` للدبلوم، `0.15` للمتوسطة) بسبب تنسيق خلايا إكسل المئوي (`numFmt: 0%`).
+- ظهر في واجهة المالية للموظفين: «النسبة المستحقة للشهادة: 0.45%» وبسببها احتسب محرك الرقابة المالية `910,000 * 0.0045 = 4,095` دينار فاعترض بالتنبيه الصادم: «غير مطابق، والصحيح = 4,095» رغم أن مخصصات الشهادة الفعلية (409,500 دينار) صحيحة تماماً.
+- عدم وجود ربط دلالي تلقائي بين مسمى الشهادة (بكالوريوس 45%، دبلوم 35%، دبلوم عالي 55%، ماجستير 125%، دكتوراه 150%) ونسبتها ومخصصاتها عند استيراد الجداول المجرّدة.
+
+### 2. الحلول الهندسية المنفذة
+1. **تصحيح قاعدة البيانات الإنتاجية (VPS PostgreSQL):**
+   - تنفيذ سكربت ترقيع عبر Docker على `supabase-db` لتحديث كافة السجلات الكسرية في `financial_records`:
+     `UPDATE financial_records SET certificate_percentage = ROUND(certificate_percentage * 100) WHERE certificate_percentage > 0 AND certificate_percentage <= 1.5;`
+   - تم تصحيح 334 سجلاً بنجاح وأصبحت جميع النسب صحيحة ومطابقة (45%, 35%, 15%...).
+2. **محرك التدقيق الدلالي التكاملي في [`src/utils/universalPatcherConfig.ts`](file:///d:/InfTeleKarbala/src/utils/universalPatcherConfig.ts):**
+   - بناء وتصدير دالة `resolveFinancialIntegrity(newValues)` لربط مثلث الشهادة:
+     - مسمى الشهادة من قاموس `CERTIFICATES`.
+     - النسبة المستحقة (تطبيع الكسور العشرية واستنتاج النسبة في حال غيابها أو تضاربها مع المخصصات).
+     - فحص عدم الجمع بين الخطورة والقانونية (30%).
+     - فحص استحقاق المخصصات الهندسية وفق الشهادة.
+   - تنظيف وتطبيع `certificate_percentage` في `cleanFieldValue` فورياً عند الاستيراد.
+3. **تحصين محرك الرقابة والواجهة:**
+   - في [`src/utils/payrollValidation.ts`](file:///d:/InfTeleKarbala/src/utils/payrollValidation.ts): تحصين المحرك ذاتياً بحيث يتعرف تلقائياً على أي نسبة كسرية ويطبعها فوراً قبل حساب الاستحقاق، ليضمن عدم ظهور التنبيه الخاطئ نهائياً.
+   - في [`src/components/features/FinancialTabContent.tsx`](file:///d:/InfTeleKarbala/src/components/features/FinancialTabContent.tsx): تطبيع العرض ليعرض دائماً `45%` بدلاً من `0.45%`.
+   - في [`src/hooks/useEmployeeManager.ts`](file:///d:/InfTeleKarbala/src/hooks/useEmployeeManager.ts): تطبيع القوائم المنسدلة في لوحة المشرف.
+4. **تنبيهات التدقيق الذكي في واجهة المحدث العام:**
+   - في [`src/hooks/useUniversalPatcher.ts`](file:///d:/InfTeleKarbala/src/hooks/useUniversalPatcher.ts): ربط `semanticWarnings` بكل بطاقة في `MatchResult`.
+   - في [`src/components/admin/universal-patcher/UP_PreviewStep.tsx`](file:///d:/InfTeleKarbala/src/components/admin/universal-patcher/UP_PreviewStep.tsx): إبراز شارات التدقيق الدلالي الذكي أمام المشرف قبل التنفيذ.
+
+### 3. التحقق والنشر
+- **B.R.I.C.K Sentinel:** اجتياز `node scripts/verify-bricks.mjs` بنسبة 100% (تغطية 339/339 ملفاً) وأُخذت اللقطة الحتمية.
+- **TypeScript:** اجتياز `npx tsc --noEmit -p tsconfig.app.json` بصفر أخطاء (Code 0).
+- **Vite Build:** بناء إنتاجي ناجح في 24.81 ثانية.
+- **Deploy VPS:** نشر ناجح عبر `scripts/deploy-dist.ps1` (SAME=392, DIFF=0, MISSING=0).
+- **Runtime:** الخدمة تعمل بكفاءة تامة على `https://khr-itpc.egov.iq`.
+
 
 
 

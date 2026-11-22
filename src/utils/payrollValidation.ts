@@ -25,7 +25,11 @@ export function validateFinancialRecord(record: any): ValidationResult {
 
     if (nominalSalary > 0) {
         // 1. Certificate Allowance
-        const certPerc = parseNum(record.certificate_percentage);
+        let certPerc = parseNum(record.certificate_percentage);
+        // معالجة القيم الكسرية الناتجة عن إكسل (مثل 0.45 بدل 45)
+        if (certPerc > 0 && certPerc <= 1.5) {
+            certPerc = Math.round(certPerc * 100);
+        }
         if (certPerc > 0) {
             expected.certificate_allowance = Math.round(nominalSalary * (certPerc / 100));
             const actualCertAllowance = parseNum(record.certificate_allowance);

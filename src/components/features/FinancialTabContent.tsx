@@ -187,9 +187,18 @@ export const FinancialTabContent = ({
                                     group.fields.map((field) => {
                                         const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
 
-                                        const displayVal = field.isMoney
-                                            ? Math.round(Number(val || 0)).toLocaleString()
-                                            : field.suffix ? `${val || 0}${field.suffix}` : (val || 'غير محدد');
+                                        let displayVal: string;
+                                        if (field.isMoney) {
+                                            displayVal = Math.round(Number(val || 0)).toLocaleString();
+                                        } else if (field.key === 'certificate_percentage') {
+                                            const num = Number(val || 0);
+                                            const normalizedPerc = (num > 0 && num <= 1.5) ? Math.round(num * 100) : num;
+                                            displayVal = `${normalizedPerc}%`;
+                                        } else if (field.suffix) {
+                                            displayVal = `${val || 0}${field.suffix}`;
+                                        } else {
+                                            displayVal = val || 'غير محدد';
+                                        }
 
                                         return (
                                             <div

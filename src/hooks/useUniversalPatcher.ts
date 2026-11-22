@@ -18,6 +18,7 @@ import {
     FIELD_SYNONYMS,
     resolveDepartmentHierarchy,
     resolvePositionAssignments,
+    resolveFinancialIntegrity,
     type PositionAssignment,
 } from '../utils/universalPatcherConfig';
 
@@ -51,6 +52,8 @@ export interface MatchResult {
     retirementDate?: string | null;
     /** التكليف الإداري المستنتج (مسؤول / بديل) */
     posAssignment?: PositionAssignment;
+    /** تنبيهات التدقيق الدلالي والمالي الذكي */
+    semanticWarnings?: string[];
 }
 
 // ─── Hook ───────────────────────────────────────
@@ -543,6 +546,15 @@ export function useUniversalPatcher() {
                     }
                 }
 
+                // فحص النزاهة الدلالية للحقول المالية (الشهادة والنسبة والمخصصات)
+                let semanticWarnings: string[] | undefined;
+                if (tableDef.tableName === 'financial_records') {
+                    const finIntegrity = resolveFinancialIntegrity(newValues);
+                    if (finIntegrity.warnings.length > 0) {
+                        semanticWarnings = finIntegrity.warnings;
+                    }
+                }
+
                 const jobNumber = String(newValues.job_number ?? (matched?.job_number || (matchBy === 'job_number' || /^\d+$/.test(matchValue) ? matchValue : ''))).trim();
                 const displayName = String(newValues.full_name ?? (matched?.full_name || (matchBy === 'full_name' && !/^\d+$/.test(matchValue) ? matchValue : ''))).trim();
 
@@ -564,6 +576,7 @@ export function useUniversalPatcher() {
                         displayName: displayName || undefined,
                         newValues,
                         diffs: {},
+                        semanticWarnings,
                     });
                     continue;
                 }
@@ -612,6 +625,7 @@ export function useUniversalPatcher() {
                             diffs,
                             isRetired: matched.is_retired,
                             retirementDate: matched.retirement_date,
+                            semanticWarnings,
                         });
                     } else {
                         results.push({
@@ -625,6 +639,7 @@ export function useUniversalPatcher() {
                             diffs: {},
                             isRetired: matched.is_retired,
                             retirementDate: matched.retirement_date,
+                            semanticWarnings,
                         });
                     }
                 } else if (tableDef.type === 'yearly') {
@@ -645,6 +660,7 @@ export function useUniversalPatcher() {
                             diffs,
                             isRetired: matched.is_retired,
                             retirementDate: matched.retirement_date,
+                            semanticWarnings,
                         });
                     } else {
                         results.push({
@@ -658,6 +674,7 @@ export function useUniversalPatcher() {
                             diffs: {},
                             isRetired: matched.is_retired,
                             retirementDate: matched.retirement_date,
+                            semanticWarnings,
                         });
                     }
                 } else {

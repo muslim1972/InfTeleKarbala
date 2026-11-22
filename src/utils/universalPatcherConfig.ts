@@ -1,4 +1,5 @@
 import { cleanCertificate } from './profileUtils';
+import { CERTIFICATES } from '../constants/certificates';
 /**
  * تعريف الجداول والأعمدة للمحدث العام
  * Universal Patcher Configuration
@@ -311,6 +312,18 @@ export function cleanFieldValue(val: any, tableName: string, fieldValue: string)
         return `${y}-${m}-${d}`;
     }
     
+    // تنظيف وتوحيد نسبة الشهادة (معالجة قيم إكسل المنسقة كنسبة مئوية مثل 0.45 -> 45)
+    if (fieldValue === 'certificate_percentage') {
+        if (val === null || val === undefined || val === '') return 0;
+        const strVal = String(val).trim().replace(/%/g, '').replace(/,/g, '');
+        let num = parseFloat(strVal);
+        if (isNaN(num)) return 0;
+        if (num > 0 && num <= 1.5) {
+            num = Math.round(num * 100);
+        }
+        return num;
+    }
+
     if (isNumericField(tableName, fieldValue)) {
         if (typeof val === 'number') return val;
         if (val === null || val === undefined || val === '') return 0;
@@ -768,4 +781,78 @@ export function resolvePositionAssignments(
     }
 
     return result;
+}
+
+/**
+ * 🧠 فحص وتدقيق النزاهة الدلالية للحقول المالية (Semantic Financial Validation & Auto-Correction)
+ * يضمن التوافق الحتمي بين الشهادة والنسبة والمخصصات والراتب الاسمي، ويمنع أخطاء إكسل الكسرية.
+ */
+export function resolveFinancialIntegrity(newValues: Record<string, any>): { warnings: string[] } {
+    const warnings: string[] = [];
+    const nom = Number(newValues.nominal_salary || 0);
+
+    // 1. تدقيق الشهادة والنسبة
+    const certText = String(newValues.certificate_text || '').trim();
+    let certPerc = Number(newValues.certificate_percentage || 0);
+
+    // تطبيع النسبة الكسرية الناتجة عن إكسل (مثل 0.45 تصبح 45)
+    if (certPerc > 0 && certPerc <= 1.5) {
+        certPerc = Math.round(certPerc * 100);
+        newValues.certificate_percentage = certPerc;
+    }
+
+    if (certText) {
+        const normCert = certText.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه');
+        const matchedCert = CERTIFICATES.find(c => {
+            const normLabel = c.label.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه');
+            if (normCert.includes(normLabel)) return true;
+            if (c.aliases) {
+                return c.aliases.some(a => normCert.includes(a.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه')));
+            }
+            return false;
+        });
+
+        if (matchedCert) {
+            // إن لم تكن النسبة محددة أو كانت 0، تُستنتج حتمياً من مسمى الشهادة
+            if (!certPerc || certPerc === 0) {
+                newValues.certificate_percentage = matchedCert.percentage;
+                certPerc = matchedCert.percentage;
+                warnings.push(`استنتاج ذكي: تم تحديد نسبة الشهادة تلقائياً (${matchedCert.percentage}%) وفق شهادة «${matchedCert.label}».`);
+            } else if (certPerc !== matchedCert.percentage) {
+                // إذا كانت النسبة في الملف تختلف عن نسبة الشهادة، نتحقق من مخصصات الشهادة للتأكيد
+                const certAllowance = Number(newValues.certificate_allowance || 0);
+                if (nom > 0 && certAllowance > 0) {
+                    const deducedPerc = Math.round((certAllowance / nom) * 100);
+                    if (deducedPerc === matchedCert.percentage) {
+                        warnings.push(`تصحيح تلقائي: تم تصحيح نسبة الشهادة من (${certPerc}%) إلى (${matchedCert.percentage}%) لمطابقة «${matchedCert.label}» والمخصصات الفعلية.`);
+                        newValues.certificate_percentage = matchedCert.percentage;
+                    } else if (deducedPerc === certPerc) {
+                        warnings.push(`تنبيه مالي: مخصصات الشهادة محسوبة بنسبة (${certPerc}%) بينما الشهادة مسجلة «${certText}» (المعيار: ${matchedCert.percentage}%).`);
+                    } else {
+                        warnings.push(`تضارب: الشهادة «${certText}» (تستحق ${matchedCert.percentage}%) ولكن النسبة في الملف (${certPerc}%).`);
+                    }
+                } else {
+                    warnings.push(`تضارب: الشهادة «${certText}» (تستحق ${matchedCert.percentage}%) بينما النسبة في الملف (${certPerc}%).`);
+                }
+            }
+        }
+    }
+
+    // 2. تدقيق الخطورة والقانونية (حظر الجمع)
+    const risk = Number(newValues.risk_allowance || 0);
+    const legal = Number(newValues.legal_allowance || 0);
+    if (risk > 0 && legal > 0) {
+        warnings.push(`مخالفة تعليمات: الجمع بين مخصصات الخطورة ومخصصات القانونية غير جائز.`);
+    }
+
+    // 3. تدقيق المخصصات الهندسية مع الشهادة
+    const eng = Number(newValues.engineering_allowance || 0);
+    if (eng > 0 && certText) {
+        const isBelowBachelor = /(دبلوم|اعدادي|متوسط|ابتدائي|يقرأ|أمي|بدون)/.test(certText);
+        if (isBelowBachelor && !certText.includes('بكالوريوس') && !certText.includes('بكلوريوس')) {
+            warnings.push(`مراجعة: مخصصات هندسية مسجلة بينما شهادة الموظف «${certText}» أقل من بكالوريوس.`);
+        }
+    }
+
+    return { warnings };
 }
