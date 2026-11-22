@@ -76,27 +76,8 @@ export async function resolveHierarchySupervisors(employeeId: string): Promise<H
       return { managerId: assistantDirectorId, deputyManagerId: null };
     }
 
-    const isDirectorOfficeDept = Boolean(
-      currentDept.name?.includes('مكتب المدير') || 
-      currentDept.name?.includes('مكتب مدير المديرية')
-    );
-
-    // ── الحالة 3: الموظف تابع لشعبة مكتب مدير المديرية (م. جنان والكادر) ──
-    // لا يذهب أي شيء للمدير العام لمنع إشغاله، وتُحول الإشعارات لمعاون المدير
-    if (isDirectorOfficeDept) {
-      if (currentDept.manager_id && currentDept.manager_id === employeeId) {
-        // مسؤولة الشعبة (م. جنان) بصمت -> إشعارها لمعاون المدير
-        return { managerId: assistantDirectorId, deputyManagerId: null };
-      } else {
-        // كادر الشعبة بصم -> إشعارهم لمسؤولة الشعبة ومعاون المدير
-        return {
-          managerId: currentDept.manager_id || assistantDirectorId,
-          deputyManagerId: assistantDirectorId && assistantDirectorId !== currentDept.manager_id ? assistantDirectorId : null
-        };
-      }
-    }
-
-    // ── الحالة 4: باقي التشكيلات والأقسام والمجمعات ──
+    // ── الحالة 3: الهيكلية الإدارية الطبيعية لكافة التشكيلات (أقسام، شُعب، مجمعات، وحدات) ──
+    // كادر أي تشكيل يتوجه إشعارهم إلى مسؤول تشكيلهم وبديله فقط (بما فيها شعبة مكتب المدير وكافة الشعب)
     let rawDeputyId = currentDept.deputy_manager_id || null;
     if (rawDeputyId === employeeId) {
       rawDeputyId = null; // استثناء البديل إن كان هو نفس صاحب البصمة
@@ -105,10 +86,10 @@ export async function resolveHierarchySupervisors(employeeId: string): Promise<H
     let managerId: string | null = null;
 
     if (currentDept.manager_id && currentDept.manager_id !== employeeId) {
-      // موظف عادي داخل القسم -> المسؤول المباشر هو رئيس هذا القسم فقط (مثل ميثاق طالب للحسينية أو حيدر سعدون للحر)
+      // موظف عادي داخل التشكيل -> مسؤوله المباشر هو رئيس هذا التشكيل فقط
       managerId = currentDept.manager_id;
     } else {
-      // رئيس القسم نفسه هو من بصم (أو القسم بدون رئيس) -> تصعيد هرمي للأعلى
+      // رئيس التشكيل نفسه هو من بصم (أو التشكيل بدون رئيس) -> تصعيد هرمي للأعلى
       let walkDept: any = currentDept;
       while (walkDept) {
         walkDept = depts.find(d => d.id === walkDept.parent_id);
@@ -119,7 +100,9 @@ export async function resolveHierarchySupervisors(employeeId: string): Promise<H
       }
     }
 
-    // الحاجز الصارم: لا يصل أي إشعار بصمة إطلاقاً إلى مدير المديرية إلا لمعاونه
+    // الحاجز الصارم لعزل المدير العام:
+    // أي تصعيد هرمي يصل إلى مدير المديرية (مثل مسؤولة شعبة مكتب المدير م. جنان أو غيرها) 
+    // يُحول حتمياً إلى معاون مدير المديرية لئلا يُشغل المدير العام بإشعارات البصمة
     if (managerId && directorId && managerId === directorId && employeeId !== assistantDirectorId) {
       managerId = assistantDirectorId;
     }

@@ -6,14 +6,15 @@ import { getBaghdadDate } from '../utils/shiftRules';
  * rosterReminderService.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * خدمة التذكير الذكي لجدول المناوبة:
- * تفحص جداول المناوبة الموشكة على الانتهاء (تحديداً صباح يوم الخميس أو عند اقتراب نهاية الأسبوع)،
- * وترسل إشعاراً للمشرفين والمسؤولين لتذكيرهم بتحديث جدول دوام الموظفين للفترة القادمة
- * أو استمرار اعتماد الجدول الحالي تلقائياً.
+ * تفحص جداول المناوبة الموشكة على الانتهاء،
+ * وتوجه التذكير حصراً إلى المسؤول المباشر للموظف المناوب،
+ * وتحجبه كلياً عن معاون المدير، ومدير المديرية، وعن كافة المشرفين الآخرين.
+ * النواة المعمارية FE-ATT-01 / إطار عمل B.R.I.C.K (القرار D91)
  */
 
 export const rosterReminderService = {
   /**
-   * فحص وإرسال إشعارات التذكير لجداول المناوبة
+   * فحص وإرسال إشعارات التذكير لجداول المناوبة للمسؤول المباشر حصراً
    */
   async checkAndSendRosterReminders(): Promise<void> {
     try {
@@ -28,27 +29,12 @@ export const rosterReminderService = {
 
       if (schErr || !schedules || schedules.length === 0) return;
 
-      // جلب المشرفين والمسؤولين المستلمين للإشعار
-      const supervisorIdsSet = new Set<string>();
-      try {
-        const { data: rpcProfiles } = await supabase.rpc('get_available_profiles');
-        if (rpcProfiles && Array.isArray(rpcProfiles)) {
-          rpcProfiles.forEach((p: any) => {
-            if (
-              p.admin_role === 'general' ||
-              p.admin_role === 'developer' ||
-              p.role === 'admin'
-            ) {
-              if (p.id) supervisorIdsSet.add(p.id);
-            }
-          });
-        }
-      } catch (e) {
-        console.error('Error getting supervisor profiles for roster reminder:', e);
-      }
+      // جلب بيانات التشكيلات الإدارية لتحديد المسؤول المباشر
+      const { data: depts, error: deptsErr } = await supabase
+        .from('departments')
+        .select('id, name, manager_id, deputy_manager_id, parent_id');
 
-      const supervisorIds = Array.from(supervisorIdsSet);
-      if (supervisorIds.length === 0) return;
+      if (deptsErr || !depts || depts.length === 0) return;
 
       const todayStr = nowBaghdad.toISOString().split('T')[0];
 
@@ -63,60 +49,102 @@ export const rosterReminderService = {
         const isEligibleDay = (currentDay === 4 || currentDay === 5 || (diffDays >= 0 && diffDays <= 3));
         if (!isEligibleDay) continue;
 
-        // منع التكرار: فحص ما إذا كان التذكير قد أُرسل اليوم لهذه الفترة
-        const storageKey = `roster_reminder_${sch.id}_${sch.valid_until}_${todayStr}`;
-        if (typeof window !== 'undefined' && localStorage.getItem(storageKey)) {
-          continue;
-        }
-
         // جلب الموظفين المرتبطين بهذا الجدول
         const { data: emps } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, department_id')
           .eq('work_schedule_id', sch.id);
 
         if (!emps || emps.length === 0) continue;
 
-        // صياغة النص بذكاء وفق عدد الموظفين
-        let employeeListText = '';
-        if (emps.length === 1) {
-          employeeListText = `الموظف (${emps[0].full_name})`;
-        } else {
-          employeeListText = `الموظفين (${emps.map(e => e.full_name).join('، ')})`;
-        }
+        // تجميع الموظفين حسب المسؤول المباشر لتشكيلهم
+        const supervisorMap = new Map<string, string[]>();
 
-        const title = '⏰ تذكير: تحديث جدول دوام المناوبة';
-        const content = `يجب تحديث جدول دوام ${employeeListText} أو سيتم اعتماد الجدول الحالي للأسبوع القادم تلقائياً.`;
+        for (const emp of emps) {
+          if (!emp.department_id) continue;
+          const empDept = depts.find(d => d.id === emp.department_id);
+          if (!empDept) continue;
 
-        // 1. تسجيل إشعار نظام داخلي
-        const notifRows = supervisorIds.map(supId => ({
-          recipient_id: supId,
-          type: 'system',
-          title,
-          content,
-          is_read: false,
-          metadata: {
-            schedule_id: sch.id,
-            valid_until: sch.valid_until,
-            type: 'roster_expiry_reminder'
+          // تحديد المسؤول المباشر (إن كان الموظف نفسه هو المسؤول، نلجأ للبديل أو الأب)
+          let directManagerId: string | null = empDept.manager_id || null;
+          if (directManagerId === emp.id) {
+            directManagerId = empDept.deputy_manager_id || null;
           }
-        }));
 
-        try {
-          await supabase.from('system_notifications').insert(notifRows);
-        } catch (e) {
-          console.warn(e);
+          if (!directManagerId && empDept.parent_id) {
+            const parentDept = depts.find(d => d.id === empDept.parent_id);
+            if (parentDept && parentDept.manager_id !== emp.id) {
+              directManagerId = parentDept.manager_id;
+            }
+          }
+
+          if (directManagerId) {
+            const list = supervisorMap.get(directManagerId) || [];
+            list.push(emp.full_name);
+            supervisorMap.set(directManagerId, list);
+          }
         }
 
-        // 2. إرسال OneSignal Push Notification
-        const pushPromises = supervisorIds.map(supId =>
-          sendPushNotification(supId, content, { title })
-        );
-        await Promise.allSettled(pushPromises);
+        // إرسال الإشعار لكل مسؤول مباشر بحسب موظفيه فقط
+        for (const [supervisorId, empNames] of supervisorMap.entries()) {
+          const dedupKey = `roster_reminder_${sch.id}_${sch.valid_until}_${supervisorId}_${todayStr}`;
 
-        // وضع علامة لمنع تكرار الإشعار في نفس اليوم
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(storageKey, new Date().toISOString());
+          // فحص التكرار محلياً وقاعدياً
+          if (typeof window !== 'undefined' && localStorage.getItem(dedupKey)) {
+            continue;
+          }
+
+          // فحص عدم التكرار الصارم في قاعدة البيانات
+          const { data: existing } = await supabase
+            .from('system_notifications')
+            .select('id')
+            .eq('recipient_id', supervisorId)
+            .eq('metadata->>dedup_key', dedupKey)
+            .maybeSingle();
+
+          if (existing) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(dedupKey, new Date().toISOString());
+            }
+            continue;
+          }
+
+          let employeeListText = '';
+          if (empNames.length === 1) {
+            employeeListText = `الموظف (${empNames[0]})`;
+          } else {
+            employeeListText = `الموظفين (${empNames.join('، ')})`;
+          }
+
+          const title = '⏰ تذكير: تحديث جدول دوام المناوبة';
+          const content = `يجب تحديث جدول دوام ${employeeListText} أو سيتم اعتماد الجدول الحالي للأسبوع القادم تلقائياً.`;
+
+          // 1. تسجيل إشعار نظام داخلي للمسؤول المباشر حصراً
+          const { error: insertErr } = await supabase.from('system_notifications').insert([{
+            recipient_id: supervisorId,
+            type: 'system',
+            title,
+            content,
+            is_read: false,
+            metadata: {
+              schedule_id: sch.id,
+              valid_until: sch.valid_until,
+              type: 'roster_expiry_reminder',
+              dedup_key: dedupKey
+            }
+          }]);
+
+          if (insertErr) {
+            console.warn('Failed to insert roster reminder notification:', insertErr);
+            continue;
+          }
+
+          // 2. إرسال OneSignal Push Notification للمسؤول المباشر فقط
+          sendPushNotification(supervisorId, content, { title }).catch(e => console.warn('Push error:', e));
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(dedupKey, new Date().toISOString());
+          }
         }
       }
     } catch (err) {

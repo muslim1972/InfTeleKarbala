@@ -1,5 +1,5 @@
 {
- "created": "2026-11-22T10:59:46.869Z",
+ "created": "2026-11-22T11:39:52.884Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -655,7 +655,7 @@
   },
   "src/features/attendance/components/SupervisedDutyRoster.tsx": {
    "brick": "FE-ATT-01",
-   "sha": "0750056f06fe"
+   "sha": "8e5d0486926c"
   },
   "src/features/attendance/components/Timesheets.tsx": {
    "brick": "FE-ATT-01",
@@ -735,11 +735,11 @@
   },
   "src/features/attendance/services/morningNotificationDispatcher.ts": {
    "brick": "FE-ATT-01",
-   "sha": "cb449ac4b459"
+   "sha": "0b0ed4682a2c"
   },
   "src/features/attendance/services/rosterReminderService.ts": {
    "brick": "FE-ATT-01",
-   "sha": "4485477485c0"
+   "sha": "a182286176e8"
   },
   "src/features/attendance/services/serverTimeService.ts": {
    "brick": "FE-ATT-01",

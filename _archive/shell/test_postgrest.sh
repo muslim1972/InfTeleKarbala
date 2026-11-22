@@ -1,2 +1,1 @@
-KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg0MjUzNTAxLCJleHAiOjIwOTk2MTM1MDF9.J6epEjJZoyDL5GM_PNLoh3P2j18CCP4WeLrfAejCaew"
-curl -s -i -H "apikey: $KEY" -H "Authorization: Bearer $KEY" "http://127.0.0.1/rest/v1/admin_tips"
+curl -s "http://127.0.0.1:3000/profiles?select=id,full_name,job_number,work_schedule_id,work_schedules(id,name,type,is_default)&department_id=eq.8669731c-bca9-46c5-9def-710e71c6f267"

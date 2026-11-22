@@ -93,42 +93,48 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
   const loadWorkSchedules = useCallback(async () => {
     try {
       const { data } = await supabase.from('work_schedules').select('*');
-      if (data) setWorkSchedules(data);
+      if (data) {
+        setWorkSchedules(data);
+        return data;
+      }
+      return [];
     } catch (err) {
       console.warn('Failed to load work schedules:', err);
+      return [];
     }
   }, []);
 
   // 3. جلب موظفي التشكيل المحدد حالياً
-  const loadDepartmentEmployees = useCallback(async (deptId: string) => {
+  const loadDepartmentEmployees = useCallback(async (deptId: string, customSchedules?: any[]) => {
     if (!deptId) return;
     try {
       setLoadingEmployees(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          job_number,
-          work_schedule_id,
-          work_schedules (
-            id,
-            name,
-            type,
-            is_default
-          )
-        `)
-        .eq('department_id', deptId)
-        .order('full_name');
+      const activeSchedules = customSchedules || workSchedules;
 
-      if (error) throw error;
+      let empRows: any[] = [];
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_supervised_department_employees', { p_department_id: deptId });
 
-      const formatted: ManagedEmployee[] = (data || []).map((p: any) => ({
+      if (!rpcError && rpcData) {
+        empRows = rpcData;
+      } else {
+        // خط دفاع احتياطي
+        const { data: directData, error: directError } = await supabase
+          .from('profiles')
+          .select('id, full_name, job_number, work_schedule_id')
+          .eq('department_id', deptId)
+          .order('full_name');
+
+        if (directError) throw directError;
+        empRows = directData || [];
+      }
+
+      const formatted: ManagedEmployee[] = empRows.map((p: any) => ({
         id: p.id,
         full_name: p.full_name,
         job_number: p.job_number,
         work_schedule_id: p.work_schedule_id,
-        work_schedule: p.work_schedules || null
+        work_schedule: activeSchedules.find(s => s.id === p.work_schedule_id) || null
       }));
 
       setEmployees(formatted);
@@ -138,7 +144,7 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
     } finally {
       setLoadingEmployees(false);
     }
-  }, []);
+  }, [workSchedules]);
 
   useEffect(() => {
     loadManagedDepartments();
@@ -191,7 +197,16 @@ export const SupervisedDutyRoster: React.FC<SupervisedDutyRosterProps> = ({ user
         }
       }
 
-      await workLocationService.updateEmployeeSchedule(empId, targetScheduleId);
+      const { error: rpcUpdateErr } = await supabase
+        .rpc('update_supervised_employee_schedule', {
+          p_employee_id: empId,
+          p_schedule_id: targetScheduleId
+        });
+
+      if (rpcUpdateErr) {
+        console.warn('Fallback to workLocationService on schedule update:', rpcUpdateErr);
+        await workLocationService.updateEmployeeSchedule(empId, targetScheduleId);
+      }
       toast.success('تم تحديث نوع دوام الموظف بنجاح');
       setEditingEmpId(null);
       await loadDepartmentEmployees(selectedDeptId);
