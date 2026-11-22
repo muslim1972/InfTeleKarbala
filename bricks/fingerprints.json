@@ -1,5 +1,5 @@
 {
- "created": "2026-11-22T13:32:58.337Z",
+ "created": "2026-11-22T14:04:23.461Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -235,7 +235,7 @@
   },
   "src/components/admin/universal-patcher/UP_PreviewStep.tsx": {
    "brick": "FE-HR-02",
-   "sha": "85f350890c98"
+   "sha": "ce1fa91ba998"
   },
   "src/components/admin/universal-patcher/UP_UploadStep.tsx": {
    "brick": "FE-HR-02",
@@ -1231,7 +1231,7 @@
   },
   "src/hooks/useUniversalPatcher.ts": {
    "brick": "FE-HR-02",
-   "sha": "dfd015804221"
+   "sha": "ce0305444b9d"
   },
   "src/hooks/useVoiceRecorder.ts": {
    "brick": "FE-COM-01",

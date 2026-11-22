@@ -383,11 +383,6 @@ export function useUniversalPatcher() {
                 const { data, error } = await query;
                 if (error) throw error;
                 profilesRaw = data || [];
-            }
-
-            if (tableDef.tableName === 'profiles') {
-                const { data: dData } = await supabase.from('departments').select('id, name, parent_id, level').eq('governorate', gov);
-                govDepartments = dData || [];
             } else {
                 const { data, error } = await supabase
                     .from('profiles')
@@ -694,13 +689,13 @@ export function useUniversalPatcher() {
 
     // ─── Execute Update ─────────────────────────
 
-    // 📅 اسم النسخة الشهرية (إلزامي للجداول المُدارة: financial_records / profiles)
+    // 📅 اسم النسخة الشهرية (إلزامي للجداول المُدارة: financial_records)
     const [snapshotName, setSnapshotName] = useState(() => suggestSnapshotName());
 
     const executeUpdate = useCallback(async () => {
         if (!tableDef) return;
 
-        const isSnapshotManaged = tableDef.tableName === 'financial_records' || tableDef.tableName === 'profiles';
+        const isSnapshotManaged = tableDef.tableName === 'financial_records';
         const trimmedSnapshotName = snapshotName.trim();
         if (isSnapshotManaged && trimmedSnapshotName.length < 2) {
             toast.error('يرجى إدخال اسم للنسخة الشهرية قبل التنفيذ');

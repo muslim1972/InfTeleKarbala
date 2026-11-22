@@ -33,7 +33,7 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
     const totalExecutionCount = approvedExecutionCount;
     const needsYear = tableDef.type === 'yearly' || tableDef.type === 'detail';
     // 📅 الجداول المُدارة بنظام النسخ الشهرية تتطلب تسمية النسخة
-    const needsSnapshotName = tableDef.tableName === 'financial_records' || tableDef.tableName === 'profiles';
+    const needsSnapshotName = tableDef.tableName === 'financial_records';
 
     const isProfiles = tableDef.tableName === 'profiles';
     const isFinancial = tableDef.tableName === 'financial_records';
@@ -176,36 +176,6 @@ export function UP_PreviewStep({ patcher }: { patcher: UseUniversalPatcherReturn
                     activeClass="border-red-500 ring-2 ring-red-500/30"
                     countClass="text-red-600"
                 />
-            </div>
-
-            {/* شريط إدارة التجاوز والإحصاءات الحية */}
-            <div className="mx-3 md:mx-4 mb-2 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
-                <div className="flex items-center gap-3">
-                    <span className="font-bold text-slate-700 dark:text-slate-200">
-                        المعتمد للحقن: <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{approvedExecutionCount}</span>
-                    </span>
-                    {(stats.skipped || 0) > 0 && (
-                        <span className="font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-md">
-                            المتجاوز (تأجيل): {stats.skipped}
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={skipAllRecords}
-                        className="px-2.5 py-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg font-bold transition-all text-xs"
-                    >
-                        تجاوز الكل (تأجيل الجميع)
-                    </button>
-                    <button
-                        type="button"
-                        onClick={unskipAllRecords}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg font-bold transition-all text-xs"
-                    >
-                        اعتماد الكل
-                    </button>
-                </div>
             </div>
 
             {/* شريط إدارة التجاوز والإحصاءات الحية */}
