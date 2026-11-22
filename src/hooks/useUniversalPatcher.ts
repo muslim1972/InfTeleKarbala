@@ -17,6 +17,8 @@ import {
     stripAccountFields,
     FIELD_SYNONYMS,
     resolveDepartmentHierarchy,
+    resolvePositionAssignments,
+    type PositionAssignment,
 } from '../utils/universalPatcherConfig';
 
 // ─── Types ──────────────────────────────────────
@@ -47,6 +49,8 @@ export interface MatchResult {
     isRetired?: boolean;
     /** تاريخ الإحالة للتقاعد */
     retirementDate?: string | null;
+    /** التكليف الإداري المستنتج (مسؤول / بديل) */
+    posAssignment?: PositionAssignment;
 }
 
 // ─── Hook ───────────────────────────────────────
@@ -98,6 +102,35 @@ export function useUniversalPatcher() {
     }, []);
     // 🆕 وضع افتتاح محافظة جديدة: لا مستخدمين → إنشاء الحسابات من عمودي الملف ثم الحقن
     const [govOpening, setGovOpening] = useState(false);
+
+    // ⛔ إدارة تجاوز القيود في المعاينة
+    const [skippedRecordKeys, setSkippedRecordKeys] = useState<Set<string>>(new Set());
+
+    const getMatchKey = useCallback((m: MatchResult): string => {
+        return m.recordId || m.profileId || m.jobNumber || m.excelName;
+    }, []);
+
+    const toggleSkipRecord = useCallback((key: string) => {
+        setSkippedRecordKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    }, []);
+
+    const skipAllRecords = useCallback(() => {
+        const allKeys = new Set(matches.map(m => m.recordId || m.profileId || m.jobNumber || m.excelName));
+        setSkippedRecordKeys(allKeys);
+    }, [matches]);
+
+    const unskipAllRecords = useCallback(() => {
+        setSkippedRecordKeys(new Set());
+    }, []);
+
+    const isRecordSkipped = useCallback((key: string) => {
+        return skippedRecordKeys.has(key);
+    }, [skippedRecordKeys]);
 
     // 🛡️ مشرف IT (اختياري): يُرفع لصلاحياته بعد نجاح الحقن
     const [itSupervisorId, setItSupervisorId] = useState<string | null>(null);
@@ -335,6 +368,7 @@ export function useUniversalPatcher() {
 
             // 1. جلب ملفات محافظة الهدف فقط
             let profilesRaw: any[] = [];
+            let govDepartments: any[] = [];
             
             if (tableDef.isStandalone) {
                 let query = supabase
@@ -349,6 +383,11 @@ export function useUniversalPatcher() {
                 const { data, error } = await query;
                 if (error) throw error;
                 profilesRaw = data || [];
+            }
+
+            if (tableDef.tableName === 'profiles') {
+                const { data: dData } = await supabase.from('departments').select('id, name, parent_id, level').eq('governorate', gov);
+                govDepartments = dData || [];
             } else {
                 const { data, error } = await supabase
                     .from('profiles')
@@ -356,6 +395,11 @@ export function useUniversalPatcher() {
                     .eq('governorate', gov);
                 if (error) throw error;
                 profilesRaw = data || [];
+            }
+
+            if (tableDef.tableName === 'profiles') {
+                const { data: dData } = await supabase.from('departments').select('id, name, parent_id, level').eq('governorate', gov);
+                govDepartments = dData || [];
             }
 
             const profiles = profilesRaw;
@@ -480,6 +524,30 @@ export function useUniversalPatcher() {
                     newValues['batch_name'] = targetBatch;
                 }
 
+                // استنتاج التشكيل الإداري والمنصب الإداري لجدول profiles
+                let posAssignment: PositionAssignment | undefined;
+                if (tableDef.tableName === 'profiles' && govDepartments.length > 0) {
+                    const resolvedDept = resolveDepartmentHierarchy(
+                        newValues.unit_text,
+                        newValues.section_text,
+                        newValues.dept_text,
+                        govDepartments
+                    );
+                    if (resolvedDept) {
+                        if (resolvedDept.department_id) newValues.department_id = resolvedDept.department_id;
+                        if (resolvedDept.dept_text) newValues.dept_text = resolvedDept.dept_text;
+                        if (resolvedDept.section_text !== undefined) newValues.section_text = resolvedDept.section_text;
+                        if (resolvedDept.unit_text !== undefined) newValues.unit_text = resolvedDept.unit_text;
+                    }
+                    if (newValues.position_title) {
+                        posAssignment = resolvePositionAssignments(
+                            newValues.position_title,
+                            resolvedDept,
+                            govDepartments
+                        );
+                    }
+                }
+
                 const jobNumber = String(newValues.job_number ?? (matched?.job_number || (matchBy === 'job_number' || /^\d+$/.test(matchValue) ? matchValue : ''))).trim();
                 const displayName = String(newValues.full_name ?? (matched?.full_name || (matchBy === 'full_name' && !/^\d+$/.test(matchValue) ? matchValue : ''))).trim();
 
@@ -511,6 +579,10 @@ export function useUniversalPatcher() {
                     // تحديث الملف الشخصي مباشرة
                     const existing = userRecords[0] || {};
                     const diffs = buildDiffs(newValues, existing);
+                    // تحصين حقول الهوية الثلاثية: لا تظهر كفروقات لأنها لن تُعدّل للمطابقين
+                    delete diffs.full_name;
+                    delete diffs.username;
+                    delete diffs.job_number;
 
                     results.push({
                         status: 'match',
@@ -525,6 +597,7 @@ export function useUniversalPatcher() {
                         diffs,
                         isRetired: matched.is_retired,
                         retirementDate: matched.retirement_date,
+                        posAssignment,
                     });
                 } else if (tableDef.type === 'single') {
                     // financial_records
@@ -820,11 +893,40 @@ export function useUniversalPatcher() {
                             }
 
                             if (targetId) {
+                                // 🔒 تحصين حقول الهوية الثلاثية من التعديل للمطابقين
+                                if (item.status === 'match') {
+                                    delete payload.full_name;
+                                    delete payload.username;
+                                    delete payload.job_number;
+                                }
+
                                 const { error } = await supabase
                                     .from('profiles')
                                     .update({ ...payload, updated_at: new Date().toISOString() })
                                     .eq('id', targetId);
                                 if (error) throw error;
+
+                                // 👑 تطبيق تكليفات المنصب الإداري والبديل في departments
+                                if (item.posAssignment) {
+                                    if (item.posAssignment.managerDeptId) {
+                                        try {
+                                            await supabase.from('departments')
+                                                .update({ manager_id: targetId, updated_at: new Date().toISOString() })
+                                                .eq('id', item.posAssignment.managerDeptId);
+                                        } catch (pErr) {
+                                            console.warn('تعذر تعيين مسؤول التشكيل:', pErr);
+                                        }
+                                    }
+                                    if (item.posAssignment.deputyDeptId) {
+                                        try {
+                                            await supabase.from('departments')
+                                                .update({ deputy_manager_id: targetId, updated_at: new Date().toISOString() })
+                                                .eq('id', item.posAssignment.deputyDeptId);
+                                        } catch (pErr) {
+                                            console.warn('تعذر تعيين بديل التشكيل:', pErr);
+                                        }
+                                    }
+                                }
 
                                 if (matchedLocId) {
                                     try {
@@ -921,12 +1023,24 @@ export function useUniversalPatcher() {
 
     // ─── Stats ──────────────────────────────────
 
-    const stats = useMemo(() => ({
-        total: matches.length,
-        found: matches.filter(m => m.status === 'match').length,
-        newRecords: matches.filter(m => m.status === 'new_record').length,
-        missing: matches.filter(m => m.status === 'missing').length,
-    }), [matches]);
+    const stats = useMemo(() => {
+        const total = matches.length;
+        const found = matches.filter(m => m.status === 'match').length;
+        const newRecords = matches.filter(m => m.status === 'new_record').length;
+        const missing = matches.filter(m => m.status === 'missing').length;
+        const skipped = matches.filter(m => {
+            const key = m.recordId || m.profileId || m.jobNumber || m.excelName;
+            return skippedRecordKeys.has(key);
+        }).length;
+        return {
+            total,
+            found,
+            newRecords,
+            missing,
+            skipped,
+            approved: Math.max(0, total - skipped),
+        };
+    }, [matches, skippedRecordKeys]);
 
     const filteredMatches = useMemo(() => {
         if (previewFilter === 'all') return matches;
@@ -938,6 +1052,7 @@ export function useUniversalPatcher() {
     const reset = useCallback(() => {
         setStep('upload');
         setWorkbook(null);
+        setSkippedRecordKeys(new Set());
         setSheetNames([]);
         setSelectedSheet('');
         setHeaders([]);
@@ -980,6 +1095,12 @@ export function useUniversalPatcher() {
         analyzeData,
         executeUpdate,
         reset,
+        skippedRecordKeys,
+        toggleSkipRecord,
+        skipAllRecords,
+        unskipAllRecords,
+        isRecordSkipped,
+        getMatchKey,
     };
 }
 
