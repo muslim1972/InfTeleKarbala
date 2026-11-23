@@ -102,21 +102,29 @@ export function FullAudit({ onClose }: FullAuditProps) {
 
                     // استبعاد موظفي إجازة الخمس سنوات (يتقاضون الراتب الاسمي فقط دون مخصصات بحكم القانون)
                     const gross = safeParseFloat(rec.gross_salary);
-                    const isFiveYear = rec.is_five_year_leave || (gross > 0 && Math.abs(gross - nomSal) < 10 && safeParseFloat(rec.certificate_allowance) === 0 && safeParseFloat(rec.risk_allowance) === 0);
+                    const certAll = safeParseFloat(rec.certificate_allowance);
+                    const isFiveYear = (rec.is_five_year_leave && Math.abs(gross - nomSal) < 10 && certAll === 0) || (
+                        gross > 0 &&
+                        Math.abs(gross - nomSal) < 10 &&
+                        certAll === 0 &&
+                        safeParseFloat(rec.risk_allowance) === 0
+                    );
                     if (isFiveYear) {
                         continue;
                     }
 
                     // استبعاد موظفي العقود / الحرفيين الذين لا تشملهم مخصصات الشهادة في سلم رواتبهم الوزاري
                     const jn = String((rec as any).profiles?.job_number || '').trim();
-                    const isContract = jn.startsWith('143264') && safeParseFloat(rec.certificate_allowance) === 0 && safeParseFloat(rec.risk_allowance) > 0;
-                    if (isContract) {
+                    const jt = String(rec.job_title || '').trim();
+                    const isContractOrDaily = jn.startsWith('143264') || /عقد|اجير|أجير/.test(jt);
+                    if (isContractOrDaily) {
                         continue;
                     }
 
                     const rawCertAllowance = rec.certificate_allowance;
                     const currentVal = safeParseFloat(rawCertAllowance);
-                    const expectedVal = Math.round((nomSal * certDef.percentage) / 100);
+                    const effectivePct = safeParseFloat(rec.certificate_percentage) || certDef.percentage;
+                    const expectedVal = Math.round((nomSal * effectivePct) / 100);
 
                     // المقارنة: نسمح بفرق بسيط (1 دينار) بسبب التقريب
                     if (Math.abs(expectedVal - currentVal) > 1) {
@@ -126,7 +134,7 @@ export function FullAudit({ onClose }: FullAuditProps) {
                             jobNumber: (rec as any).profiles?.job_number || '—',
                             certificate: certDef.label, // نعرض الاسم الرسمي للشهادة
                             nominalSalary: nomSal,
-                            approvedPct: certDef.percentage,
+                            approvedPct: effectivePct,
                             approvedVal: expectedVal,
                             currentVal: currentVal,
                             diff: currentVal - expectedVal,
@@ -228,8 +236,8 @@ export function FullAudit({ onClose }: FullAuditProps) {
                     <th width="30%">الموظف</th>
                     <th width="15%">الراتب الاسمي</th>
                     <th width="10%">النسبة</th>
-                    <th width="20%">المستحق (صحيح)</th>
-                    <th width="20%">المصروف (خطأ)</th>
+                    <th width="20%">المستحق</th>
+                    <th width="20%">المستلم</th>
                 </tr>
             </thead>
             <tbody>
@@ -365,7 +373,7 @@ export function FullAudit({ onClose }: FullAuditProps) {
                                                             <th className="px-4 py-2 text-right">الموظف</th>
                                                             <th className="px-4 py-2 text-center">الراتب الاسمي</th>
                                                             <th className="px-4 py-2 text-center text-green-600">المستحق</th>
-                                                            <th className="px-4 py-2 text-center text-red-500">المصروف (الخطأ)</th>
+                                                            <th className="px-4 py-2 text-center text-red-500">المستلم</th>
                                                             <th className="px-4 py-2 text-center">الفرق</th>
                                                         </tr>
                                                     </thead>

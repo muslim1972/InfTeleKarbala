@@ -41,7 +41,7 @@ export const printMismatchReportHTML = (
     </div>
     <table>
         <thead>
-            <tr><th>#</th><th>الاسم</th><th>الراتب الاسمي</th><th>الاستحقاق حسب النسبة</th><th>الرقم حسب المالية</th><th>الملاحظات</th></tr>
+            <tr><th>#</th><th>الاسم / الرقم الوظيفي</th><th>الراتب الاسمي</th><th>المستحق</th><th>المستلم</th><th>الملاحظات</th></tr>
         </thead>
         <tbody>
             ${mismatchRows.map((r, i) => `
@@ -113,12 +113,12 @@ export const buildSingleAuditHTML = (
         <div class="result-row"><span class="label">النسبة المعتمدة</span><span class="value">${approvedPercentage !== null ? approvedPercentage + '%' : 'غير محدد'}</span></div>
         <div class="result-row">
             <div style="display:flex; flex-direction:column">
-                <span class="label">الاستحقاق (المحسوب)</span>
+                <span class="label">المستحق</span>
                 ${financialData?.is_five_year_leave ? '<span style="font-size:10px; color:#dc2626; margin-top:2px">(كونه يتمتع بإجازة 5 سنوات)</span>' : ''}
             </div>
             <span class="value">${formatCurrency(auditResult ?? 0)} د.ع</span>
         </div>
-        <div class="result-row"><span class="label">القيمة الحالية</span><span class="value">${formatCurrency(currentValue)} د.ع</span></div>
+        <div class="result-row"><span class="label">المستلم</span><span class="value">${formatCurrency(currentValue)} د.ع</span></div>
         <div class="result-row"><span class="label">الحالة</span><span class="value ${validationState === 'match' ? 'match' : 'mismatch'}">${validationState === 'match' ? '✓ مطابق' : '✗ غير مطابق'}</span></div>
     </div>
     <div class="footer"><p>تقرير تدقيقي لأغراض المراجعة</p></div>

@@ -716,7 +716,7 @@ export const TabManageEmployees = ({
                                 </div>
                                 <FinancialInput financialData={financialData}
                                     key="certificate_percentage"
-                                    field={{ ...financialFields.basic.find((f: any) => f.key === 'certificate_percentage')!, label: "م.الشهادة %" }}
+                                    field={{ ...financialFields.basic.find((f: any) => f.key === 'certificate_percentage')!, label: "نسبة م.الشهادة" }}
                                     value={financialData?.certificate_percentage}
                                     onChange={handleFinancialChange}
                                     recordId={financialData?.id}

@@ -109,6 +109,7 @@ export const TABLE_DEFINITIONS: TableDef[] = [
             { value: 'certificate_percentage', label: 'نسبة الشهادة', type: 'numeric' },
             { value: 'position_allowance', label: 'مخصصات المنصب', type: 'numeric' },
             { value: 'engineering_allowance', label: 'مخصصات هندسية', type: 'numeric' },
+            { value: 'engineering_percentage', label: 'نسبة الهندسية', type: 'numeric' },
             { value: 'risk_allowance', label: 'مخصصات الخطورة', type: 'numeric' },
             { value: 'legal_allowance', label: 'مخصصات القانونية', type: 'numeric' },
             { value: 'additional_50_percent_allowance', label: 'المخصصات الإضافية 50%', type: 'numeric' },
@@ -313,7 +314,7 @@ export function cleanFieldValue(val: any, tableName: string, fieldValue: string)
     }
     
     // تنظيف وتوحيد نسبة الشهادة (معالجة قيم إكسل المنسقة كنسبة مئوية مثل 0.45 -> 45)
-    if (fieldValue === 'certificate_percentage') {
+    if (fieldValue === 'certificate_percentage' || fieldValue === 'engineering_percentage') {
         if (val === null || val === undefined || val === '') return 0;
         const strVal = String(val).trim().replace(/%/g, '').replace(/,/g, '');
         let num = parseFloat(strVal);
@@ -383,6 +384,7 @@ export const FIELD_SYNONYMS: Record<string, string[]> = {
     certificate_percentage: ['نسبة الشهادة', 'نسبة مخصصات الشهادة'],
     position_allowance: ['مخصصات المنصب', 'مخصص المنصب', 'المنصب'],
     engineering_allowance: ['مخصصات هندسية', 'المخصصات الهندسية', 'هندسية'],
+    engineering_percentage: ['نسبة الهندسية', 'نسبة م.الهندسية', 'نسبة مخصصات هندسية', 'نسبة مخصصات الهندسية', 'نسبة الهندسة', 'نسبة م.الهندسة'],
     risk_allowance: ['مخصصات الخطورة', 'مخصص الخطورة', 'الخطورة', 'نسبة الخطورة'],
     legal_allowance: ['مخصصات القانونية', 'المخصصات القانونية', 'قانونية'],
     additional_50_percent_allowance: ['المخصصات الإضافية 50%', 'المخصصات الاضافية 50%', 'مخصصات اضافية', 'اضافية 50%'],
@@ -799,6 +801,25 @@ export function resolveFinancialIntegrity(newValues: Record<string, any>): { war
     if (certPerc > 0 && certPerc <= 1.5) {
         certPerc = Math.round(certPerc * 100);
         newValues.certificate_percentage = certPerc;
+    }
+
+    // تدقيق نسبة الهندسية (المستويان الذكيان)
+    let engPerc = Number(newValues.engineering_percentage || 0);
+    if (engPerc > 0 && engPerc <= 1.5) {
+        engPerc = Math.round(engPerc * 100);
+        newValues.engineering_percentage = engPerc;
+    }
+    const engAllowance = Number(newValues.engineering_allowance || 0);
+    const jobTitle = String(newValues.job_title || '').trim();
+    const isEngTitle = /مهندس|هندس/i.test(jobTitle);
+    if (!engPerc || engPerc === 0) {
+        if (nom > 0 && engAllowance > 0 && Math.abs(engAllowance - (nom * 0.35)) < 10) {
+            newValues.engineering_percentage = 35;
+            warnings.push('استنتاج ذكي: تم تحديد نسبة الهندسية (35%) استناداً إلى مبلغ مخصصات الهندسة والراتب الاسمي.');
+        } else if (isEngTitle && engAllowance > 0) {
+            newValues.engineering_percentage = 35;
+            warnings.push('استنتاج ذكي: تم تحديد نسبة الهندسية (35%) استناداً إلى العنوان الوظيفي ومخصصات الهندسة.');
+        }
     }
 
     if (certText) {

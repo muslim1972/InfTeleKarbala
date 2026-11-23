@@ -771,13 +771,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     'ر. مهندسين اقدم اول', 'ر. مهندسين اقدم', 'ر. مهندسين', 'مهندس', 'م. مهندس',
                     'ر. مبرمجين اقدم اول', 'ر. مبرمجين اقدم', 'ر. مبرمجين', 'مبرمج', 'م. مبرمج',
                     'ر. مشغلين اقدم اول', 'ر. مشغلين اقدم', 'ر. مشغلين', 'مشغل حاسبة', 'م. مشغل حاسبة',
-                    'مدير فني اقدم', 'مدير فني', 'فني اقدم', 'فني', 'عامل خدمة'
+                    'مدير فني اقدم', 'مدير فني', 'فني اقدم', 'فني', 'عامل خدمة', 'عقد', 'أجير يومي'
                 ]
             },
             { key: 'salary_grade', label: 'الدرجة في سلم الرواتب', options: Array.from({ length: 10 }, (_, i) => (i + 1).toString()) },
             { key: 'salary_stage', label: 'المرحلة في الدرجة الوظيفية', options: Array.from({ length: 10 }, (_, i) => (i + 1).toString()) },
             { key: 'certificate_text', label: 'التحصيل الدراسي', options: ['دكتوراه', 'ماجستير', 'دبلوم عالي', 'بكالوريوس', 'دبلوم', 'الاعدادية', 'المتوسطة', 'الابتدائية', 'يقرأ ويكتب', 'أمي'] },
-            { key: 'certificate_percentage', label: 'النسبة المستحقة للشهادة', suffix: '%', options: ['0', '15', '25', '35', '45', '55', '75', '85', '100', '125', '150'] },
+            { key: 'certificate_percentage', label: 'نسبة م.الشهادة', suffix: '%', options: ['0', '15', '25', '35', '45', '55', '75', '85', '100', '125', '150'] },
             { key: 'nominal_salary', label: 'الراتب الاسمي', isMoney: true },
             { key: 'risk_percentage', label: 'الخطورة %', suffix: '%', options: Array.from({ length: 20 }, (_, i) => ((i + 1) * 5).toString()) },
         ],

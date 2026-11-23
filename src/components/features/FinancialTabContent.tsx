@@ -59,7 +59,7 @@ export const FinancialTabContent = ({
             icon: Wallet,
             color: 'from-green-600 to-green-500',
             fields: [
-                { key: 'certificate_percentage', label: 'النسبة المستحقة للشهادة', suffix: '%' },
+                { key: 'certificate_percentage', label: 'نسبة م.الشهادة', suffix: '%' },
                 { key: 'certificate_allowance', label: 'مخصصات الشهادة', isMoney: true },
                 { key: 'engineering_allowance', label: 'مخصصات هندسية', isMoney: true },
                 { key: 'legal_allowance', label: 'مخصصات القانونية', isMoney: true },

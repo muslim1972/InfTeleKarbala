@@ -1,13 +1,18 @@
 SELECT 
-    f.full_name,
+    p.full_name,
     p.job_number,
-    f.job_title,
     f.certificate_text,
+    f.certificate_percentage,
     f.nominal_salary,
     f.certificate_allowance,
-    f.risk_allowance
+    f.job_title
 FROM financial_records f
 JOIN profiles p ON p.id = f.user_id
-WHERE p.governorate = 'karbala'
-  AND p.job_number LIKE '143264%'
+WHERE p.full_name LIKE '%ابراهيم سعدي%'
+   OR p.full_name LIKE '%ابراهيم عزيز%'
+   OR p.full_name LIKE '%احمد حسين لايذ%'
+   OR p.full_name LIKE '%احمد عبد الرضا%'
+   OR p.full_name LIKE '%مسلم عقيل%'
+   OR p.full_name LIKE '%مهاد صاحب%'
+   OR p.full_name LIKE '%علي عبد الحسين عبد الله%'
 LIMIT 10;
