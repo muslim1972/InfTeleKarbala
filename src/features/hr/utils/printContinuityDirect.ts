@@ -24,6 +24,10 @@ export interface DirectPrintContinuityData {
     employee?: {
         full_name?: string;
         job_number?: string;
+        dept_text?: string;
+        section_text?: string;
+        unit_text?: string;
+        department?: string;
         gender?: number | string | null;
     } | null;
 }
@@ -55,6 +59,26 @@ export const getTripartiteName = (fullName: string | undefined | null): string =
     }
 
     return nameTokens.join(' ');
+};
+
+/**
+ * يستخرج أدنى معلومة في هيكلية المديرية التي ينتمي إليها الموظف:
+ * الوحدة أولاً، فإن لم تكن فالشعبة، فإن لم تكن فالقسم/المجمع.
+ */
+export const getLowestOrgUnit = (emp?: {
+    unit_text?: string | null;
+    section_text?: string | null;
+    dept_text?: string | null;
+    department?: string | null;
+} | null): string => {
+    if (!emp) return '';
+    const unit = emp.unit_text?.trim();
+    if (unit) return unit;
+    const section = emp.section_text?.trim();
+    if (section) return section;
+    const dept = (emp.dept_text || emp.department)?.trim();
+    if (dept && dept !== 'كربلاء') return dept;
+    return dept || '';
 };
 
 export const getHonorific = (gender: number | string | undefined | null, fullName: string = ''): string => {
@@ -132,11 +156,17 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
             </div>
         ` : '';
 
-        // اسم المعتمد ثلاثياً
+        // اسم المعتمد ثلاثياً مجرداً فقط بدون مقدمة موافقة أو تدقيق
         const approverTripartite = getTripartiteName(req.approved_by_name);
-        const approverHtml = approverTripartite ? `
-            <div class="approved-by-box">
-                <div class="approved-by-name">تدقيق واعتماد: ${approverTripartite}</div>
+        const lowestOrg = getLowestOrgUnit(req.employee);
+        const approverAndOrgHtml = (approverTripartite || lowestOrg) ? `
+            <div class="footer-pre-divider-row">
+                <div class="approver-box">
+                    ${approverTripartite ? `<span class="approver-name">${approverTripartite}</span>` : ''}
+                </div>
+                <div class="org-unit-box">
+                    ${lowestOrg ? `<span class="org-unit-name">${lowestOrg}</span>` : ''}
+                </div>
             </div>
         ` : '';
 
@@ -457,15 +487,29 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                         margin-top: 0;
                         padding-top: 6px;
                     }
-                    .approved-by-box {
-                        text-align: right;
+                    .footer-pre-divider-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-end;
                         margin-bottom: 3px;
                         line-height: 1.25;
                     }
-                    .approved-by-name {
-                        font-size: 13px;
+                    .approver-box {
+                        text-align: right;
+                    }
+                    .approver-name {
+                        font-size: 12.5px;
                         font-weight: 800;
                         color: #0f172a;
+                    }
+                    .org-unit-box {
+                        text-align: left;
+                        direction: rtl;
+                    }
+                    .org-unit-name {
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #334155;
                     }
                     .footer-info-row {
                         display: flex;
@@ -555,9 +599,9 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
                             </div>
                         </div>
 
-                        <!-- Footer & Approver Accreditation -->
+                        <!-- Footer & Approver Accreditation / Org Unit -->
                         <div class="footer-container">
-                            ${approverHtml}
+                            ${approverAndOrgHtml}
                             <div class="double-divider"></div>
                             <div class="footer-info-row">
                                 <div class="footer-address">

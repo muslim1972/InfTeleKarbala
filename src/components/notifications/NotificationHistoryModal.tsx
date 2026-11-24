@@ -39,6 +39,7 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
                             job_number,
                             dept_text,
                             section_text,
+                            unit_text,
                             gender
                         ),
                         supervisor:profiles!service_continuity_requests_supervisor_id_fkey(
@@ -58,7 +59,7 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
 
                     const { data: empProf } = await supabase
                         .from('profiles')
-                        .select('id, full_name, job_number, dept_text, section_text, gender')
+                        .select('id, full_name, job_number, dept_text, section_text, unit_text, gender')
                         .eq('id', rawReq.user_id)
                         .maybeSingle();
 

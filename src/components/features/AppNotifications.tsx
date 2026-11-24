@@ -63,6 +63,7 @@ export const AppNotifications = () => {
     const [financeRejectionReason, setFinanceRejectionReason] = useState("");
     const [editingFinanceNotifId, setEditingFinanceNotifId] = useState<string | null>(null);
     const [financeEditDestination, setFinanceEditDestination] = useState("");
+    const [financeEditIncludeSalary, setFinanceEditIncludeSalary] = useState<boolean>(false);
     const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
     const [financeEditNotes, setFinanceEditNotes] = useState("");
     const [financeCadreMap, setFinanceCadreMap] = useState<Record<string, 'permanent' | 'contract'>>({});
@@ -660,7 +661,8 @@ export const AppNotifications = () => {
                 p_destination_entity: financeEditDestination.trim(),
                 p_notes: financeEditNotes.trim() || null,
                 p_cadre_type: cadreType,
-                p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null
+                p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null,
+                p_include_salary: financeEditIncludeSalary
             });
             if (error) throw error;
             const res = data as any;
@@ -702,6 +704,7 @@ export const AppNotifications = () => {
                             job_number,
                             dept_text,
                             section_text,
+                            unit_text,
                             gender
                         ),
                         supervisor:profiles!service_continuity_requests_supervisor_id_fkey(
@@ -722,7 +725,7 @@ export const AppNotifications = () => {
 
                     const { data: empProf } = await supabase
                         .from('profiles')
-                        .select('id, full_name, job_number, dept_text, section_text, gender')
+                        .select('id, full_name, job_number, dept_text, section_text, unit_text, gender')
                         .eq('id', rawReq.user_id)
                         .maybeSingle();
 
@@ -1229,6 +1232,7 @@ export const AppNotifications = () => {
                                                                             setEditingFinanceNotifId(notification.id);
                                                                             setFinanceEditDestination(meta.destination_entity || '');
                                                                             setFinanceEditNotes(meta.notes || '');
+                                                                            setFinanceEditIncludeSalary(Boolean(meta.has_salary ?? meta.include_salary_details ?? meta.include_nominal_salary ?? meta.include_total_salary));
                                                                         }}
                                                                         className="py-2 px-3.5 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-xl text-xs font-bold transition disabled:opacity-60 flex items-center gap-1"
                                                                         title="تعديل الجهة المعنون إليها أو الملاحظات"
@@ -1314,6 +1318,20 @@ export const AppNotifications = () => {
                                                                             placeholder="مثال: كفالة السيد محمد علي..."
                                                                             className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-sky-500"
                                                                         />
+                                                                    </div>
+                                                                    {/* خيار تضمين تفاصيل الراتب في الكتاب الرسمي */}
+                                                                    <div className="flex items-center gap-2 pt-1 pb-0.5">
+                                                                        <label className="flex items-center gap-2 cursor-pointer select-none bg-white/70 dark:bg-slate-900/60 p-2 rounded-lg border border-sky-100 dark:border-sky-900/50 w-full hover:bg-white dark:hover:bg-slate-900 transition">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={financeEditIncludeSalary}
+                                                                                onChange={(e) => setFinanceEditIncludeSalary(e.target.checked)}
+                                                                                className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:ring-emerald-500 cursor-pointer"
+                                                                            />
+                                                                            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                                                                                تضمين تفاصيل الراتب (الاسمي والكلي والصافي) في الكتاب
+                                                                            </span>
+                                                                        </label>
                                                                     </div>
                                                                     <div className="flex gap-1.5 justify-end">
                                                                         <button

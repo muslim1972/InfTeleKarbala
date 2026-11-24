@@ -17,6 +17,7 @@ import { supabase } from '../../../lib/supabase';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import { toast } from 'react-hot-toast';
+import { getLowestOrgUnit } from '../utils/printContinuityDirect';
 
 export interface ContinuityRequestItem {
     id: string;
@@ -52,6 +53,7 @@ export interface ContinuityRequestItem {
         job_number?: string;
         dept_text?: string;
         section_text?: string;
+        unit_text?: string;
         job_title?: string;
         department?: string;
         gender?: number | string | null;
@@ -773,6 +775,7 @@ export const ServiceContinuityProcessModal = ({
     const employeeGender = request.employee?.gender;
     const honorific = getHonorific(employeeGender, employeeName);
     const department = request.employee?.dept_text || request.employee?.department || 'مديرية اتصالات ومعلوماتية كربلاء';
+    const lowestOrgUnit = getLowestOrgUnit(request.employee);
     const isAlreadyIssued = request.status === 'issued_and_dispatched';
 
     return (
@@ -1250,12 +1253,15 @@ export const ServiceContinuityProcessModal = ({
                                     </div>
                                 </div>
 
-                                {/* Bottom Footer with Fixed Approver Accreditation above the Double Line */}
+                                {/* Bottom Footer with Fixed Approver Name on Right and Lowest Org on Left */}
                                 <div className="pt-2">
-                                    {request.approved_by_name && (
-                                        <div className="text-right pb-1">
-                                            <p className="text-[11px] font-bold text-slate-900">
-                                                تدقيق واعتماد: {getTripartiteName(request.approved_by_name)}
+                                    {(request.approved_by_name || lowestOrgUnit) && (
+                                        <div className="flex items-center justify-between pb-1 text-slate-900">
+                                            <p className="text-[11px] font-bold">
+                                                {request.approved_by_name ? getTripartiteName(request.approved_by_name) : ''}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-slate-700">
+                                                {lowestOrgUnit}
                                             </p>
                                         </div>
                                     )}

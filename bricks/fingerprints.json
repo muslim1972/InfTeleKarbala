@@ -1,5 +1,5 @@
 {
- "created": "2026-11-23T20:22:35.409Z",
+ "created": "2026-11-24T13:36:55.807Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -339,7 +339,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "d386b480f1a5"
+   "sha": "1916bbd79755"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -451,7 +451,7 @@
   },
   "src/components/notifications/NotificationHistoryModal.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "1c37bb6c5e2b"
+   "sha": "00848e49d808"
   },
   "src/components/notifications/NotificationsBell.tsx": {
    "brick": "FE-CORE-05",
@@ -975,7 +975,7 @@
   },
   "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
    "brick": "FE-HR-01",
-   "sha": "259610e3a548"
+   "sha": "788d2ad25d05"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
@@ -987,7 +987,7 @@
   },
   "src/features/hr/utils/printContinuityDirect.ts": {
    "brick": "FE-HR-01",
-   "sha": "d6c0a7b1e44b"
+   "sha": "bde5b1f3fac2"
   },
   "src/features/kiosk/KioskAdminPanel.tsx": {
    "brick": "FE-ATT-02",
@@ -1772,6 +1772,14 @@
   "supabase/migrations/20261121031500_harden_closeout_overnight_shifts.sql": {
    "brick": "BE-MIG-01",
    "sha": "22ed06f6074b"
+  },
+  "supabase/migrations/20261124163000_itpc_payments_add_official_book_columns.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "2536dae37f40"
+  },
+  "supabase/migrations/20261124163500_hr01_continuity_salary_toggle_and_print_org.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "e8d03bdaaea9"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",
