@@ -1,10 +1,13 @@
+import { useState, Suspense, lazy } from "react";
 import { motion } from "framer-motion";
-import { Wallet, Scissors, Calculator, Loader2 } from 'lucide-react';
-import { AccordionSection } from "../ui/AccordionSection";
+import { Wallet, Scissors, Calculator, Loader2, Coins, Receipt } from 'lucide-react';
 import { SalaryCalculator } from "./SalaryCalculator";
-import { formatDateTime } from "../../utils/formatDate";
 import { cn } from "../../lib/utils";
 import { validateFinancialRecord } from "../../utils/payrollValidation";
+
+// استدعاء مكون الحوافز بنمط Lazy Loading لعزل الأداء وسرعة التحميل
+const IncentivesTabContent = lazy(() => import("./IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
+
 interface FinancialField {
     key: string;
     label: string;
@@ -20,12 +23,12 @@ const containerVariants = {
     hidden: { opacity: 0 },
     show: {
         opacity: 1,
-        transition: { staggerChildren: 0.1 }
+        transition: { staggerChildren: 0.05 }
     }
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 12 },
     show: { opacity: 1, y: 0 }
 };
 
@@ -34,68 +37,45 @@ interface FinancialTabContentProps {
     financialData: any;
     loading: boolean;
     adminData: any;
-    openSection: string | null;
-    toggleSection: (section: string) => void;
+    openSection?: string | null;
+    toggleSection?: (section: string) => void;
 }
 
 export const FinancialTabContent = ({
     user,
     financialData,
     loading,
-    adminData,
-    openSection,
-    toggleSection
+    adminData
 }: FinancialTabContentProps) => {
-
-
-
+    // تبويب التنقل الداخلي الثلاثي: المخصصات والاستقطاعات | حاسبة الراتب | الحوافز
+    const [subTab, setSubTab] = useState<'breakdown' | 'calculator' | 'incentives'>('breakdown');
 
     const validation = financialData ? validateFinancialRecord(financialData) : { discrepancies: {} as Record<string, string> };
 
-    const financialGroups = [
-        {
-            id: 'allowances',
-            title: 'المخصصات',
-            icon: Wallet,
-            color: 'from-green-600 to-green-500',
-            fields: [
-                { key: 'certificate_percentage', label: 'نسبة م.الشهادة', suffix: '%' },
-                { key: 'certificate_allowance', label: 'مخصصات الشهادة', isMoney: true },
-                { key: 'engineering_allowance', label: 'مخصصات هندسية', isMoney: true },
-                { key: 'legal_allowance', label: 'مخصصات القانونية', isMoney: true },
-                { key: 'transport_allowance', label: 'مخصصات النقل', isMoney: true },
-                { key: 'marital_allowance', label: 'مخصصات الزوجية', isMoney: true },
-                { key: 'children_allowance', label: 'مخصصات الاطفال', isMoney: true },
-                { key: 'position_allowance', label: 'مخصصات المنصب', isMoney: true },
-                { key: 'risk_allowance', label: 'مخصصات الخطورة', isMoney: true },
-                { key: 'additional_50_percent_allowance', label: 'مخصصات اضافية 50%', isMoney: true },
-                { key: 'total_allowances', label: 'مجموع المخصصات المستحقة', isMoney: true, highlight: true },
-            ] as FinancialField[]
-        },
-        {
-            id: 'deductions',
-            title: 'الاستقطاعات',
-            icon: Scissors,
-            color: 'from-red-600 to-red-500',
-            fields: [
-                { key: 'tax_deduction_status', label: 'حالة الاستقطاع الضريبي' },
-                { key: 'tax_deduction_amount', label: 'الاستقطاع الضريبي', isMoney: true },
-                { key: 'loan_deduction', label: 'استقطاع مبلغ القرض', isMoney: true },
-                { key: 'execution_deduction', label: 'استقطاع مبالغ التنفيذ', isMoney: true },
-                { key: 'retirement_deduction', label: 'استقطاع التقاعد', isMoney: true },
-                { key: 'school_stamp_deduction', label: 'استقطاع طابع مدرسي', isMoney: true },
-                { key: 'social_security_deduction', label: 'استقطاع الحماية الاجتماعية', isMoney: true },
-                { key: 'other_deductions', label: 'استقطاع مبلغ مطروح', isMoney: true },
-                { key: 'total_deductions', label: 'مجموع الاستقطاعات', isMoney: true, highlight: true },
-            ] as FinancialField[]
-        },
-        {
-            id: 'faq',
-            title: 'الأسئلة الشائعة والحاسبة',
-            icon: Calculator,
-            color: 'from-amber-600 to-amber-500',
-            fields: []
-        }
+    const allowanceFields: FinancialField[] = [
+        { key: 'certificate_percentage', label: 'نسبة م.الشهادة', suffix: '%' },
+        { key: 'certificate_allowance', label: 'مخصصات الشهادة', isMoney: true },
+        { key: 'engineering_allowance', label: 'مخصصات هندسية', isMoney: true },
+        { key: 'legal_allowance', label: 'مخصصات القانونية', isMoney: true },
+        { key: 'transport_allowance', label: 'مخصصات النقل', isMoney: true },
+        { key: 'marital_allowance', label: 'مخصصات الزوجية', isMoney: true },
+        { key: 'children_allowance', label: 'مخصصات الاطفال', isMoney: true },
+        { key: 'position_allowance', label: 'مخصصات المنصب', isMoney: true },
+        { key: 'risk_allowance', label: 'مخصصات الخطورة', isMoney: true },
+        { key: 'additional_50_percent_allowance', label: 'مخصصات اضافية 50%', isMoney: true },
+        { key: 'total_allowances', label: 'مجموع المخصصات المستحقة', isMoney: true, highlight: true },
+    ];
+
+    const deductionFields: FinancialField[] = [
+        { key: 'tax_deduction_status', label: 'حالة الاستقطاع الضريبي' },
+        { key: 'tax_deduction_amount', label: 'الاستقطاع الضريبي', isMoney: true },
+        { key: 'loan_deduction', label: 'استقطاع مبلغ القرض', isMoney: true },
+        { key: 'execution_deduction', label: 'استقطاع مبالغ التنفيذ', isMoney: true },
+        { key: 'retirement_deduction', label: 'استقطاع التقاعد', isMoney: true },
+        { key: 'school_stamp_deduction', label: 'استقطاع طابع مدرسي', isMoney: true },
+        { key: 'social_security_deduction', label: 'استقطاع الحماية الاجتماعية', isMoney: true },
+        { key: 'other_deductions', label: 'استقطاع مبلغ مطروح', isMoney: true },
+        { key: 'total_deductions', label: 'مجموع الاستقطاعات', isMoney: true, highlight: true },
     ];
 
     if (loading) {
@@ -114,142 +94,212 @@ export const FinancialTabContent = ({
         );
     }
 
-    return (
-        <div className="space-y-4 pb-2">
-            {financialData?.updated_at && (
-                <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
-                    <span className="text-brand-green font-bold text-sm">تم مطابقة القيود مع شعبة المالية بتأريخ:</span>
-                    <div className="text-gray-900 dark:text-white font-bold text-sm font-mono tracking-wider dir-ltr">
-                        {formatDateTime(financialData.updated_at)}
-                    </div>
-                </div>
-            )}
+    const renderFieldRow = (field: FinancialField) => {
+        const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
 
+        let displayVal: string;
+        if (field.isMoney) {
+            displayVal = Math.round(Number(val || 0)).toLocaleString();
+        } else if (field.key === 'certificate_percentage') {
+            const num = Number(val || 0);
+            const normalizedPerc = (num > 0 && num <= 1.5) ? Math.round(num * 100) : num;
+            displayVal = `${normalizedPerc}%`;
+        } else if (field.suffix) {
+            displayVal = `${val || 0}${field.suffix}`;
+        } else {
+            displayVal = val || 'غير محدد';
+        }
+
+        return (
+            <div
+                key={field.key}
+                className={cn(
+                    "table-row",
+                    field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
+                )}
+            >
+                <div className={cn(
+                    "table-cell align-middle pl-2 sm:pl-4 w-px whitespace-nowrap",
+                    field.superHighlight && "rounded-r-lg py-1.5 pr-2"
+                )}>
+                    <span className={cn(
+                        "text-xs font-bold block",
+                        field.superHighlight ? "text-brand-green" : "text-muted-foreground"
+                    )}>
+                        {field.label}
+                    </span>
+                </div>
+
+                <div className={cn(
+                    "table-cell align-middle w-full",
+                    field.superHighlight && "rounded-l-lg py-1.5 pl-2"
+                )}>
+                    <div className={cn(
+                        "px-2 sm:px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold font-mono tracking-wide transition-all text-center",
+                        field.superHighlight
+                            ? "bg-brand-green text-white border-brand-green shadow-md"
+                            : field.highlight
+                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                : "bg-muted/50 border-input text-foreground hover:bg-muted"
+                    )}>
+                        {displayVal}
+                    </div>
+                    {validation.discrepancies[field.key] && (
+                        <div className="text-red-500 text-[11px] font-bold mt-1 bg-red-500/10 p-1.5 rounded border border-red-500/20 text-center animate-in slide-in-from-top-1">
+                            {validation.discrepancies[field.key]}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="space-y-3 pb-2 w-full">
+            {/* 1. الترويسة المالية الأساسية: تلتقي مباشرة أسفل التايتل العلوي دون أي فراغات ضائعة */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
-                className="space-y-4"
+                className="space-y-2.5 w-full"
             >
-                <motion.div variants={itemVariants} className="space-y-3 mb-2">
-                    {/* الراتب الاسمي والكلي مدمج في سطر واحد */}
-                    <div className="flex justify-between items-center bg-muted/50 p-3 px-4 rounded-xl border border-input shadow-sm transition-colors hover:bg-muted/80 text-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-bold">الراتب الاسمي</span>
-                            <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
-                                {Math.round(Number(financialData?.nominal_salary || 0)).toLocaleString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-bold">الكلي</span>
-                            <span className="font-mono font-bold text-foreground tracking-wide dir-ltr">
-                                {Math.round(Number(financialData?.gross_salary || 0)).toLocaleString()}
-                            </span>
-                        </div>
+                {/* الراتب الاسمي والكلي مدمج في سطر واحد */}
+                <motion.div variants={itemVariants} className="flex justify-between items-center bg-muted/60 dark:bg-slate-800/60 p-2.5 sm:p-3 px-3 sm:px-4 rounded-xl border border-input shadow-sm transition-colors text-xs sm:text-sm w-full">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-muted-foreground font-bold">الراتب الاسمي</span>
+                        <span className="font-mono font-black text-foreground tracking-wide dir-ltr text-sm sm:text-base">
+                            {Math.round(Number(financialData?.nominal_salary || 0)).toLocaleString()}
+                        </span>
                     </div>
-
-                    {/* الراتب الصافي */}
-                    <div className="flex justify-between items-center bg-[#24b85c] text-white p-3 px-4 rounded-xl shadow-md border border-[#20a352] ring-1 ring-white/20">
-                        <span className="text-white/90 text-sm font-bold">الراتب الصافي</span>
-                        <span className="font-mono font-black text-xl tracking-tight drop-shadow-sm dir-ltr">
-                            {Math.round(Number(financialData?.net_salary || 0)).toLocaleString()}
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-muted-foreground font-bold">الكلي</span>
+                        <span className="font-mono font-black text-foreground tracking-wide dir-ltr text-sm sm:text-base">
+                            {Math.round(Number(financialData?.gross_salary || 0)).toLocaleString()}
                         </span>
                     </div>
                 </motion.div>
 
-                {financialGroups.map((group) => (
-                    <motion.div key={group.id} variants={itemVariants}>
-                        <AccordionSection
-                            id={`financial-group-${group.id}`}
-                            title={group.title}
-                            icon={group.icon as any} // Avoid typing issues with lucide icons
-                            color={group.color}
-                            isOpen={openSection === group.id}
-                            onToggle={() => toggleSection(group.id)}
-                        >
-                            <div className="table w-full border-separate border-spacing-y-3 p-1">
-                                {group.id === 'faq' ? (
-                                    <div className="space-y-6 py-2">
-                                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3">
-                                            <div className="p-2 bg-amber-500 text-white rounded-lg h-fit">
-                                                <Calculator className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-amber-900 dark:text-amber-100">احسب راتبك بنفسك</h4>
-                                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
-                                                    أداة تفاعلية تتيح لك تقدير راتبك الصافي بناءً على درجتك ومرحلتك الوظيفية والمخصصات التي تستحقها.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <SalaryCalculator />
-                                    </div>
-                                ) : (
-                                    group.fields.map((field) => {
-                                        const val = field.isProfile ? (user as any)?.[field.key] : (field.isDate ? adminData?.[field.key] : financialData[field.key]);
-
-                                        let displayVal: string;
-                                        if (field.isMoney) {
-                                            displayVal = Math.round(Number(val || 0)).toLocaleString();
-                                        } else if (field.key === 'certificate_percentage') {
-                                            const num = Number(val || 0);
-                                            const normalizedPerc = (num > 0 && num <= 1.5) ? Math.round(num * 100) : num;
-                                            displayVal = `${normalizedPerc}%`;
-                                        } else if (field.suffix) {
-                                            displayVal = `${val || 0}${field.suffix}`;
-                                        } else {
-                                            displayVal = val || 'غير محدد';
-                                        }
-
-                                        return (
-                                            <div
-                                                key={field.key}
-                                                className={cn(
-                                                    "table-row",
-                                                    field.superHighlight && "bg-brand-green/10 rounded-lg shadow-sm"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "table-cell align-middle pl-4 w-px whitespace-nowrap",
-                                                    field.superHighlight && "rounded-r-lg py-2 pr-2"
-                                                )}>
-                                                    <span className={cn(
-                                                        "text-xs font-bold block",
-                                                        field.superHighlight ? "text-brand-green" : "text-muted-foreground"
-                                                    )}>
-                                                        {field.label}
-                                                    </span>
-                                                </div>
-
-                                                <div className={cn(
-                                                    "table-cell align-middle w-full",
-                                                    field.superHighlight && "rounded-l-lg py-2 pl-2"
-                                                )}>
-                                                    <div className={cn(
-                                                        "px-3 py-2 rounded-lg border text-sm font-bold font-mono tracking-wide transition-all text-center",
-                                                        field.superHighlight
-                                                            ? "bg-brand-green text-white border-brand-green shadow-md"
-                                                            : field.highlight
-                                                                ? "bg-red-500/10 border-red-500/30 text-red-500 dark:text-red-400"
-                                                                : "bg-muted/50 border-input text-foreground hover:bg-muted"
-                                                    )}>
-                                                        {displayVal}
-                                                    </div>
-                                                    {validation.discrepancies[field.key] && (
-                                                        <div className="text-red-500 text-[11px] font-bold mt-1 bg-red-500/10 p-1.5 rounded border border-red-500/20 text-center animate-in slide-in-from-top-1">
-                                                            {validation.discrepancies[field.key]}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </AccordionSection>
-                    </motion.div>
-                ))}
+                {/* الراتب الصافي */}
+                <motion.div variants={itemVariants} className="flex justify-between items-center bg-[#24b85c] text-white p-2.5 sm:p-3 px-3 sm:px-4 rounded-xl shadow-md border border-[#20a352] ring-1 ring-white/20 w-full">
+                    <span className="text-white/95 text-xs sm:text-sm font-bold">الراتب الصافي</span>
+                    <span className="font-mono font-black text-lg sm:text-2xl tracking-tight drop-shadow-sm dir-ltr">
+                        {Math.round(Number(financialData?.net_salary || 0)).toLocaleString()}
+                    </span>
+                </motion.div>
             </motion.div>
+
+            {/* 2. شريط الأزرار الأفقي الثلاثي: المخصصات والاستقطاعات | حاسبة الراتب | الحوافز */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/50 dark:bg-slate-900/60 rounded-xl border border-input/60 shadow-inner w-full mt-2 select-none">
+                {/* الزر الأيمن: المخصصات والاستقطاعات */}
+                <button
+                    type="button"
+                    onClick={() => setSubTab('breakdown')}
+                    className={cn(
+                        "flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all duration-200 active:scale-95 truncate",
+                        subTab === 'breakdown'
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-extrabold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-muted/80 hover:text-foreground"
+                    )}
+                >
+                    <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate">المخصصات والاستقطاعات</span>
+                </button>
+
+                {/* الزر الأوسط: حاسبة الراتب */}
+                <button
+                    type="button"
+                    onClick={() => setSubTab('calculator')}
+                    className={cn(
+                        "flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all duration-200 active:scale-95 truncate",
+                        subTab === 'calculator'
+                            ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 font-extrabold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-muted/80 hover:text-foreground"
+                    )}
+                >
+                    <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate">حاسبة الراتب</span>
+                </button>
+
+                {/* الزر الأيسر: الحوافز */}
+                <button
+                    type="button"
+                    onClick={() => setSubTab('incentives')}
+                    className={cn(
+                        "flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all duration-200 active:scale-95 truncate",
+                        subTab === 'incentives'
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-600/30 font-extrabold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-muted/80 hover:text-foreground"
+                    )}
+                >
+                    <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate">الحوافز</span>
+                </button>
+            </div>
+
+            {/* 3. المتن والعرض بناءً على التبويب المختار */}
+            <div className="w-full mt-3">
+                {subTab === 'breakdown' && (
+                    <div className="space-y-4 animate-in fade-in duration-300 w-full">
+                        {/* كتلة المخصصات */}
+                        <div className="bg-card rounded-xl border border-border p-3 sm:p-4 shadow-sm space-y-2">
+                            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+                                <div className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg">
+                                    <Wallet className="w-4 h-4" />
+                                </div>
+                                <h3 className="font-bold text-xs sm:text-sm text-foreground">تفاصيل المخصصات المستحقة</h3>
+                            </div>
+                            <div className="table w-full border-separate border-spacing-y-2 p-0.5">
+                                {allowanceFields.map(renderFieldRow)}
+                            </div>
+                        </div>
+
+                        {/* كتلة الاستقطاعات مدمجة في نفس السكرول الموحد */}
+                        <div className="bg-card rounded-xl border border-border p-3 sm:p-4 shadow-sm space-y-2">
+                            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+                                <div className="p-1.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg">
+                                    <Scissors className="w-4 h-4" />
+                                </div>
+                                <h3 className="font-bold text-xs sm:text-sm text-foreground">تفاصيل الاستقطاعات الشهرية</h3>
+                            </div>
+                            <div className="table w-full border-separate border-spacing-y-2 p-0.5">
+                                {deductionFields.map(renderFieldRow)}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {subTab === 'calculator' && (
+                    <div className="bg-card rounded-xl border border-border p-3 sm:p-5 shadow-sm space-y-4 animate-in fade-in duration-300 w-full">
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 sm:p-4 flex gap-3 items-center">
+                            <div className="p-2 bg-amber-500 text-white rounded-lg shrink-0">
+                                <Calculator className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-xs sm:text-sm text-amber-900 dark:text-amber-100">احسب راتبك بنفسك</h4>
+                                <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300 mt-0.5 leading-relaxed">
+                                    أداة تفاعلية ذكية لحساب تقدير الراتب الصافي بناءً على درجتك ومرحلتك الوظيفية والمخصصات المستحقة.
+                                </p>
+                            </div>
+                        </div>
+                        <SalaryCalculator />
+                    </div>
+                )}
+
+                {subTab === 'incentives' && (
+                    <div className="animate-in fade-in duration-300 w-full">
+                        <Suspense fallback={
+                            <div className="p-12 text-center bg-card rounded-xl border">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
+                                <p className="text-xs text-muted-foreground mt-2 font-bold">جارٍ تحميل كشف الحوافز...</p>
+                            </div>
+                        }>
+                            <IncentivesTabContent isAdminView={false} />
+                        </Suspense>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
+
 

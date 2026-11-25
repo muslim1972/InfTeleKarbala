@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3, ShieldCheck, Coins } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
@@ -67,8 +67,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         user?.full_name?.includes('مسلم قيل')
     );
 
-    const isIncentivesAllowed = isAdmin || isDeveloper || isSpecialAccount;
-
     // تبويبة تدريب ودورات تظهر في واجهة المستخدم فقط لمن لا يملك بطاقة إشراف ولكنه مخوّل بالترفيع أو التدريب
     const canSeeUserTrainingCourses = Boolean(
         !hasAdminDashboard && (
@@ -121,7 +119,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const tabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
-        { id: 'incentives', label: 'الحوافز الشهرية', icon: Coins },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
         ...(canSeeUserTrainingCourses ? [
@@ -210,10 +207,6 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                             key={tab.id}
                             onClick={() => {
                                 if (tab.id === 'requests' && !isRequestsAllowed) {
-                                    toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
-                                    return;
-                                }
-                                if (tab.id === 'incentives' && !isIncentivesAllowed) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }

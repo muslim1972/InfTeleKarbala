@@ -727,14 +727,14 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                     )}
                 </div>
 
-                {/* السطر الثاني: المستطيل رقم 1 (زر التبديل) + اختيار السنة والشهر */}
-                <div className="flex items-center justify-between gap-1 sm:gap-2 flex-nowrap w-full mb-3">
+                {/* السطر الثاني: أزرار التبديل واختيار التاريخ (متجاوبة تماماً مع شاشات الموبايل لمنع أي انحراف أفقي) */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full mb-3">
                     {/* أزرار التبويب: تفاصيل الحافز واللجان المعتمدة */}
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={() => setIncentiveSubView('details')}
-                            className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 text-xs sm:text-sm shrink-0 ${
+                            className={`font-bold py-2 px-2.5 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 ${
                                 incentiveSubView === 'details'
                                     ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-amber-500/20'
                                     : theme === 'light'
@@ -742,14 +742,14 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                             }`}
                         >
-                            <Coins className="w-4 h-4" />
+                            <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <span>تفاصيل الحافز</span>
                         </button>
 
                         <button
                             type="button"
                             onClick={() => setIncentiveSubView('committees')}
-                            className={`font-bold py-2 px-3 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center gap-2 text-xs sm:text-sm shrink-0 ${
+                            className={`font-bold py-2 px-2.5 sm:px-4 rounded-xl border shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 ${
                                 incentiveSubView === 'committees'
                                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-emerald-500/20'
                                     : theme === 'light'
@@ -757,15 +757,15 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                             }`}
                         >
-                            <Users className="w-4 h-4" />
+                            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <span>اللجان المعتمدة</span>
                         </button>
                     </div>
 
-                    {/* قوائم اختيار التاريخ */}
-                    <div className="flex gap-2">
+                    {/* قوائم اختيار التاريخ: تتوزع بانتظام لمنع أي فيض أفقي */}
+                    <div className="grid grid-cols-2 gap-1.5 sm:flex sm:gap-2 w-full sm:w-auto">
                         <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                            <SelectTrigger className="w-20 sm:w-24 h-9 text-xs sm:text-sm">
+                            <SelectTrigger className="w-full sm:w-24 h-9 text-xs sm:text-sm">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -776,7 +776,7 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
                         </Select>
 
                         <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
-                            <SelectTrigger className="w-24 sm:w-28 h-9 text-xs sm:text-sm">
+                            <SelectTrigger className="w-full sm:w-28 h-9 text-xs sm:text-sm">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

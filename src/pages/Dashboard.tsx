@@ -173,7 +173,7 @@ export const Dashboard = ({ onBack }: { onBack?: () => void }) => {
 
     return (
         <Layout headerContent={headerContent} stickySubHeader={adminStickySubHeader} headerTitle="لوحة الموظف" showUserName={true} onBack={onBack}>
-            <div className={cn("mx-auto relative pb-2 mt-2 bg-transparent", isBroadTab ? "w-full max-w-7xl px-1 sm:px-2" : "max-w-4xl px-4")}>
+            <div className={cn("mx-auto relative pb-2 mt-1 sm:mt-2 bg-transparent", isBroadTab ? "w-full max-w-7xl px-1 sm:px-2" : "w-full max-w-4xl px-0.5 sm:px-2 md:px-4")}>
                 {activeTab === 'polls' ? (
                     <UserPolls />
                 ) : activeTab === 'requests' ? (

@@ -38,7 +38,7 @@ export const Layout = ({ children, className, headerContent, stickySubHeader, he
                 <AppHeader bottomContent={headerContent} stickySubHeader={stickySubHeader} title={headerTitle} showUserName={showUserName} onBack={onBack} />
                 <HistoricalModeBanner />
 
-                <main className={cn("flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]", className)}>
+                <main className={cn("flex-1 p-1.5 sm:p-3 md:p-6 max-w-7xl mx-auto w-full pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]", className)}>
                     {children}
                 </main>
             </div>

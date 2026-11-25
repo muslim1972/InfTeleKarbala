@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.8.68"
+  version: "0.8.69"
   last_updated: "2026-11-25"
 ---
 
@@ -2898,3 +2898,26 @@ px tsc --noEmit -p tsconfig.app.json بصفر أخطاء.
    - تحديث `core_settle_request_approval`: عند موافقة المسؤول المباشر على `long_regular` ينطلق للموظف إشعار مراجعة الموارد البشرية مع زر `اطلعت`، وينطلق في نفس اللحظة إشعار `long_leave_finance` لمسؤول القسم المالي والإداري وبديله.
    - إضافة `process_long_leave_finance`، `get_long_leave_request_for_print`، و`mark_long_leave_printed` (بمنطق الطباعة الأولى العام) + قالب الطباعة [printAdministrativeOrderDirect.ts](file:///D:/InfTeleKarbala/src/features/hr/utils/printAdministrativeOrderDirect.ts) (`printLongLeaveOrderDirect`) وإشعارات [AppNotifications.tsx](file:///D:/InfTeleKarbala/src/components/features/AppNotifications.tsx) و[NotificationHistoryModal.tsx](file:///D:/InfTeleKarbala/src/components/notifications/NotificationHistoryModal.tsx).
 3. **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 346/346`، `463` ملفاً)، `tsc` (`0` أخطاء جديدة ولا `TS2304`)، `npm run build` (`24.90s`)، `deploy-dist.ps1`: `SAME=399 / DIFF=0 / MISSING=0` و`LAN HTTP: 200`.
+
+
+---
+
+### 2026-11-25 23:45 — هندسة شاشة الترحيب، استغلال عرض الموبايل، والدمج الثلاثي للتبويب المالي والحوافز (`D109`)
+
+1. **شاشة الترحيب والبصمة ([AdminRoleSelector.tsx](file:///D:/InfTeleKarbala/src/components/auth/AdminRoleSelector.tsx)):**
+   - تثبيت مستشعر البصمة البيومتري في أسفل الشاشة فوق الفوتر مباشرة في المنتصف الأفقي الثابت دائماً.
+   - تهدئة وميض البصمة وجعله رزيناً وبطيئاً (`pulse_6s`) مع إزالة وميض `ping` السريع المشتت.
+   - جعل شبكة البطاقات تتوسط الحيز الشاغور عمودياً بين الترحيب والبصمة، وتوسيط الأيقونة والعنوان والنص هندسياً (`justify-center text-center`) عند تمدد البطاقة الفردية الأخيرة (كبطاقة الموارد البشرية).
+2. **استغلال عرض شاشات الموبايل ([Layout.tsx](file:///D:/InfTeleKarbala/src/components/layout/Layout.tsx) و [Dashboard.tsx](file:///D:/InfTeleKarbala/src/pages/Dashboard.tsx)):**
+   - ترشيد الحشو الداخلي في الموبايل من `p-4` و`px-4` (مهدر 32px لكل جانب) ليصبح `p-1.5 sm:p-3 md:p-6` في Layout و`px-0.5 sm:px-2 md:px-4` في لوحة الموظف، مما أتاح استغلالاً شبه كامل لعرض الشاشة دون مساحات ضائعة.
+3. **إعادة هيكلة التبويب المالي والدمج مع الحوافز ([FinancialTabContent.tsx](file:///D:/InfTeleKarbala/src/components/features/FinancialTabContent.tsx)):**
+   - حذف قسم «تم مطابقة القيود مع شعبة المالية بتأريخ: ...».
+   - تصعيد قسم الراتب الاسمي والكلي وبطاقة الراتب الصافي لتلتقي مباشرة أسفل شريط التبويبات العلوي دون أي فراغ عمودي ضائع.
+   - إنشاء شريط تحكم كبسولي أفقي ثلاثي:
+     * الزر الأيمن: «المخصصات والاستقطاعات» (دمج سلس للقائمتين بسكرول موحد).
+     * الزر الأوسط: «حاسبة الراتب» (عرض حاسبة الراتب التفاعلية المستخرجة من قسم الحاسبة).
+     * الزر الأيسر: «الحوافز» (استدعاء كشف الحوافز الشهري).
+4. **إصلاح تجاوب كشف الحوافز وترشيد الشريط العلوي ([IncentivesTabContent.tsx](file:///D:/InfTeleKarbala/src/components/features/IncentivesTabContent.tsx) و [TabSystem.tsx](file:///D:/InfTeleKarbala/src/components/features/TabSystem.tsx)):**
+   - إصلاح حاوية الأزرار ومنتقيات الشهر والسنة في كشف الحوافز لتلتف بمرونة في الموبايل وتمنع خروج زر الشهر عن الشاشة والانحراف الأفقي.
+   - إزالة تبويبة «الحوافز الشهرية» من شريط التبويبات العلوي العام لتكاملها كلياً داخل قسم المالية دون تكرار.
+5. **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 346/346`، `463` ملفاً)، `tsc` (`0` أخطاء جديدة)، `npm run build` (`28.51s`)، `deploy-dist.ps1`: `SAME=399 / DIFF=0 / MISSING=0` (رُفع 92 ملفاً).

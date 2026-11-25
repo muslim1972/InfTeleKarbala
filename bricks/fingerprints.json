@@ -1,5 +1,5 @@
 {
- "created": "2026-11-25T14:36:26.269Z",
+ "created": "2026-11-25T20:54:57.739Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
@@ -243,7 +243,7 @@
   },
   "src/components/auth/AdminRoleSelector.tsx": {
    "brick": "FE-CORE-02",
-   "sha": "26c9754a3b7f"
+   "sha": "353542112cb1"
   },
   "src/components/call/CallOverlay.tsx": {
    "brick": "FE-COM-01",
@@ -355,7 +355,7 @@
   },
   "src/components/features/FinancialTabContent.tsx": {
    "brick": "FE-FIN-01",
-   "sha": "6e2ac477c179"
+   "sha": "31b0546e660a"
   },
   "src/components/features/FloatingAudioPlayer.tsx": {
    "brick": "FE-MED-01",
@@ -367,7 +367,7 @@
   },
   "src/components/features/IncentivesTabContent.tsx": {
    "brick": "FE-INC-01",
-   "sha": "f501b05f3021"
+   "sha": "9eea7353e8ff"
   },
   "src/components/features/PollItem.tsx": {
    "brick": "FE-MED-01",
@@ -391,7 +391,7 @@
   },
   "src/components/features/TabSystem.tsx": {
    "brick": "FE-UI-01",
-   "sha": "ae596f4a86e2"
+   "sha": "0a10b115b8cf"
   },
   "src/components/features/TrainingPollsList.tsx": {
    "brick": "FE-TRN-01",
@@ -447,7 +447,7 @@
   },
   "src/components/layout/Layout.tsx": {
    "brick": "FE-CORE-01",
-   "sha": "cbd785692c53"
+   "sha": "262eded9d900"
   },
   "src/components/notifications/NotificationHistoryModal.tsx": {
    "brick": "FE-CORE-05",
@@ -1299,7 +1299,7 @@
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "3128f5a1a0e2"
+   "sha": "458bcb6e4d62"
   },
   "src/pages/GovernorateSelection.tsx": {
    "brick": "FE-CORE-03",

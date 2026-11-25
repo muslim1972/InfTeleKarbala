@@ -105,18 +105,20 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasHR = fal
                 <div className="bg-brand-green mx-auto rounded-full shadow-lg h-1 w-12 mt-1.5" />
             </div>
 
-            {/* 2. Cards Container + Biometric Thumbprint Sensor below */}
-            <div className="relative z-10 w-full max-w-lg flex-1 flex flex-col items-center justify-center px-4 py-3 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
-                {/* شبكة البطاقات الرشيقة المتوازنة (مع تمديد البطاقة الأخيرة الفردية بعرض الصف) */}
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
+            {/* 2. Cards Container (Dynamically centered in the available vertical space) */}
+            <div className="relative z-10 w-full max-w-lg flex-1 flex flex-col items-center justify-center px-4 py-2">
+                {/* شبكة البطاقات الرشيقة المتوازنة (مع تمديد البطاقة الأخيرة الفردية بعرض الصف وتوسيط محتواها) */}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
                     {visibleCards.map((card, index) => {
                         const isLastOdd = isOddCount && index === visibleCards.length - 1;
                         return (
                             <button
                                 key={card.id}
                                 onClick={() => onSelect(card.id)}
-                                className={`group relative flex flex-row items-center text-right p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[66px] sm:min-h-[72px] ${
-                                    isLastOdd ? 'col-span-2' : ''
+                                className={`group relative flex flex-row items-center p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[66px] sm:min-h-[72px] ${
+                                    isLastOdd 
+                                        ? 'col-span-2 justify-center text-center' 
+                                        : 'text-right'
                                 } ${
                                     isDark
                                         ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
@@ -126,7 +128,9 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasHR = fal
                                 <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors border ${card.iconBg}`}>
                                     {card.icon}
                                 </div>
-                                <div className="flex-1 min-w-0 pr-2.5 sm:pr-3 text-right overflow-hidden">
+                                <div className={`min-w-0 pr-2.5 sm:pr-3 overflow-hidden ${
+                                    isLastOdd ? 'text-center' : 'flex-1 text-right'
+                                }`}>
                                     <h3 className={`text-xs sm:text-[13px] font-bold leading-tight truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                         {card.label}
                                     </h3>
@@ -138,48 +142,48 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasHR = fal
                         );
                     })}
                 </div>
+            </div>
 
-                {/* مستشعر البصمة البيومتري التفاعلي في المنتصف أسفل البطاقات (الحضور والانصراف) */}
-                <div className="mt-6 sm:mt-8 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 delay-200">
-                    <button
-                        type="button"
-                        onClick={() => onSelect('attendance')}
-                        aria-label="تسجيل الحضور والانصراف بالبصمة"
-                        className="group relative flex flex-col items-center justify-center focus:outline-none select-none"
-                    >
-                        {/* هالة الوميض البطيء الخارجي */}
-                        <span className="absolute -inset-3 rounded-full bg-cyan-500/15 dark:bg-cyan-400/15 blur-md animate-[pulse_3s_ease-in-out_infinite] pointer-events-none" />
-                        <span className="absolute -inset-1.5 rounded-full border border-cyan-500/30 dark:border-cyan-400/30 animate-[ping_3.5s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40 pointer-events-none" />
+            {/* 3. مستشعر البصمة البيومتري التفاعلي - مثبت دائماً في الأسفل مباشرة فوق الفوتر بوميض هادئ وبطيء */}
+            <div className="relative z-10 w-full max-w-lg shrink-0 flex flex-col items-center justify-center pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pt-1 animate-in fade-in duration-1000">
+                <button
+                    type="button"
+                    onClick={() => onSelect('attendance')}
+                    aria-label="تسجيل الحضور والانصراف بالبصمة"
+                    className="group relative flex flex-col items-center justify-center focus:outline-none select-none"
+                >
+                    {/* هالة الوميض البطيء والرزين جداً لإراحة العين */}
+                    <span className="absolute -inset-2.5 rounded-full bg-cyan-500/10 dark:bg-cyan-400/10 blur-md animate-[pulse_6s_ease-in-out_infinite] pointer-events-none" />
 
-                        {/* إطار البصمة الإبهامي البيضوي التفاعلي */}
-                        <div className={`relative w-[76px] h-[94px] sm:w-[84px] sm:h-[104px] rounded-[42px] flex items-center justify-center border-2 transition-all duration-300 group-hover:scale-105 group-active:scale-95 backdrop-blur-md ${
-                            isDark
-                                ? 'bg-cyan-950/40 border-cyan-400/50 shadow-[0_0_28px_rgba(34,211,238,0.22)] group-hover:border-cyan-300 group-hover:shadow-[0_0_36px_rgba(34,211,238,0.4)]'
-                                : 'bg-white/90 border-cyan-500/50 shadow-[0_8px_28px_rgba(6,182,212,0.2)] group-hover:border-cyan-600 group-hover:shadow-[0_10px_35px_rgba(6,182,212,0.35)]'
-                        }`}>
-                            <Fingerprint
-                                strokeWidth={1.6}
-                                className={`w-12 h-14 sm:w-14 sm:h-16 animate-[pulse_2.8s_ease-in-out_infinite] transition-colors duration-300 ${
-                                    isDark
-                                        ? 'text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.6)] group-hover:text-cyan-200'
-                                        : 'text-cyan-600 drop-shadow-[0_2px_8px_rgba(6,182,212,0.35)] group-hover:text-cyan-700'
-                                }`}
-                            />
-                        </div>
+                    {/* إطار البصمة الإبهامي البيضوي التفاعلي */}
+                    <div className={`relative w-[72px] h-[88px] sm:w-[80px] sm:h-[98px] rounded-[38px] flex items-center justify-center border-2 transition-all duration-300 group-hover:scale-105 group-active:scale-95 backdrop-blur-md ${
+                        isDark
+                            ? 'bg-cyan-950/40 border-cyan-400/40 shadow-[0_0_20px_rgba(34,211,238,0.18)] group-hover:border-cyan-300 group-hover:shadow-[0_0_30px_rgba(34,211,238,0.35)]'
+                            : 'bg-white/90 border-cyan-500/40 shadow-[0_6px_22px_rgba(6,182,212,0.16)] group-hover:border-cyan-600 group-hover:shadow-[0_8px_28px_rgba(6,182,212,0.3)]'
+                    }`}>
+                        <Fingerprint
+                            strokeWidth={1.5}
+                            className={`w-11 h-13 sm:w-13 sm:h-15 animate-[pulse_5s_ease-in-out_infinite] transition-colors duration-300 ${
+                                isDark
+                                    ? 'text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] group-hover:text-cyan-200'
+                                    : 'text-cyan-600 drop-shadow-[0_2px_6px_rgba(6,182,212,0.3)] group-hover:text-cyan-700'
+                            }`}
+                        />
+                    </div>
 
-                        {/* مسمى الحضور والانصراف بخط رشيق */}
-                        <span className={`mt-2.5 text-xs sm:text-sm font-bold tracking-tight transition-colors ${
-                            isDark ? 'text-cyan-200 group-hover:text-white' : 'text-slate-800 group-hover:text-cyan-700'
-                        }`}>
-                            الحضور والانصراف
-                        </span>
-                        <span className={`text-[10px] font-medium mt-0.5 ${
-                            isDark ? 'text-cyan-400/75' : 'text-cyan-700/80'
-                        }`}>
-                            المس البصمة للدخول
-                        </span>
-                    </button>
-                </div>
+                    {/* مسمى الحضور والانصراف بخط رشيق */}
+                    <span className={`mt-2 text-xs sm:text-sm font-bold tracking-tight transition-colors ${
+                        isDark ? 'text-cyan-200 group-hover:text-white' : 'text-slate-800 group-hover:text-cyan-700'
+                    }`}>
+                        الحضور والانصراف
+                    </span>
+                    <span className={`text-[10px] font-medium mt-0.5 ${
+                        isDark ? 'text-cyan-400/75' : 'text-cyan-700/80'
+                    }`}>
+                        المس البصمة للدخول
+                    </span>
+                </button>
+            </div>
 
                 {/* Logout Button in Top Left */}
                 <div className="fixed top-[calc(1.25rem+env(safe-area-inset-top))] left-4 sm:left-6 z-[100] animate-in fade-in slide-in-from-top-8 duration-700">
@@ -203,6 +207,5 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasHR = fal
                     </button>
                 </div>
             </div>
-        </div>
-    );
-};
+        );
+    };
