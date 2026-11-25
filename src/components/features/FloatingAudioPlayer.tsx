@@ -6,7 +6,6 @@ import { useAudio } from "../../context/AudioContext";
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 
 interface FloatingAudioPlayerProps {
     className?: string;
@@ -23,7 +22,6 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
         isQuranPlayerVisible
     } = useAudio();
     const { theme } = useTheme();
-    const { user } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const isChat = location.pathname.startsWith('/chat/');
@@ -35,16 +33,16 @@ export const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({ classN
         // Prevent navigation if clicking buttons
         if ((e.target as HTMLElement).closest('button')) return;
 
-        const isAdmin = user?.role === 'admin';
-        const targetTab = isAdmin ? 'admin_audio' : 'audio';
-        
-        // Dispatch custom event for instant tab switching if already on dashboard
+        // توجيه المشرف والمستخدم إلى تبويبة القرآن الكريم في واجهة المستخدم (بعد حصر القرآن الكريم في واجهة المستخدم)
+        window.dispatchEvent(new CustomEvent('switch_admin_view_mode', {
+            detail: { mode: 'user' }
+        }));
         window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { 
-            detail: { tab: targetTab } 
+            detail: { tab: 'audio' } 
         }));
 
-        // Also navigate to root with tab parameter for fallback/deep-linking
-        navigate(`/?tab=${targetTab}`);
+        // Also navigate to root with mode & tab parameter for fallback/deep-linking
+        navigate('/?mode=user&tab=audio');
     };
 
     return (

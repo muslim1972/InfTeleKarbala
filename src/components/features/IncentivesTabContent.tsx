@@ -979,7 +979,7 @@ export const IncentivesTabContent = ({ isAdminView = false, onBack }: Incentives
 
     // عرض واجهة الإدخال والاحتساب للمسؤولين والمشرفين والمطور
     return (
-        <div className="w-full px-0 sm:px-2 md:container md:mx-auto pb-16 space-y-1.5 sm:space-y-2">
+        <div className="w-full px-0 sm:px-2 md:container md:mx-auto pb-2 space-y-1.5 sm:space-y-2">
             {/* المنطقة 1: الشريط العلوي المشترك (أزرار التبويب 2 + تحديد الشهر والسنة) */}
             <div className={`p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border backdrop-blur-md flex items-center justify-between gap-1 sm:gap-2 flex-nowrap w-full shadow-sm ${
                 theme === 'light' ? 'bg-white/80 border-slate-200' : 'bg-slate-950/70 border-white/10'

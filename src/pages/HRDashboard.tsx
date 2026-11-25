@@ -94,7 +94,7 @@ export const HRDashboard = ({ onBack }: HRDashboardProps) => {
             className="relative min-h-screen bg-transparent"
             onBack={onBack}
         >
-            <div className="max-w-6xl mx-auto px-2 sm:px-4 relative pb-24 mt-2">
+            <div className="max-w-6xl mx-auto px-2 sm:px-4 relative pb-2 mt-2">
                 {activeTab === 'requests' && (
                     <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300">
                         <HRRequestsHub highlightRequestId={highlightRequestId} />

@@ -131,7 +131,7 @@ export const GovernorateSelection = ({ onSelect }: GovernorateSelectionProps) =>
             </div>
 
             {/* Governorate Grid */}
-            <div className="relative z-10 w-full max-w-5xl mx-auto px-4 pb-48">
+            <div className="relative z-10 w-full max-w-5xl mx-auto px-4 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {governorates.map((gov, idx) => {
                         const govActive = gov.isActive || !!activeCards[gov.id];

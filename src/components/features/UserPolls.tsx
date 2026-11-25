@@ -58,7 +58,7 @@ export function UserPolls() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8 pb-20">
+        <div className="max-w-2xl mx-auto space-y-8 pb-2">
 
             {/* Header Buttons Section */}
             {(conference || directive) && (

@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { temporaryWorkHoursService } from '../features/attendance/services/temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows } from '../features/attendance/utils/shiftScheduleUtils';
 
 // ─── توقيت بغداد المعتمد (UTC+3 ثابت بلا توقيت صيفي) ───
 // كل منطق «أي يوم نحن فيه» في البصمة يجب أن يمر عبر هذه المساعدات
@@ -121,7 +123,8 @@ export async function fetchDailyAttendanceStats(dateStr: string, gov: string): P
     departmentsRes,
     scheduleDaysRes,
     settingsRes,
-    holidaysRes
+    holidaysRes,
+    effectiveHours
   ] = await Promise.all([
     profilesQuery,
     supabase
@@ -145,8 +148,11 @@ export async function fetchDailyAttendanceStats(dateStr: string, gov: string): P
       .from('official_holidays')
       .select('name, start_date, end_date')
       .lte('start_date', dateStr)
-      .gte('end_date', dateStr)
+      .gte('end_date', dateStr),
+    temporaryWorkHoursService.getEffectiveWorkHoursForDate(dateStr, gov === 'all' ? 'karbala' : gov)
   ]);
+
+  const dutyWindows = resolveEffectiveDutyWindows(effectiveHours);
 
   const allProfiles = profilesRes.data || [];
   const weekendDays = settingsRes.data?.weekend_days || ['Friday', 'Saturday'];
@@ -231,19 +237,19 @@ export async function fetchDailyAttendanceStats(dateStr: string, gov: string): P
   let dayPhase: 'morning_arrival' | 'core_hours' | 'afternoon_checkout' | 'evening_shift' | 'night_shift' = 'core_hours';
   let dayPhaseLabel = 'ساعات العمل الرئيسية';
 
-  if (currentTotalMins >= 360 && currentTotalMins < 540) { // 06:00 - 09:00
+  if (currentTotalMins >= dutyWindows.morningEarlyPunchMinMinutes && currentTotalMins < dutyWindows.morningStartMinutes + 60) {
     dayPhase = 'morning_arrival';
     dayPhaseLabel = 'فترة التوافد وتسجيل الدخول الصباحي';
-  } else if (currentTotalMins >= 540 && currentTotalMins < 840) { // 09:00 - 14:00
+  } else if (currentTotalMins >= dutyWindows.morningStartMinutes + 60 && currentTotalMins < dutyWindows.morningEarlyLeaveLimitMinutes) {
     dayPhase = 'core_hours';
     dayPhaseLabel = 'ساعات العمل الرئيسية واستقرار الدوام';
-  } else if (currentTotalMins >= 840 && currentTotalMins < 930) { // 14:00 - 15:30
+  } else if (currentTotalMins >= dutyWindows.morningEarlyLeaveLimitMinutes && currentTotalMins < dutyWindows.morningEndMinutes + 30) {
     dayPhase = 'afternoon_checkout';
     dayPhaseLabel = 'فترة الانصراف الصباحي واستلام المناوبة';
-  } else if (currentTotalMins >= 930 && currentTotalMins < 1200) { // 15:30 - 20:00
+  } else if (currentTotalMins >= dutyWindows.morningEndMinutes + 30 && currentTotalMins < dutyWindows.nightStartMinutes) {
     dayPhase = 'evening_shift';
     dayPhaseLabel = 'فترة المناوبة المسائية (انتهاء الدوام الصباحي)';
-  } else { // 20:00 - 06:00
+  } else {
     dayPhase = 'night_shift';
     dayPhaseLabel = 'فترة الخفر والمناوبة الليلية';
   }
@@ -280,22 +286,34 @@ export async function fetchDailyAttendanceStats(dateStr: string, gov: string): P
     let liveStatusLabel = 'غائب غير مبرر';
     let workedMinutes = 0;
 
-    let expStart = '08:00';
-    let expEnd = '15:00';
-    let cutoffMin = 930; // 15:30
+    let expStart = dutyWindows.morningStart;
+    let expEnd = dutyWindows.morningEnd;
+    let cutoffMin = dutyWindows.morningEndMinutes + 30;
 
     if (emp.shiftLabel === 'مسائي') {
-      expStart = '14:30';
-      expEnd = '20:00';
-      cutoffMin = 1230; // 20:30
+      expStart = dutyWindows.eveningStart;
+      expEnd = dutyWindows.eveningEnd;
+      cutoffMin = dutyWindows.eveningEndMinutes + 30;
     } else if (emp.shiftLabel === 'خفر / ليلي') {
-      expStart = '20:00';
-      expEnd = '08:00';
-      cutoffMin = 510;
+      expStart = dutyWindows.nightStart;
+      expEnd = dutyWindows.nightEnd;
+      cutoffMin = dutyWindows.nightEndMinutes + 30;
     } else if (emp.shiftLabel === 'نوبة كاملة 24 س') {
-      expStart = '08:00';
-      expEnd = '08:00';
-      cutoffMin = 510;
+      expStart = dutyWindows.morningStart;
+      expEnd = dutyWindows.nightEnd;
+      cutoffMin = dutyWindows.nightEndMinutes + 30;
+    } else if (emp.shiftLabel === 'صباحي + مسائي') {
+      expStart = dutyWindows.morningStart;
+      expEnd = dutyWindows.eveningEnd;
+      cutoffMin = dutyWindows.eveningEndMinutes + 30;
+    } else if (emp.shiftLabel === 'مسائي + خفر') {
+      expStart = dutyWindows.eveningStart;
+      expEnd = dutyWindows.nightEnd;
+      cutoffMin = dutyWindows.nightEndMinutes + 30;
+    } else if (emp.shiftLabel === 'صباحي + خفر') {
+      expStart = dutyWindows.morningStart;
+      expEnd = dutyWindows.nightEnd;
+      cutoffMin = dutyWindows.nightEndMinutes + 30;
     }
 
     if (rec) {
@@ -362,10 +380,11 @@ export async function fetchDailyAttendanceStats(dateStr: string, gov: string): P
         onLeaveCount++;
       }
     } else {
-      const isBeforeShift = (emp.shiftLabel === 'خفر / ليلي' && currentTotalMins < 1200) ||
-                            (emp.shiftLabel === 'مسائي' && currentTotalMins < 870) ||
-                            (emp.shiftLabel.includes('صباحي') && currentTotalMins < 480) ||
-                            (emp.shiftLabel === 'نوبة كاملة 24 س' && currentTotalMins < 480);
+      const isBeforeShift = (emp.shiftLabel === 'خفر / ليلي' && currentTotalMins < dutyWindows.nightStartMinutes) ||
+                            (emp.shiftLabel === 'مسائي' && currentTotalMins < dutyWindows.eveningStartMinutes) ||
+                            (emp.shiftLabel === 'مسائي + خفر' && currentTotalMins < dutyWindows.eveningStartMinutes) ||
+                            (emp.shiftLabel.includes('صباحي') && currentTotalMins < dutyWindows.morningStartMinutes) ||
+                            (emp.shiftLabel === 'نوبة كاملة 24 س' && currentTotalMins < dutyWindows.morningStartMinutes);
       if (isBeforeShift) {
         liveStatus = 'upcoming_shift';
         liveStatusLabel = `بانتظار بدء المناوبة (${expStart})`;

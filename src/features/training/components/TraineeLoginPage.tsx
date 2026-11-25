@@ -56,7 +56,7 @@ export const TraineeLoginPage = () => {
 
     return (
         <div className={cn(
-            "min-h-screen flex items-center justify-center px-4 py-8",
+            "min-h-screen flex items-center justify-center px-4 pt-8 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]",
             isDark
                 ? "bg-gradient-to-br from-slate-950 via-emerald-950/20 to-slate-950"
                 : "bg-gradient-to-br from-emerald-50 via-white to-teal-50"

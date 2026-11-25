@@ -102,6 +102,7 @@
         "src/pages/SplashScreenLegacy.tsx",
         "src/pages/LauncherPage.tsx",
         "src/hooks/useSplashAudio.ts",
+        "src/components/visual/MocEmblem.tsx",
         "src/components/visual/SplashBeaconVideos.tsx",
         "src/components/visual/SplashTechVideo.tsx",
         "public/media/ITPC_Concept_C_IraqNetwork_25s.mp4",

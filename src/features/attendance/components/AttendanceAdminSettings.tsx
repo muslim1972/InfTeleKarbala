@@ -16,6 +16,7 @@ import { useGovernorate } from '../../../context/GovernorateContext';
 import { isDeveloperLevel } from '../../../utils/permissions';
 
 import WorkSchedulesTab from './WorkSchedulesTab';
+import WorkHoursModificationTab from './WorkHoursModificationTab';
 import LiveAttendanceBoard from './LiveAttendanceBoard';
 import Timesheets from './Timesheets';
 import HolidaysTab from './HolidaysTab';
@@ -25,7 +26,7 @@ import EmployeeRosterModal from './EmployeeRosterModal';
 import { rosterReminderService } from '../services/rosterReminderService';
 import { KioskAdminPanel } from '../../kiosk/KioskAdminPanel';
 
-type Tab = 'locations' | 'assignments' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'liveBoard' | 'timesheets' | 'holidays' | 'kiosks';
+type Tab = 'locations' | 'assignments' | 'deviceLogs' | 'deviceRequests' | 'workSchedules' | 'workHoursModification' | 'liveBoard' | 'timesheets' | 'holidays' | 'kiosks';
 
 export default function AttendanceAdminSettings() {
   const { user } = useAuth();
@@ -789,6 +790,7 @@ export default function AttendanceAdminSettings() {
             { id: 'deviceLogs' as Tab, label: 'سجل توثيق الأجهزة', icon: ShieldCheck, show: true },
             { id: 'deviceRequests' as Tab, label: 'طلبات تغيير الأجهزة', icon: AlertTriangle, show: true, badge: deviceRequests.length },
             { id: 'workSchedules' as Tab, label: 'جداول العمل', icon: Calendar, show: true },
+            { id: 'workHoursModification' as Tab, label: 'تعديل ساعات الدوام', icon: Clock, show: true },
             { id: 'holidays' as Tab, label: 'إعدادات العطل', icon: Calendar, show: true },
             { id: 'kiosks' as Tab, label: 'البصمة البايومترية العامة', icon: Tablet, show: canManageKiosks },
           ].filter(t => t.show);
@@ -1756,6 +1758,11 @@ export default function AttendanceAdminSettings() {
         {/* WORK SCHEDULES TAB */}
         {activeTab === 'workSchedules' && (
         <WorkSchedulesTab />
+      )}
+
+        {/* WORK HOURS MODIFICATION TAB */}
+        {activeTab === 'workHoursModification' && (
+        <WorkHoursModificationTab />
       )}
 
       {activeTab === 'liveBoard' && isAttendanceAdmin && (

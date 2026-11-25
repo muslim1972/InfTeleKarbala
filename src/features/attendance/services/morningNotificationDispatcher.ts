@@ -21,6 +21,8 @@ import {
   buildEarlyMorningPunchNotifications
 } from '../engines/morningAttendanceNotificationsEngine';
 import { getBaghdadMinutes, createBaghdadIso } from '../engines/rosterAttendanceEngine';
+import { temporaryWorkHoursService } from './temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows, minutesToHHMM } from '../utils/shiftScheduleUtils';
 
 /**
  * استخراج المسؤول المباشر والبديل للموظف استناداً إلى شجرة الهيكلية الإدارية
@@ -298,8 +300,14 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
     isCheckOutPunch
   } = params;
 
-  // 1. استخراج المسؤول المباشر والبديل من شجرة الهيكلية
-  const supervisors = await resolveHierarchySupervisors(employeeId);
+  // 1. استخراج المسؤول المباشر والبديل من شجرة الهيكلية وجلب ساعات الدوام الفعالة لليوم
+  const [supervisors, empGovRes] = await Promise.all([
+    resolveHierarchySupervisors(employeeId),
+    supabase.from('profiles').select('governorate').eq('id', employeeId).maybeSingle()
+  ]);
+  const empGov = empGovRes.data?.governorate || 'karbala';
+  const effectiveHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(recordDate, empGov);
+  const windows = resolveEffectiveDutyWindows(effectiveHours);
   const allCandidates: AttendanceNotificationCandidate[] = [];
 
   // 2. فحص البصمة في يوم غير يوم عمل (عطلة رسمية، يوم استراحة، إجازة معتمدة، تعويضي)
@@ -348,10 +356,10 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
   // إذا لم يكن الموظف مكلفاً بدوام صباحي اليوم (ليس صباحياً ولا مناوباً لديه صباحي)
   if (!isMorningDuty) return;
 
-  // 3. فحص البصمة قبل الساعة 06:00 صباحاً (قبل الدوام الرسمي) لموظف الصباحي
+  // 3. فحص البصمة قبل بداية الدوام الصباحي المزحفة للموظف الصباحي
   if (isCheckInPunch && slots.check_in) {
     const { totalMinutes } = getBaghdadMinutes(slots.check_in);
-    if (totalMinutes < 6 * 60) {
+    if (totalMinutes < windows.morningEarlyPunchMinMinutes) {
       const earlyMorningCandidates = buildEarlyMorningPunchNotifications({
         employeeId,
         employeeName,
@@ -381,7 +389,8 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
       employeeName,
       supervisors,
       isFollowUpAfterNightShift,
-      startTimeOff
+      startTimeOff,
+      windows
     );
     allCandidates.push(...lateCandidates);
   }
@@ -395,7 +404,8 @@ export async function processAttendancePunchNotifications(params: ProcessPunchPa
       employeeName,
       supervisors,
       isFollowedByEveningShift,
-      endTimeOff
+      endTimeOff,
+      windows
     );
     allCandidates.push(...earlyCandidates);
   }
@@ -474,12 +484,14 @@ export async function auditDailyPresenceBridgePunches(targetDate?: string): Prom
       let redPunchObj: any = null;
       let alertShiftType: 'connected_evening' | 'night_guard' | null = null;
 
-      // فحص الحالة الأولى: صباحي متبوع بمسائي (14:30 إلى 15:30)
+      // فحص الحالة الأولى: صباحي متبوع بمسائي (متزحف مع نهاية الصباحي وبداية المسائي)
       if (isConnectedEvening) {
+        const effBridgeHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(auditDate, 'karbala');
+        const bridgeWin = resolveEffectiveDutyWindows(effBridgeHours);
         const hasBridgePunch = rawPunches.some((p: any) => {
           if (p.is_virtual) return false;
           const { totalMinutes } = getBaghdadMinutes(p.time);
-          return totalMinutes >= (14 * 60 + 30) && totalMinutes <= (15 * 60 + 30);
+          return totalMinutes >= bridgeWin.morningBridgeStartMinutes && totalMinutes <= bridgeWin.morningBridgeEndMinutes;
         });
 
         if (!hasBridgePunch) {
@@ -487,9 +499,11 @@ export async function auditDailyPresenceBridgePunches(targetDate?: string): Prom
           if (!alreadyHasRed) {
             needsRedPunch = true;
             alertShiftType = 'connected_evening';
+            const bHour = Math.floor(bridgeWin.morningEndMinutes / 60);
+            const bMin = bridgeWin.morningEndMinutes % 60;
             redPunchObj = {
-              time: createBaghdadIso(auditDate, 15, 0, 0),
-              notes: '(بصمة إثبات حضور افتراضية حمراء - نقص بصمة بين الصباحي والمسائي)',
+              time: createBaghdadIso(auditDate, bHour, bMin, 0),
+              notes: `(بصمة إثبات حضور افتراضية حمراء ${minutesToHHMM(bridgeWin.morningEndMinutes)} - نقص بصمة بين الصباحي والمسائي)`,
               is_virtual: true
             };
           }

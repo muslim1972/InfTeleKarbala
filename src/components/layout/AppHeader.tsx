@@ -14,6 +14,7 @@ import { toast } from "react-hot-toast";
 
 interface AppHeaderProps {
     bottomContent?: React.ReactNode;
+    stickySubHeader?: React.ReactNode;
     title?: string;
     showUserName?: boolean; // Show user name next to avatar
     onBack?: () => void; // Optional back navigation callback
@@ -28,7 +29,7 @@ const SCALE_CYCLE_LABEL: Record<FontScale, string> = {
     xlarge: 'كبير جداً (138%)'
 };
 
-export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }: AppHeaderProps) => {
+export const AppHeader = ({ bottomContent, stickySubHeader, title, showUserName = false, onBack }: AppHeaderProps) => {
     const { user, logout } = useAuth();
     const { activeSnapshot, historicalSnapshot, isHistorical } = useSnapshots();
     const { activeGovernorate, setActiveGovernorate, canChangeGovernorate, availableGovernorates } = useGovernorate();
@@ -255,6 +256,12 @@ export const AppHeader = ({ bottomContent, title, showUserName = false, onBack }
                         </div>
                     )}
                 </GlassCard>
+
+                {stickySubHeader && (
+                    <div className="mt-1.5 w-full max-w-7xl mx-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                        {stickySubHeader}
+                    </div>
+                )}
             </header >
 
             <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />

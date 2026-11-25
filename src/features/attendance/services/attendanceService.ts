@@ -18,6 +18,8 @@ import type {
   AttendanceStats
 } from '../types';
 import { getBaghdadDate } from '../utils/shiftRules';
+import { temporaryWorkHoursService } from './temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows } from '../utils/shiftScheduleUtils';
 
 async function notifyAdminsForDeviceChange(employeeName: string, employeeGov: string = 'karbala') {
   try {
@@ -727,9 +729,15 @@ export const attendanceRecordService = {
     // 2. Fetch profile & schedule to determine shift type
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name, is_retired, retirement_date')
+      .select('department_id, primary_device_id, work_schedule_id, full_name, governorate, is_retired, retirement_date')
       .eq('id', employeeId)
       .single();
+
+    const effectiveWorkHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(
+      today,
+      profile?.governorate || 'karbala'
+    );
+    const dutyWindows = resolveEffectiveDutyWindows(effectiveWorkHours);
 
     if (profile?.is_retired && (!profile.retirement_date || today >= profile.retirement_date)) {
       throw new Error(`الموظف محال للتقاعد ومعفى من نظام البصمة ${profile.retirement_date ? `اعتباراً من ${profile.retirement_date}` : ''}`);
@@ -1092,7 +1100,8 @@ export const attendanceRecordService = {
         today,
         (approvedLeavesData || []) as any,
         { isRestDay, isOfficialHoliday, isCompensatory, label: dayTypeLabel },
-        false
+        false,
+        dutyWindows
       );
 
       updates = {
@@ -1127,7 +1136,8 @@ export const attendanceRecordService = {
         prevRosterSchedule,
         approvedLeavesList as any,
         approvedTimeOffsList as any,
-        false
+        false,
+        dutyWindows
       );
 
       updates = {
@@ -1277,11 +1287,16 @@ export const attendanceRecordService = {
     // Get department, device info, and work schedule from employee profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('department_id, primary_device_id, work_schedule_id, full_name, is_retired, retirement_date')
+      .select('department_id, primary_device_id, work_schedule_id, full_name, governorate, is_retired, retirement_date')
       .eq('id', employeeId)
       .single();
 
     const todayStr = getServerLocalDateStr();
+    const checkInWorkHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(
+      todayStr,
+      profile?.governorate || 'karbala'
+    );
+    const checkInWindows = resolveEffectiveDutyWindows(checkInWorkHours);
     if (profile?.is_retired && (!profile.retirement_date || todayStr >= profile.retirement_date)) {
       throw new Error(`الموظف محال للتقاعد ومعفى من نظام البصمة ${profile.retirement_date ? `اعتباراً من ${profile.retirement_date}` : ''}`);
     }
@@ -1316,13 +1331,12 @@ export const attendanceRecordService = {
         const daySchedule = scheduleData.days?.find((d: any) => d.day_of_week === dayOfWeek);
         if (daySchedule && !daySchedule.is_rest_day) {
           const currentMins = bDate.getHours() * 60 + bDate.getMinutes();
-          // المسائي يبدأ 14:30، الخفر 20:00، الصباحي 08:00
-          if (daySchedule.is_evening && currentMins >= 870 && currentMins < 1200) {
-            if (currentMins > 870) initialStatus = 'late';
-          } else if (daySchedule.is_night && (currentMins >= 1200 || currentMins < 480)) {
-            if (currentMins > 1200) initialStatus = 'late';
-          } else if (daySchedule.is_morning && currentMins >= 480 && currentMins < 870) {
-            if (currentMins > 480) initialStatus = 'late'; // المناوب بلا سماحية ولو كان شفته صباحياً
+          if (daySchedule.is_evening && currentMins >= checkInWindows.eveningStartMinutes && currentMins < checkInWindows.nightStartMinutes) {
+            if (currentMins > checkInWindows.eveningStartMinutes) initialStatus = 'late';
+          } else if (daySchedule.is_night && (currentMins >= checkInWindows.nightStartMinutes || currentMins < checkInWindows.nightEndMinutes)) {
+            if (currentMins > checkInWindows.nightStartMinutes) initialStatus = 'late';
+          } else if (daySchedule.is_morning && currentMins >= checkInWindows.morningStartMinutes && currentMins < checkInWindows.eveningStartMinutes) {
+            if (currentMins > checkInWindows.morningStartMinutes) initialStatus = 'late'; // المناوب بلا سماحية ولو كان شفته صباحياً
           }
         }
       } else {
@@ -1332,8 +1346,10 @@ export const attendanceRecordService = {
         const isRestDay = daySchedule ? daySchedule.is_rest_day : (dayOfWeek === 5 || dayOfWeek === 6);
         
         if (!isRestDay) {
-          const startTimeStr = daySchedule?.start_time || scheduleData.start_time || '08:00';
-          const [hours, minutes] = startTimeStr.split(':').map(Number);
+          const defaultStart = scheduleData.type === 'special'
+            ? (daySchedule?.start_time || scheduleData.start_time || '08:00')
+            : (checkInWindows.isOverridden ? checkInWindows.morningStart : (daySchedule?.start_time || scheduleData.start_time || '08:00'));
+          const [hours, minutes] = defaultStart.split(':').map(Number);
           const currentMins = bDate.getHours() * 60 + bDate.getMinutes();
           const startMins = hours * 60 + minutes;
           const graceMins = scheduleData.grace_period_minutes ?? 30;

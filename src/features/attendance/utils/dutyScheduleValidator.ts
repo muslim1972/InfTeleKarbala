@@ -16,6 +16,8 @@ import { getServerNow } from '../services/serverTimeService';
 import { getBaghdadDate, determineShiftType, type ShiftType } from './shiftRules';
 import { getLeaveContext, type DayLeaveInfo } from '../services/leaveIntegrationService';
 import { fetchDayType } from '../../../lib/attendanceHelpers';
+import { temporaryWorkHoursService } from '../services/temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows, type EffectiveWorkHours } from './shiftScheduleUtils';
 
 export interface DutyScheduleDay {
   day_of_week: number;
@@ -39,6 +41,7 @@ export interface DutyContext {
   isWeeklyExempt?: boolean;
   exemptionOrderNumber?: string;
   isSpecialSchedule?: boolean;
+  effectiveWorkHours?: EffectiveWorkHours | null;
 }
 
 export interface DutyEvaluationResult {
@@ -67,7 +70,7 @@ export async function loadDutyContext(employeeId: string, dateStr: string): Prom
   const [profileRes, leaveCtx, dayType, exemptionRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('work_schedule_id')
+      .select('work_schedule_id, governorate')
       .eq('id', employeeId)
       .maybeSingle(),
     getLeaveContext(employeeId, dateStr),
@@ -78,6 +81,11 @@ export async function loadDutyContext(employeeId: string, dateStr: string): Prom
       .eq('employee_id', employeeId)
       .gte('valid_until', dateStr)
   ]);
+
+  const effectiveWorkHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(
+    dateStr,
+    profileRes.data?.governorate || 'karbala'
+  );
 
   let scheduleDays: DutyScheduleDay[] = [];
   let scheduleName: string | undefined;
@@ -123,7 +131,8 @@ export async function loadDutyContext(employeeId: string, dateStr: string): Prom
     loadedAt: Date.now(),
     isWeeklyExempt: Boolean(activeExemption),
     exemptionOrderNumber: activeExemption?.order_number,
-    isSpecialSchedule
+    isSpecialSchedule,
+    effectiveWorkHours
   };
 }
 
@@ -151,6 +160,7 @@ export function evaluateOfficialDutyStatus(
   const currentMinutes = hours * 60 + minutes;
   const dow = baghdadNow.getDay(); // 0=الأحد, 1=الإثنين, ..., 5=الجمعة, 6=السبت
   const yesterdayDow = (dow + 6) % 7;
+  const w = resolveEffectiveDutyWindows(ctx.effectiveWorkHours);
 
   // 0. فحص التفرغ الأسبوعي المعتمد بموجب أمر رسمي (أولوية مطلقة)
   if (ctx.isWeeklyExempt) {
@@ -250,16 +260,14 @@ export function evaluateOfficialDutyStatus(
       };
     }
 
-    // ساعات الدوام الصباحي الرسمي:
-    // استقبال الحضور يبدأ من 07:30 ص (450 دقيقة)
-    // نهاية الدوام الرسمي عند 15:00 م (900 دقيقة) + مرونة حتى 15:15 م (915 دقيقة)
-    const MORNING_START_MINUTES = 7 * 60 + 30;  // 07:30 ص
-    const MORNING_END_MINUTES = 15 * 60 + 15;   // 03:15 م
+    // ساعات الدوام الصباحي الرسمي (تتزحف تلقائياً مع تعديل ساعات الدوام المؤقت):
+    const MORNING_START_MINUTES = w.morningCheckInWindowStartMinutes;
+    const MORNING_END_MINUTES = w.morningCheckoutMaxMinutes;
 
     if (currentMinutes < MORNING_START_MINUTES) {
       return {
         isWithinOfficialDuty: false,
-        reason: 'الوقت الحالي قبل بدء أوقات الدوام الرسمي الصباحي (يبدأ استقبال الحضور من 07:30 ص)',
+        reason: `الوقت الحالي قبل بدء أوقات الدوام الرسمي الصباحي (يبدأ الدوام عند ${w.morningStart})`,
         badgeText: 'قبل بدء الدوام',
         shiftType: 'morning',
         suggestedAction: 'prompt_override'
@@ -269,7 +277,7 @@ export function evaluateOfficialDutyStatus(
     if (currentMinutes > MORNING_END_MINUTES) {
       return {
         isWithinOfficialDuty: false,
-        reason: 'الوقت الحالي خارج ساعات الدوام الرسمي الصباحي (ينتهي الدوام الصباحي عند 03:00 م)',
+        reason: `الوقت الحالي خارج ساعات الدوام الرسمي الصباحي (ينتهي الدوام الصباحي عند ${w.morningEnd})`,
         badgeText: 'بعد نهاية الدوام',
         shiftType: 'morning',
         suggestedAction: 'prompt_override'
@@ -287,8 +295,7 @@ export function evaluateOfficialDutyStatus(
 
   // 3. معالجة الدوام المناوب (Roster / Shifts)
   // أ. معالجة امتداد شفت الخفر عابر منتصف الليل (Cross-Midnight Night Shift)
-  // شفت الخفر يبدأ 20:00 ليلاً ويمتد حتى 08:00 صباح اليوم التالي (بمرونة حتى 08:30 ص)
-  if (currentMinutes <= 8 * 60 + 30) {
+  if (currentMinutes <= w.nightEndMinutes + 30) {
     const yesterdaySched = ctx.scheduleDays.find(d => d.day_of_week === yesterdayDow);
     if (yesterdaySched?.is_night) {
       return {
@@ -344,29 +351,29 @@ export function evaluateOfficialDutyStatus(
   let isCurrentTimeInShift = false;
   let activeShiftLabel = '';
 
-  // 1. شفت صباحي للمناوب (08:00 - 15:00، استقبال من 07:30 إلى 15:15)
+  // 1. شفت صباحي للمناوب
   if (isMorning) {
-    const startM = parseTimeToMinutes(todaySched.start_time) ?? (7 * 60 + 30);
-    const endM = parseTimeToMinutes(todaySched.end_time) ?? (15 * 60 + 15);
+    const startM = w.isOverridden ? w.morningCheckInWindowStartMinutes : (parseTimeToMinutes(todaySched.start_time) ?? w.morningCheckInWindowStartMinutes);
+    const endM = w.isOverridden ? w.morningCheckoutMaxMinutes : (parseTimeToMinutes(todaySched.end_time) ?? w.morningCheckoutMaxMinutes);
     if (currentMinutes >= startM && currentMinutes <= endM) {
       isCurrentTimeInShift = true;
       activeShiftLabel = 'مناوبة صباحية';
     }
   }
 
-  // 2. شفت مسائي للمناوب (15:00 - 20:00، استقبال من 14:30 إلى 20:15)
+  // 2. شفت مسائي للمناوب
   if (!isCurrentTimeInShift && isEvening) {
-    const startM = parseTimeToMinutes(todaySched.start_time) ?? (14 * 60 + 30);
-    const endM = parseTimeToMinutes(todaySched.end_time) ?? (20 * 60 + 15);
+    const startM = w.isOverridden ? Math.max(0, w.eveningStartMinutes - 30) : (parseTimeToMinutes(todaySched.start_time) ?? Math.max(0, w.eveningStartMinutes - 30));
+    const endM = w.isOverridden ? (w.eveningEndMinutes + 15) : (parseTimeToMinutes(todaySched.end_time) ?? (w.eveningEndMinutes + 15));
     if (currentMinutes >= startM && currentMinutes <= endM) {
       isCurrentTimeInShift = true;
       activeShiftLabel = 'مناوبة مسائية';
     }
   }
 
-  // 3. شفت خفر للمناوب (20:00 - منتصف الليل، استقبال من 19:30 إلى 23:59)
+  // 3. شفت خفر للمناوب
   if (!isCurrentTimeInShift && isNight) {
-    const startM = parseTimeToMinutes(todaySched.start_time) ?? (19 * 60 + 30);
+    const startM = w.isOverridden ? Math.max(0, w.nightStartMinutes - 30) : (parseTimeToMinutes(todaySched.start_time) ?? Math.max(0, w.nightStartMinutes - 30));
     if (currentMinutes >= startM) {
       isCurrentTimeInShift = true;
       activeShiftLabel = 'مناوبة خفر ليلي';
@@ -384,11 +391,11 @@ export function evaluateOfficialDutyStatus(
     };
   }
 
-  // إن كان مناوباً اليوم ولكن الساعة الحالية خارج الشفت (مثلاً 11:00 صباحاً وهو مسائي يبدأ 15:00)
+  // إن كان مناوباً اليوم ولكن الساعة الحالية خارج الشفت
   const scheduledShiftsList: string[] = [];
-  if (isMorning) scheduledShiftsList.push('صباحي (08:00 - 15:00)');
-  if (isEvening) scheduledShiftsList.push('مسائي (15:00 - 20:00)');
-  if (isNight) scheduledShiftsList.push('خفر ليلي (20:00 - 08:00)');
+  if (isMorning) scheduledShiftsList.push(`صباحي (${w.morningStart} - ${w.morningEnd})`);
+  if (isEvening) scheduledShiftsList.push(`مسائي (${w.eveningStart} - ${w.eveningEnd})`);
+  if (isNight) scheduledShiftsList.push(`خفر ليلي (${w.nightStart} - ${w.nightEnd})`);
 
   const shiftsDesc = scheduledShiftsList.join(' و ');
 

@@ -133,7 +133,7 @@ export const AudioHub = () => {
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto space-y-3 pb-20 px-2">
+        <div className="w-full max-w-4xl mx-auto space-y-3 pb-2 px-2">
             {/* High-End Interactive Player Card */}
             <GlassCard className="p-0 overflow-hidden border-2 border-brand-green/30 shadow-2xl bg-gradient-to-br from-brand-green/10 via-background to-brand-green/5 ring-1 ring-white/10">
                 {/* Header Sub-tabs */}

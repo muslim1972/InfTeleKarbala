@@ -1,195 +1,93 @@
 import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { MocEmblem } from '../components/visual/MocEmblem';
+import { useSplashAudio } from '../hooks/useSplashAudio';
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
-const DESKTOP_VIDEO = '/media/MOC_Nomap_Concept_wide_25s.mp4';
-const DESKTOP_POSTER = '/media/MOC_Nomap_Concept_wide_25s.jpg';
-const MOBILE_VIDEO = '/media/MOC_Nomap_Concept_portrait_25s.mp4';
-const MOBILE_POSTER = '/media/MOC_Nomap_Concept_portrait_25s.jpg';
-const MOBILE_PORTRAIT_QUERY = '(orientation: portrait) and (max-width: 767px)';
+const SPLASH_DURATION_MS = 6000;
+const EXIT_FADE_START_MS = 5400;
 
 export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const isTerminatedRef = useRef(false);
-  const autoplayBlockedRef = useRef(false);
-  const triedMutedFallbackRef = useRef(false);
-  const [startedVideoSrc, setStartedVideoSrc] = useState<string | null>(null);
-
-  // فيديو الهاتف مخصص للشاشات الصغيرة الطولية؛ التابلت يستخدم النسخة العريضة.
-  const [isPortrait, setIsPortrait] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia(MOBILE_PORTRAIT_QUERY).matches;
-  });
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(MOBILE_PORTRAIT_QUERY);
-    const updateOrientation = () => setIsPortrait(mediaQuery.matches);
-    mediaQuery.addEventListener('change', updateOrientation);
-    return () => mediaQuery.removeEventListener('change', updateOrientation);
-  }, []);
-
-  const videoSrc = isPortrait ? MOBILE_VIDEO : DESKTOP_VIDEO;
-  const posterSrc = isPortrait ? MOBILE_POSTER : DESKTOP_POSTER;
-  const hasVideoStarted = startedVideoSrc === videoSrc;
-
-  // إيقاف وتفريغ الفيديو والصوت نهائياً وفورياً لقطع أي تدفق صوتي
-  const stopAndCleanupVideo = useCallback(() => {
-    isTerminatedRef.current = true;
-    const video = videoRef.current;
-    if (video) {
-      try {
-        video.pause();
-        video.muted = true;
-        video.volume = 0;
-        video.currentTime = 0;
-        video.removeAttribute('src');
-        video.load();
-      } catch {
-        // حماية من أي أخطاء أثناء تنظيف عنصر الوسائط
-      }
-    }
-
-    // تأكيد إيقاف وكتم أي عنصر فيديو في الصفحة
-    try {
-      document.querySelectorAll('video').forEach((el) => {
-        el.pause();
-        el.muted = true;
-        el.volume = 0;
-        el.removeAttribute('src');
-        el.load();
-      });
-    } catch {
-      // حماية إضافية
-    }
-  }, []);
+  const [isExiting, setIsExiting] = useState(false);
+  const { playIntro, stopAudio } = useSplashAudio();
 
   const finishSplash = useCallback(() => {
     if (isTerminatedRef.current) return;
-    stopAndCleanupVideo();
+    isTerminatedRef.current = true;
+    stopAudio();
     onComplete();
-  }, [stopAndCleanupVideo, onComplete]);
+  }, [stopAudio, onComplete]);
 
-  const handleSkip = useCallback((e?: SyntheticEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    finishSplash();
-  }, [finishSplash]);
+  const handleSkip = useCallback(
+    (e?: SyntheticEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      finishSplash();
+    },
+    [finishSplash]
+  );
 
-  const handleEnded = useCallback(() => {
-    finishSplash();
-  }, [finishSplash]);
-
-  const handleError = useCallback(() => {
-    finishSplash();
-  }, [finishSplash]);
-
-  const attemptPlayback = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || isTerminatedRef.current || autoplayBlockedRef.current) return;
-
-    // البدء بالمحاولة بالصوت المدمج أولاً، ثم التحول الفوري للصامت إذا منع المتصفح التشغيل التلقائي بالصوت
-    if (!triedMutedFallbackRef.current) {
-      video.muted = false;
-    }
-
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((err: unknown) => {
-        if (isTerminatedRef.current) return;
-        const errName = (err as { name?: string } | null)?.name;
-        if (errName === 'AbortError') return;
-
-        if (!triedMutedFallbackRef.current) {
-          triedMutedFallbackRef.current = true;
-          video.muted = true;
-          video.defaultMuted = true;
-          const mutedPromise = video.play();
-          if (mutedPromise !== undefined) {
-            mutedPromise.catch((mutedErr: unknown) => {
-              if (isTerminatedRef.current) return;
-              const mutedErrName = (mutedErr as { name?: string } | null)?.name;
-              if (mutedErrName !== 'AbortError') {
-                autoplayBlockedRef.current = true;
-              }
-            });
-          }
-        } else {
-          autoplayBlockedRef.current = true;
-        }
-      });
-    }
-  }, []);
-
-  // إعادة ضبط العلم عند التركيب (مفيد مع React StrictMode) وتنظيف الوسائط عند المغادرة
+  // تشغيل الهوية الصوتية فور نهوض الشاشة وبنفس آلية الاستئناف المعتمدة في التطبيق، دون أي حجب
   useEffect(() => {
     isTerminatedRef.current = false;
-    return () => stopAndCleanupVideo();
-  }, [stopAndCleanupVideo]);
+    let audioStarted = playIntro();
 
-  // تشغيل الفيديو عند التحميل أو تبديل النسخة دون استدعاء load() المكرر لتجنب قطع الجلب الأولي
-  useEffect(() => {
-    autoplayBlockedRef.current = false;
-    triedMutedFallbackRef.current = false;
-    attemptPlayback();
-  }, [videoSrc, attemptPlayback]);
-
-  // حارس مراقبة التشغيل عبر requestAnimationFrame لمنع أي تجمد إذا توقف التشغيل أو رُفض التلقائي أو انقطع الشبكة
-  useEffect(() => {
-    const mountTime = performance.now();
-    let lastObservedTime = 0;
-    let lastProgressAt = mountTime;
+    const startTime = performance.now();
+    let lastAudioRetry = startTime;
     let rafId = 0;
 
-    const monitorPlayback = (now: number) => {
+    const unlockOnGesture = () => {
+      if (!audioStarted && !isTerminatedRef.current) {
+        audioStarted = playIntro();
+      }
+    };
+
+    if (!audioStarted) {
+      window.addEventListener('pointerdown', unlockOnGesture, { once: true, passive: true });
+      window.addEventListener('touchstart', unlockOnGesture, { once: true, passive: true });
+      window.addEventListener('keydown', unlockOnGesture, { once: true });
+    }
+
+    const tick = (now: number) => {
       if (isTerminatedRef.current) return;
+      const elapsed = now - startTime;
 
-      const video = videoRef.current;
-      if (video) {
-        if (video.ended) {
-          finishSplash();
-          return;
-        }
-        if (video.currentTime > lastObservedTime + 0.01) {
-          lastObservedTime = video.currentTime;
-          lastProgressAt = now;
-        }
+      // محاولة استئناف الصوت برفق كل 250ms خلال أول 2.5 ثانية إن كان معلقاً (نفس آلية التطبيق السابقة عبر rAF)
+      if (!audioStarted && elapsed <= 2500 && now - lastAudioRetry >= 250) {
+        lastAudioRetry = now;
+        audioStarted = playIntro();
       }
 
-      const elapsedSinceMount = now - mountTime;
-      const elapsedSinceProgress = now - lastProgressAt;
+      if (elapsed >= EXIT_FADE_START_MS) {
+        setIsExiting(true);
+      }
 
-      // 1) إذا حظر المتصفح التشغيل التلقائي تماماً (حتى الصامت)، نكمل تلقائياً بعد عرض الملصق لفترة وجيزة
-      if (autoplayBlockedRef.current && elapsedSinceMount >= 2200) {
+      if (elapsed >= SPLASH_DURATION_MS) {
         finishSplash();
         return;
       }
 
-      // 2) إذا لم يبدأ الفيديو بالتقدم خلال 5.5 ثوانٍ من فتح الشاشة، نتجاوز لتفادي التجمد
-      if (lastObservedTime <= 0.05 && elapsedSinceMount >= 5500) {
-        finishSplash();
-        return;
-      }
-
-      // 3) إذا تجمد الفيديو أثناء التشغيل لأكثر من 5 ثوانٍ أو تجاوزت الشاشة الحد الأقصى (29 ثانية)
-      if ((lastObservedTime > 0.05 && elapsedSinceProgress >= 5000) || elapsedSinceMount >= 29000) {
-        finishSplash();
-        return;
-      }
-
-      rafId = window.requestAnimationFrame(monitorPlayback);
+      rafId = window.requestAnimationFrame(tick);
     };
 
-    rafId = window.requestAnimationFrame(monitorPlayback);
+    rafId = window.requestAnimationFrame(tick);
+
     return () => {
+      isTerminatedRef.current = true;
       if (rafId) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('pointerdown', unlockOnGesture);
+      window.removeEventListener('touchstart', unlockOnGesture);
+      window.removeEventListener('keydown', unlockOnGesture);
+      stopAudio();
     };
-  }, [videoSrc, finishSplash]);
+  }, [playIntro, stopAudio, finishSplash]);
 
-  // دعم لوحة المفاتيح: Escape أو Enter للتخطي الفوري
+  // دعم التخطي عبر لوحة المفاتيح للمستعجلين
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
@@ -202,68 +100,51 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
   return (
     <main
-      key="splash-iraq-network-video-25s"
-      className="fixed inset-0 z-[99999] overflow-hidden bg-[#031718] select-none flex items-center justify-center cursor-pointer touch-manipulation animate-fadeIn"
+      key="splash-moc-sovereign-6s"
       dir="rtl"
       onClick={handleSkip}
+      aria-label="الشاشة الافتتاحية لوزارة الاتصالات"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center overflow-hidden bg-white select-none cursor-pointer touch-manipulation"
     >
-      {isPortrait && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 scale-110 bg-cover bg-center opacity-40 blur-2xl pointer-events-none"
-          style={{ backgroundImage: `url("${posterSrc}")` }}
-        />
-      )}
-
-      {/* الملصق المؤسسي يظهر فوراً حتى يبدأ الفيديو فعلياً فيمنع بقاء إطار البداية الفارغ عند أي تعثر */}
-      <img
-        src={posterSrc}
-        alt=""
+      {/* إضاءة بيضاء ملكية خفيفة جداً خلف الشعار */}
+      <div
         aria-hidden="true"
-        className={`absolute inset-0 h-full w-full object-contain object-center pointer-events-none transition-opacity duration-200 ${
-          hasVideoStarted ? 'opacity-0' : 'opacity-100'
-        }`}
-      />
-
-      <video
-        key={videoSrc}
-        ref={videoRef}
-        src={videoSrc}
-        poster={posterSrc}
-        playsInline
-        preload="auto"
-        disablePictureInPicture
-        aria-label="مقدمة نظام الإدارة الموحد - شبكة العراق"
-        onCanPlay={attemptPlayback}
-        onPlaying={() => setStartedVideoSrc(videoSrc)}
-        onTimeUpdate={(e) => {
-          if (e.currentTarget.currentTime > 0.05 && !hasVideoStarted) {
-            setStartedVideoSrc(videoSrc);
-          }
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 45%, #ffffff 0%, #fbfcfe 55%, #f4f7fa 100%)',
         }}
-        onEnded={handleEnded}
-        onError={handleError}
-        className={`absolute inset-0 h-full w-full object-contain pointer-events-none transition-opacity duration-200 ${
-          isPortrait ? 'object-center ' : ''
-        }${hasVideoStarted ? 'opacity-100' : 'opacity-0'}`}
       />
 
-      {/* طبقة نقر شاملة على كامل الشاشة لضمان استجابة اللمس والنقر في Safari و WebView والأندرويد */}
-      <button
-        type="button"
-        onClick={handleSkip}
-        aria-label="تجاوز العرض الافتتاحي"
-        className="absolute inset-0 z-10 w-full h-full bg-transparent border-0 cursor-pointer touch-manipulation focus:outline-none"
-      />
-
-      {/* زر/شريط التوجيه أسفل الشاشة لتجاوز العرض */}
-      <button
-        type="button"
-        onClick={handleSkip}
-        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:bottom-8 left-1/2 -translate-x-1/2 z-20 cursor-pointer touch-manipulation font-tajawal text-xs md:text-sm font-medium text-emerald-100/80 hover:text-white tracking-wider text-center drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] select-none animate-pulse px-4 py-1.5 rounded-full bg-slate-950/50 border border-emerald-500/20 backdrop-blur-sm whitespace-nowrap focus:outline-none"
+      {/* المنتصف: انبثاق شعار وزارة الاتصالات من الوسط والنصوص الرسمية تحته */}
+      <div
+        className={`relative z-10 flex flex-col items-center justify-center px-6 text-center max-w-2xl w-full transition-all duration-500 ease-out ${
+          isExiting ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'
+        }`}
       >
-        انقر في أي مكان لتجاوز العرض
-      </button>
+        <MocEmblem className="w-[70vw] max-w-[300px] sm:max-w-[360px] md:max-w-[420px] h-auto animate-moc-emerge will-change-transform drop-shadow-[0_14px_30px_rgba(15,23,42,0.06)]" />
+
+        <div className="mt-7 sm:mt-9 space-y-1.5 sm:space-y-2">
+          <h1 className="font-tajawal text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight animate-moc-text-primary">
+            وزارة الاتصالات
+          </h1>
+          <p className="font-tajawal text-base sm:text-lg md:text-xl font-bold text-slate-600 animate-moc-text-secondary">
+            الشركة العامة للاتصالات والمعلوماتية
+          </p>
+        </div>
+      </div>
+
+      {/* أسفل اليمين في الزاوية: سطران متوسطان بينهما ببساطة وكفى */}
+      <div
+        className={`fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-[calc(1.5rem+env(safe-area-inset-right,0px))] z-20 text-center pointer-events-none transition-opacity duration-500 ease-out ${
+          isExiting ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        <div className="font-tajawal text-xs sm:text-sm font-medium text-slate-500 leading-snug space-y-0.5 animate-moc-signature">
+          <div>اتصالات ومعلوماتية كربلاء</div>
+          <div>م. مسلم عقيل</div>
+        </div>
+      </div>
     </main>
   );
 };

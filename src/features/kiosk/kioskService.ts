@@ -15,6 +15,8 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseUrl, supabaseAnonKey } from '../../lib/supabase';
 import { getServerNow } from '../attendance/services/serverTimeService';
 import { categorizePunches, type RawPunch } from '../attendance/utils/punchCategorizer';
+import { temporaryWorkHoursService } from '../attendance/services/temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows } from '../attendance/utils/shiftScheduleUtils';
 import type { AttendanceRecord } from '../attendance/types';
 
 /**
@@ -458,9 +460,15 @@ export const kioskRegisterPunch = async (
 
   rawPunches.push(newPunch);
 
-  // 3. تصنيف البصمات وفق قواعد الورديات
+  // 3. تصنيف البصمات وفق قواعد الورديات وتزحيف ساعات الدوام
   const shiftType = (emp.today_is_night || emp.today_is_evening) ? 'shift' : 'morning';
-  const updates = categorizePunches(rawPunches, null, today, shiftType, false, false);
+  const effectiveHours = await temporaryWorkHoursService.getEffectiveWorkHoursForDate(
+    today,
+    (emp as any).governorate || device.governorate || 'karbala',
+    kioskSupabase as any
+  );
+  const dutyWindows = resolveEffectiveDutyWindows(effectiveHours);
+  const updates = categorizePunches(rawPunches, null, today, shiftType, false, false, dutyWindows);
   if (!updates.raw_punches || updates.raw_punches.length === 0) {
     updates.raw_punches = rawPunches;
   }

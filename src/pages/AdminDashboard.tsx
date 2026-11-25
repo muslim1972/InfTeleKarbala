@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
 import { AccordionSection } from "../components/ui/AccordionSection";
-import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User, Loader2 } from "lucide-react";
+import { ChevronDown, FileText, PieChart, AlertCircle, Shield, ScanSearch, User, Loader2, Wallet } from "lucide-react";
 import { useEmployeeManager } from "../hooks/useEmployeeManager";
 import { smoothScrollToId } from "../hooks/useSmoothScroll";
 import { cn } from "../lib/utils";
@@ -12,7 +12,7 @@ import { lazy, Suspense } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { isDeveloperLevel } from "../utils/permissions";
 
-const AdminPromotionTab = lazy(() => import("../features/promotion/components/AdminPromotionTab").then(m => ({ default: m.AdminPromotionTab })));
+const TrainingAndPromotionHub = lazy(() => import("../features/training/components/TrainingAndPromotionHub").then(m => ({ default: m.TrainingAndPromotionHub })));
 
 const TipsEditor = lazy(() => import("../components/admin/TipsEditor"));
 const PollCreator = lazy(() => import("../components/admin/PollCreator").then(m => ({ default: m.PollCreator })));
@@ -24,8 +24,6 @@ const FiveYearLeaveDetailsModal = lazy(() => import("../components/admin/FiveYea
 const FiveYearLeaveHistoryModal = lazy(() => import("../components/admin/FiveYearLeaveHistoryModal").then(m => ({ default: m.FiveYearLeaveHistoryModal })));
 const TabAddEmployee = lazy(() => import("../components/admin/dashboard/TabAddEmployee").then(m => ({ default: m.TabAddEmployee })));
 const TabManageEmployees = lazy(() => import("../components/admin/dashboard/TabManageEmployees").then(m => ({ default: m.TabManageEmployees })));
-const TabAdminRecords = lazy(() => import("../components/admin/dashboard/TabAdminRecords").then(m => ({ default: m.TabAdminRecords })));
-const AudioHub = lazy(() => import("../components/features/AudioHub").then(m => ({ default: m.AudioHub })));
 const SupervisorPermissions = lazy(() => import("../components/admin/SupervisorPermissions").then(m => ({ default: m.SupervisorPermissions })));
 const IncentivesTabContent = lazy(() => import("../components/features/IncentivesTabContent").then(m => ({ default: m.IncentivesTabContent })));
 const AttendanceAdminSettings = lazy(() => import("../features/attendance").then(m => ({ default: m.AttendanceAdminSettings })));
@@ -57,12 +55,12 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     else if (canAddEmployee) baseTab = 'admin_add';
     else if (currentUser?.has_attendance_access && !isRoleEditable && currentUser?.admin_role !== 'hr' && currentUser?.admin_role !== 'finance') baseTab = 'admin_attendance';
 
-    const defaultTab = location.state?.activeTab || (searchParams.get('tab') === 'admin_audio' ? 'admin_audio' : baseTab);
-    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_records' | 'admin_incentives' | 'admin_stats' | 'admin_news' | 'admin_supervisors' | 'admin_training' | 'admin_requests' | 'admin_departments' | 'admin_audio' | 'admin_promotion' | 'admin_attendance'>(defaultTab as any);
+    const defaultTab = location.state?.activeTab || baseTab;
+    const [activeTab, setActiveTab] = useState<'admin_add' | 'admin_manage' | 'admin_incentives' | 'admin_stats' | 'admin_news' | 'admin_supervisors' | 'admin_training_courses' | 'admin_requests' | 'admin_departments' | 'admin_attendance'>(defaultTab as any);
 
     // Handle initial tab from URL cleanup
     useEffect(() => {
-        if (searchParams.get('tab') === 'admin_audio') {
+        if (searchParams.get('tab')) {
             searchParams.delete('tab');
             setSearchParams(searchParams, { replace: true });
         }
@@ -71,10 +69,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
     // Handle tab switching via custom events for reliable cross-component navigation
     useEffect(() => {
         const handleSwitchTab = (e: any) => {
-            if (e.detail?.tab === 'admin_audio') {
-                setActiveTab('admin_audio');
-                window.scrollTo({ top: 0, behavior: 'instant' });
-            } else if (e.detail?.tab === 'admin_attendance') {
+            if (e.detail?.tab === 'admin_attendance') {
                 setActiveTab('admin_attendance');
                 window.scrollTo({ top: 0, behavior: 'instant' });
             }
@@ -110,8 +105,10 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
     const [showSmartUpdater, setShowSmartUpdater] = useState(false);
     
+    const [activeManageSubTab, setActiveManageSubTab] = useState<'main_info' | 'allowances_deductions' | 'admin_records'>('main_info');
+
     const [expandedSections, setExpandedSections] = useState({
-        main_info: false, basic: false, allowances: false, deductions: false, admin_summary: false,
+        admin_summary: false,
         yearly_records: false, news_bar: false, polls: false, directives: false, conferences: false,
         sup_permissions: false, sup_custom_audit: false, sup_full_audit: false
     });
@@ -167,7 +164,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         setExpandedSections(prev => {
             const isCurrentlyOpen = prev[sectionId as keyof typeof prev];
             const newState = {
-                main_info: false, basic: false, allowances: false, deductions: false, admin_summary: false,
+                admin_summary: false,
                 yearly_records: false, news_bar: false, polls: false, directives: false, conferences: false,
                 sup_permissions: false, sup_custom_audit: false, sup_full_audit: false
             };
@@ -179,14 +176,21 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         });
     };
 
+    const handleSelectManageSubTab = (subTab: 'main_info' | 'allowances_deductions' | 'admin_records') => {
+        setActiveManageSubTab(subTab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleSelectSuggestion = async (user: any) => {
         setShowSuggestions(false);
         await loadEmployeeData(user);
     };
 
     useEffect(() => {
-        if (activeTab === 'admin_records' && selectedEmployee) fetchAdminRecords();
-    }, [activeTab, selectedEmployee, selectedAdminYear]);
+        if (activeTab === 'admin_manage' && selectedEmployee && activeManageSubTab === 'admin_records') {
+            fetchAdminRecords();
+        }
+    }, [activeTab, selectedEmployee?.id, selectedAdminYear, activeManageSubTab]);
 
     // Updated Header Component
     const dashboardHeader = (
@@ -219,8 +223,65 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         />
     );
 
+    const manageStickySubHeader = (activeTab === 'admin_manage' && selectedEmployee) ? (
+        <div className={cn(
+            "grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl border backdrop-blur-xl shadow-md",
+            theme === 'light'
+                ? "bg-white/95 border-gray-200/80 shadow-gray-200/40"
+                : "bg-[#0f172a]/90 border-white/10 shadow-black/40"
+        )}>
+            <button
+                type="button"
+                onClick={() => handleSelectManageSubTab('main_info')}
+                className={cn(
+                    "flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all duration-200 active:scale-95",
+                    activeManageSubTab === 'main_info'
+                        ? "bg-teal-600 text-white shadow-md shadow-teal-500/25"
+                        : theme === 'light'
+                            ? "text-slate-700 hover:bg-teal-50 hover:text-teal-700"
+                            : "text-slate-300 hover:bg-white/5 hover:text-white"
+                )}
+            >
+                <User className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">معلومات اساسية</span>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => handleSelectManageSubTab('allowances_deductions')}
+                className={cn(
+                    "flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all duration-200 active:scale-95",
+                    activeManageSubTab === 'allowances_deductions'
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/25"
+                        : theme === 'light'
+                            ? "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                            : "text-slate-300 hover:bg-white/5 hover:text-white"
+                )}
+            >
+                <Wallet className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">المخصصات والاستقطاعات</span>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => handleSelectManageSubTab('admin_records')}
+                className={cn(
+                    "flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all duration-200 active:scale-95",
+                    activeManageSubTab === 'admin_records'
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                        : theme === 'light'
+                            ? "text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                            : "text-slate-300 hover:bg-white/5 hover:text-white"
+                )}
+            >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">إدارة السجلات</span>
+            </button>
+        </div>
+    ) : undefined;
+
     return (
-        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} className="relative bg-transparent !pb-28 sm:!pb-36" onBack={onBack}>
+        <Layout headerTitle="إدارة النظام" showUserName={true} headerContent={dashboardHeader} stickySubHeader={manageStickySubHeader} className="relative bg-transparent" onBack={onBack}>
             {/* TAB: Departments Manager */}
             {activeTab === 'admin_departments' && (
                 <DepartmentsManager theme={theme} />
@@ -244,8 +305,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                     selectedEmployee={selectedEmployee}
                     setSelectedEmployee={setSelectedEmployee}
                     detailsRef={detailsRef}
-                    expandedSections={expandedSections}
-                    toggleSection={toggleSection}
+                    activeManageSubTab={activeManageSubTab}
                     financialData={financialData}
                     setFinancialData={setFinancialData}
                     isFieldReadOnly={isFieldReadOnly}
@@ -267,25 +327,17 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                     showFinancialUpdater={showFinancialUpdater}
                     setShowFinancialUpdater={setShowFinancialUpdater}
                     fetchFieldPermissions={fetchFieldPermissions}
-                />
-            )}
-
-            {/* ======= السجلات الإدارية TAB ======= */}
-            {activeTab === 'admin_records' && (
-                <TabAdminRecords
-                    selectedEmployee={selectedEmployee}
                     yearlyData={yearlyData}
                     selectedAdminYear={selectedAdminYear}
+                    setSelectedAdminYear={setSelectedAdminYear}
                     adminRecords={adminRecords}
                     handleSaveRecord={handleSaveRecord}
                     handleDeleteRecord={handleDeleteRecord}
                     openRecordSection={openRecordSection}
                     handleToggleRecordSection={handleToggleRecordSection}
-                    isFieldReadOnly={isFieldReadOnly}
                     activeFiveYearLeave={activeFiveYearLeave}
                     setShowFiveYearLeaveModal={setShowFiveYearLeaveModal}
                     setShowFiveYearLeaveHistoryModal={setShowFiveYearLeaveHistoryModal}
-                    financialData={financialData}
                     handleFiveYearLeaveChange={handleFiveYearLeaveChange}
                     newFiveYearLeave={newFiveYearLeave}
                     handleNewFiveYearLeaveChange={handleNewFiveYearLeaveChange}
@@ -296,7 +348,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
             {/* ======= الحوافز TAB ======= */}
             {activeTab === 'admin_incentives' && (
-                <div className="max-w-7xl mx-auto px-0 sm:px-2 relative pb-20 mt-0 sm:mt-1 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                <div className="max-w-7xl mx-auto px-0 sm:px-2 relative pb-2 mt-0 sm:mt-1 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                     <IncentivesTabContent isAdminView={true} />
                 </div>
             )}
@@ -439,7 +491,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
 
             {/* ======= الطلبات TAB ======= */}
             {activeTab === 'admin_requests' && (
-                <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
+                <div className="max-w-4xl mx-auto px-4 relative pb-2 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
                     <AdminLeaveRequests
                         employeeId={selectedEmployee?.id}
                         employeeName={selectedEmployee?.full_name}
@@ -448,17 +500,10 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
                 </div>
             )}
 
-            {/* ======= القرآن الكريم TAB ======= */}
-            {activeTab === 'admin_audio' && (
-                <div className="max-w-4xl mx-auto px-4 relative pb-20 mt-6 animate-in fade-in slide-in-from-right-5 duration-300 w-full">
-                    <AudioHub />
-                </div>
-            )}
-
-            {/* ======= دورات الترفيع TAB ======= */}
-            {activeTab === 'admin_promotion' && (
-                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>}>
-                    <AdminPromotionTab isAdminView={true} />
+            {/* ======= تدريب ودورات TAB ======= */}
+            {activeTab === 'admin_training_courses' && (
+                <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>}>
+                    <TrainingAndPromotionHub isAdminDashboard={true} />
                 </Suspense>
             )}
 

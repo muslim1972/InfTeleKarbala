@@ -21,6 +21,7 @@
  */
 
 import { getBaghdadMinutes } from './rosterAttendanceEngine';
+import { resolveEffectiveDutyWindows, type ResolvedDutyWindows } from '../utils/shiftScheduleUtils';
 
 export interface PunchTimeInfo {
   time: string; // ISO string
@@ -94,19 +95,20 @@ export function evaluateMorningLateArrival(
   employeeName: string,
   supervisors: HierarchySupervisors,
   isFollowUpAfterNightShift: boolean = false,
-  morningTimeOff?: ApprovedTimeOffInfo | null
+  morningTimeOff?: ApprovedTimeOffInfo | null,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
 ): AttendanceNotificationCandidate[] {
   const { totalMinutes, hours, minutes } = getBaghdadMinutes(firstPunchIso);
   const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 
   // 1. إذا كان الموظف مناوباً ممتداً بعد خفر ليلة أمس:
-  // السماحية كاملة لغاية 09:00 صباحاً (540 دقيقة)
+  // السماحية ساعة بعد نهاية الخفر (مثلاً 08:00 + 60د = 09:00)
   if (isFollowUpAfterNightShift) {
-    const nineAmMinutes = 9 * 60; // 540
-    if (totalMinutes <= nineAmMinutes) {
+    const postNightLimitMinutes = windows.nightEndMinutes + 60;
+    if (totalMinutes <= postNightLimitMinutes) {
       return []; // حضور طبيعي ضمن فترة السماحية
     }
-    const delayMins = totalMinutes - nineAmMinutes;
+    const delayMins = totalMinutes - postNightLimitMinutes;
     const timeText = formatMinutesToArabicText(delayMins);
     return buildLateArrivalNotifications(
       employeeId,
@@ -123,8 +125,8 @@ export function evaluateMorningLateArrival(
   // 2. إذا كان الموظف لديه إجازة زمنية بداية الدوام (shift_start):
   if (morningTimeOff && (morningTimeOff.time_off_subtype === 'shift_start' || !morningTimeOff.time_off_subtype)) {
     const durationMins = morningTimeOff.time_duration_minutes || 60;
-    // البداية الطبيعية 08:30 + مدة الزمنية
-    const baseLimitMinutes = 8 * 60 + 30; // 510
+    // البداية الطبيعية المزحفة + مدة الزمنية
+    const baseLimitMinutes = windows.morningOnTimeLimitMinutes;
     const timeOffLimitMinutes = baseLimitMinutes + durationMins;
 
     if (totalMinutes <= timeOffLimitMinutes) {
@@ -144,9 +146,8 @@ export function evaluateMorningLateArrival(
     );
   }
 
-  // 3. الدوام الصباحي الاعتيادي:
-  // الحد الأقصى للطبيعي هو 08:30 (510 دقيقة). التأخير يبدأ من 08:31 فما فوق
-  const standardLimitMinutes = 8 * 60 + 30; // 510
+  // 3. الدوام الصباحي الاعتيادي المزحف:
+  const standardLimitMinutes = windows.morningOnTimeLimitMinutes;
   if (totalMinutes <= standardLimitMinutes) {
     return []; // حضور طبيعي
   }
@@ -347,16 +348,16 @@ export function evaluateMorningEarlyDeparture(
   employeeName: string,
   supervisors: HierarchySupervisors,
   isFollowedByEveningShift: boolean = false,
-  endTimeOff?: ApprovedTimeOffInfo | null
+  endTimeOff?: ApprovedTimeOffInfo | null,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
 ): AttendanceNotificationCandidate[] {
   const { totalMinutes, hours, minutes } = getBaghdadMinutes(lastPunchIso);
   const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 
   // 1. إذا كان الموظف مناوباً ولديه دوام مسائي ممتد بعد الصباحي:
-  // السماحية ممتدة من 14:30 إلى 15:30 دون محاسبة على 14:30 بالدقة
   if (isFollowedByEveningShift) {
-    const windowStart = 14 * 60 + 30; // 14:30
-    const windowEnd = 15 * 60 + 30;   // 15:30
+    const windowStart = windows.morningBridgeStartMinutes;
+    const windowEnd = windows.morningBridgeEndMinutes;
     if (totalMinutes >= windowStart && totalMinutes <= windowEnd) {
       return []; // حضور وتأكيد حضور طبيعي بين الشفتين
     }
@@ -365,8 +366,7 @@ export function evaluateMorningEarlyDeparture(
   // 2. إذا كان لدى الموظف إجازة زمنية نهاية الدوام (shift_end):
   if (endTimeOff && (endTimeOff.time_off_subtype === 'shift_end' || !endTimeOff.time_off_subtype)) {
     const durationMins = endTimeOff.time_duration_minutes || 60;
-    // وقت الاستحقاق للمغادرة: 14:30 - مدة الزمنية
-    const standardEndMinutes = 14 * 60 + 30; // 870
+    const standardEndMinutes = windows.morningEarlyLeaveLimitMinutes;
     const eligibleExitMinutes = standardEndMinutes - durationMins;
 
     // إذا خرج عند أو بعد وقت الاستحقاق: طبيعي
@@ -387,9 +387,8 @@ export function evaluateMorningEarlyDeparture(
     );
   }
 
-  // 3. الدوام الصباحي الاعتيادي:
-  // ينتهي عند 14:30 (870 دقيقة). الخروج قبل 14:30 (14:29 فما دون) يعتبر مغادرة مبكرة
-  const standardEndMinutes = 14 * 60 + 30; // 870
+  // 3. الدوام الصباحي الاعتيادي المزحف:
+  const standardEndMinutes = windows.morningEarlyLeaveLimitMinutes;
   if (totalMinutes >= standardEndMinutes) {
     return []; // خروج نظامي
   }

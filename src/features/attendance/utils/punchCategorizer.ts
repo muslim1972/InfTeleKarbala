@@ -1,6 +1,7 @@
 import type { AttendanceRecord } from '../types';
 import type { ShiftType } from './shiftRules';
 import { countRealPunches } from './shiftRules';
+import { resolveEffectiveDutyWindows, type ResolvedDutyWindows } from './shiftScheduleUtils';
 
 export interface RawPunch {
   time: string;
@@ -31,7 +32,8 @@ export function categorizePunches(
   todayDateStr?: string, // YYYY-MM-DD
   shiftType: ShiftType = 'morning',
   isEndOfDayEvaluation: boolean = false,
-  hasConnectedShifts: boolean = false
+  hasConnectedShifts: boolean = false,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
 ): Partial<AttendanceRecord> {
   if (!rawPunches || rawPunches.length === 0) return {};
 
@@ -125,11 +127,13 @@ export function categorizePunches(
   if (filteredPunches.length === 2) {
     const p2 = filteredPunches[1];
     const p2Date = new Date(p2.time);
-    const p2BaghdadHour = (p2Date.getUTCHours() + 3) % 24;
+    const p2BaghdadMinutes = ((p2Date.getUTCHours() + 3) % 24) * 60 + p2Date.getUTCMinutes();
 
     const isExplicitTimeLeaveOut = p2.target_slot === 'time_leave_out' || p2.notes?.includes('إجازة زمنية') || p2.notes?.includes('مغادرة مؤقتة');
     const isExplicitCheckOut = p2.target_slot === 'check_out';
-    const isShiftEndWindow = shiftType === 'morning' ? p2BaghdadHour >= 14 : p2BaghdadHour >= 18;
+    const isShiftEndWindow = shiftType === 'morning'
+      ? p2BaghdadMinutes >= Math.max(0, windows.morningEarlyLeaveLimitMinutes - 30)
+      : p2BaghdadMinutes >= Math.max(0, windows.eveningEndMinutes - 120);
 
     if (isExplicitCheckOut || isShiftEndWindow) {
       setOutData(updates, p2, 'check_out');
@@ -142,13 +146,13 @@ export function categorizePunches(
   } else if (filteredPunches.length > 2) {
     const lastPunch = filteredPunches[filteredPunches.length - 1];
     const lastDate = new Date(lastPunch.time);
-    const lastBaghdadHour = (lastDate.getUTCHours() + 3) % 24;
+    const lastBaghdadMinutes = ((lastDate.getUTCHours() + 3) % 24) * 60 + lastDate.getUTCMinutes();
     const isExplicitCheckOut = lastPunch.target_slot === 'check_out';
     const isShiftEndWindow = shiftType === 'morning' 
-      ? lastBaghdadHour >= 14 
+      ? lastBaghdadMinutes >= Math.max(0, windows.morningEarlyLeaveLimitMinutes - 30)
       : (shiftType === 'shift' && hasConnectedShifts 
-          ? (lastBaghdadHour >= 7 && lastBaghdadHour <= 10) 
-          : lastBaghdadHour >= 19);
+          ? (lastBaghdadMinutes >= Math.max(0, windows.nightCheckoutStartMinutes - 30) && lastBaghdadMinutes <= windows.nightCheckoutEndMinutes + 30) 
+          : lastBaghdadMinutes >= Math.max(0, windows.eveningEndMinutes - 60));
 
     if (isExplicitCheckOut || isShiftEndWindow) {
       setOutData(updates, lastPunch, 'check_out');
@@ -177,8 +181,10 @@ export function categorizePunches(
 
   // 6. فحص وإدراج الخروج الافتراضي الإجباري عند نهاية اليوم إذا كانت البصمات فردية
   if (isEndOfDayEvaluation && filteredPunches.length % 2 === 1 && todayDateStr) {
+    const mEndH = Math.floor(windows.morningEndMinutes / 60);
+    const mEndM = windows.morningEndMinutes % 60;
     const virtualOutTime = shiftType === 'morning' 
-      ? toBaghdadIsoString(todayDateStr, 14, 30)  // 14:30 Baghdad نهاية الشفت الصباحي
+      ? toBaghdadIsoString(todayDateStr, mEndH, mEndM)
       : toBaghdadIsoString(todayDateStr, 23, 58); // 23:58 Baghdad (قبل حاجز فحص 23:59)
 
     updates.check_out = virtualOutTime;

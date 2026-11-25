@@ -55,7 +55,7 @@ export const SummerTrainingPage = ({ onBack }: SummerTrainingPageProps) => {
 
             {/* Content Area - Scrollable */}
             <div className="flex-1 overflow-y-auto">
-                <div className="py-6">
+                <div className="pt-6 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
                     <TrainingTabContent isAdmin={isDeveloperOrGeneral} />
                 </div>
             </div>

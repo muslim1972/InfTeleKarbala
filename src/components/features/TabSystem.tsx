@@ -1,13 +1,13 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3, ShieldCheck } from "lucide-react";
+import { Wallet, FileText, PieChart, ChevronRight, ChevronLeft, ClipboardList, Music, GraduationCap, Fingerprint, BarChart3, ShieldCheck, Coins } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 import { isDeveloperLevel } from "../../utils/permissions";
 
-export type UserDashboardTab = 'financial' | 'administrative' | 'polls' | 'requests' | 'audio' | 'knowledge' | 'supervision' | 'attendance_admin' | 'attendance_stats';
+export type UserDashboardTab = 'financial' | 'administrative' | 'polls' | 'requests' | 'incentives' | 'training_courses' | 'audio' | 'knowledge' | 'supervision' | 'attendance_admin' | 'attendance_stats';
 
 interface TabSystemProps {
     activeTab: UserDashboardTab;
@@ -48,11 +48,15 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         checkGovSetting();
     }, [user?.governorate, user?.can_view_requests]);
 
-    const isRequestsAllowed =
-        isAdmin ||
-        isDeveloper ||
-        Boolean(user?.can_view_requests) ||
-        isGovAllEnabled ||
+    const isBiometricOnly = Boolean(
+        (user?.admin_role === 'biometric' || user?.admin_role === 'attendance_supervisor' || user?.username === 'attend') &&
+        user?.admin_role !== 'general' &&
+        !isDeveloperLevel(user?.admin_role)
+    );
+
+    const hasAdminDashboard = isAdmin && !isBiometricOnly;
+
+    const isSpecialAccount = Boolean(
         user?.full_name?.includes('تجريبي 2') ||
         user?.full_name?.includes('مستخدم تجريبي') ||
         user?.username?.includes('تجريبي 2') ||
@@ -60,7 +64,26 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
         user?.username === 'test2' ||
         user?.username === 'test' ||
         user?.full_name?.includes('مسلم عقيل') ||
-        user?.full_name?.includes('مسلم قيل');
+        user?.full_name?.includes('مسلم قيل')
+    );
+
+    const isIncentivesAllowed = isAdmin || isDeveloper || isSpecialAccount;
+
+    // تبويبة تدريب ودورات تظهر في واجهة المستخدم فقط لمن لا يملك بطاقة إشراف ولكنه مخوّل بالترفيع أو التدريب
+    const canSeeUserTrainingCourses = Boolean(
+        !hasAdminDashboard && (
+            user?.can_access_promotion === true ||
+            user?.is_promotion_lecturer === true ||
+            user?.is_training_supervisor === true
+        )
+    );
+
+    const isRequestsAllowed =
+        isAdmin ||
+        isDeveloper ||
+        Boolean(user?.can_view_requests) ||
+        isGovAllEnabled ||
+        isSpecialAccount;
 
     const canAccessBiometricAdmin = Boolean(
         user?.admin_role === 'biometric' ||
@@ -98,8 +121,12 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
     const tabs = [
         { id: 'administrative', label: 'الموارد البشرية', icon: FileText },
         { id: 'financial', label: 'المالية', icon: Wallet },
+        { id: 'incentives', label: 'الحوافز الشهرية', icon: Coins },
         { id: 'polls', label: 'الاعلام', icon: PieChart },
         { id: 'requests', label: 'الطلبات', icon: ClipboardList },
+        ...(canSeeUserTrainingCourses ? [
+            { id: 'training_courses', label: 'تدريب ودورات', icon: GraduationCap }
+        ] as const : []),
         { id: 'knowledge', label: 'عزز معلوماتك', icon: GraduationCap },
         { id: 'audio', label: 'القرآن الكريم', icon: Music },
         ...((canAccessSupervision || isAdmin || isDeveloper) ? [
@@ -183,6 +210,10 @@ export const TabSystem = ({ activeTab, onTabChange }: TabSystemProps) => {
                             key={tab.id}
                             onClick={() => {
                                 if (tab.id === 'requests' && !isRequestsAllowed) {
+                                    toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
+                                    return;
+                                }
+                                if (tab.id === 'incentives' && !isIncentivesAllowed) {
                                     toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
                                     return;
                                 }

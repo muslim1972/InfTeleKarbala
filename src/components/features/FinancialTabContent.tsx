@@ -115,7 +115,7 @@ export const FinancialTabContent = ({
     }
 
     return (
-        <div className="space-y-4 pb-20">
+        <div className="space-y-4 pb-2">
             {financialData?.updated_at && (
                 <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-3 px-4 flex justify-between items-center animate-in fade-in slide-in-from-top-2 duration-500 mb-4">
                     <span className="text-brand-green font-bold text-sm">تم مطابقة القيود مع شعبة المالية بتأريخ:</span>

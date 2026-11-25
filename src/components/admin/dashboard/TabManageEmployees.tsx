@@ -13,7 +13,7 @@ import {
     Loader2,
     History
 } from "lucide-react";
-import { AccordionSection } from "../../ui/AccordionSection";
+import { TabAdminRecords } from "./TabAdminRecords";
 import { HistoryViewer } from "../HistoryViewer";
 import { DepartmentSelector } from "../DepartmentSelector";
 import { Input } from "../../ui/Input";
@@ -45,8 +45,7 @@ interface TabManageEmployeesProps {
     selectedEmployee: any;
     setSelectedEmployee: (val: any) => void;
     detailsRef: React.RefObject<HTMLDivElement | null>;
-    expandedSections: any;
-    toggleSection: (id: string) => void;
+    activeManageSubTab: 'main_info' | 'allowances_deductions' | 'admin_records';
     financialData: any;
     setFinancialData: (val: any) => void;
     isFieldReadOnly: (key: string) => boolean;
@@ -68,14 +67,34 @@ interface TabManageEmployeesProps {
     showProfileUpdater: boolean;
     setShowProfileUpdater: (val: boolean) => void;
     fetchFieldPermissions: () => Promise<void>;
+    yearlyData: any[];
+    selectedAdminYear: number;
+    setSelectedAdminYear: (year: number) => void;
+    adminRecords: {
+        thanks: any[];
+        committees: any[];
+        penalties: any[];
+        leaves: any[];
+    };
+    handleSaveRecord: (type: 'thanks' | 'committees' | 'penalties' | 'leaves', data: any) => Promise<void>;
+    handleDeleteRecord: (type: 'thanks' | 'committees' | 'penalties' | 'leaves', id: string) => Promise<void>;
+    openRecordSection: string | null;
+    handleToggleRecordSection: (section: string) => void;
+    activeFiveYearLeave: any;
+    setShowFiveYearLeaveModal: (show: boolean) => void;
+    setShowFiveYearLeaveHistoryModal: (show: boolean) => void;
+    handleFiveYearLeaveChange: (checked: boolean) => void;
+    newFiveYearLeave: any;
+    handleNewFiveYearLeaveChange: (field: string, value: string) => void;
+    handleCreateFiveYearLeave: () => Promise<void>;
+    loading: boolean;
 }
 
 export const TabManageEmployees = ({
     selectedEmployee,
     setSelectedEmployee,
     detailsRef,
-    expandedSections,
-    toggleSection,
+    activeManageSubTab,
     financialData,
     setFinancialData,
     isFieldReadOnly,
@@ -97,6 +116,22 @@ export const TabManageEmployees = ({
     showFinancialUpdater,
     setShowFinancialUpdater,
     fetchFieldPermissions,
+    yearlyData,
+    selectedAdminYear,
+    setSelectedAdminYear,
+    adminRecords,
+    handleSaveRecord,
+    handleDeleteRecord,
+    openRecordSection,
+    handleToggleRecordSection,
+    activeFiveYearLeave,
+    setShowFiveYearLeaveModal,
+    setShowFiveYearLeaveHistoryModal,
+    handleFiveYearLeaveChange,
+    newFiveYearLeave,
+    handleNewFiveYearLeaveChange,
+    handleCreateFiveYearLeave,
+    loading,
 }: TabManageEmployeesProps) => {
     const [showFixSickBalanceModal, setShowFixSickBalanceModal] = React.useState(false);
     const [showSnapshots, setShowSnapshots] = React.useState(false);
@@ -104,7 +139,7 @@ export const TabManageEmployees = ({
     return (
         <div className="space-y-6">
             {selectedEmployee ? (
-                <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto pb-28 sm:pb-36">
+                <div ref={detailsRef} className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-0 scroll-mt-20 w-full px-2 md:container md:mx-auto pb-2">
 
                     {/* Retiree Honor Banner */}
                     {selectedEmployee.is_retired && (
@@ -126,14 +161,8 @@ export const TabManageEmployees = ({
                         </div>
                     )}
 
-                    <AccordionSection
-                        id="main_info"
-                        title="معلومات اساسية"
-                        icon={User}
-                        isOpen={expandedSections.main_info}
-                        color="from-teal-600 to-teal-500"
-                        onToggle={() => toggleSection('main_info')}
-                    >
+                    {activeManageSubTab === 'main_info' && (
+                    <div className="p-4 sm:p-5 rounded-2xl border border-teal-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm space-y-4 animate-in fade-in duration-300">
                         {/* Main Info Fields */}
                         <div className="grid grid-cols-1 gap-4">
                             <EditableField
@@ -462,17 +491,13 @@ export const TabManageEmployees = ({
                                 </div>
                             </div>
                         </div>
-                    </AccordionSection>
 
-                    <AccordionSection
-                        id="basic"
-                        title="معلومات الدرجة الوظيفية"
-                        icon={User}
-                        isOpen={expandedSections.basic}
-                        color="from-purple-600 to-purple-500"
-                        onToggle={() => toggleSection('basic')}
-                    >
-                        <div className="space-y-4">
+                        {/* فاصل ودمج معلومات الدرجة الوظيفية داخل المعلومات الأساسية */}
+                        <div className="pt-4 mt-4 border-t-2 border-dashed border-purple-500/25 space-y-4">
+                            <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300">
+                                <User className="w-4 h-4 shrink-0" />
+                                <span className="text-xs font-extrabold">معلومات الدرجة الوظيفية</span>
+                            </div>
                             {/* Start Date */}
                             {/* Appointment Date */}
                             <EditableField
@@ -752,56 +777,84 @@ export const TabManageEmployees = ({
                                 />
                             </div>
                         </div>
-                    </AccordionSection>
+                    </div>
+                    )}
 
-                    <AccordionSection
-                        id="deductions"
-                        title="الاستقطاعات"
-                        icon={Scissors}
-                        isOpen={expandedSections.deductions}
-                        color="from-red-600 to-red-500"
-                        onToggle={() => toggleSection('deductions')}
-                    >
-                        <div className="grid grid-cols-1 gap-4">
-                            {financialFields.deductions.map((field: any) => (
-                                <FinancialInput financialData={financialData}
-                                    key={field.key}
-                                    field={field}
-                                    value={financialData?.[field.key]}
-                                    onChange={handleFinancialChange}
-                                    recordId={financialData?.id}
-                                    tableName="financial_records"
-                                    dbField={field.key}
-                                />
-                            ))}
-                        </div>
-                    </AccordionSection>
+                    {activeManageSubTab === 'allowances_deductions' && (
+                    <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm space-y-5 animate-in fade-in duration-300">
+                            {/* المخصصات أولاً */}
+                            <div className="space-y-4 p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 border-b border-emerald-500/15 pb-2">
+                                    <Wallet className="w-4 h-4 shrink-0" />
+                                    <span className="text-xs font-extrabold">المخصصات</span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4">
+                                    {financialFields.allowances.map((field: any) => (
+                                        <FinancialInput financialData={financialData}
+                                            key={field.key}
+                                            field={field}
+                                            value={financialData?.[field.key]}
+                                            onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField={field.key}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
 
-                    <AccordionSection
-                        id="allowances"
-                        title="المخصصات"
-                        icon={Wallet}
-                        isOpen={expandedSections.allowances}
-                        color="from-green-600 to-green-500"
-                        onToggle={() => toggleSection('allowances')}
-                    >
-                        <div className="grid grid-cols-1 gap-4">
-                            {financialFields.allowances.map((field: any) => (
-                                <FinancialInput financialData={financialData}
-                                    key={field.key}
-                                    field={field}
-                                    value={financialData?.[field.key]}
-                                    onChange={handleFinancialChange}
-                                    recordId={financialData?.id}
-                                    tableName="financial_records"
-                                    dbField={field.key}
-                                />
-                            ))}
-                        </div>
-                    </AccordionSection>
+                            {/* الاستقطاعات ثانياً */}
+                            <div className="space-y-4 p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5">
+                                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 border-b border-rose-500/15 pb-2">
+                                    <Scissors className="w-4 h-4 shrink-0" />
+                                    <span className="text-xs font-extrabold">الاستقطاعات</span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4">
+                                    {financialFields.deductions.map((field: any) => (
+                                        <FinancialInput financialData={financialData}
+                                            key={field.key}
+                                            field={field}
+                                            value={financialData?.[field.key]}
+                                            onChange={handleFinancialChange}
+                                            recordId={financialData?.id}
+                                            tableName="financial_records"
+                                            dbField={field.key}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                    </div>
+                    )}
+
+                    {activeManageSubTab === 'admin_records' && (
+                    <div className="p-3.5 sm:p-5 rounded-2xl border border-blue-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm animate-in fade-in duration-300">
+                        <TabAdminRecords
+                            embedded={true}
+                            selectedEmployee={selectedEmployee}
+                            yearlyData={yearlyData}
+                            selectedAdminYear={selectedAdminYear}
+                            setSelectedAdminYear={setSelectedAdminYear}
+                            adminRecords={adminRecords}
+                            handleSaveRecord={handleSaveRecord}
+                            handleDeleteRecord={handleDeleteRecord}
+                            openRecordSection={openRecordSection}
+                            handleToggleRecordSection={handleToggleRecordSection}
+                            isFieldReadOnly={isFieldReadOnly}
+                            activeFiveYearLeave={activeFiveYearLeave}
+                            setShowFiveYearLeaveModal={setShowFiveYearLeaveModal}
+                            setShowFiveYearLeaveHistoryModal={setShowFiveYearLeaveHistoryModal}
+                            financialData={financialData}
+                            handleFiveYearLeaveChange={handleFiveYearLeaveChange}
+                            newFiveYearLeave={newFiveYearLeave}
+                            handleNewFiveYearLeaveChange={handleNewFiveYearLeaveChange}
+                            handleCreateFiveYearLeave={handleCreateFiveYearLeave}
+                            loading={loading}
+                        />
+                    </div>
+                    )}
                 </div>
             ) : (
-                <div className="pt-2 pb-10">
+                <div className="pt-2 pb-2">
                     <div className="flex flex-wrap justify-center gap-4">
                         <Button
                             variant="outline"

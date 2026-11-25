@@ -1,6 +1,4 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Scissors, Activity } from 'lucide-react';
-import { AccordionSection } from "../ui/AccordionSection";
 import { AdministrativeMovementsCard } from "./AdministrativeMovementsCard";
 import { GlassCard } from "../ui/GlassCard";
 import { cn } from "../../lib/utils";
@@ -46,6 +44,7 @@ interface AdministrativeTabContentProps {
     departmentInfo: { name: string; managerName: string; sectionName?: string; deptName?: string };
     openSection: string | null;
     toggleSection: (section: string) => void;
+    activeSubTab?: 'basic' | 'movements' | 'leaves';
 }
 
 const basicInfoFields: BasicInfoField[] = [
@@ -84,8 +83,7 @@ export const AdministrativeTabContent = ({
     setSelectedLeave,
     user,
     departmentInfo,
-    openSection,
-    toggleSection
+    activeSubTab = 'basic'
 }: AdministrativeTabContentProps) => {
     return (
         <motion.div
@@ -94,16 +92,10 @@ export const AdministrativeTabContent = ({
             animate="show"
             className="space-y-4"
         >
-            {/* Basic Info Section - moved from Financial tab */}
+            {/* Basic Info Section - مباشر بدون أكورديون */}
+            {activeSubTab === 'basic' && (
             <motion.div variants={itemVariants}>
-                <AccordionSection
-                    id="hr-basic-info"
-                    title="المعلومات الاساسية"
-                    icon={User}
-                    color="from-blue-600 to-blue-500"
-                    isOpen={openSection === 'basic'}
-                    onToggle={() => toggleSection('basic')}
-                >
+                <div className="p-3.5 sm:p-5 rounded-2xl border border-blue-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm">
                     <div className="table w-full border-separate border-spacing-y-3 p-1">
                         {basicInfoFields.map((field) => {
                             let val: any;
@@ -182,34 +174,23 @@ export const AdministrativeTabContent = ({
                             );
                         })}
                     </div>
-                </AccordionSection>
+                </div>
             </motion.div>
+            )}
 
             {/* بطاقة الحركات المدمجة (كتب الشكر / اللجان / العقوبات) */}
+            {activeSubTab === 'movements' && (
             <motion.div variants={itemVariants}>
-                <AccordionSection
-                    id="movements"
-                    title="الحركات"
-                    icon={Activity}
-                    color="from-purple-600 to-indigo-600"
-                    isOpen={openSection === 'movements'}
-                    onToggle={() => toggleSection('movements')}
-                >
+                <div className="p-3.5 sm:p-5 rounded-2xl border border-purple-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm">
                     <AdministrativeMovementsCard userId={user?.id} />
-                </AccordionSection>
+                </div>
             </motion.div>
+            )}
 
             {/* Leaves */}
+            {activeSubTab === 'leaves' && (
             <motion.div variants={itemVariants}>
-                <AccordionSection
-                    id="leaves"
-                    title={`الاجازات (${currentYearRecord.leaves_taken || 0})`}
-                    icon={Scissors}
-                    color="from-green-600 to-green-500"
-                    className="border-green-500/20"
-                    isOpen={openSection === 'leaves'}
-                    onToggle={() => toggleSection('leaves')}
-                >
+                <div className="p-3.5 sm:p-5 rounded-2xl border border-emerald-500/25 bg-white/85 dark:bg-slate-900/70 backdrop-blur-md shadow-sm">
                     <div className="space-y-4">
                         <h3 className="text-foreground font-bold border-r-4 border-brand-green pr-3">
                             رصيد الاجازات {financialData?.leaves_balance_expiry_date ? `حتى نهاية ${financialData.leaves_balance_expiry_date}` : ''}
@@ -337,11 +318,9 @@ export const AdministrativeTabContent = ({
                             </div>
                         </div>
                     </div>
-                </AccordionSection>
+                </div>
             </motion.div>
-
-            {/* Spacer for scroll */}
-            <div className="h-20"></div>
+            )}
         </motion.div>
     );
 };

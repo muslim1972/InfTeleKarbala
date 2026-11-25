@@ -96,7 +96,7 @@ export const PromotionCoursesPage = ({ onBack }: PromotionCoursesPageProps) => {
 
             {/* Content Area - Scrollable */}
             <div className="flex-1 overflow-y-auto">
-                <div className="max-w-4xl mx-auto px-4 py-6 pb-20">
+                <div className="max-w-4xl mx-auto px-4 pt-6 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
                     {isSupervisor ? (
                         <AdminPromotionTab />
                     ) : activeTab === 'curricula' ? (

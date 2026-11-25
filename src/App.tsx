@@ -51,7 +51,12 @@ const LoadingScreen = () => (
   </div>
 );
 
-const AppContent = () => {
+interface AppContentProps {
+  showSplash: boolean;
+  onSplashComplete: () => void;
+}
+
+const AppContent = ({ showSplash, onSplashComplete }: AppContentProps) => {
   const { user, loading, logout } = useAuth();
   const { activeGovernorate, setActiveGovernorate } = useGovernorate();
   const location = useLocation();
@@ -199,24 +204,12 @@ const AppContent = () => {
   }, [isBiometricOnly, adminViewMode]);
 
 
-  // ── حالة الشاشة الافتتاحية (Splash Screen) ──────────
-  const [showSplash, setShowSplash] = useState(() => {
-    return sessionStorage.getItem('splashShown') !== 'true';
-  });
-
-  const handleSplashComplete = useCallback(() => {
-    sessionStorage.setItem('splashShown', 'true');
-    setShowSplash(false);
-  }, []);
-
-  // التحقق مما إذا كان التطبيق يعمل كـ PWA مثبت أو تطبيق أصلي (APK) عن طريق المكتبة الرسمية أو الـ Hostname
-
   // إظهار شاشة التحميل فقط عند عدم توفر بيانات مستخدم مخزنة مسبقاً
   if (loading) return <LoadingScreen />;
 
   // ── عرض الشاشة الافتتاحية (مرة واحدة لكل جلسة — لجميع الحالات) ──
   if (showSplash) {
-    return <SplashScreen onComplete={handleSplashComplete} />;
+    return <SplashScreen onComplete={onSplashComplete} />;
   }
 
   // إذا لم يكن هناك مستخدم مسجل: عرض واجهة اختيار المحافظة أو شاشة الدخول للمحافظة المحددة
@@ -229,8 +222,6 @@ const AppContent = () => {
 
   // ── توجيه المستخدم حسب الصلاحيات (للمستخدمين المسجلين فقط) ──
   const isAdmin = user.role === 'admin';
-  const hasPromotion = user.can_access_promotion === true;
-  const hasTraining = user.is_training_supervisor === true || isAdmin || isDeveloperLevel(user.admin_role) || user.admin_role === 'general';
   const hasHR = canAccessHR(user);
   const needsRoleSelection = true; // All users now see the Welcome Dashboard
 
@@ -241,7 +232,7 @@ const AppContent = () => {
   if (needsRoleSelection) {
     // إذا لم يختر المستخدم وضع الدخول بعد
     if (!adminViewMode) {
-      return <AdminRoleSelector onSelect={setAdminViewMode as any} hasCapacities={hasCapacities} hasPromotion={hasPromotion} hasTraining={hasTraining} hasHR={hasHR} />;
+      return <AdminRoleSelector onSelect={setAdminViewMode as any} hasCapacities={hasCapacities} hasHR={hasHR} />;
     }
     // عرض واجهة السعات كـ iframe داخلي
     if (adminViewMode === 'capacities') {
@@ -266,7 +257,7 @@ const AppContent = () => {
     // عرض الحوافز المستقلة لجميع المستخدمين
     if (adminViewMode === 'user_incentives') {
        return (
-         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))] font-tajawal">
              <IncentivesTabContent isAdminView={false} onBack={() => setAdminViewMode(null)} />
          </div>
        );
@@ -274,7 +265,7 @@ const AppContent = () => {
     // عرض الحضور والانصراف لجميع المستخدمين
     if (adminViewMode === 'attendance') {
        return (
-         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-20 font-tajawal">
+         <div className="pt-2 px-2 sm:px-4 relative max-w-5xl mx-auto pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))] font-tajawal">
              <AttendanceDashboard employeeId={user.id} onBack={() => setAdminViewMode(null)} />
          </div>
        );
@@ -308,6 +299,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  const location = useLocation();
+  const [showSplash, setShowSplash] = useState(() => {
+    return sessionStorage.getItem('splashShown') !== 'true';
+  });
+
+  const handleSplashComplete = useCallback(() => {
+    sessionStorage.setItem('splashShown', 'true');
+    setShowSplash(false);
+  }, []);
+
+  // منع ظهور الفوتر والعناصر العائمة أثناء عرض شاشة البداية تماماً
+  const isSplashRoute = location.pathname === '/' || location.pathname === '/login';
+  const hideGlobalChrome = showSplash && isSplashRoute;
+
   useEffect(() => {
     initializeOneSignal();
   }, []);
@@ -330,8 +335,8 @@ function App() {
                       </Route>
                       <Route path="/requests/leave" element={<ProtectedRoute><LeaveRequestPage /></ProtectedRoute>} />
                       <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
-                      <Route path="/" element={<AppContent />} />
-                      <Route path="/login" element={<AppContent />} />
+                      <Route path="/" element={<AppContent showSplash={showSplash} onSplashComplete={handleSplashComplete} />} />
+                      <Route path="/login" element={<AppContent showSplash={showSplash} onSplashComplete={handleSplashComplete} />} />
                       {/* البصمة البايومترية العامة — مسار عام بلا تسجيل دخول (جلسة خدمة مرمّزة) */}
                       <Route path="/kiosk" element={<KioskPage />} />
                       <Route path="/kiosk/*" element={<KioskPage />} />
@@ -340,8 +345,8 @@ function App() {
                       <Route path="/verify/continuity/:id" element={<PublicContinuityVerifyPage />} />
                       <Route path="/*" element={<NotFound />} />
                     </Routes>
-                    <FloatingAudioPlayer />
-                    <GlobalElements />
+                    {!hideGlobalChrome && <FloatingAudioPlayer />}
+                    {!hideGlobalChrome && <GlobalElements />}
                   </Suspense>
                 </KnowledgeProvider>
               </CallProvider>

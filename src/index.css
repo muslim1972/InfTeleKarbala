@@ -653,3 +653,60 @@ html[data-font-scale="xlarge"] textarea {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ── حركات شاشة البداية الرصينة (Sovereign Splash Animations) ── */
+@keyframes mocEmblemEmerge {
+  0% {
+    opacity: 0;
+    transform: scale(0.16);
+    filter: blur(6px);
+  }
+  55% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes mocTextReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mocSigReveal {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-moc-emerge {
+  animation: mocEmblemEmerge 1.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-moc-text-primary {
+  opacity: 0;
+  animation: mocTextReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.75s forwards;
+}
+
+.animate-moc-text-secondary {
+  opacity: 0;
+  animation: mocTextReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) 1.05s forwards;
+}
+
+.animate-moc-signature {
+  opacity: 0;
+  animation: mocSigReveal 0.9s ease-out 1.45s forwards;
+}

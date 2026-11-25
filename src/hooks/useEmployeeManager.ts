@@ -687,10 +687,15 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
     const handleSaveRecord = async (type: 'thanks' | 'committees' | 'penalties' | 'leaves', data: any) => {
         if (!selectedEmployee || !currentUser?.id) return;
         const isNewRecord = !data.id;
+        // استنتاج السنة الفعلية من تاريخ السجل نفسه
+        const dateValue: string | undefined = data.book_date || data.start_date || data.penalty_date;
+        const parsedDateYear = dateValue && /^\d{4}/.test(dateValue) ? parseInt(dateValue.slice(0, 4), 10) : NaN;
+        const targetYear = !isNaN(parsedDateYear) ? parsedDateYear : selectedAdminYear;
+
         setLoading(true);
         try {
             await supabase.from(`${type}_details`).upsert([{
-                ...data, user_id: selectedEmployee.id, year: selectedAdminYear,
+                ...data, user_id: selectedEmployee.id, year: targetYear,
                 last_modified_by: currentUser.id, last_modified_by_name: currentUser.full_name, last_modified_at: new Date().toISOString()
             }]);
 
@@ -698,16 +703,20 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 const fieldsMap: any = { thanks: 'thanks_books_count', committees: 'committees_count', penalties: 'penalties_count', leaves: 'leaves_taken' };
                 const field = fieldsMap[type];
                 if (field) {
-                    const yearRec = yearlyData.find(yr => yr.year === selectedAdminYear);
+                    const yearRec = yearlyData.find(yr => yr.year === targetYear);
                     if (yearRec) await supabase.from('yearly_records').update({ [field]: (yearRec[field] || 0) + 1 }).eq('id', yearRec.id);
-                    else await supabase.from('yearly_records').insert({ user_id: selectedEmployee.id, year: selectedAdminYear, [field]: 1 });
+                    else await supabase.from('yearly_records').insert({ user_id: selectedEmployee.id, year: targetYear, [field]: 1 });
                     
                     const { data: yData } = await supabase.from('yearly_records').select('*').eq('user_id', selectedEmployee.id).order('year', { ascending: false });
                     setYearlyData(yData || []);
                 }
             }
             toast.success(isNewRecord ? "تم إضافة السجل" : "تم تحديث السجل");
-            fetchAdminRecords();
+            if (targetYear !== selectedAdminYear) {
+                setSelectedAdminYear(targetYear);
+            } else {
+                fetchAdminRecords();
+            }
         } catch (error: any) {
             toast.error("فشل الحفظ: " + error.message);
         } finally {
@@ -719,12 +728,15 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         if (!confirm("تأكيد حذف السجل؟")) return;
         setLoading(true);
         try {
+            const existingItem = (adminRecords[type] || []).find((item: any) => item.id === id);
+            const targetYear = existingItem?.year || selectedAdminYear;
+
             await supabase.from(`${type}_details`).delete().eq('id', id);
             
             const fieldsMap: any = { thanks: 'thanks_books_count', committees: 'committees_count', penalties: 'penalties_count', leaves: 'leaves_taken' };
             const field = fieldsMap[type];
             if (field) {
-                const yearRec = yearlyData.find(yr => yr.year === selectedAdminYear);
+                const yearRec = yearlyData.find(yr => yr.year === targetYear);
                 if (yearRec && (yearRec[field] || 0) > 0) {
                     await supabase.from('yearly_records').update({ [field]: (yearRec[field] || 0) - 1 }).eq('id', yearRec.id);
                 }

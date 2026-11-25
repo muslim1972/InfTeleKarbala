@@ -139,7 +139,8 @@ export function computeDeficitMinutes(
   record: AttendanceRecord,
   scheduleStart: string | undefined,
   scheduleEnd: string | undefined,
-  gracePeriod: number = 0
+  gracePeriod: number = 0,
+  earlyLeaveEndOverride?: string
 ): number {
   if (!scheduleStart || !scheduleEnd || !record.check_in) return 0;
   
@@ -151,10 +152,8 @@ export function computeDeficitMinutes(
     const expectedStartDate = parseISO(expectedStartStr);
     if (isValid(expectedStartDate)) {
       let effectiveGrace = gracePeriod;
-      if (scheduleStart === '08:00') {
-        effectiveGrace = Math.max(gracePeriod, 30);
-      } else if (scheduleStart === '14:30' || scheduleStart === '20:00') {
-        effectiveGrace = 0;
+      if (scheduleStart === '08:00' && gracePeriod === 0) {
+        effectiveGrace = 30;
       }
       
       const lateMins = differenceInMinutes(checkInDate, expectedStartDate);
@@ -165,8 +164,8 @@ export function computeDeficitMinutes(
   if (record.check_out) {
     const checkOutDate = parseISO(record.check_out);
     if (isValid(checkOutDate)) {
-      let effectiveEnd = scheduleEnd;
-      if (scheduleEnd === '15:00' && scheduleStart === '08:00') {
+      let effectiveEnd = earlyLeaveEndOverride || scheduleEnd;
+      if (!earlyLeaveEndOverride && scheduleEnd === '15:00' && scheduleStart === '08:00') {
         effectiveEnd = '14:30';
       }
 

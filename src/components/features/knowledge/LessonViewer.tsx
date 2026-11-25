@@ -193,7 +193,7 @@ export const LessonViewer = ({ fileName, onBack }: LessonViewerProps) => {
     };
 
     return (
-        <div className="max-w-3xl mx-auto px-4 pb-32 pt-4">
+        <div className="max-w-3xl mx-auto px-4 pb-4 pt-4">
             {/* Header */}
             <header className="mb-14 text-center">
                 <h1 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-l dark:from-blue-400 dark:to-emerald-400 mb-4 leading-tight tracking-tight">

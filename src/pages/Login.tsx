@@ -123,7 +123,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
   }
 
   return (
-    <div className={`min-h-screen w-full flex items-start justify-center relative font-tajawal pb-12 transition-colors duration-500 ${
+    <div className={`min-h-screen w-full flex items-start justify-center relative font-tajawal transition-colors duration-500 ${
       theme === 'light' ? 'bg-slate-50' : 'bg-gray-900'
     }`}>
       <ThemeToggleFloating />
@@ -148,7 +148,7 @@ export const Login = ({ onBack }: { onBack?: () => void } = {}) => {
       </div>
 
       {/* Main Content Container */}
-      <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] pb-40">
+      <div className="relative z-10 w-full max-w-md p-6 flex flex-col items-center pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
 
           {/* Back to Governorate Selection Button */}
           {onBack && (

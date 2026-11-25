@@ -7,6 +7,7 @@ import { ApprovalModal } from '../../features/requests/components/ApprovalModal'
 import { NotificationHistoryModal } from '../notifications/NotificationHistoryModal';
 import { printContinuityLetterDirect } from '../../features/hr/utils/printContinuityDirect';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
+import { temporaryWorkHoursService } from '../../features/attendance/services/temporaryWorkHoursService';
 import { toast } from 'react-hot-toast';
 
 const getLeaveTypeName = (type?: string, subtype?: string, isMandatory?: boolean) => {
@@ -787,6 +788,21 @@ export const AppNotifications = () => {
         }
     };
 
+    const handleWorkHoursDirectorDecision = async (notificationId: string, overrideId: string, decision: 'approve' | 'reject') => {
+        if (!overrideId) return;
+        try {
+            setSmartActionLoading(`workhours-${decision}-${notificationId}`);
+            const res = await temporaryWorkHoursService.respondToOverride(overrideId, decision, notificationId);
+            toast.success(res?.message || (decision === 'approve' ? 'تم اعتماد تعديل ساعات الدوام' : 'تم رفض الطلب وحذفه'));
+            await handleMarkSystemNotificationRead(notificationId);
+        } catch (err: any) {
+            console.error('Error responding to temporary work hours:', err);
+            toast.error(err?.message || 'تعذر معالجة طلب تعديل ساعات الدوام');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
     return (
         <>
             <button
@@ -1437,8 +1453,53 @@ export const AppNotifications = () => {
                                                         </div>
                                                     );
                                                 }
-                                                // إشعارات الفحص اليومي وحركات البصمة: زر «اطلعت» لحفظ الإشعار وأرشفته
-                                                if (metaType === 'morning_attendance_alert' || notification.type?.startsWith('attendance_morning_') || notification.type?.startsWith('attendance_')) {
+                                                // طلب اعتماد تعديل ساعات الدوام (لمدير المديرية فقط: موافق / رفض مع كامل التفاصيل)
+                                                if (notification.type === 'work_hours_approval' || metaType === 'work_hours_approval') {
+                                                    const overrideId = meta.override_id as string;
+                                                    const isLoadingThis = smartActionLoading?.startsWith('workhours-') && smartActionLoading?.includes(notification.id);
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-blue-100 dark:border-blue-900/40">
+                                                            <div className="p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 text-[11px] text-slate-800 dark:text-slate-200 space-y-1">
+                                                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-bold">
+                                                                    <span>الكتاب المرقم: <b className="text-blue-700 dark:text-blue-300">{meta.book_number}</b></span>
+                                                                    <span>بتاريخ: <b>{meta.book_date}</b></span>
+                                                                </div>
+                                                                <div className="font-semibold">الصادر من: <b>{meta.issuing_entity}</b></div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 pt-1 text-[10px] font-bold" dir="ltr" style={{ textAlign: 'right' }}>
+                                                                    <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-slate-800/80">صباحي: {meta.morning_start} - {meta.morning_end}</span>
+                                                                    <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-slate-800/80">مسائي: {meta.evening_start} - {meta.evening_end}</span>
+                                                                    <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-slate-800/80">خفر: {meta.night_start} - {meta.night_end}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleWorkHoursDirectorDecision(notification.id, overrideId, 'approve')}
+                                                                    className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                                                                >
+                                                                    <CheckCircle size={15} />
+                                                                    {smartActionLoading === `workhours-approve-${notification.id}` ? 'جارٍ الاعتماد...' : 'موافق'}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleWorkHoursDirectorDecision(notification.id, overrideId, 'reject')}
+                                                                    className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                                                                >
+                                                                    <X size={15} />
+                                                                    {smartActionLoading === `workhours-reject-${notification.id}` ? 'جارٍ الرفض...' : 'رفض'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                // إشعارات الفحص اليومي وحركات البصمة أو رفض تعديل ساعات الدوام: زر «اطلعت» لحفظ الإشعار وأرشفته
+                                                if (
+                                                    metaType === 'morning_attendance_alert' ||
+                                                    notification.type === 'work_hours_rejected' ||
+                                                    metaType === 'work_hours_rejected' ||
+                                                    notification.type?.startsWith('attendance_morning_') ||
+                                                    notification.type?.startsWith('attendance_')
+                                                ) {
                                                     return (
                                                         <button
                                                             onClick={() => handleMarkSystemNotificationRead(notification.id)}

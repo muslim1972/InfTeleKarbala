@@ -4,6 +4,8 @@ import { supabase } from '../../../lib/supabase';
 import { useGovernorate } from '../../../context/GovernorateContext';
 import { governorateName } from '../../../constants/governorates';
 import { computeWorkedMinutes, formatDurationDot, computeDeficitMinutes, computeOvertimeMinutes } from '../utils/attendanceCalc';
+import { temporaryWorkHoursService } from '../services/temporaryWorkHoursService';
+import { resolveEffectiveDutyWindows, minutesToHHMM, parseTimeToMinutes, type EffectiveWorkHours } from '../utils/shiftScheduleUtils';
 import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, X, RefreshCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { arSA } from 'date-fns/locale';
@@ -170,6 +172,7 @@ export default function Timesheets() {
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [monthLeaves, setMonthLeaves] = useState<LeaveRequestLite[]>([]);
   const [monthExemptions, setMonthExemptions] = useState<any[]>([]);
+  const [monthOverrides, setMonthOverrides] = useState<EffectiveWorkHours[]>([]);
 
   const loadFilters = useCallback(async () => {
     try {
@@ -252,15 +255,17 @@ export default function Timesheets() {
         ? [employeeId]
         : (allEmployees.length > 0 ? allEmployees.map(e => e.id) : undefined);
 
-      const leaves = await getApprovedLeavesInRange(startStr, endStr, targetUserIds);
+      const [leaves, exemptionsRes, overridesData] = await Promise.all([
+        getApprovedLeavesInRange(startStr, endStr, targetUserIds),
+        supabase
+          .from('employee_weekly_exemptions')
+          .select('*')
+          .gte('valid_until', startStr),
+        temporaryWorkHoursService.listApprovedOverridesForRange(startStr, endStr, activeGovernorate || 'karbala')
+      ]);
       setMonthLeaves(leaves);
-
-      // جلب سجلات التفرغ الأسبوعي المعتمدة
-      const { data: exemptionsData } = await supabase
-        .from('employee_weekly_exemptions')
-        .select('*')
-        .gte('valid_until', startStr);
-      setMonthExemptions(exemptionsData || []);
+      setMonthExemptions(exemptionsRes.data || []);
+      setMonthOverrides(overridesData || []);
     } catch (err: any) {
       toast.error('فشل تحميل التقارير: ' + err.message);
     } finally {
@@ -330,40 +335,78 @@ export default function Timesheets() {
       else label = raw.replace(/الجدول|الافتراضي|\(|\)/g, '').trim() || 'صباحي';
     }
 
-    // Expected check-in & check-out times
-    let expectedIn = '08:00';
-    let expectedOut = '14:30';
+    const isSpecial = schedule?.type === 'special' || Boolean(schedule?.name?.includes('دوام خاص'));
+    const matchingOverride = !isSpecial
+      ? monthOverrides.find((o) => dateOnlyStr >= o.start_date && dateOnlyStr <= o.end_date)
+      : undefined;
+    const dw = resolveEffectiveDutyWindows(matchingOverride);
+
+    // Expected check-in & check-out times (تتزحف مع أمر تعديل ساعات الدوام المؤقت)
+    let expectedIn = dw.morningStart;
+    let expectedOut = minutesToHHMM(dw.morningEarlyLeaveLimitMinutes);
+    let graceMinutes = isRoster ? 0 : 30;
+    let earlyLeaveEnd = expectedOut;
 
     if (isRoster) {
       if (isMorning && isEvening && isNight) {
-        expectedIn = '08:00';
-        expectedOut = '08:00'; // 24 continuous hours until 8:00 AM next day
+        expectedIn = dw.morningStart;
+        expectedOut = dw.nightEnd;
+        earlyLeaveEnd = dw.nightEnd;
       } else if (isMorning && isNight) {
-        expectedIn = '08:00';
-        expectedOut = '08:00';
+        expectedIn = dw.morningStart;
+        expectedOut = dw.nightEnd;
+        earlyLeaveEnd = dw.nightEnd;
       } else if (isMorning && isEvening) {
-        expectedIn = '08:00';
-        expectedOut = '20:00';
+        expectedIn = dw.morningStart;
+        expectedOut = dw.eveningEnd;
+        earlyLeaveEnd = dw.eveningEnd;
       } else if (isEvening && isNight) {
-        expectedIn = '14:30';
-        expectedOut = '08:00';
+        expectedIn = dw.eveningStart;
+        expectedOut = dw.nightEnd;
+        earlyLeaveEnd = dw.nightEnd;
       } else if (isMorning) {
-        expectedIn = '08:00';
-        expectedOut = '14:30';
+        expectedIn = dw.morningStart;
+        expectedOut = minutesToHHMM(dw.morningEarlyLeaveLimitMinutes);
+        earlyLeaveEnd = expectedOut;
       } else if (isEvening) {
-        expectedIn = '14:30';
-        expectedOut = '20:00';
+        expectedIn = dw.eveningStart;
+        expectedOut = dw.eveningEnd;
+        earlyLeaveEnd = dw.eveningEnd;
       } else if (isNight) {
-        expectedIn = '20:00';
-        expectedOut = '08:00';
+        expectedIn = dw.nightStart;
+        expectedOut = dw.nightEnd;
+        earlyLeaveEnd = dw.nightEnd;
+      }
+    } else if (isSpecial) {
+      if (daySchedule && !daySchedule.is_rest_day) {
+        expectedIn = daySchedule.start_time?.substring(0, 5) || '08:00';
+        expectedOut = daySchedule.end_time?.substring(0, 5) || '14:30';
+        earlyLeaveEnd = expectedOut;
+        graceMinutes = schedule?.grace_period_minutes ?? 15;
+      }
+    } else if (matchingOverride) {
+      if (isNight) {
+        expectedIn = dw.nightStart;
+        expectedOut = dw.nightEnd;
+        earlyLeaveEnd = dw.nightEnd;
+        graceMinutes = 0;
+      } else if (isEvening) {
+        expectedIn = dw.eveningStart;
+        expectedOut = dw.eveningEnd;
+        earlyLeaveEnd = dw.eveningEnd;
+        graceMinutes = 0;
       } else {
-        expectedIn = '08:00';
-        expectedOut = '14:30';
+        expectedIn = dw.morningStart;
+        expectedOut = minutesToHHMM(dw.morningEarlyLeaveLimitMinutes);
+        earlyLeaveEnd = expectedOut;
+        graceMinutes = 30;
       }
     } else {
       if (daySchedule && !daySchedule.is_rest_day) {
         expectedIn = daySchedule.start_time?.substring(0, 5) || '08:00';
         expectedOut = daySchedule.end_time?.substring(0, 5) || '14:30';
+        earlyLeaveEnd = (expectedIn === '08:00' && expectedOut === '15:00') ? '14:30' : expectedOut;
+        graceMinutes = (isEvening || isNight) ? 0 : 30;
       }
     }
 
@@ -378,9 +421,11 @@ export default function Timesheets() {
       label,
       expectedIn,
       expectedOut,
+      graceMinutes,
+      earlyLeaveEnd,
       hasExemption: Boolean(hasExemption)
     };
-  }, [workSchedules, monthExemptions]);
+  }, [workSchedules, monthExemptions, monthOverrides]);
 
   const getDayTypeStr = useCallback((dateObj: Date, schedule: any) => {
     const isRoster = schedule?.type === 'roster';
@@ -511,7 +556,7 @@ export default function Timesheets() {
                    newRecords.push(rec);
 
                    const netMins = computeWorkedMinutes(rec, undefined, shiftInfo.expectedOut);
-                   let defMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
+                   let defMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut, shiftInfo.graceMinutes, shiftInfo.earlyLeaveEnd);
                    const ovtMins = isRestOrHoliday ? netMins : computeOvertimeMinutes(rec, shiftInfo.expectedIn, shiftInfo.expectedOut);
 
                    const dateStrKey = format(currentDateObj, 'yyyy-MM-dd');
@@ -736,7 +781,7 @@ export default function Timesheets() {
             rec.notes.includes('خفارة ممتدة')
           ));
           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout, shiftInfo.graceMinutes, shiftInfo.earlyLeaveEnd);
           const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
           
           // Verification logic
@@ -753,7 +798,7 @@ export default function Timesheets() {
           const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
           const isEarlyOut = Boolean(
             rec.check_out && !isRestOrHoliday && (
-              (expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+              (parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < parseTimeToMinutes(shiftInfo.earlyLeaveEnd, 14 * 60 + 30)) ||
               (deficitMins > 0 && rec.check_out) ||
               rec.notes?.includes('خروج مبكر')
             )
@@ -1179,7 +1224,7 @@ export default function Timesheets() {
           rec.notes.includes('خفارة ممتدة')
         ));
         const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-        const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+        const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout, shiftInfo.graceMinutes, shiftInfo.earlyLeaveEnd);
         const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
         
         let verifyMethod = 'يدوي';
@@ -1191,7 +1236,7 @@ export default function Timesheets() {
         const isVirtualIn = rec.notes?.includes('دخول اولي افتراضي');
         const isEarlyOut = Boolean(
           rec.check_out && !isRestOrHoliday && (
-            (expectedCheckout === '15:00' && expectedCheckin === '08:00' && parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < 14 * 60 + 30) ||
+            (parseISO(rec.check_out).getHours() * 60 + parseISO(rec.check_out).getMinutes() < parseTimeToMinutes(shiftInfo.earlyLeaveEnd, 14 * 60 + 30)) ||
             (deficitMins > 0 && rec.check_out) ||
             rec.notes?.includes('خروج مبكر')
           )
@@ -1602,7 +1647,7 @@ export default function Timesheets() {
                             rec.notes.includes('خفارة ممتدة')
                           ));
                           const netMins = computeWorkedMinutes(rec, undefined, expectedCheckout);
-                          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout);
+                          const deficitMins = isRestOrHoliday ? 0 : computeDeficitMinutes(rec, expectedCheckin, expectedCheckout, shiftInfo.graceMinutes, shiftInfo.earlyLeaveEnd);
                           const overtimeMins = (isRestOrHoliday && !isShiftExtension) ? netMins : computeOvertimeMinutes(rec, expectedCheckin, expectedCheckout);
                           
                           let verifyMethod = 'يدوي';

@@ -13,6 +13,8 @@
  * 7. أوزان الشفتات: صباحي=1، مسائي=1، خفر=2، مسائي+خفر=3 أيام.
  */
 
+import { resolveEffectiveDutyWindows, type ResolvedDutyWindows } from '../utils/shiftScheduleUtils';
+
 export type RosterShiftType = 'morning' | 'evening' | 'night' | 'connected_evening_night' | 'connected_night_morning' | 'rest';
 
 export interface RosterPunch {
@@ -138,7 +140,8 @@ export function evaluateRosterAttendance(
   prevDaySchedule: { is_night: boolean } = { is_night: false },
   approvedLeaves: ApprovedLeaveLite[] = [],
   approvedTimeOffs: ApprovedLeaveLite[] = [],
-  isEndOfDay: boolean = false
+  isEndOfDay: boolean = false,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
 ): RosterEvaluationResult {
   const hasAnyRealPunches = (rawPunchesInput || []).some(p => !p.is_virtual && !p.notes?.includes('افتراضي'));
   const shiftType = resolveRosterShiftType(schedule, prevDaySchedule, hasAnyRealPunches);
@@ -220,27 +223,27 @@ export function evaluateRosterAttendance(
 
   switch (shiftType) {
     case 'morning':
-      checkOutWindowStartMins = 14 * 60 + 15; // 14:15
-      checkOutWindowEndMins = 16 * 60;      // 16:00
+      checkOutWindowStartMins = Math.max(0, windows.morningEndMinutes - 45);
+      checkOutWindowEndMins = windows.morningEndMinutes + 60;
       break;
     case 'evening':
-      checkOutWindowStartMins = 19 * 60 + 45; // 19:45
-      checkOutWindowEndMins = 21 * 60 + 30;  // 21:30
+      checkOutWindowStartMins = windows.eveningCheckoutStartMinutes;
+      checkOutWindowEndMins = windows.eveningCheckoutEndMinutes;
       break;
     case 'night':
-      // نهاية الخفر صباح اليوم التالي (07:30 - 09:30)
-      checkOutWindowStartMins = 7 * 60 + 30;
-      checkOutWindowEndMins = 9 * 60 + 30;
+      // نهاية الخفر صباح اليوم التالي
+      checkOutWindowStartMins = windows.nightCheckoutStartMinutes;
+      checkOutWindowEndMins = windows.nightCheckoutEndMinutes;
       break;
     case 'connected_evening_night':
     case 'connected_night_morning':
-      // نهاية النوبة الممتدة صباح اليوم التالي (07:30 - 09:30)
-      checkOutWindowStartMins = 7 * 60 + 30;
-      checkOutWindowEndMins = 9 * 60 + 30;
+      // نهاية النوبة الممتدة صباح اليوم التالي
+      checkOutWindowStartMins = windows.nightCheckoutStartMinutes;
+      checkOutWindowEndMins = windows.nightCheckoutEndMinutes;
       break;
     default:
-      checkOutWindowStartMins = 19 * 60 + 45;
-      checkOutWindowEndMins = 21 * 60;
+      checkOutWindowStartMins = windows.eveningCheckoutStartMinutes;
+      checkOutWindowEndMins = windows.eveningCheckoutEndMinutes;
   }
 
   // 5. فحص الإجازات الزمنية الصالحة (المناوب مسموح له فقط shift_start أو shift_end)
@@ -388,12 +391,12 @@ export function evaluateRosterAttendance(
     status = 'absent';
     notes = 'غياب — لم تُسجل بصمة حضور للشفت';
   } else {
-    // فحص التأخير
+    // فحص التأخير (مزحف)
     const { totalMinutes } = getBaghdadMinutes(slots.check_in);
     let shiftExpectedStartMins = 0;
-    if (shiftType === 'morning') shiftExpectedStartMins = 8 * 60;
-    else if (shiftType === 'evening' || shiftType === 'connected_evening_night') shiftExpectedStartMins = 14 * 60 + 30;
-    else if (shiftType === 'night') shiftExpectedStartMins = 20 * 60;
+    if (shiftType === 'morning') shiftExpectedStartMins = windows.morningStartMinutes;
+    else if (shiftType === 'evening' || shiftType === 'connected_evening_night') shiftExpectedStartMins = windows.eveningStartMinutes;
+    else if (shiftType === 'night') shiftExpectedStartMins = windows.nightStartMinutes;
 
     // المناوب ليس لديه سماحية 30 دقيقة
     const graceMinutes = 0;

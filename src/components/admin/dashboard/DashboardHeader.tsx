@@ -2,10 +2,8 @@ import { useState } from "react";
 import { Search, Loader2, Trash2, Lock, RotateCcw, X } from "lucide-react";
 import { useSnapshots } from "../../../context/SnapshotContext";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
-import { YearSlider } from "../../features/YearSlider";
 import { cn } from "../../../lib/utils";
 import { EmployeeSearch } from "../../shared/EmployeeSearch";
-import { isDeveloperLevel } from "../../../utils/permissions";
 
 const getThreePartName = (name: string): string => {
     if (!name) return '';
@@ -50,8 +48,8 @@ export const DashboardHeader = ({
     canAccessAttendance,
     isFieldReadOnly,
     theme,
-    selectedAdminYear,
-    setSelectedAdminYear,
+    selectedAdminYear: _selectedAdminYear,
+    setSelectedAdminYear: _setSelectedAdminYear,
     selectedEmployee,
     handleSaveEmployee,
     handleUpdateEmployee,
@@ -83,14 +81,12 @@ export const DashboardHeader = ({
         const allTabs = [
             ...(canAddEmployee ? [{ id: 'admin_add', label: 'إضافة موظف' }] : []),
             ...(!isBiometricAdmin ? [{ id: 'admin_manage', label: 'إدارة الموظفين' }] : []),
-            ...(!isBiometricAdmin ? [{ id: 'admin_records', label: 'إدارة السجلات' }] : []),
             ...(!isBiometricAdmin ? [{ id: 'admin_incentives', label: 'الحوافز' }] : []),
             { id: 'admin_stats', label: 'الإحصاءات' },
             ...(canAccessNews ? [{ id: 'admin_news', label: 'الاعلام' }] : []),
             ...(!isBiometricAdmin ? [{ id: 'admin_departments', label: 'الهيكلية الإدارية' }] : []),
-            { id: 'admin_audio', label: 'القرآن الكريم' },
             ...((isBiometricAdmin || isFieldReadOnly('tab_supervisors')) ? [] : [{ id: 'admin_supervisors', label: 'المشرفون' }]),
-            ...((currentUser?.admin_role === 'general' || isDeveloperLevel(currentUser?.admin_role)) ? [{ id: 'admin_promotion', label: 'دورات الترفيع' }] : []),
+            ...(!isBiometricAdmin ? [{ id: 'admin_training_courses', label: 'تدريب ودورات' }] : []),
             ...(canManageAttendance ? [{ id: 'admin_attendance', label: 'إدارة البصمة' }] : [])
         ];
 
@@ -98,7 +94,7 @@ export const DashboardHeader = ({
     })();
 
     const [showFloatingSearch, setShowFloatingSearch] = useState(false);
-    const hasActionContent = activeTab === 'admin_records' || activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee);
+    const hasActionContent = activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee);
 
     return (
         <div className="space-y-2">
@@ -211,23 +207,9 @@ export const DashboardHeader = ({
             {hasActionContent && (
             <div className="flex items-center justify-between gap-3 relative overflow-visible h-10 min-h-[40px]">
 
-                {/* Right Side (Start in RTL): Year Slider أو زر الحفظ */}
+                {/* Right Side (Start in RTL): زر الحفظ */}
                 <div className="flex-shrink-0 min-w-[140px]">
-                    {activeTab === 'admin_records' ? (
-                        <div className={cn(
-                            "flex items-center gap-1 px-2 py-0.5 rounded-lg border animate-in fade-in zoom-in duration-300",
-                            theme === 'light'
-                                ? "bg-white border-gray-200 shadow-sm"
-                                : "bg-white/5 border-white/5"
-                        )}>
-                            <div className="w-28">
-                                <YearSlider
-                                    selectedYear={selectedAdminYear}
-                                    onYearChange={setSelectedAdminYear}
-                                />
-                            </div>
-                        </div>
-                    ) : (activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee)) ? (
+                    {(activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee)) ? (
                         isHistorical ? (
                             <div className="flex items-center gap-1.5 w-full animate-in fade-in zoom-in duration-300">
                                 <div

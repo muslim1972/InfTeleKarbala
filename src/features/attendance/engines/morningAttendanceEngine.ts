@@ -19,6 +19,7 @@
 
 import { getBaghdadDate } from '../utils/shiftRules';
 import type { RawPunch } from '../utils/punchCategorizer';
+import { resolveEffectiveDutyWindows, minutesToHHMM, minutesToHHMMSS, type ResolvedDutyWindows } from '../utils/shiftScheduleUtils';
 
 export interface MorningLeaveRequest {
   id: string;
@@ -104,16 +105,20 @@ export function getBaghdadTimeParts(isoString: string): { hours: number; minutes
 }
 
 /**
- * فحص منع البصمة الصباحية قبل الساعة 6:00 ص
+ * فحص منع البصمة الصباحية قبل الحد الصباحي المبكر (افتراضياً 6:00 ص، ويتزحف مع تعديل ساعات الدوام)
  */
-export function checkMorningEarlyPunchAllowed(punchIsoString: string): { allowed: boolean; isWarning?: boolean; message?: string } {
+export function checkMorningEarlyPunchAllowed(
+  punchIsoString: string,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
+): { allowed: boolean; isWarning?: boolean; message?: string } {
   const { totalMinutes } = getBaghdadTimeParts(punchIsoString);
-  const sixAmMinutes = 6 * 60; // 06:00
-  if (totalMinutes < sixAmMinutes) {
+  const minAllowedMinutes = windows.morningEarlyPunchMinMinutes;
+  if (totalMinutes < minAllowedMinutes) {
+    const minStr = minutesToHHMM(minAllowedMinutes);
     return {
       allowed: false,
       isWarning: true,
-      message: 'أنت خارج أوقات الدوام الرسمي، ويجب أن تكون البصمة الصباحية ابتداءً من السادسة صباحاً، فهل تريد تثبيت البصمة على أية حال؟'
+      message: `أنت خارج أوقات الدوام الرسمي، ويجب أن تكون البصمة الصباحية ابتداءً من الساعة ${minStr} صباحاً، فهل تريد تثبيت البصمة على أية حال؟`
     };
   }
   return { allowed: true };
@@ -127,7 +132,8 @@ export function evaluateMorningAttendance(
   dateStr: string, // YYYY-MM-DD
   approvedLeaves: MorningLeaveRequest[] = [],
   calendarInfo?: MorningCalendarInfo,
-  isEndOfDay: boolean = false
+  isEndOfDay: boolean = false,
+  windows: ResolvedDutyWindows = resolveEffectiveDutyWindows()
 ): MorningEvaluationResult {
   const isOffDay = Boolean(
     calendarInfo?.isRestDay ||
@@ -214,9 +220,9 @@ export function evaluateMorningAttendance(
   slots.check_in_verified_by_biometric = firstPunch.verified_by_biometric;
 
   const firstParts = getBaghdadTimeParts(firstPunch.time);
-  const onTimeLimitMinutes = 8 * 60 + 30; // 08:30 (510 دقيقة)
+  const onTimeLimitMinutes = windows.morningOnTimeLimitMinutes;
 
-  // فحص التأخير الصباحي (ابتداءً من 08:31) - يُعطل تماماً في أيام العطل والاستراحة والإجازات
+  // فحص التأخير الصباحي (بعد البداية + 30د سماح) - يُعطل تماماً في أيام العطل والاستراحة والإجازات
   if (!isOffDay && firstParts.totalMinutes > onTimeLimitMinutes) {
     const delayMins = firstParts.totalMinutes - onTimeLimitMinutes;
     const h = Math.floor(delayMins / 60);
@@ -258,14 +264,15 @@ export function evaluateMorningAttendance(
   if (totalPunchesCount === 1) {
     // بصمة واحدة فقط طوال اليوم
     if (isEndOfDay && !isOffDay) {
-      // حقن بصمة افتراضية حمراء عند الساعة 15:00 لغلق الدوام وحساب الساعات
-      const virtualIso = baghdadTimeToIso(dateStr, MORNING_DUTY_END);
+      // حقن بصمة افتراضية حمراء عند نهاية الدوام المزحفة لغلق الدوام وحساب الساعات
+      const virtualEndStr = minutesToHHMMSS(windows.morningEndMinutes);
+      const virtualIso = baghdadTimeToIso(dateStr, virtualEndStr || MORNING_DUTY_END);
       virtualCheckOut = {
         time: virtualIso,
         reason: 'خروج افتراضي بنهاية الدوام الصباحي'
       };
       slots.check_out = virtualIso;
-      notesList.push('(خروج نهائي افتراضي 15:00)');
+      notesList.push(`(خروج نهائي افتراضي ${windows.morningEnd})`);
     }
   } else if (totalPunchesCount === 2) {
     // بصمتان: الأولى دخول والثانية انصراف
@@ -277,7 +284,7 @@ export function evaluateMorningAttendance(
     slots.check_out_verified_by_biometric = p2.verified_by_biometric;
 
     const p2Parts = getBaghdadTimeParts(p2.time);
-    const earlyLimitMinutes = 14 * 60 + 30; // 14:30
+    const earlyLimitMinutes = windows.morningEarlyLeaveLimitMinutes;
     if (!isOffDay && p2Parts.totalMinutes < earlyLimitMinutes) {
       const earlyMins = earlyLimitMinutes - p2Parts.totalMinutes;
       const h = Math.floor(earlyMins / 60);
@@ -308,7 +315,7 @@ export function evaluateMorningAttendance(
     slots.check_out_verified_by_biometric = lastPunch.verified_by_biometric;
 
     const lastParts = getBaghdadTimeParts(lastPunch.time);
-    const earlyLimitMinutes = 14 * 60 + 30; // 14:30
+    const earlyLimitMinutes = windows.morningEarlyLeaveLimitMinutes;
     if (!isOffDay && lastParts.totalMinutes < earlyLimitMinutes) {
       const earlyMins = earlyLimitMinutes - lastParts.totalMinutes;
       const h = Math.floor(earlyMins / 60);

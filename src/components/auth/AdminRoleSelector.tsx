@@ -1,24 +1,19 @@
 import React from "react";
-import { User, ShieldCheck, GraduationCap, Fingerprint, Briefcase } from "lucide-react";
+import { User, ShieldCheck, Fingerprint, Briefcase } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { ThemeToggleFloating } from "../ui/ThemeToggleFloating";
-import toast from 'react-hot-toast';
 import { isDeveloperLevel } from "../../utils/permissions";
 
 interface AdminRoleSelectorProps {
-    onSelect: (role: 'admin' | 'user' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr') => void;
+    onSelect: (role: 'admin' | 'user' | 'capacities' | 'attendance' | 'hr') => void;
     /** Whether this user is eligible for the Capacities system */
     hasCapacities?: boolean;
-    /** Whether this user is eligible for Promotion Courses */
-    hasPromotion?: boolean;
-    /** Whether this user is eligible for Summer Training */
-    hasTraining?: boolean;
     /** Whether this user is eligible for HR */
     hasHR?: boolean;
 }
 
-export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotion = false, hasTraining = false, hasHR = false }: AdminRoleSelectorProps) => {
+export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasHR = false }: AdminRoleSelectorProps) => {
     const { user, logout } = useAuth();
     const { theme } = useTheme();
 
@@ -31,9 +26,9 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
         !isDeveloperLevel(user?.admin_role)
     );
 
-    // Build cards list
+    // البطاقات الإدارية والوظيفية (تم نقل التدريب والترفيع للوحة المشرف والحوافز للوحة المستخدم)
     const cards: {
-        id: 'user' | 'admin' | 'capacities' | 'promotion' | 'training' | 'user_incentives' | 'attendance' | 'hr';
+        id: 'user' | 'admin' | 'capacities' | 'hr';
         label: string;
         desc: string;
         icon: React.ReactNode;
@@ -69,42 +64,6 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             show: hasCapacities,
         },
         {
-            id: 'promotion',
-            label: 'دورات الترفيع',
-            desc: 'دراسة المناهج والاختبارات الإلكترونية',
-            icon: <GraduationCap className="w-5 h-5 text-amber-500" />,
-            hoverGlow: 'hover:shadow-[0_0_30px_rgba(245,158,11,0.2)]',
-            iconBg: isDark ? 'bg-amber-500/20 border-amber-500/30 group-hover:bg-amber-500/30' : 'bg-amber-500/10 border-amber-500/20',
-            show: hasPromotion,
-        },
-        {
-            id: 'training',
-            label: 'التدريب الصيفي',
-            desc: 'شؤون المتدربين والاختبارات',
-            icon: <GraduationCap className="w-5 h-5 text-emerald-500" />,
-            hoverGlow: 'hover:shadow-[0_0_30px_rgba(16,185,129,0.2)]',
-            iconBg: isDark ? 'bg-emerald-500/20 border-emerald-500/30 group-hover:bg-emerald-500/30' : 'bg-emerald-500/10 border-emerald-500/20',
-            show: hasTraining,
-        },
-        {
-            id: 'user_incentives',
-            label: 'الحوافز الشهرية',
-            desc: 'تقييم الحوافز واحتساب النقاط',
-            icon: <img src="/icon-192.png" alt="Incentives" className="w-5 h-5 object-contain" />,
-            hoverGlow: 'hover:shadow-[0_0_30px_rgba(34,197,94,0.2)]',
-            iconBg: isDark ? 'bg-brand-green/20 border-brand-green/30 group-hover:bg-brand-green/30' : 'bg-brand-green/10 border-brand-green/20',
-            show: true,
-        },
-        {
-            id: 'attendance',
-            label: 'الحضور والانصراف',
-            desc: 'تسجيل الحضور والانصراف بيومترياً',
-            icon: <Fingerprint className="w-5 h-5 text-cyan-500" />,
-            hoverGlow: 'hover:shadow-[0_0_30px_rgba(6,182,212,0.2)]',
-            iconBg: isDark ? 'bg-cyan-500/20 border-cyan-500/30 group-hover:bg-cyan-500/30' : 'bg-cyan-500/10 border-cyan-500/20',
-            show: true,
-        },
-        {
             id: 'hr',
             label: 'الموارد البشرية',
             desc: 'الطلبات والكتب وإضبارات الموظفين',
@@ -116,31 +75,7 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
     ];
 
     const visibleCards = cards.filter(c => c.show);
-    const isCompact = visibleCards.length > 4;
-
-    const handleCardClick = (cardId: string) => {
-        const isSupervisorOrDeveloper = isAdmin || isDeveloperLevel(user?.admin_role);
-        const isSpecialAccount =
-            user?.full_name?.includes('تجريبي 2') ||
-            user?.full_name?.includes('مستخدم تجريبي') ||
-            user?.username?.includes('تجريبي 2') ||
-            user?.username?.includes('مستخدم تجريبي') ||
-            user?.username === 'test2' ||
-            user?.username === 'test' ||
-            user?.full_name?.includes('مسلم عقيل') ||
-            user?.full_name?.includes('مسلم قيل');
-
-        if (cardId === 'attendance' || cardId === 'hr') {
-            onSelect(cardId as any);
-            return;
-        }
-
-        if (!isSupervisorOrDeveloper && !isSpecialAccount && ['promotion', 'user_incentives'].includes(cardId)) {
-            toast('ستضاف هذه الميزة قريباً ... بإذن الله', { icon: '🚧' });
-            return;
-        }
-        onSelect(cardId as any);
-    };
+    const isOddCount = visibleCards.length % 2 === 1;
 
     return (
         <div className={`min-h-screen w-full flex flex-col items-center justify-between relative font-tajawal transition-colors duration-500 overflow-x-hidden ${
@@ -160,35 +95,29 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
             </div>
 
             {/* 1. Greeting Header - Fixed at Top, independent from card centering */}
-            <div className={`relative z-10 w-full max-w-lg text-center pt-[calc(4.75rem+env(safe-area-inset-top))] sm:pt-20 px-4 animate-in fade-in slide-in-from-top-6 duration-700 ${
-                isCompact ? 'space-y-1' : 'space-y-2'
-            }`}>
-                <h1 className={`font-bold font-tajawal drop-shadow-lg transition-colors duration-500 ${
-                    isCompact ? 'text-xl sm:text-2xl leading-snug' : 'text-2xl sm:text-3xl leading-relaxed'
-                } ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <div className="relative z-10 w-full max-w-lg text-center pt-[calc(4.75rem+env(safe-area-inset-top))] sm:pt-16 px-4 animate-in fade-in slide-in-from-top-6 duration-700 space-y-1.5">
+                <h1 className={`font-bold font-tajawal drop-shadow-lg transition-colors duration-500 text-xl sm:text-2xl leading-snug ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     مرحباً بك، {user?.full_name}
                 </h1>
-                <p className={`italic transition-colors duration-500 ${
-                    isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
-                } ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
+                <p className={`italic transition-colors duration-500 text-xs sm:text-sm ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
                     يرجى اختيار طريقة الدخول
                 </p>
-                <div className={`bg-brand-green mx-auto rounded-full shadow-lg ${
-                    isCompact ? 'h-1 w-12 mt-1.5' : 'h-1.5 w-16 mt-2'
-                }`} />
+                <div className="bg-brand-green mx-auto rounded-full shadow-lg h-1 w-12 mt-1.5" />
             </div>
 
-            {/* 2. Cards Container - Vertically Centered in remaining viewport area */}
-            <div className="relative z-10 w-full max-w-lg flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6">
-
-                {isCompact ? (
-                    /* النمط الرشيق المدمج (Compact 2-Column Grid) للبطاقات الكثيرة (5 فأكثر) لمنع السكرول */
-                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
-                        {visibleCards.map(card => (
+            {/* 2. Cards Container + Biometric Thumbprint Sensor below */}
+            <div className="relative z-10 w-full max-w-lg flex-1 flex flex-col items-center justify-center px-4 py-3 pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]">
+                {/* شبكة البطاقات الرشيقة المتوازنة (مع تمديد البطاقة الأخيرة الفردية بعرض الصف) */}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
+                    {visibleCards.map((card, index) => {
+                        const isLastOdd = isOddCount && index === visibleCards.length - 1;
+                        return (
                             <button
                                 key={card.id}
-                                onClick={() => handleCardClick(card.id)}
-                                className={`group relative flex flex-row items-center text-right p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[68px] sm:min-h-[74px] ${
+                                onClick={() => onSelect(card.id)}
+                                className={`group relative flex flex-row items-center text-right p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] min-h-[66px] sm:min-h-[72px] ${
+                                    isLastOdd ? 'col-span-2' : ''
+                                } ${
                                     isDark
                                         ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
                                         : 'bg-white/90 border-gray-200/90 shadow-md shadow-gray-200/40 hover:bg-white'
@@ -206,34 +135,51 @@ export const AdminRoleSelector = ({ onSelect, hasCapacities = false, hasPromotio
                                     </p>
                                 </div>
                             </button>
-                        ))}
-                    </div>
-                ) : (
-                    /* النمط الكلاسيكي الواسع للبطاقات القليلة (1 إلى 4 بطاقات) */
-                    <div className="grid grid-cols-2 gap-3.5 w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100">
-                        {visibleCards.map(card => (
-                            <button
-                                key={card.id}
-                                onClick={() => handleCardClick(card.id)}
-                                className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                        );
+                    })}
+                </div>
+
+                {/* مستشعر البصمة البيومتري التفاعلي في المنتصف أسفل البطاقات (الحضور والانصراف) */}
+                <div className="mt-6 sm:mt-8 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 delay-200">
+                    <button
+                        type="button"
+                        onClick={() => onSelect('attendance')}
+                        aria-label="تسجيل الحضور والانصراف بالبصمة"
+                        className="group relative flex flex-col items-center justify-center focus:outline-none select-none"
+                    >
+                        {/* هالة الوميض البطيء الخارجي */}
+                        <span className="absolute -inset-3 rounded-full bg-cyan-500/15 dark:bg-cyan-400/15 blur-md animate-[pulse_3s_ease-in-out_infinite] pointer-events-none" />
+                        <span className="absolute -inset-1.5 rounded-full border border-cyan-500/30 dark:border-cyan-400/30 animate-[ping_3.5s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40 pointer-events-none" />
+
+                        {/* إطار البصمة الإبهامي البيضوي التفاعلي */}
+                        <div className={`relative w-[76px] h-[94px] sm:w-[84px] sm:h-[104px] rounded-[42px] flex items-center justify-center border-2 transition-all duration-300 group-hover:scale-105 group-active:scale-95 backdrop-blur-md ${
+                            isDark
+                                ? 'bg-cyan-950/40 border-cyan-400/50 shadow-[0_0_28px_rgba(34,211,238,0.22)] group-hover:border-cyan-300 group-hover:shadow-[0_0_36px_rgba(34,211,238,0.4)]'
+                                : 'bg-white/90 border-cyan-500/50 shadow-[0_8px_28px_rgba(6,182,212,0.2)] group-hover:border-cyan-600 group-hover:shadow-[0_10px_35px_rgba(6,182,212,0.35)]'
+                        }`}>
+                            <Fingerprint
+                                strokeWidth={1.6}
+                                className={`w-12 h-14 sm:w-14 sm:h-16 animate-[pulse_2.8s_ease-in-out_infinite] transition-colors duration-300 ${
                                     isDark
-                                        ? `bg-white/5 border-white/10 hover:bg-white/10 ${card.hoverGlow}`
-                                        : 'bg-white/80 border-gray-200 shadow-xl shadow-gray-200/50 hover:bg-white'
+                                        ? 'text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.6)] group-hover:text-cyan-200'
+                                        : 'text-cyan-600 drop-shadow-[0_2px_8px_rgba(6,182,212,0.35)] group-hover:text-cyan-700'
                                 }`}
-                            >
-                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-2.5 transition-colors border ${card.iconBg}`}>
-                                    {card.icon}
-                                </div>
-                                <h3 className={`text-xs sm:text-sm font-bold mb-1 text-center leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                    {card.label}
-                                </h3>
-                                <p className={`text-[10px] sm:text-xs text-center leading-relaxed font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                                    {card.desc}
-                                </p>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                            />
+                        </div>
+
+                        {/* مسمى الحضور والانصراف بخط رشيق */}
+                        <span className={`mt-2.5 text-xs sm:text-sm font-bold tracking-tight transition-colors ${
+                            isDark ? 'text-cyan-200 group-hover:text-white' : 'text-slate-800 group-hover:text-cyan-700'
+                        }`}>
+                            الحضور والانصراف
+                        </span>
+                        <span className={`text-[10px] font-medium mt-0.5 ${
+                            isDark ? 'text-cyan-400/75' : 'text-cyan-700/80'
+                        }`}>
+                            المس البصمة للدخول
+                        </span>
+                    </button>
+                </div>
 
                 {/* Logout Button in Top Left */}
                 <div className="fixed top-[calc(1.25rem+env(safe-area-inset-top))] left-4 sm:left-6 z-[100] animate-in fade-in slide-in-from-top-8 duration-700">

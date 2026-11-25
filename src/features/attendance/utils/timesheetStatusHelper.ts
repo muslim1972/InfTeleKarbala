@@ -1,4 +1,5 @@
 import { parseISO, isValid, differenceInMinutes, format } from 'date-fns';
+import { parseTimeToMinutes } from './shiftScheduleUtils';
 
 export interface DayStatusResult {
   text: string;
@@ -191,7 +192,8 @@ export function getTimesheetDayStatus(params: {
         if (shiftInfo.isRoster && shiftInfo.isNight) {
           const expectedOutDate = new Date(currentDateObj);
           expectedOutDate.setDate(expectedOutDate.getDate() + 1);
-          expectedOutDate.setHours(8, 0, 0, 0);
+          const nightOutMins = parseTimeToMinutes(shiftInfo.expectedOut, 8 * 60);
+          expectedOutDate.setHours(Math.floor(nightOutMins / 60), nightOutMins % 60, 0, 0);
           const earlyMins = differenceInMinutes(expectedOutDate, outDate);
           if (earlyMins > 120) {
             return {
@@ -385,7 +387,9 @@ export function getTimesheetSmartNotes(params: {
           const expectedInDate = parseISO(expectedInStr);
           if (isValid(expectedInDate)) {
             const diff = differenceInMinutes(inDate, expectedInDate);
-            const grace = expectedTimeStr === '08:00' ? 30 : 0;
+            const grace = typeof shiftInfo.graceMinutes === 'number'
+              ? shiftInfo.graceMinutes
+              : (expectedTimeStr === '08:00' ? 30 : 0);
             if (diff > grace) {
               if (isMandatoryLeave || diff > 120) {
                 notes.push(`⚠️ تأخير تجاوز الساعتين (${diff} دقيقة) — بانتظار مراجعة وقرار المشرف`);
@@ -407,7 +411,8 @@ export function getTimesheetSmartNotes(params: {
         if (shiftInfo.isRoster && shiftInfo.isNight) {
           const expectedOutDate = new Date(currentDateObj);
           expectedOutDate.setDate(expectedOutDate.getDate() + 1);
-          expectedOutDate.setHours(8, 0, 0, 0);
+          const nightOutMins = parseTimeToMinutes(shiftInfo.expectedOut, 8 * 60);
+          expectedOutDate.setHours(Math.floor(nightOutMins / 60), nightOutMins % 60, 0, 0);
           const earlyMins = differenceInMinutes(expectedOutDate, outDate);
           if (earlyMins > 30) {
             const h = Math.floor(earlyMins / 60);
