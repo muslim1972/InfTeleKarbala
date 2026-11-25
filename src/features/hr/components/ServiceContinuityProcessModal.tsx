@@ -17,7 +17,8 @@ import { supabase } from '../../../lib/supabase';
 import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../lib/utils';
 import { toast } from 'react-hot-toast';
-import { getLowestOrgUnit } from '../utils/printContinuityDirect';
+import { getLowestOrgUnit, getHonorific } from '../utils/printContinuityDirect';
+export { getHonorific };
 
 export interface ContinuityRequestItem {
     id: string;
@@ -68,16 +69,6 @@ interface ServiceContinuityProcessModalProps {
     onClose: () => void;
     onSuccess: () => void;
 }
-
-export const getHonorific = (gender: number | string | undefined | null, fullName: string = ''): string => {
-    if (gender === 2 || gender === '2' || gender === 'أنثى') return 'السيدة';
-    if (gender === 1 || gender === '1' || gender === 'ذكر') return 'السيد';
-    const first = fullName.trim().split(/\s+/)[0] || '';
-    if (/(ة|اء|ى)$/.test(first) && !/^(حمزة|أسامة|قتيبة|طلحة|حذيفة|عروة|عمارة|عكرمة|علاء|بهاء|ضياء|صفاء|رجاء|موسى|يحيى|عيسى)/.test(first)) {
-        return 'السيدة';
-    }
-    return 'السيد';
-};
 
 /**
  * يستخرج الاسم الثلاثي للموظف مع مراعاة الأسماء المركبة العربية (مثل: عبد علي، عبد الحسين، عبد الله، أمة الله)
@@ -644,7 +635,7 @@ export const ServiceContinuityProcessModal = ({
 
                         <!-- Subject (Center) -->
                         <div class="subject-box">
-                            <span class="subject-text">م / تأييد استمرار بالخدمة</span>
+                            <span class="subject-text">م / تأييــــد</span>
                         </div>
 
                         <!-- Official Body Text -->
@@ -1176,7 +1167,7 @@ export const ServiceContinuityProcessModal = ({
                                     </h3>
                                 </div>
                                 <div className="text-center py-1.5">
-                                    <h4 className="font-extrabold text-sm text-slate-900">م / تأييد استمرار بالخدمة</h4>
+                                    <h4 className="font-extrabold text-sm text-slate-900">م / تأييــــد</h4>
                                 </div>
                             </div>
 

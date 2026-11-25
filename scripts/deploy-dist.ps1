@@ -44,7 +44,8 @@ if ($LASTEXITCODE -ne 0) { throw 'فشلت المقارنة البعيدة' }
     Out-File $cmpLocal -Encoding utf8
 $toUpload = Get-Content $cmpLocal |
     Where-Object { $_ -match '^(DIFF|MISSING) (.+)$' } |
-    ForEach-Object { $Matches[2].Trim() }
+    ForEach-Object { $Matches[2].Trim() } |
+    Sort-Object { if ($_ -match '(^|/)index\.html$') { 1 } else { 0 } }
 Write-Host "للرفع: $($toUpload.Count) ملف"
 
 $failed = @()

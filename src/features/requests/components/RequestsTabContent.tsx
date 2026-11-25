@@ -27,6 +27,7 @@ const TimeOffRequestForm  = lazy(() => import('./TimeOffRequestForm'));
 const LeaveRequestForm    = lazy(() => import('./LeaveRequestForm'));
 const DutyRequestForm     = lazy(() => import('./DutyRequestForm'));
 const ServiceContinuityRequestForm = lazy(() => import('./ServiceContinuityRequestForm'));
+const MovementRequestForm = lazy(() => import('./MovementRequestForm'));
 
 // ── Placeholder for not-yet-built administrative forms ────────────────────────
 const ComingSoonForm = ({ label }: { label: string }) => (
@@ -61,6 +62,10 @@ function SelectedForm({ typeId, leaveType, label, onSuccess }: {
 
   if (typeId === 'service_extension' || typeId === 'service_continuity') {
     return <ServiceContinuityRequestForm key={typeId} onSuccess={onSuccess} />;
+  }
+
+  if (typeId === 'disengagement' || typeId === 'resumption') {
+    return <MovementRequestForm key={typeId} movementType={typeId} onSuccess={onSuccess} />;
   }
 
   if (leaveType) {

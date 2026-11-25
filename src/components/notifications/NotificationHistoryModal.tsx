@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { printContinuityLetterDirect } from '../../features/hr/utils/printContinuityDirect';
+import { printAdministrativeOrderDirect, printLongLeaveOrderDirect } from '../../features/hr/utils/printAdministrativeOrderDirect';
 import { toast } from 'react-hot-toast';
 
 export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) => {
@@ -83,6 +84,59 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
         } catch (err: any) {
             console.error('Error reprinting continuity letter:', err);
             toast.error(err?.message || 'حدث خطأ أثناء إعادة طباعة الكتاب');
+        } finally {
+            setReprintingId(null);
+        }
+    };
+
+    const handleReprintHrMovement = async (notif: any) => {
+        const requestId = notif.metadata?.request_id;
+        if (!requestId) {
+            toast.error('معرف الطلب غير متوفر في بيانات هذا الإشعار');
+            return;
+        }
+        setReprintingId(notif.id);
+        try {
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_hr_movement_request_for_print', {
+                p_request_id: requestId
+            });
+            if (rpcErr || !rpcRes?.success || !rpcRes?.request) {
+                throw rpcErr || new Error(rpcRes?.message || 'تعذر تحميل بيانات الأمر الإداري');
+            }
+            // إعادة الطباعة من السجل: لا تغيّر حالة الطلب ولا ترسل أي إشعار
+            const printed = await printAdministrativeOrderDirect(rpcRes.request);
+            if (printed) {
+                toast.success('تم فتح أمر إعادة الطباعة بنجاح (دون تغيير الحالة أو إرسال إشعار)');
+            }
+        } catch (err: any) {
+            console.error('Error reprinting HR movement:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء إعادة طباعة الأمر الإداري');
+        } finally {
+            setReprintingId(null);
+        }
+    };
+
+    const handleReprintLongLeave = async (notif: any) => {
+        const requestId = notif.metadata?.request_id;
+        if (!requestId) {
+            toast.error('معرف الطلب غير متوفر في بيانات هذا الإشعار');
+            return;
+        }
+        setReprintingId(notif.id);
+        try {
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_long_leave_request_for_print', {
+                p_request_id: requestId
+            });
+            if (rpcErr || !rpcRes?.success || !rpcRes?.request) {
+                throw rpcErr || new Error(rpcRes?.message || 'تعذر تحميل بيانات الإجازة الطويلة');
+            }
+            const printed = await printLongLeaveOrderDirect(rpcRes.request);
+            if (printed) {
+                toast.success('تم فتح أمر إعادة الطباعة بنجاح (دون تغيير الحالة أو إرسال إشعار)');
+            }
+        } catch (err: any) {
+            console.error('Error reprinting long leave:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء إعادة طباعة أمر الإجازة');
         } finally {
             setReprintingId(null);
         }
@@ -178,6 +232,30 @@ export const NotificationHistoryModal = ({ onClose }: { onClose: () => void }) =
                                                         onClick={() => handleReprintContinuity(notif)}
                                                         className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-60 cursor-pointer"
                                                         title="إعادة طباعة الكتاب الرسمي بالصيغة المحدثة"
+                                                    >
+                                                        <Printer size={13} className={reprintingId === notif.id ? 'animate-spin' : ''} />
+                                                        <span>{reprintingId === notif.id ? 'جارٍ السحب...' : 'إعادة طباعة'}</span>
+                                                    </button>
+                                                )}
+                                                {notif.type === 'hr_movement_print' && notif.metadata?.request_id && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={reprintingId === notif.id}
+                                                        onClick={() => handleReprintHrMovement(notif)}
+                                                        className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-60 cursor-pointer"
+                                                        title="إعادة طباعة الأمر الإداري (لا يؤثر على الحالة أو الإشعارات)"
+                                                    >
+                                                        <Printer size={13} className={reprintingId === notif.id ? 'animate-spin' : ''} />
+                                                        <span>{reprintingId === notif.id ? 'جارٍ السحب...' : 'إعادة طباعة'}</span>
+                                                    </button>
+                                                )}
+                                                {notif.type === 'long_leave_print' && notif.metadata?.request_id && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={reprintingId === notif.id}
+                                                        onClick={() => handleReprintLongLeave(notif)}
+                                                        className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs disabled:opacity-60 cursor-pointer"
+                                                        title="إعادة طباعة أمر الإجازة الطويلة (لا يؤثر على الحالة أو الإشعارات)"
                                                     >
                                                         <Printer size={13} className={reprintingId === notif.id ? 'animate-spin' : ''} />
                                                         <span>{reprintingId === notif.id ? 'جارٍ السحب...' : 'إعادة طباعة'}</span>

@@ -27,6 +27,8 @@ interface VerifiedLetterData {
     nominal_salary_snapshot?: number;
     include_total_salary?: boolean;
     total_salary_snapshot?: number;
+    gross_salary_snapshot?: number;
+    net_salary_snapshot?: number;
     notes?: string;
     cc_recipients?: string[];
     created_at?: string;
@@ -219,7 +221,7 @@ export const PublicContinuityVerifyPage: React.FC = () => {
                                     </h3>
                                 </div>
                                 <div className="text-center py-1.5">
-                                    <h4 className="font-extrabold text-sm sm:text-base text-slate-900">م / تأييد استمرار بالخدمة</h4>
+                                    <h4 className="font-extrabold text-sm sm:text-base text-slate-900">م / تأييــــد</h4>
                                 </div>
                             </div>
 
@@ -254,11 +256,11 @@ export const PublicContinuityVerifyPage: React.FC = () => {
                                                 <>
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold min-w-[90px]">الراتب الكلي /</span>
-                                                        <span className="font-mono font-bold text-emerald-700">{formatCurrency(letterData.total_salary_snapshot)}</span>
+                                                        <span className="font-mono font-bold text-emerald-700">{formatCurrency(letterData.gross_salary_snapshot || letterData.total_salary_snapshot)}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold min-w-[90px]">الراتب الصافي /</span>
-                                                        <span className="font-mono font-bold text-emerald-700">{formatCurrency(letterData.total_salary_snapshot)}</span>
+                                                        <span className="font-mono font-bold text-emerald-700">{formatCurrency(letterData.net_salary_snapshot || letterData.total_salary_snapshot)}</span>
                                                     </div>
                                                 </>
                                             )}

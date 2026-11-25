@@ -98,7 +98,7 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         selectedAdminYear, setSelectedAdminYear, adminRecords,
         fetchFieldPermissions, financialFields,
         showProfileUpdater, setShowProfileUpdater,
-        loadEmployeeData, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
+        loadEmployeeData, refreshSelectedEmployee, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
         handleCreateFiveYearLeave, handleNewFiveYearLeaveChange, handleFiveYearLeaveChange,
         fetchAdminRecords, handleSaveRecord, handleDeleteRecord, handleFinancialChange, isFieldReadOnly
     } = useEmployeeManager(currentUser, setActiveTab as any, detailsRef as any);
@@ -131,10 +131,10 @@ export const AdminDashboard = ({ onBack }: { onBack?: () => void }) => {
         return () => window.removeEventListener('navigate_to_hr_requests', handleNotificationNavigation);
     }, []);
 
-    // Auto-refresh employee data when switching back to manage tab to prevent stale state
+    // Auto-refresh employee data when switching back to manage tab without overriding an in-flight search selection
     useEffect(() => {
-        if (activeTab === 'admin_manage' && selectedEmployee?.id) {
-            loadEmployeeData({ id: selectedEmployee.id });
+        if (activeTab === 'admin_manage') {
+            refreshSelectedEmployee();
         }
     }, [activeTab]);
 

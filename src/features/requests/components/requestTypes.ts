@@ -87,7 +87,25 @@ export const REQUEST_TYPE_OPTIONS: RequestTypeOption[] = [
     bgColor: 'bg-teal-50 dark:bg-teal-900/20',
     category: 'leave',
   },
-  // ── Administrative requests (future forms) ─────────────────────────────────
+  // ── Administrative requests ────────────────────────────────────────────────
+  {
+    id: 'disengagement',
+    label: 'انفكـاك',
+    emoji: '📤',
+    description: 'طلب انفكاك لإجازة طويلة مع إرفاق كتاب الإجازة',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+    category: 'administrative',
+  },
+  {
+    id: 'resumption',
+    label: 'مباشـرة',
+    emoji: '📥',
+    description: 'طلب مباشرة أو قطع إجازة طويلة مع إرفاق الكتاب',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+    category: 'administrative',
+  },
   {
     id: 'fuel',
     label: 'طلـب وقـود',

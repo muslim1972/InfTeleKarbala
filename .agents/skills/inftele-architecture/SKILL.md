@@ -2,7 +2,7 @@
 name: inftele-architecture
 description: MUST be read at the start of EVERY session on InfTeleKarbala and before ANY code/DB change. Holds the numbered brick architecture, current progress, decisions log, and the fixed rules that prevent regressions. Must be UPDATED (append, never erase) at the end of every meaningful step.
 metadata:
-  version: "0.8.64"
+  version: "0.8.68"
   last_updated: "2026-11-25"
 ---
 
@@ -191,6 +191,7 @@ metadata:
 | D103 | توحيد الخلوص السفلي (Single Source of Truth) فوق `AppFooter` و`TipsMarquee` عبر جميع واجهات وتبويبات التطبيق (مقرارات اللجنة الخماسية): ضبط `Layout.tsx` بالهامش القياسي `pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))]` مع نفس المعيار في الصفحات المستقلة خارج `Layout` (`Login`, `GovernorateSelection`, `AdminRoleSelector`, `SummerTrainingPage`, `PromotionCoursesPage`, `TraineeLoginPage`, ومغلفات `App.tsx`) وتجريد التبويبات الداخلية (`Dashboard`, `AdminDashboard`, `HRDashboard`, `TabManageEmployees`, `TabAdminRecords`, `AdministrativeTabContent`, `FinancialTabContent`, `IncentivesTabContent`, `AudioHub`, `UserPolls`, `LessonViewer`, `AdminTrainingTab`, `AdminPromotionTab`, `TrainingAndPromotionHub`, `TraineeExamSession`, `AttendanceDashboard`) من الحشوات المكدسة والزائدة لضمان تقارب نظيف وموحد دون تلامس مع الفوتر أو فراغ أبيض واسع عند نهاية التمرير | المستخدم واللجنة الخماسية 2026-11-25 — **مُنفَّذ ومُنشر (SAME=397)** |
 | D103 | إعادة تصميم شاشة البداية (`SplashScreen.tsx`) والهوية الصوتية (`useSplashAudio.ts`): خلفية بيضاء نقية لمدة 6 ثوانٍ بقيادة `requestAnimationFrame`، انبثاق شعار وزارة الاتصالات المتجهي (`MocEmblem.tsx`) من الوسط، النصوص الرسمية («وزارة الاتصالات» و«الشركة العامة للاتصالات والمعلوماتية») تحته، وتوقيع «المهندس مسلم عقيل» بخط بسيط في الزاوية السفلى اليمنى فقط دون أي إضافات، مع هوية صوتية برمجية لمدة 6 ثوانٍ تنهض تلقائياً مع الشاشة وتقبل التخطي الفوري بنقرة أو مفتاح | المستخدم ومجلس المداولة 2026-11-25 — **مُنفَّذ ومُنشر** |
 | D104 | منظومة تعديل ساعات الدوام المؤقتة (`temporary_work_hour_overrides` + `work_hour_issuing_entities` + `WorkHoursModificationTab.tsx` — مقررات اللجنة الخماسية): (1) إضافة قسم «تعديل ساعات الدوام» في قائمة أقسام إدارة البصمة بين «جداول العمل» و«إعدادات العطل». (2) تحديد فترة التأثير (`تاريخ من` / `تاريخ إلى`) للمجاميع الثلاث (صباحي / مسائي / خفر)، مع العودة الآلية لجداول العمل الدائمة قبل وبعد الفترة. (3) إدخال بيانات السند الإداري («حسب الكتاب المرقم» + «بتاريخ» + «الصادر من» ذو ذاكرة وبحث فوري من أول حرف). (4) زرا «حفظ» و«تعديل» بحيث يتفعل «تعديل» بعد الحفظ لتعديل غاية التأثير (`تاريخ إلى`) لاحقاً عبر سجل الأوامر. (5) حوكمة الاعتماد عبر `is_governorate_director` (مدير المديرية بالمنصب الفعلي لنفس المحافظة): إن أدخله مدير المديرية يُنفذ فوراً دون إشعار، وإن أدخله أو عدّله غيره ينطلق إشعار لمدير المديرية بالاسم الثلاثي (`work_hours_approval`) مع أزرار «موافق» و«رفض» (عند الرفض يُحذف الإدخال أو التعديل المعلق ويُخطر الموظف بإشعار `work_hours_rejected` مع زر «اطلعت»). (6) التزحيف الكامل لأوقات البصمة ضمن الفترة فقط (الصباحي +30د سماح دخول و-30د للانصراف وافتراضية عند النهاية المحددة) في جميع المحركات الأمامية (`morningAttendanceEngine`, `morningAttendanceNotificationsEngine`, `rosterAttendanceEngine`, `dutyScheduleValidator`, `attendanceCalc`, `Timesheets`, `attendanceHelpers`, `kioskService`) ودوال الخادم (`evaluate_morning_shift_daily_attendance`, `closeout_prev_day_attendance`, `roster_evaluate_day`, `kiosk_get_employees`) | المستخدم واللجنة الخماسية 2026-11-25 — **مُنفَّذ ومُنشر (SAME=398)** |
+| D105 | إصلاح تساوي الراتب الكلي بالراتب الصافي في كتب تأييد الاستمرارية (`20261125113000_hr01_fix_continuity_net_vs_gross_salary.sql` + `PublicContinuityVerifyPage.tsx`): تصحيح إسناد `v_net` إلى `total_salary_snapshot` و`v_gross` إلى `gross_salary_snapshot` في دالة `update_and_approve_continuity_by_finance` (بعد أن كان يُسند `v_gross` خطأً لكلا العمودين)، وإعادة تصحيح الطلبات الـ 4 المتأثرة (منها طلب رافد عقيل محمد)، وتحديث `get_service_continuity_request_for_print` و`verify_continuity_letter` لإرجاع `gross_salary_snapshot` و`net_salary_snapshot` منفصلين بدقة | المستخدم 2026-11-25 — **مُنفَّذ ومُنشر (SAME=398)** |
 
 ## 6. أسئلة مفتوحة (تُغلق بقرار في §5)
 - Q1 المناوب: تأخير 1–4د بلا محاسبة أم من الدقيقة 1؟
@@ -2844,3 +2845,56 @@ px tsc --noEmit -p tsconfig.app.json بصفر أخطاء.
    - `verify-bricks.mjs` + `--snapshot`: `100% (344/344)` في `src` وبصمة `456` ملفاً.
    - `tsc --noEmit -p tsconfig.app.json`: 0 أخطاء، `npm run build`: نجاح (`27.07s`).
    - `deploy-dist.ps1`: `SAME=398 / DIFF=0 / MISSING=0` و`HTTP 200` على `http://10.56.3.3/`.
+
+
+---
+
+### 2026-11-25 11:50 — إصلاح تساوي الراتب الكلي والصافي في تأييد الاستمرارية (`D105`)
+
+- **الخلل:** دالة `update_and_approve_continuity_by_finance` كانت تحفظ `v_gross` في كِلا العمودين `total_salary_snapshot` (الصافي) و`gross_salary_snapshot` (الكلي)، كما كان `verify_continuity_letter` و[PublicContinuityVerifyPage.tsx](file:///D:/InfTeleKarbala/src/features/hr/components/PublicContinuityVerifyPage.tsx) يقرآن `total_salary_snapshot` لكليهما.
+- **الإصلاح:** [20261125113000_hr01_fix_continuity_net_vs_gross_salary.sql](file:///D:/InfTeleKarbala/supabase/migrations/20261125113000_hr01_fix_continuity_net_vs_gross_salary.sql) (تصحيح `update_and_approve_continuity_by_finance`، إصلاح الـ 4 سجلات المتضررة في DB بما فيها سجل رافد عقيل محمد، وإرجاع `gross_salary_snapshot` و`net_salary_snapshot` صراحةً في `get_service_continuity_request_for_print` و`verify_continuity_letter`) + [PublicContinuityVerifyPage.tsx](file:///D:/InfTeleKarbala/src/features/hr/components/PublicContinuityVerifyPage.tsx).
+- **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 344/344`، `457` ملفاً)، `tsc` (`0` أخطاء)، `npm run build` (`34.85s`)، `deploy-dist.ps1`: `SAME=398 / DIFF=0 / MISSING=0` و`HTTP 200`.
+
+
+---
+
+### 2026-11-25 12:21 — تشخيص توقف الاتصال الخارجي HTTP، تعويم نافذة البحث بـ Portal، وحراسة السباق التزامني لـ `financial_records_pkey` (`D106`)
+
+1. **مشكلة 1 (`ERR_CONNECTION_CLOSED` على `http://khr-itpc.egov.iq`):**
+   - الفحص أثبت أن الخادم المحلي (`spa-server.service` + `supabase-kong` + `supabase-db`) لم يتوقف ويعمل باستقرار (`LAN HTTP 200`)، وأن البوابة الخارجية (`109.230.113.167`) ترفض/تُغلق اتصالات `http://` غير المشفرة (`curl: (56) Recv failure: Connection was reset`) بينما تمرّر `https://` للمستخدمين الخارجيين.
+   - كما رُصدت نافذة `404` عابرة لملفات JS أثناء النشر لرفع `index.html` قبل اكتمال `assets/*`؛ عولجت بفرز الرفع في [deploy-dist.ps1](file:///D:/InfTeleKarbala/scripts/deploy-dist.ps1) ليُرفع `/index.html` و`/kiosk/index.html` أخيراً بعد كل الحزم.
+2. **مشكلة 2 (تداخل نافذة البحث العائمة مع التايتل وأزرار `stickySubHeader`):**
+   - نقل نافذة البحث في [DashboardHeader.tsx](file:///D:/InfTeleKarbala/src/components/admin/dashboard/DashboardHeader.tsx) إلى `createPortal(..., document.body)` برتبة `z-[9990]` وتمرير `portalClassName="z-[10000]"` إلى [EmployeeSearch.tsx](file:///D:/InfTeleKarbala/src/components/shared/EmployeeSearch.tsx) وإخفاء زر المكبرة العائم مؤقتاً أثناء فتح النافذة ودعم `Escape`؛ للخروج من سياق تكديس `<GlassCard>` ذي `backdrop-blur-md` في [AppHeader.tsx](file:///D:/InfTeleKarbala/src/components/layout/AppHeader.tsx).
+3. **مشكلة 3 (`duplicate key value violates unique constraint "financial_records_pkey"` عند حفظ صابرين):**
+   - السبب المثبت من سجلات Kong وDB (`08:46:50` و`08:47:04`): تنافس طلبان متزامنان (`loadEmployeeData(رافد)` من `useEffect([activeTab])` في [AdminDashboard.tsx](file:///D:/InfTeleKarbala/src/pages/AdminDashboard.tsx) + `loadEmployeeData(صابرين)` من البحث)، مما أحدث حالة منقسمة (`selectedEmployee = صابرين` بينما `financialData.id = رافد`)، وعند `upsert(..., { onConflict: 'user_id' })` حاولت Postgres تحديث المفتاح الأساسي `id` إلى معرف رافد.
+   - التدريع الجذري في [useEmployeeManager.ts](file:///D:/InfTeleKarbala/src/hooks/useEmployeeManager.ts) و[AdminDashboard.tsx](file:///D:/InfTeleKarbala/src/pages/AdminDashboard.tsx): عداد تسلسلي `loadSeqRef` + `activeEmployeeIdRef` + `inFlightEmployeeIdRef` مع التزام ذري للحالة بعد اكتمال جميع الاستعلامات، استبدال إعادة التحميل العشوائي عند تبديل التبويب بـ `refreshSelectedEmployee()`, حارس تطابق `financialData.user_id === selectedEmployee.id` قبل الحفظ، وحذف `id` و`created_at` نهائياً من حمولة `upsert(..., { onConflict: 'user_id' })` وتحويل إدراج الموظف الجديد إلى `upsert` مع `ignoreDuplicates: true`.
+4. **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 344/344`، `457` ملفاً)، `tsc` (`0` أخطاء في الملفات المعدلة ولا أي `TS2304`)، `npm run build` (`25.54s`)، `deploy-dist.ps1`: `SAME=398 / DIFF=0 / MISSING=0` (`86` ملفاً مع رفع `index.html` أخيراً) و`LAN HTTP: 200`.
+
+
+---
+
+### 2026-11-25 16:07 — استعادة أرصدة الإجازات، إعادة هندسة الإجازة الطويلة، وإطلاق منظومة الانفكاك والمباشرة ومنطق الطباعة الأولى العام (`D107`)
+
+1. **استعادة أرصدة الإجازات ([20261125160000_fin01_restore_leave_balances.sql](file:///D:/InfTeleKarbala/supabase/migrations/20261125160000_fin01_restore_leave_balances.sql)):**
+   - رصد سبب تصفير الأرصدة بتاريخ `2026-11-22 14:19:25 UTC` لـ `324` موظفاً في `financial_records`، واستعادة الأرصدة الأصلية (`UPDATE 323` بعد طرح أي إجازة اعتيادية مستهلكة بعد ذلك التاريخ) ومزامنتها مع النسخة النشطة في `monthly_snapshot_financials` (ارتفعت السجلات غير الصفرية من `14` إلى `337`).
+2. **إجازة اعتيادية طويلة (`long_regular`) + الانفكاك والمباشرة + منطق الطباعة الأولى العام ([20261125161000_hr02_long_leave_movements_and_first_print.sql](file:///D:/InfTeleKarbala/supabase/migrations/20261125161000_hr02_long_leave_movements_and_first_print.sql)):**
+   - فك قيد `NOT NULL` عن `start_date`/`end_date` في `leave_requests`، وتحديث `handle_leave_state_machine`, `core_settle_request_approval`, `submit_typed_leave_request`, و`respond_to_substitute_request` لكي لا تبدأ الإجازة الطويلة أو تُخصم من البصمة قبل موافقة طلب الانفكاك.
+   - إنشاء حاوية `leave-order-attachments` (5MB، صور وPDF)، وجدول `public.hr_movement_requests`، ودوال `submit_hr_movement_request`, `process_hr_movement_finance`, `get_hr_movement_request_for_print`, و`mark_hr_movement_printed`.
+   - تعميم قفل **الطباعة الأولى فقط** (`is_printed`) في `mark_continuity_printed` و`mark_hr_movement_printed`: الطباعة الأولى توثق الحالة وتُشعر الموظف، وإعادة الطباعة من السجل لا تغير شيئاً ولا ترسل إشعارات.
+3. **الواجهات وقوالب الطباعة:**
+   - [LeaveRequestForm.tsx](file:///D:/InfTeleKarbala/src/features/requests/components/LeaveRequestForm.tsx): عنوان `نموذج طلب إجازة طويلة أكثر من 9 أيام`، إزالة التنبيه البنفسجي وتاريخ البداية وتاريخ المباشرة المتوقع، والبدء من `10` أيام فما فوق.
+   - [requestTypes.ts](file:///D:/InfTeleKarbala/src/features/requests/components/requestTypes.ts)، [MovementRequestForm.tsx](file:///D:/InfTeleKarbala/src/features/requests/components/MovementRequestForm.tsx)، [RequestsTabContent.tsx](file:///D:/InfTeleKarbala/src/features/requests/components/RequestsTabContent.tsx): إضافة نوعي `انفكاك` ثم `مباشرة` مع مرفق كتاب الإجازة الإلزامي.
+   - [AppNotifications.tsx](file:///D:/InfTeleKarbala/src/components/features/AppNotifications.tsx)، [NotificationHistoryModal.tsx](file:///D:/InfTeleKarbala/src/components/notifications/NotificationHistoryModal.tsx)، و[printAdministrativeOrderDirect.ts](file:///D:/InfTeleKarbala/src/features/hr/utils/printAdministrativeOrderDirect.ts): معاينة الكتاب بـ `X`، موافقة المالي والإداري وبديله، زر طباعة لموظفي الطابعة بكليشة `أمر إداري` و`م / انفكاك` أو `م / مباشرة`، وإعادة الطباعة الصامتة من السجل.
+4. **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 346/346`، `462` ملفاً)، `tsc` (`0` أخطاء جديدة ولا `TS2304`)، `npm run build` (`24.76s`)، `deploy-dist.ps1`: `SAME=399 / DIFF=0 / MISSING=0` و`LAN HTTP: 200`.
+
+
+---
+
+### 2026-11-25 17:01 — استكمال مسار الإجازة الطويلة الكامل عبر المالي والطابعة وإصلاح عبارة `(من null إلى null)` (`D108`)
+
+1. **إصلاح عبارة `(من null إلى null)`:** تحديث قسم `الردود على طلباتك` في [AppNotifications.tsx](file:///D:/InfTeleKarbala/src/components/features/AppNotifications.tsx#L1007-L1011) لعرض نص الإجازة الطويلة الدقيق بالاعتماد على `days_count` دون `start_date`/`end_date`.
+2. **مسار الإجازة الطويلة الكامل ([20261125170000_hr03_long_leave_finance_and_print_flow.sql](file:///D:/InfTeleKarbala/supabase/migrations/20261125170000_hr03_long_leave_finance_and_print_flow.sql)):**
+   - تحديث `respond_to_substitute_request` بنص الانتظار للموظف وإشعار المسؤول المباشر (`20` يوم وموافقة البديل).
+   - تحديث `core_settle_request_approval`: عند موافقة المسؤول المباشر على `long_regular` ينطلق للموظف إشعار مراجعة الموارد البشرية مع زر `اطلعت`، وينطلق في نفس اللحظة إشعار `long_leave_finance` لمسؤول القسم المالي والإداري وبديله.
+   - إضافة `process_long_leave_finance`، `get_long_leave_request_for_print`، و`mark_long_leave_printed` (بمنطق الطباعة الأولى العام) + قالب الطباعة [printAdministrativeOrderDirect.ts](file:///D:/InfTeleKarbala/src/features/hr/utils/printAdministrativeOrderDirect.ts) (`printLongLeaveOrderDirect`) وإشعارات [AppNotifications.tsx](file:///D:/InfTeleKarbala/src/components/features/AppNotifications.tsx) و[NotificationHistoryModal.tsx](file:///D:/InfTeleKarbala/src/components/notifications/NotificationHistoryModal.tsx).
+3. **التحقق والنشر:** `verify-bricks` + `--snapshot` (`100% 346/346`، `463` ملفاً)، `tsc` (`0` أخطاء جديدة ولا `TS2304`)، `npm run build` (`24.90s`)، `deploy-dist.ps1`: `SAME=399 / DIFF=0 / MISSING=0` و`LAN HTTP: 200`.

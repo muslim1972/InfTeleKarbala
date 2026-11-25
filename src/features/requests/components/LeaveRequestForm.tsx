@@ -64,9 +64,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
   const [formData, setFormData] = useState({
     leaveType: (initialLeaveType || 'regular') as LeaveType,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: initialLeaveType === 'long_regular' ? '' : new Date().toISOString().split('T')[0],
     startTime: '', // Must be entered manually by the employee
-    daysCount: 1,
+    daysCount: initialLeaveType === 'long_regular' ? 10 : 1,
     timeDurationMinutes: 30, // For time_off (default 30 mins)
     destination: '', // For dispatch/duty
     withPay: true, // For long leaves
@@ -519,7 +519,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       setError('الحساب في وضع الأرشيف (محال للتقاعد) — لا يمكن تقديم طلبات إجازة جديدة.');
       return;
     }
-    if (!formData.startDate || !formData.reason) {
+    const isLongRegular = formData.leaveType === 'long_regular';
+    if ((!isLongRegular && !formData.startDate) || !formData.reason) {
       setError('يرجى تعبئة جميع الحقول المطلوبة بشكل صحيح.');
       return;
     }
@@ -530,7 +531,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       return;
     }
     
-    if (formData.startDate < today) {
+    if (!isLongRegular && formData.startDate < today) {
       setError('لا يمكن أن يكون تاريخ بدء الإجازة في الماضي.');
       return;
     }
@@ -538,8 +539,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
       setError('لا يمكن للإجازة الاعتيادية أن تتجاوز 9 أيام. للمدد الأطول، يرجى اختيار إجازة اعتيادية طويلة.');
       return;
     }
-    if (formData.leaveType === 'long_regular' && formData.daysCount <= 9) {
-      setError('الإجازة الاعتيادية الطويلة يجب أن تكون أكثر من 9 أيام.');
+    if (formData.leaveType === 'long_regular' && formData.daysCount < 10) {
+      setError('الإجازة الاعتيادية الطويلة تبدأ من 10 أيام فما فوق (من 1 إلى 9 أيام تُقدّم كإجازة اعتيادية).');
       return;
     }
     if (formData.leaveType === 'sick' && formData.daysCount > 21) {
@@ -557,7 +558,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
 
     const isRosterUser = userSchedule?.type === 'roster';
 
-    if (!isRosterUser) {
+    if (!isLongRegular && !isRosterUser) {
       const startCheck = isProhibitedDay(formData.startDate);
       if (startCheck.prohibited) {
         setError(`لا يجوز أن يصادف يوم البداية ${startCheck.reason}.`);
@@ -570,7 +571,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
         setError('لا يجوز أن يصادف يوم المباشرة المتوقعة يوم سبت. يرجى تعديل عدد الأيام.');
         return;
       }
-    } else if (['regular', 'long_regular'].includes(formData.leaveType)) {
+    } else if (!isLongRegular && isRosterUser && formData.leaveType === 'regular') {
       // ─── عقل التحقق الذكي لشفتات المناوب ───
       const startObj = new Date(formData.startDate);
       const dow = startObj.getDay();
@@ -723,8 +724,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
     try {
       const isRosterUser = userSchedule?.type === 'roster';
       let finalReason = formData.reason;
-      let finalStartDate = formData.startDate;
-      let finalEndDate = endDate || formData.startDate;
+      let finalStartDate: string | null = formData.leaveType === 'long_regular' ? null : formData.startDate;
+      let finalEndDate: string | null = formData.leaveType === 'long_regular' ? null : (endDate || formData.startDate);
 
       if (isRosterUser && selectedShiftOptionId) {
         const selectedOpt = availableShiftOptions.find(o => o.id === selectedShiftOptionId);
@@ -939,7 +940,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               <FileText size={18} />
             </div>
             <div className="text-right">
-              <h2 className="text-base font-bold text-gray-800 dark:text-white">نموذج طلب إجازة</h2>
+              <h2 className="text-base font-bold text-gray-800 dark:text-white">
+                {formData.leaveType === 'long_regular' ? 'نموذج طلب إجازة طويلة أكثر من 9 أيام' : 'نموذج طلب إجازة'}
+              </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">تقديم طلب إجازة جديد</p>
             </div>
           </div>
@@ -989,7 +992,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               </div>
             )}
             
-            <LeaveTypeInfoAlert leaveType={formData.leaveType} />
+            {formData.leaveType !== 'long_regular' && (
+              <LeaveTypeInfoAlert leaveType={formData.leaveType} />
+            )}
 
             {/* Automatic Routing Info */}
             <div className={`p-4 rounded-xl border flex items-center justify-between \${managerInfo ? 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-blue-900/50' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
@@ -1030,7 +1035,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Start Date / Time */}
+              {/* Start Date / Time (محذوف في الإجازة الاعتيادية الطويلة لأن تاريخها يُحدد لاحقاً بطلب الانفكاك) */}
+              {formData.leaveType !== 'long_regular' && (
               <div>
                 {formData.leaveType === 'time_off' ? (
                   <>
@@ -1107,17 +1113,18 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
                   </>
                 )}
               </div>
+              )}
 
               {/* Days Count */}
               {!['duty', 'time_off', 'dispatch'].includes(formData.leaveType) && (
-                <div className="space-y-4">
+                <div className={`space-y-4 ${formData.leaveType === 'long_regular' ? 'md:col-span-2' : ''}`}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      عدد الأيام
+                      عدد الأيام {formData.leaveType === 'long_regular' && <span className="text-xs text-indigo-600 dark:text-indigo-400">(تبدأ من 10 أيام فأكثر)</span>}
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min={formData.leaveType === 'long_regular' ? 10 : formData.leaveType === 'long_sick' ? 22 : 1}
                       required
                       value={formData.daysCount}
                       onChange={(e) => {
@@ -1176,15 +1183,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               )}
             </div>
 
-            {/* End Date / Time Display */}
-            <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-xl flex justify-between items-center border border-blue-100 dark:border-slate-600">
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                {formData.leaveType === 'time_off' ? 'ساعة العودة المتوقعة:' : 'تاريخ المباشرة المتوقع:'}
-              </span>
-              <span className="font-bold text-lg text-blue-700 dark:text-blue-300 dir-ltr">
-                {endDate || '-'}
-              </span>
-            </div>
+            {/* End Date / Time Display (يُحذف في الإجازة الطويلة لأن المباشرة تُحدد لاحقاً بطلب مباشرة) */}
+            {formData.leaveType !== 'long_regular' && (
+              <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-xl flex justify-between items-center border border-blue-100 dark:border-slate-600">
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  {formData.leaveType === 'time_off' ? 'ساعة العودة المتوقعة:' : 'تاريخ المباشرة المتوقع:'}
+                </span>
+                <span className="font-bold text-lg text-blue-700 dark:text-blue-300 dir-ltr">
+                  {endDate || '-'}
+                </span>
+              </div>
+            )}
 
             {/* Substitute Employee Selection */}
             <div className="pt-2">
@@ -1251,7 +1260,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onSuccess, initialL
               هل أنت متأكد من صحة المعلومات المدخلة؟
               <br />
               <span className="font-semibold block mt-2 text-blue-600 dark:text-blue-400">
-                البداية: {formData.startDate} | المدة: {formData.daysCount} يوم
+                {formData.leaveType === 'long_regular'
+                  ? `المدة: ${formData.daysCount} يوم (تُحدد المباشرة والانفكاك لاحقاً)`
+                  : `البداية: ${formData.startDate} | المدة: ${formData.daysCount} يوم`}
               </span>
               {substitute && (
                 <span className="block mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl text-sm text-blue-900 dark:text-blue-200">

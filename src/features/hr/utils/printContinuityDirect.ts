@@ -82,8 +82,9 @@ export const getLowestOrgUnit = (emp?: {
 };
 
 export const getHonorific = (gender: number | string | undefined | null, fullName: string = ''): string => {
-    if (gender === 2 || gender === '2' || gender === 'أنثى') return 'السيدة';
-    if (gender === 1 || gender === '1' || gender === 'ذكر') return 'السيد';
+    const g = String(gender ?? '').trim().toLowerCase();
+    if (g === '2' || g === 'female' || g === 'f' || g === 'أنثى' || g === 'انثى') return 'السيدة';
+    if (g === '1' || g === 'male' || g === 'm' || g === 'ذكر') return 'السيد';
     const first = fullName.trim().split(/\s+/)[0] || '';
     if (/(ة|اء|ى)$/.test(first) && !/^(حمزة|أسامة|قتيبة|طلحة|حذيفة|عروة|عمارة|عكرمة|علاء|بهاء|ضياء|صفاء|رجاء|موسى|يحيى|عيسى)/.test(first)) {
         return 'السيدة';
@@ -569,7 +570,7 @@ export const printContinuityLetterDirect = (req: DirectPrintContinuityData): Pro
 
                         <!-- Subject (Center) -->
                         <div class="subject-box">
-                            <span class="subject-text">م / تأييد استمرار بالخدمة</span>
+                            <span class="subject-text">م / تأييــــد</span>
                         </div>
 
                         <!-- Official Body Text -->

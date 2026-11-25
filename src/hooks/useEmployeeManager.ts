@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { toast } from "react-hot-toast";
 import { useEmployeeSearch } from "./useEmployeeSearch";
@@ -82,8 +82,20 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
     // --- Core Logic Functions ---
 
+    // حراس منع سباق الطلبات وتلوث الحالة بين الموظفين عند التنقل السريع
+    const loadSeqRef = useRef(0);
+    const activeEmployeeIdRef = useRef<string | null>(null);
+    const inFlightEmployeeIdRef = useRef<string | null>(null);
+
     // Load Employee Profile & Related Data
-    const loadEmployeeData = async (partialUser: any) => {
+    const loadEmployeeData = useCallback(async (partialUser: any) => {
+        const targetId = partialUser?.id;
+        if (!targetId) return;
+
+        const seq = ++loadSeqRef.current;
+        activeEmployeeIdRef.current = targetId;
+        inFlightEmployeeIdRef.current = targetId;
+
         try {
             setLoading(true);
 
@@ -91,9 +103,10 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             const { data: fullUserData, error: userError } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', partialUser.id)
+                .eq('id', targetId)
                 .single();
 
+            if (seq !== loadSeqRef.current) return;
             if (userError) throw userError;
             if (!fullUserData) throw new Error("تعذر جلب بيانات الموظف");
 
@@ -108,6 +121,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     .eq('manager_id', fullUserData.id)
                     .limit(1);
 
+                if (seq !== loadSeqRef.current) return;
                 const managedDept = Array.isArray(managedDepts) ? managedDepts[0] : (managedDepts as any);
                 if (managedDept?.id) {
                     fullUserData.department_id = managedDept.id;
@@ -115,13 +129,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 }
             }
 
-            setSelectedEmployee(fullUserData);
-            setSearchExpanded(false);
-
             // Fetch Financial (تاريخي من الأرشيف أو حي من القاعدة)
             let finData: any = null;
             if (isHistorical && historicalSnapshot) {
                 const hist = await getHistoricalData(fullUserData.id);
+                if (seq !== loadSeqRef.current) return;
                 finData = hist?.financial || null;
                 if (hist?.profile) {
                     if (hist.profile.job_title) fullUserData.job_title = hist.profile.job_title;
@@ -136,6 +148,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     .eq('user_id', fullUserData.id)
                     .maybeSingle();
 
+                if (seq !== loadSeqRef.current) return;
                 if (finError) throw finError;
                 finData = liveFin;
             }
@@ -167,13 +180,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 other_deductions: 0
             };
 
+            let nextFinancial: any;
+            let showMissingFinNotice = false;
             if (!finData) {
-                setFinancialData(emptyFinancial);
-                if (!isHistorical) {
-                    toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
-                } else {
-                    toast("لا يوجد قيد مالي لهذا الموظف في الأرشيف المختار", { icon: 'ℹ️' });
-                }
+                nextFinancial = emptyFinancial;
+                showMissingFinNotice = true;
             } else {
                 const combined = { ...emptyFinancial, ...finData };
                 if (combined.certificate_text) {
@@ -193,18 +204,37 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                     combined.certificate_percentage = String(p);
                 }
 
-                setFinancialData(combined);
+                nextFinancial = combined;
             }
 
-            // Fetch Admin
-            const { data: admData, error: admError } = await supabase
-                .from('administrative_summary')
-                .select('*')
-                .eq('user_id', fullUserData.id)
-                .maybeSingle();
+            // Fetch Admin, Yearly & Five Year Leaves in parallel before atomic state commit
+            const [admRes, yRes, fylRes] = await Promise.all([
+                supabase
+                    .from('administrative_summary')
+                    .select('*')
+                    .eq('user_id', fullUserData.id)
+                    .maybeSingle(),
+                supabase
+                    .from('yearly_records')
+                    .select('*')
+                    .eq('user_id', fullUserData.id)
+                    .order('year', { ascending: false }),
+                supabase
+                    .from('five_year_leaves')
+                    .select('*')
+                    .eq('user_id', fullUserData.id)
+                    .order('created_at', { ascending: false })
+            ]);
 
-            if (!admError) {
-                setAdminData(admData || {
+            if (seq !== loadSeqRef.current) return;
+
+            // التزام ذري كامل للحالة دفعة واحدة لمنع اختلاط سجل مالي لموظف مع ملف موظف آخر
+            setSelectedEmployee(fullUserData);
+            setSearchExpanded(false);
+            setFinancialData(nextFinancial);
+
+            if (!admRes.error) {
+                setAdminData(admRes.data || {
                     user_id: fullUserData.id,
                     remaining_leave_balance: 0,
                     five_year_law_leaves: 0,
@@ -213,38 +243,45 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 });
             }
 
-            // Fetch Yearly
-            const { data: yData, error: yError } = await supabase
-                .from('yearly_records')
-                .select('*')
-                .eq('user_id', fullUserData.id)
-                .order('year', { ascending: false });
+            if (!yRes.error) setYearlyData(yRes.data || []);
 
-            if (!yError) setYearlyData(yData || []);
-
-            // Fetch Leaves
-            const { data: fylData, error: fylError } = await supabase
-                .from('five_year_leaves')
-                .select('*')
-                .eq('user_id', fullUserData.id)
-                .order('created_at', { ascending: false });
-
-            setActiveFiveYearLeave(!fylError && fylData && fylData.length > 0 ? fylData[0] : null);
+            setActiveFiveYearLeave(!fylRes.error && fylRes.data && fylRes.data.length > 0 ? fylRes.data[0] : null);
             setNewFiveYearLeave({ order_number: '', order_date: '', start_date: '', end_date: '' });
 
-            toast.success("تم جلب بيانات الموظف بنجاح");
+            if (showMissingFinNotice) {
+                if (!isHistorical) {
+                    toast.success("الموظف موجود (يرجى إدخال بيانات الراتب الجديدة)");
+                } else {
+                    toast("لا يوجد قيد مالي لهذا الموظف في الأرشيف المختار", { icon: 'ℹ️' });
+                }
+            } else {
+                toast.success("تم جلب بيانات الموظف بنجاح");
+            }
         } catch (error: any) {
-            console.error(error);
-            toast.error(error.message || "حدث خطأ أثناء تحميل البيانات");
+            if (seq === loadSeqRef.current) {
+                console.error(error);
+                toast.error(error.message || "حدث خطأ أثناء تحميل البيانات");
+            }
         } finally {
-            setLoading(false);
+            if (seq === loadSeqRef.current) {
+                inFlightEmployeeIdRef.current = null;
+                setLoading(false);
+            }
         }
-    };
+    }, [isHistorical, historicalSnapshot, getHistoricalData]);
+
+    const refreshSelectedEmployee = useCallback(() => {
+        const targetId = activeEmployeeIdRef.current || selectedEmployee?.id;
+        if (!targetId) return;
+        if (inFlightEmployeeIdRef.current === targetId) return;
+        loadEmployeeData({ id: targetId });
+    }, [selectedEmployee?.id, loadEmployeeData]);
 
     // تحديث بيانات الموظف المختار تلقائياً عند تبديل الشهر التاريخي
     useEffect(() => {
-        if (selectedEmployee?.id) {
-            loadEmployeeData({ id: selectedEmployee.id });
+        const targetId = activeEmployeeIdRef.current || selectedEmployee?.id;
+        if (targetId) {
+            loadEmployeeData({ id: targetId });
         }
     }, [historicalSnapshot?.id, isHistorical]);
 
@@ -264,6 +301,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
 
             if (!userData) {
                 toast.error("الموظف غير موجود برقم: " + trimmedSearch);
+                activeEmployeeIdRef.current = null;
                 setSelectedEmployee(null);
                 setFinancialData(null);
                 setLoading(false);
@@ -285,6 +323,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         }
         if (!selectedEmployee || !financialData) return;
         if (!currentUser) return;
+
+        // حارس منع اختلاط الحالة: رفض الحفظ إذا كان السجل المالي المحمّل لا يعود للموظف المختار حالياً
+        if (financialData.user_id && financialData.user_id !== selectedEmployee.id) {
+            toast.error("تم رصد عدم تطابق بين ملف الموظف والبيانات المالية؛ جارٍ إعادة المزامنة بأمان، يرجى المحاولة بعد لحظة.");
+            await loadEmployeeData({ id: selectedEmployee.id });
+            return;
+        }
 
         const full_name = selectedEmployee.full_name?.trim();
         const job_number = selectedEmployee.job_number?.trim();
@@ -373,10 +418,8 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 .eq('id', selectedEmployee.id);
             if (userError) throw userError;
 
-            const { risk_percentage: _risk_percentage, ...financialPayload } = financialData;
-            if (!financialPayload.id) {
-                delete financialPayload.id;
-            }
+            // حذف id دائماً عند الحفظ بـ onConflict:'user_id' حتى لا يحاول Postgres تحديث المفتاح الأساسي id فيصطدم بـ financial_records_pkey
+            const { id: _finId, created_at: _finCreatedAt, risk_percentage: _risk_percentage, ...financialPayload } = financialData;
             const { data: savedFin, error: finError } = await supabase
                 .from('financial_records')
                 .upsert({
@@ -395,10 +438,11 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             }
 
             if (adminData) {
+                const { id: _admId, created_at: _admCreatedAt, ...adminPayload } = adminData;
                 const { data: savedAdm, error: admError } = await supabase
                     .from('administrative_summary')
                     .upsert({
-                        ...adminData,
+                        ...adminPayload,
                         user_id: selectedEmployee.id,
                         updated_at: new Date().toISOString(),
                         last_modified_by: currentUser.id,
@@ -424,7 +468,12 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             setSelectedEmployee({ ...selectedEmployee, password: "" });
             toast.success("تم حفظ التعديلات بنجاح");
         } catch (error: any) {
-            toast.error(error.message || "فشل في حفظ التعديلات");
+            const rawMsg = String(error?.message || '');
+            if (rawMsg.includes('financial_records_pkey') || rawMsg.includes('duplicate key')) {
+                toast.error("حدث تعارض في معرف السجل المالي أثناء التزامن؛ يرجى إعادة اختيار الموظف والمحاولة مجدداً.");
+            } else {
+                toast.error(rawMsg || "فشل في حفظ التعديلات");
+            }
         } finally {
             setLoading(false);
         }
@@ -559,10 +608,13 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
                 .select().single();
             if (userError) throw userError;
 
-            await supabase.from('financial_records').insert([{ user_id: user.id, nominal_salary: 0 }]);
+            await supabase
+                .from('financial_records')
+                .upsert([{ user_id: user.id, nominal_salary: 0 }], { onConflict: 'user_id', ignoreDuplicates: true });
 
             toast.success("تم إضافة الموظف بنجاح، جارِ الانتقال...");
             setSearchJobNumber(job_number);
+            activeEmployeeIdRef.current = user.id;
             if (setActiveTab) setActiveTab('admin_manage');
             
             setSelectedEmployee(user);
@@ -609,6 +661,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
             if (deleteError) throw deleteError;
 
             toast.success("تم حذف الموظف وكافة متعلقاته بنجاح");
+            activeEmployeeIdRef.current = null;
             setSelectedEmployee(null); 
             setFinancialData(null); 
             setAdminData(null); 
@@ -954,7 +1007,7 @@ export const useEmployeeManager = (currentUser: any, setActiveTab?: (tab: string
         financialFields, 
         showProfileUpdater, setShowProfileUpdater,
         
-        loadEmployeeData, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
+        loadEmployeeData, refreshSelectedEmployee, handleSearch, handleUpdateEmployee, handleSaveEmployee, handleDeleteEmployee,
         handleCreateFiveYearLeave, handleNewFiveYearLeaveChange, handleFiveYearLeaveChange,
         fetchAdminRecords, handleSaveRecord, handleDeleteRecord, handleFinancialChange, isFieldReadOnly
     };

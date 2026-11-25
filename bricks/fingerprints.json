@@ -1,9 +1,9 @@
 {
- "created": "2026-11-25T00:19:25.714Z",
+ "created": "2026-11-25T14:36:26.269Z",
  "files": {
   "bricks/registry.json": {
    "brick": "OPS-03",
-   "sha": "edcd35809081"
+   "sha": "d4ca0825bd3b"
   },
   "kong.yml": {
    "brick": "OPS-02",
@@ -27,7 +27,7 @@
   },
   "scripts/deploy-dist.ps1": {
    "brick": "OPS-01",
-   "sha": "5b243fdab23e"
+   "sha": "0e40fef9c115"
   },
   "scripts/dist-cmp-remote.sh": {
    "brick": "OPS-01",
@@ -191,7 +191,7 @@
   },
   "src/components/admin/dashboard/DashboardHeader.tsx": {
    "brick": "FE-HR-01",
-   "sha": "4f99b6fc1299"
+   "sha": "cdf879373e6a"
   },
   "src/components/admin/dashboard/TabAddEmployee.tsx": {
    "brick": "FE-HR-01",
@@ -339,7 +339,7 @@
   },
   "src/components/features/AppNotifications.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "97a398c6c390"
+   "sha": "c304258134f0"
   },
   "src/components/features/AudioHub.tsx": {
    "brick": "FE-MED-01",
@@ -451,7 +451,7 @@
   },
   "src/components/notifications/NotificationHistoryModal.tsx": {
    "brick": "FE-CORE-05",
-   "sha": "00848e49d808"
+   "sha": "e09a0b86f7f6"
   },
   "src/components/notifications/NotificationsBell.tsx": {
    "brick": "FE-CORE-05",
@@ -987,11 +987,11 @@
   },
   "src/features/hr/components/PublicContinuityVerifyPage.tsx": {
    "brick": "FE-HR-01",
-   "sha": "9a5d7b66778f"
+   "sha": "2e2f07e4a6e5"
   },
   "src/features/hr/components/ServiceContinuityProcessModal.tsx": {
    "brick": "FE-HR-01",
-   "sha": "788d2ad25d05"
+   "sha": "25165afa527e"
   },
   "src/features/hr/types.ts": {
    "brick": "FE-HR-01",
@@ -1001,9 +1001,13 @@
    "brick": "FE-HR-01",
    "sha": "335f896e5052"
   },
+  "src/features/hr/utils/printAdministrativeOrderDirect.ts": {
+   "brick": "FE-HR-01",
+   "sha": "e60925d7d292"
+  },
   "src/features/hr/utils/printContinuityDirect.ts": {
    "brick": "FE-HR-01",
-   "sha": "bde5b1f3fac2"
+   "sha": "910717434dc4"
   },
   "src/features/kiosk/KioskAdminPanel.tsx": {
    "brick": "FE-ATT-02",
@@ -1091,7 +1095,7 @@
   },
   "src/features/requests/components/LeaveRequestForm.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "ddab1b0f296b"
+   "sha": "fc92053e46b2"
   },
   "src/features/requests/components/LeaveSupportingImages.tsx": {
    "brick": "FE-LEV-01",
@@ -1105,9 +1109,13 @@
    "brick": "FE-LEV-01",
    "sha": "33f09aa6e7ca"
   },
+  "src/features/requests/components/MovementRequestForm.tsx": {
+   "brick": "FE-LEV-01",
+   "sha": "dfef89862ec3"
+  },
   "src/features/requests/components/RequestsTabContent.tsx": {
    "brick": "FE-LEV-01",
-   "sha": "2a54232aefd0"
+   "sha": "e62728653d20"
   },
   "src/features/requests/components/ServiceContinuityRequestForm.tsx": {
    "brick": "FE-LEV-01",
@@ -1131,7 +1139,7 @@
   },
   "src/features/requests/components/requestTypes.ts": {
    "brick": "FE-LEV-01",
-   "sha": "0560d8297ee0"
+   "sha": "f0ffad2839af"
   },
   "src/features/requests/pages/LeaveRequestPage.tsx": {
    "brick": "FE-LEV-01",
@@ -1215,7 +1223,7 @@
   },
   "src/hooks/useEmployeeManager.ts": {
    "brick": "FE-HR-01",
-   "sha": "ceaf671af38c"
+   "sha": "250d7a3322a4"
   },
   "src/hooks/useEmployeeSearch.ts": {
    "brick": "FE-UI-01",
@@ -1287,7 +1295,7 @@
   },
   "src/pages/AdminDashboard.tsx": {
    "brick": "FE-HR-01",
-   "sha": "67f2306cb50c"
+   "sha": "b6472329216e"
   },
   "src/pages/Dashboard.tsx": {
    "brick": "FE-HR-01",
@@ -1808,6 +1816,26 @@
   "supabase/migrations/20261125010000_att09_sync_db_shift_evaluators.sql": {
    "brick": "BE-MIG-01",
    "sha": "5104fece7c5a"
+  },
+  "supabase/migrations/20261125113000_hr01_fix_continuity_net_vs_gross_salary.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "e56829a62c4f"
+  },
+  "supabase/migrations/20261125134500_hr01_verify_continuity_add_gender.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "40a8aeb2963c"
+  },
+  "supabase/migrations/20261125160000_fin01_restore_leave_balances.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "3fd546ff12b8"
+  },
+  "supabase/migrations/20261125161000_hr02_long_leave_movements_and_first_print.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "b35a670ad5b7"
+  },
+  "supabase/migrations/20261125170000_hr03_long_leave_finance_and_print_flow.sql": {
+   "brick": "BE-MIG-01",
+   "sha": "d714b515f354"
   },
   "supabase/migrations/handle_leave_state_machine.sql": {
    "brick": "BE-MIG-01",

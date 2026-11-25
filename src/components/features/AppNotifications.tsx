@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCircle, Clock, Printer, Edit2, CheckCheck } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Bell, X, CheckCircle, Clock, Printer, Edit2, CheckCheck, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useGovernorate } from '../../context/GovernorateContext';
 import { ApprovalModal } from '../../features/requests/components/ApprovalModal';
 import { NotificationHistoryModal } from '../notifications/NotificationHistoryModal';
 import { printContinuityLetterDirect } from '../../features/hr/utils/printContinuityDirect';
+import { printAdministrativeOrderDirect, printLongLeaveOrderDirect } from '../../features/hr/utils/printAdministrativeOrderDirect';
 import { approveLeaveConflict } from '../../features/attendance/services/attendanceRequestEngine';
 import { temporaryWorkHoursService } from '../../features/attendance/services/temporaryWorkHoursService';
 import { toast } from 'react-hot-toast';
@@ -70,6 +72,10 @@ export const AppNotifications = () => {
     const [financeCadreMap, setFinanceCadreMap] = useState<Record<string, 'permanent' | 'contract'>>({});
     const [financeCcMap, setFinanceCcMap] = useState<Record<string, string[]>>({});
     const [financeCcInputMap, setFinanceCcInputMap] = useState<Record<string, string>>({});
+    const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
+    const [longLeaveEditDays, setLongLeaveEditDays] = useState<number>(10);
+    const [longLeaveEditWithPay, setLongLeaveEditWithPay] = useState<boolean>(true);
+    const [longLeaveEditNotes, setLongLeaveEditNotes] = useState<string>('');
 
 
     // Using useCallback to prevent unnecessary re-renders in useEffect dependencies
@@ -312,6 +318,8 @@ export const AppNotifications = () => {
         if (isFinanceContinuity) return true;
         
         if (notif.type === 'service_continuity_print') return true;
+        if (notif.type === 'hr_movement_finance' || notif.type === 'hr_movement_print') return true;
+        if (notif.type === 'long_leave_finance' || notif.type === 'long_leave_print') return true;
         
         const isSupervisorActionable = (notif.type === 'service_continuity_request' || meta.request_type === 'service_continuity') && meta.continuity_step !== 'hr' && !notif.title?.includes('جاهز للإصدار');
         if (isSupervisorActionable) return true;
@@ -763,6 +771,149 @@ export const AppNotifications = () => {
         }
     };
 
+    const handleHrMovementFinanceAction = async (notificationId: string, requestId: string, action: 'approved' | 'rejected') => {
+        try {
+            setSmartActionLoading(`movement-${action}-${notificationId}`);
+            const { data, error } = await supabase.rpc('process_hr_movement_finance', {
+                p_request_id: requestId,
+                p_action: action,
+                p_notes: null
+            });
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر تنفيذ الإجراء');
+                return;
+            }
+            toast.success(action === 'approved' ? 'تمت الموافقة وإرسال الأمر الإداري لموظفي الطابعة' : 'تم رفض الطلب');
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error processing HR movement:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء معالجة الطلب');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handlePrintHrMovementByOperator = async (notificationId: string, requestId: string) => {
+        try {
+            setSmartActionLoading(`movement-print-${notificationId}`);
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_hr_movement_request_for_print', {
+                p_request_id: requestId
+            });
+            if (rpcErr || !rpcRes?.success || !rpcRes?.request) {
+                throw rpcErr || new Error(rpcRes?.message || 'تعذر جلب بيانات الأمر الإداري للطباعة');
+            }
+
+            const printed = await printAdministrativeOrderDirect(rpcRes.request);
+            if (printed) {
+                // القاعدة العامة: الطباعة الأولى فقط تؤثر وتُشعر؛ إعادة الطباعة اللاحقة لا تغيّر شيئاً
+                await supabase.rpc('mark_hr_movement_printed', { p_request_id: requestId });
+                await handleMarkSystemNotificationRead(notificationId);
+                toast.success('تم فتح أمر طباعة الأمر الإداري بنجاح');
+                fetchSystemNotifications();
+            } else {
+                toast.error('تعذر تجهيز نافذة الطباعة');
+            }
+        } catch (err: any) {
+            console.error('Error printing HR movement order:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء طباعة الأمر الإداري');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handleLongLeaveFinanceAction = async (
+        notificationId: string,
+        requestId: string,
+        action: 'approved' | 'rejected' | 'update_only',
+        overrideMeta?: any
+    ) => {
+        try {
+            setSmartActionLoading(`long-fin-${action}-${notificationId}`);
+            const cadreType = financeCadreMap[notificationId] || 'permanent';
+            const ccRecipients = financeCcMap[notificationId] || [];
+
+            const payload =
+                action === 'update_only'
+                    ? {
+                          p_request_id: requestId,
+                          p_action: 'update_only',
+                          p_days_count: Math.max(10, longLeaveEditDays || 10),
+                          p_with_pay: longLeaveEditWithPay,
+                          p_cadre_type: cadreType,
+                          p_notes: longLeaveEditNotes.trim() || null,
+                          p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null
+                      }
+                    : action === 'rejected'
+                      ? {
+                            p_request_id: requestId,
+                            p_action: 'rejected',
+                            p_notes: financeRejectionReason.trim() || null
+                        }
+                      : {
+                            p_request_id: requestId,
+                            p_action: 'approved',
+                            p_days_count: overrideMeta?.days_count ?? null,
+                            p_with_pay: overrideMeta?.with_pay ?? null,
+                            p_cadre_type: cadreType,
+                            p_notes: overrideMeta?.notes ?? null,
+                            p_cc_recipients: ccRecipients.length > 0 ? ccRecipients : null
+                        };
+
+            const { data, error } = await supabase.rpc('process_long_leave_finance', payload);
+            if (error) throw error;
+            const res = data as any;
+            if (!res?.success) {
+                toast.error(res?.message || 'تعذر تنفيذ الإجراء');
+                return;
+            }
+            if (action === 'update_only') {
+                setEditingFinanceNotifId(null);
+                toast.success('تم حفظ التعديلات على الإجازة الطويلة بنجاح');
+            } else if (action === 'rejected') {
+                setRejectingFinanceNotifId(null);
+                setFinanceRejectionReason('');
+                toast.success('تم رفض الطلب وإشعار الموظف');
+            } else {
+                toast.success('تم اعتماد الإجازة الطويلة وإرسالها لموظفي الطابعة');
+            }
+            fetchSystemNotifications();
+        } catch (err: any) {
+            console.error('Error processing long leave finance:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء معالجة طلب الإجازة الطويلة');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
+    const handlePrintLongLeaveByOperator = async (notificationId: string, requestId: string) => {
+        try {
+            setSmartActionLoading(`long-print-${notificationId}`);
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('get_long_leave_request_for_print', {
+                p_request_id: requestId
+            });
+            if (rpcErr || !rpcRes?.success || !rpcRes?.request) {
+                throw rpcErr || new Error(rpcRes?.message || 'تعذر جلب بيانات الإجازة الطويلة للطباعة');
+            }
+
+            const printed = await printLongLeaveOrderDirect(rpcRes.request);
+            if (printed) {
+                await supabase.rpc('mark_long_leave_printed', { p_request_id: requestId });
+                await handleMarkSystemNotificationRead(notificationId);
+                toast.success('تم فتح أمر طباعة الإجازة الطويلة بنجاح');
+                fetchSystemNotifications();
+            } else {
+                toast.error('تعذر تجهيز نافذة الطباعة');
+            }
+        } catch (err: any) {
+            console.error('Error printing long leave order:', err);
+            toast.error(err?.message || 'حدث خطأ أثناء طباعة أمر الإجازة الطويلة');
+        } finally {
+            setSmartActionLoading(null);
+        }
+    };
+
     const handleResolveShiftAbsenceOrPenalty = async (notificationId: string, decision: 'approve_leave' | 'unexcused_absence') => {
         try {
             setSmartActionLoading(`resolve-${notificationId}`);
@@ -948,6 +1099,10 @@ export const AppNotifications = () => {
                                                             `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب خروجك لتنفيذ واجب رسمي إلى (${req.destination || 'الجهة المحددة'}) بتاريخ (${req.start_date}).`
                                                         ) : req.leave_type === 'time_off' && requestType === 'إجازتك الزمنية' ? (
                                                             `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} بتاريخ (${req.start_date}) لمدة (${req.time_duration_minutes} دقيقة).`
+                                                        ) : req.leave_type === 'long_regular' ? (
+                                                            isApproved
+                                                                ? `تمت الموافقة من المسؤول المباشر على طلب الإجازة الطويلة (${req.days_count} يوم). يرجى مراجعة الموارد البشرية لاستكمال براءة الذمة وإصدار الأمر.`
+                                                                : `لقد تم رفض طلب الإجازة الطويلة (${req.days_count} يوم).`
                                                         ) : (
                                                             `لقد تم ${isApproved ? 'الموافقة على' : 'رفض'} طلب ${requestType} (من ${req.start_date} إلى ${req.end_date}).`
                                                         )}
@@ -1371,6 +1526,256 @@ export const AppNotifications = () => {
                                                     );
                                                 }
 
+                                                {/* إشعار مسؤول القسم المالي والإداري وبديله لطلب الانفكاك أو المباشرة */}
+                                                if (notification.type === 'hr_movement_finance') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading?.startsWith('movement-') && smartActionLoading?.includes(notification.id);
+                                                    const attachmentUrl = meta.attachment_url;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                            <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1">
+                                                                <div><strong>النوع:</strong> {meta.movement_label || 'طلب حركة'} (إجازة طويلة {meta.with_pay === false ? 'بدون راتب' : 'براتب تام'})</div>
+                                                                <div><strong>{meta.movement_type === 'disengagement' ? 'تاريخ الانفكاك:' : 'تاريخ المباشرة:'}</strong> <span className="dir-ltr inline-block">{meta.effective_date}</span></div>
+                                                                <div><strong>كتاب الإجازة المرقم:</strong> {meta.leave_order_number} <strong>بتاريخ:</strong> <span className="dir-ltr inline-block">{meta.leave_order_date}</span></div>
+                                                            </div>
+                                                            {attachmentUrl && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setPreviewAttachmentUrl(attachmentUrl)}
+                                                                    className="w-full py-2 px-3 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                                                >
+                                                                    <Eye size={15} />
+                                                                    <span>معاينة الكتاب</span>
+                                                                </button>
+                                                            )}
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleHrMovementFinanceAction(notification.id, reqId, 'approved')}
+                                                                    className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-60"
+                                                                >
+                                                                    موافق
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isLoadingThis}
+                                                                    onClick={() => handleHrMovementFinanceAction(notification.id, reqId, 'rejected')}
+                                                                    className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition disabled:opacity-60"
+                                                                >
+                                                                    رفض
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                {/* إشعار موظف الطابعة لطباعة الأمر الإداري (انفكاك / مباشرة) */}
+                                                if (notification.type === 'hr_movement_print') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading === `movement-print-${notification.id}`;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isLoadingThis}
+                                                                onClick={() => handlePrintHrMovementByOperator(notification.id, reqId)}
+                                                                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                                                            >
+                                                                <Printer size={16} />
+                                                                <span>{isLoadingThis ? 'جارٍ فتح أمر الطباعة...' : 'طباعة'}</span>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                {/* إشعار مسؤول القسم المالي والإداري وبديله لطلب الإجازة الطويلة (بنفس نظام الاستمرارية: عرض + تعديل + موافقة + رفض) */}
+                                                if (notification.type === 'long_leave_finance') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading?.startsWith('long-fin-') && smartActionLoading?.includes(notification.id);
+                                                    const isRejecting = rejectingFinanceNotifId === notification.id;
+                                                    const isEditing = editingFinanceNotifId === notification.id;
+                                                    const currentCcList = financeCcMap[notification.id] || meta.cc_recipients || [];
+                                                    const currentCcInput = financeCcInputMap[notification.id] || '';
+
+                                                    return (
+                                                        <div className="flex flex-col gap-2.5 mt-2 pt-2 border-t border-cyan-100 dark:border-cyan-900/40">
+                                                            <div className="text-[11px] text-slate-700 dark:text-slate-200 bg-cyan-50/80 dark:bg-cyan-950/40 p-2.5 rounded-lg border border-cyan-200/80 dark:border-cyan-800/60 space-y-1">
+                                                                <div><strong>الموظف:</strong> {meta.requester_name}</div>
+                                                                <div><strong>المدة:</strong> {meta.days_count} يوم ({meta.with_pay === false ? 'بدون راتب' : 'براتب تام'})</div>
+                                                                {meta.supervisor_name && <div><strong>موافقة المسؤول المباشر:</strong> {meta.supervisor_name}</div>}
+                                                                {meta.notes && <div><strong>السبب/الملاحظات:</strong> {meta.notes}</div>}
+                                                            </div>
+
+                                                            <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                                                                <label className="text-[11px] font-bold text-indigo-950 dark:text-indigo-200">أدخل نسخة منه إلى (اختياري):</label>
+                                                                <div className="flex gap-1.5">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={currentCcInput}
+                                                                        onChange={(e) => setFinanceCcInputMap(prev => ({ ...prev, [notification.id]: e.target.value }))}
+                                                                        placeholder="اكتب الجهة، مثل: الإضبارة الشخصية"
+                                                                        className="flex-1 p-1.5 text-xs rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleAddCcRecipient(notification.id)}
+                                                                        className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shrink-0"
+                                                                    >
+                                                                        إضافة
+                                                                    </button>
+                                                                </div>
+                                                                {currentCcList.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1 mt-1 pt-1 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                                        {currentCcList.map((cc: string, idx: number) => (
+                                                                            <span key={idx} className="inline-flex items-center gap-1 py-0.5 px-2 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 rounded-md text-[11px] font-bold">
+                                                                                <span>{cc}</span>
+                                                                                <button type="button" onClick={() => handleRemoveCcRecipient(notification.id, idx)} className="hover:text-rose-600">×</button>
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {!isRejecting && !isEditing && (
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => handleLongLeaveFinanceAction(notification.id, reqId, 'approved', meta)}
+                                                                        className="flex-1 min-w-[70px] py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-60"
+                                                                    >
+                                                                        <CheckCircle size={15} />
+                                                                        موافق
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => {
+                                                                            setRejectingFinanceNotifId(null);
+                                                                            setEditingFinanceNotifId(notification.id);
+                                                                            setLongLeaveEditDays(Number(meta.days_count || 10));
+                                                                            setLongLeaveEditWithPay(meta.with_pay !== false);
+                                                                            setLongLeaveEditNotes(meta.notes || '');
+                                                                        }}
+                                                                        className="py-2 px-3.5 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                                                                    >
+                                                                        <Edit2 size={14} />
+                                                                        تعديل
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={isLoadingThis}
+                                                                        onClick={() => {
+                                                                            setEditingFinanceNotifId(null);
+                                                                            setRejectingFinanceNotifId(notification.id);
+                                                                            setFinanceRejectionReason('');
+                                                                        }}
+                                                                        className="py-2 px-3.5 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                                                                    >
+                                                                        <X size={14} />
+                                                                        رفض
+                                                                    </button>
+                                                                </div>
+                                                            )}
+
+                                                            {isRejecting && (
+                                                                <div className="flex flex-col gap-1.5 p-2 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg">
+                                                                    <textarea
+                                                                        value={financeRejectionReason}
+                                                                        onChange={(e) => setFinanceRejectionReason(e.target.value.slice(0, 256))}
+                                                                        placeholder="اكتب سبب الرفض (اختياري)..."
+                                                                        rows={2}
+                                                                        className="w-full p-1.5 text-xs rounded border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                                                                    />
+                                                                    <div className="flex gap-1.5 justify-end">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={isLoadingThis}
+                                                                            onClick={() => handleLongLeaveFinanceAction(notification.id, reqId, 'rejected')}
+                                                                            className="py-1 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition"
+                                                                        >
+                                                                            تأكيد الرفض
+                                                                        </button>
+                                                                        <button type="button" onClick={() => setRejectingFinanceNotifId(null)} className="py-1 px-2.5 bg-gray-200 dark:bg-slate-700 rounded text-xs font-bold">
+                                                                            إلغاء
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {isEditing && (
+                                                                <div className="flex flex-col gap-2 p-2.5 bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-lg">
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <div>
+                                                                            <label className="text-[11px] font-bold block mb-1">عدد الأيام (10+):</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                min={10}
+                                                                                value={longLeaveEditDays}
+                                                                                onChange={(e) => setLongLeaveEditDays(Number(e.target.value) || 10)}
+                                                                                className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900"
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-[11px] font-bold block mb-1">الراتب:</label>
+                                                                            <select
+                                                                                value={longLeaveEditWithPay ? 'paid' : 'unpaid'}
+                                                                                onChange={(e) => setLongLeaveEditWithPay(e.target.value === 'paid')}
+                                                                                className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900"
+                                                                            >
+                                                                                <option value="paid">براتب تام</option>
+                                                                                <option value="unpaid">بدون راتب</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[11px] font-bold block mb-1">الملاحظات:</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={longLeaveEditNotes}
+                                                                            onChange={(e) => setLongLeaveEditNotes(e.target.value)}
+                                                                            className="w-full p-1.5 text-xs rounded border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex gap-1.5 justify-end">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={isLoadingThis}
+                                                                            onClick={() => handleLongLeaveFinanceAction(notification.id, reqId, 'update_only')}
+                                                                            className="py-1 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded text-xs font-bold transition"
+                                                                        >
+                                                                            حفظ التعديل
+                                                                        </button>
+                                                                        <button type="button" onClick={() => setEditingFinanceNotifId(null)} className="py-1 px-2.5 bg-gray-200 dark:bg-slate-700 rounded text-xs font-bold">
+                                                                            إلغاء
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                {/* إشعار موظف الطابعة لطباعة كتاب الإجازة الطويلة */}
+                                                if (notification.type === 'long_leave_print') {
+                                                    const reqId = meta.request_id;
+                                                    const isLoadingThis = smartActionLoading === `long-print-${notification.id}`;
+                                                    return (
+                                                        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isLoadingThis}
+                                                                onClick={() => handlePrintLongLeaveByOperator(notification.id, reqId)}
+                                                                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                                                            >
+                                                                <Printer size={16} />
+                                                                <span>{isLoadingThis ? 'جارٍ فتح أمر الطباعة...' : 'طباعة'}</span>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 {/* إشعار موظف الطابعة الجاهز للطباعة المباشرة */}
                                                 if (notification.type === 'service_continuity_print') {
                                                     const reqId = meta.request_id;
@@ -1424,6 +1829,20 @@ export const AppNotifications = () => {
                                                                     رفض
                                                                 </button>
                                                             </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (notification.type === 'leave_response' && meta.can_acknowledge) {
+                                                    return (
+                                                        <div className="flex justify-end mt-2 pt-2 border-t border-emerald-100 dark:border-emerald-900/40">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleMarkSystemNotificationRead(notification.id)}
+                                                                className="py-1.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                <span>اطلعت</span>
+                                                            </button>
                                                         </div>
                                                     );
                                                 }
@@ -1639,6 +2058,47 @@ export const AppNotifications = () => {
                 <NotificationHistoryModal
                     onClose={() => setShowHistoryModal(false)}
                 />
+            )}
+
+            {/* نافذة معاينة صورة كتاب الإجازة لطلبات الانفكاك والمباشرة */}
+            {previewAttachmentUrl && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed inset-0 z-[10050] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+                    onClick={() => setPreviewAttachmentUrl(null)}
+                >
+                    <div
+                        className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+                            <span className="font-bold text-sm text-gray-900 dark:text-white">معاينة صورة كتاب الإجازة</span>
+                            <button
+                                type="button"
+                                onClick={() => setPreviewAttachmentUrl(null)}
+                                className="p-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 transition"
+                                title="إغلاق المعاينة والعودة للإشعار"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-3 flex items-center justify-center bg-slate-100 dark:bg-slate-950">
+                            {previewAttachmentUrl.toLowerCase().endsWith('.pdf') ? (
+                                <iframe
+                                    src={previewAttachmentUrl}
+                                    title="معاينة كتاب الإجازة"
+                                    className="w-full h-[75vh] rounded-lg border-0 bg-white"
+                                />
+                            ) : (
+                                <img
+                                    src={previewAttachmentUrl}
+                                    alt="صورة كتاب الإجازة"
+                                    className="max-w-full max-h-[78vh] object-contain rounded-lg shadow"
+                                />
+                            )}
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </>
     );

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, Loader2, Trash2, Lock, RotateCcw, X } from "lucide-react";
 import { useSnapshots } from "../../../context/SnapshotContext";
 import { ScrollableTabs } from "../../ui/ScrollableTabs";
@@ -94,6 +95,16 @@ export const DashboardHeader = ({
     })();
 
     const [showFloatingSearch, setShowFloatingSearch] = useState(false);
+
+    useEffect(() => {
+        if (!showFloatingSearch) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setShowFloatingSearch(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [showFloatingSearch]);
+
     const hasActionContent = activeTab === 'admin_add' || (activeTab === 'admin_manage' && selectedEmployee);
 
     return (
@@ -114,31 +125,37 @@ export const DashboardHeader = ({
             </div>
 
             {/* زر المكبرة العائم الموحد على اليسار لجميع واجهات المشرفين */}
-            <div className="fixed top-24 left-3 sm:left-6 z-40">
-                <button
-                    onClick={() => setShowFloatingSearch(true)}
-                    className={cn(
-                        "p-2.5 rounded-2xl transition-all duration-300 shadow-lg backdrop-blur-xl border active:scale-95 flex items-center justify-center group",
-                        theme === 'light'
-                            ? "bg-white/95 border-gray-200/90 text-gray-700 hover:text-brand-green hover:border-brand-green/30 shadow-gray-200/50"
-                            : "bg-slate-900/95 border-white/10 text-white/80 hover:text-brand-green hover:border-brand-green/40 shadow-black/50"
-                    )}
-                    title="البحث عن موظف"
-                >
-                    <Search className="w-5 h-5 transition-transform group-hover:scale-110" />
-                    {selectedEmployee && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-brand-green rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
-                    )}
-                </button>
-            </div>
+            {!showFloatingSearch && (
+                <div className="fixed top-24 left-3 sm:left-6 z-40">
+                    <button
+                        type="button"
+                        onClick={() => setShowFloatingSearch(true)}
+                        className={cn(
+                            "p-2.5 rounded-2xl transition-all duration-300 shadow-lg backdrop-blur-xl border active:scale-95 flex items-center justify-center group",
+                            theme === 'light'
+                                ? "bg-white/95 border-gray-200/90 text-gray-700 hover:text-brand-green hover:border-brand-green/30 shadow-gray-200/50"
+                                : "bg-slate-900/95 border-white/10 text-white/80 hover:text-brand-green hover:border-brand-green/40 shadow-black/50"
+                        )}
+                        title="البحث عن موظف"
+                    >
+                        <Search className="w-5 h-5 transition-transform group-hover:scale-110" />
+                        {selectedEmployee && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-brand-green rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
+                        )}
+                    </button>
+                </div>
+            )}
 
-            {/* نافذة البحث العائمة الذكية */}
-            {showFloatingSearch && (
+            {/* نافذة البحث العائمة الذكية عبر Portal لتطفو صافية فوق التايتل والأزرار المثبتة بالكامل */}
+            {showFloatingSearch && typeof document !== 'undefined' && createPortal(
                 <div 
-                    className="fixed inset-0 z-50 flex items-start justify-center pt-24 sm:pt-28 px-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[9990] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/55 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setShowFloatingSearch(false)}
                 >
                     <div 
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="البحث السريع عن موظف"
                         className={cn(
                             "w-full max-w-lg rounded-3xl p-4 sm:p-5 shadow-2xl border space-y-4 animate-in zoom-in-95 duration-200 overflow-visible",
                             theme === 'light'
@@ -162,6 +179,7 @@ export const DashboardHeader = ({
                                 </div>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setShowFloatingSearch(false)}
                                 className={cn(
                                     "p-1.5 rounded-xl transition-colors",
@@ -174,12 +192,13 @@ export const DashboardHeader = ({
 
                         <div className="relative overflow-visible">
                             <EmployeeSearch
+                                portalClassName="z-[10000]"
                                 onSelect={(sug) => {
+                                    setShowFloatingSearch(false);
                                     handleSelectSuggestion(sug);
                                     if (activeTab !== 'admin_manage') {
                                         setActiveTab('admin_manage');
                                     }
-                                    setShowFloatingSearch(false);
                                 }}
                                 placeholder="اكتب اسم الموظف أو رقمه الوظيفي..."
                                 autoFocus={true}
@@ -200,7 +219,8 @@ export const DashboardHeader = ({
                             </div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* شريط الإجراءات والسنوات — يظهر فقط عند وجود إجراء فعلي (حفظ أو سنوات أو موظف محدد) */}
